@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package metricstore.v1;
+
+// The ingress service is used to write data into the MetricStore system.
+service Ingress {
+    // Send is used to emit Point batches into MetricStore. The RPC function
+    // will not return until the data has been stored.
+    rpc Send(SendRequest) returns (SendResponse) {}
+}
+
+message SendRequest {
+    Points batch = 1;
+    bool local_only = 2;
+}
+
+message SendResponse {}
+
+message Point {
+  string name = 1;
+  int64 timestamp = 2;
+  double value = 3;
+  map<string, string> labels = 4;
+}
+
+message Points {
+  repeated Point points = 1;
+}

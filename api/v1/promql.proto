@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package metricstore.v1;
+
+import "google/api/annotations.proto";
+
+service PromQLAPI {
+    rpc InstantQuery(PromQL.InstantQueryRequest) returns (PromQL.InstantQueryResult){
+        option (google.api.http) = {
+            get: "/api/v1/query"
+        };
+    }
+
+    rpc RangeQuery(PromQL.RangeQueryRequest) returns (PromQL.RangeQueryResult){
+        option (google.api.http) = {
+            get: "/api/v1/query_range"
+        };
+    }
+
+    rpc SeriesQuery(PromQL.SeriesQueryRequest) returns (PromQL.SeriesQueryResult){
+        option (google.api.http) = {
+            get: "/api/v1/series"
+        };
+    }
+
+    rpc LabelsQuery(PromQL.LabelsQueryRequest) returns (PromQL.LabelsQueryResult){
+        option (google.api.http) = {
+            get: "/api/v1/labels"
+        };
+    }
+
+    rpc LabelValuesQuery(PromQL.LabelValuesQueryRequest) returns (PromQL.LabelValuesQueryResult){
+        option (google.api.http) = {
+            get: "/api/v1/label/{name=**}/values"
+        };
+    }
+}
+
+message PromQL {
+    message InstantQueryRequest {
+        string query = 1;
+        string time = 2;
+    }
+
+    message RangeQueryRequest {
+        string query = 1;
+        string start = 2;
+        string end = 3;
+        string step = 4;
+    }
+
+    message SeriesQueryRequest {
+        repeated string match = 1 [json_name="match[]"];
+        string start = 2;
+        string end = 3;
+    }
+
+    message LabelsQueryRequest {
+        bool local_only = 1;
+    }
+
+    message LabelValuesQueryRequest {
+        string name = 1;
+        bool local_only = 2;
+    }
+
+    message InstantQueryResult {
+        oneof Result {
+            Point scalar = 1;
+            Vector vector = 2;
+            Matrix matrix = 3;
+        }
+    }
+
+    message RangeQueryResult {
+        oneof Result {
+            Matrix matrix = 1;
+        }
+    }
+
+    message SeriesQueryResult {
+        repeated SeriesInfo series = 1;
+    }
+
+    message LabelsQueryResult {
+        repeated string labels = 1;
+    }
+
+    message LabelValuesQueryResult{
+        repeated string values = 1;
+    }
+
+    message Vector {
+        repeated Sample samples = 1;
+    }
+
+    message Point {
+        int64 time = 1;
+        double value = 2;
+    }
+
+    message Sample {
+        map<string, string> metric = 1;
+        Point point = 2;
+    }
+
+    message Matrix {
+        repeated Series series = 1;
+    }
+
+    message Series {
+        map<string, string> metric = 1;
+        repeated Point points = 2;
+    }
+
+    message SeriesInfo {
+        map<string, string> info = 1;
+    }
+}
