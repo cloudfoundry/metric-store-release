@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"github.com/cloudfoundry/metric-store/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store/pkg/rpc/metricstore_v1"
 	"google.golang.org/grpc"
 )
@@ -27,7 +28,27 @@ func NewIngressReverseProxy(
 }
 
 func (p *IngressReverseProxy) Send(ctx context.Context, r *rpc.SendRequest) (*rpc.SendResponse, error) {
-	return p.localClient.Send(ctx, r)
+	var points []*rpc.Point
+
+	for _, point := range r.Batch.Points {
+		point.Name = transform.SanitizeMetricName(point.GetName())
+
+		sanitizedLabels := make(map[string]string)
+		for label, value := range point.GetLabels() {
+			sanitizedLabels[transform.SanitizeLabelName(label)] = value
+		}
+		if len(sanitizedLabels) > 0 {
+			point.Labels = sanitizedLabels
+		}
+
+		points = append(points, point)
+	}
+
+	return p.localClient.Send(ctx, &rpc.SendRequest{
+		Batch: &rpc.Points{
+			Points: points,
+		},
+	})
 }
 
 // IngressClientFunc transforms a function into an IngressClient.
