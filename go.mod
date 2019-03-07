@@ -1,10 +1,14 @@
 module github.com/cloudfoundry/metric-store
 
 require (
+	code.cloudfoundry.org/go-diodes v0.0.0-20180905200951-72629b5276e3
 	code.cloudfoundry.org/go-envstruct v1.4.0
+	code.cloudfoundry.org/go-loggregator v7.3.0+incompatible
+	code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a // indirect
 	collectd.org v0.3.0 // indirect
 	github.com/aws/aws-sdk-go v1.17.11 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
+	github.com/deckarep/golang-set v1.7.1
 	github.com/francoispqt/gojay v0.0.0-20190228132548-90d953358b68
 	github.com/go-kit/kit v0.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
