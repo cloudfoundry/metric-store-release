@@ -14,6 +14,7 @@ require (
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/protobuf v1.3.0
+	github.com/gorilla/mux v1.7.0
 	github.com/grpc-ecosystem/grpc-gateway v1.3.1-0.20171208052158-8db8c1ac6f97
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
