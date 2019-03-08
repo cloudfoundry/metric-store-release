@@ -1,0 +1,149 @@
+#!/bin/bash
+
+ulimit -Sn unlimited
+
+trap "echo Exited!; exit 1;" SIGINT SIGTERM
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
+
+function print_usage {
+    echo "usage: test [subcommand] [go test args]"
+    echo
+    echo -e "\033[1mSubcommands:\033[0m"
+    echo "   all               Run all the tests, excluding linters (default)"
+    echo "   cleaners          Run tools that clean the code base"
+    echo "   unit              Run the unit tests"
+}
+
+function print_checkpoint {
+    echo
+    bold_blue "==================================  $@"
+}
+
+function green {
+    echo -e "\e[32m$1\e[0m"
+}
+
+function red {
+    echo -e "\e[31m$1\e[0m"
+}
+
+function bold_blue {
+    echo -e "\e[1;34m$1\e[0m"
+}
+
+function check_output {
+    eval "$@"
+    local status=$?
+    exit_on_failure $status
+}
+
+function exit_on_failure {
+    if [[ $1 -ne 0 ]]; then
+        red "SUITE FAILURE"
+        exit $1
+    fi
+}
+
+function run_cleaners {
+    print_checkpoint "Running Cleaners"
+
+    go get github.com/kisielk/gotool
+
+    if ! which goimports > /dev/null 2>&1; then
+        echo installing goimports
+        go get golang.org/x/tools/cmd/goimports
+    fi
+    if ! which misspell > /dev/null 2>&1; then
+        echo installing misspell
+        go get github.com/client9/misspell/cmd/misspell
+    fi
+    if ! which unconvert > /dev/null 2>&1; then
+        echo installing unconvert
+        go get github.com/mdempsky/unconvert
+    fi
+
+    echo running goimports
+    goimports -w .
+    echo running gofmt
+    gofmt -s -w .
+    echo running misspell
+    misspell -w .
+    echo running unconvert
+    unconvert -v -apply "./..."
+    return 0
+}
+
+function run_unit {
+  TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20"
+
+  # The race detector dramatically increases the runtime of certain tests, particularly
+  # those that cover the scheduler. As a result, we first run the tests with race detection
+  # enabled, but only consider actual data races as failures. We then run the test suite
+  # without race detection and assert on test correctness.
+  print_checkpoint "Checking for Data Races"
+  race_log=$(mktemp metric_store_race_log.XXXXXXXX --tmpdir)
+
+  go test -race ./... \
+    ${TEST_OPTIONS} \
+    $@ 2>&1 > ${race_log} || true
+  if egrep 'DATA RACE|race detected' ${race_log}; then
+    cat ${race_log}
+    rm ${race_log}
+    return 1
+  fi
+  rm ${race_log}
+  echo "No races found"
+
+  print_checkpoint "Running Unit Tests"
+  go test ./... \
+    ${TEST_OPTIONS} \
+    $@
+}
+
+function run_all {
+    check_output run_cleaners
+    check_output run_unit $@
+}
+
+function parse_argc {
+    command=run_all
+    if [[ $# -eq 0 ]]; then
+        return
+    fi
+
+    arg=$1
+    case "$arg" in
+        -h|-help|--help|help)
+            print_usage
+            exit 0
+            ;;
+        all|unit|cleaners)
+            command=run_$arg
+            ;;
+        *)
+            echo "Invalid command: $arg\n"
+            print_usage
+            exit 1
+            ;;
+    esac
+}
+
+function setup_env {
+    export PATH="$PROJECT_DIR/bin:$PATH"
+    export GORACE="halt_on_error=1"
+
+    go mod download
+}
+
+function main {
+    setup_env
+    parse_argc $1
+    shift
+    "$command" $@
+    result=$?
+    exit_on_failure $result
+    green "SWEET SUITE SUCCESS"
+}
+
+main $@
