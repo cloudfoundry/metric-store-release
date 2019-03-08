@@ -130,10 +130,11 @@ function parse_argc {
 }
 
 function setup_env {
-    export PATH="$PROJECT_DIR/bin:$PATH"
-    export GORACE="halt_on_error=1"
 
-    go mod download
+  print_checkpoint "Setting up environment"
+  export GORACE="halt_on_error=1"
+
+  go mod download
 }
 
 function main {
