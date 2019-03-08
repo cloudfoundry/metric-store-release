@@ -36,7 +36,6 @@ require (
 	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
 	github.com/prometheus/prometheus v2.4.1-0.20181002125257-6932030aa1fd+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
-	github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190222223459-a17d461953aa // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
@@ -48,6 +47,5 @@ require (
 	golang.org/x/tools v0.0.0-20190305160728-f8c04913dfb7 // indirect
 	google.golang.org/genproto v0.0.0-20190305195749-c21a8b77f9f0
 	google.golang.org/grpc v1.19.0
-	gopkg.in/resty.v1 v1.12.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
