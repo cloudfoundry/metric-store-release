@@ -39,19 +39,10 @@ function sync_package() {
   )
 }
 
-# Vendor the packages so we can inspect for .s files
-ls $vendor_dir
-vendor_dir_status=$?
-go mod vendor
-
 sync_package metric-store                  -app  ${root_dir}/cmd/metric-store &
 sync_package metric-store-gateway          -app  ${root_dir}/cmd/gateway &
 sync_package metric-store-nozzle           -app  ${root_dir}/cmd/nozzle &
 sync_package metric-store-cf-auth-proxy    -app  ${root_dir}/cmd/cf-auth-proxy
-
-if [[ $vendor_dir_status -ne 0 ]]; then
- rm -rf $vendor_dir
-fi
 
 wait
 

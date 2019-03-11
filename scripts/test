@@ -133,8 +133,6 @@ function setup_env {
   print_checkpoint "Setting up environment"
   export GORACE="halt_on_error=1"
 
-  go mod download
-
   echo "Done setting up environment"
 }
 

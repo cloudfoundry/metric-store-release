@@ -13,11 +13,6 @@ releases/**/*.tgz
 *#
 #*
 
-# Golang
-bin/
-pkg/
-vendor/
-
 # Bosh Deploys
 vars.yml
 
