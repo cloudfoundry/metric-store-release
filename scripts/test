@@ -130,11 +130,17 @@ function parse_argc {
 }
 
 function setup_env {
-
   print_checkpoint "Setting up environment"
   export GORACE="halt_on_error=1"
 
   go mod download
+
+  echo "Done setting up environment"
+}
+
+function teardown {
+  print_checkpoint "Tidying up"
+  go mod tidy
 }
 
 function main {
@@ -145,6 +151,8 @@ function main {
     result=$?
     exit_on_failure $result
     green "SWEET SUITE SUCCESS"
+
+    teardown
 }
 
 main $@

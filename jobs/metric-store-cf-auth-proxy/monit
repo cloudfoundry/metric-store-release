@@ -1,0 +1,5 @@
+check process metric-store-cf-auth-proxy
+  with pidfile /var/vcap/sys/run/bpm/metric-store-cf-auth-proxy/metric-store-cf-auth-proxy.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start metric-store-cf-auth-proxy"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop metric-store-cf-auth-proxy"
+  group vcap

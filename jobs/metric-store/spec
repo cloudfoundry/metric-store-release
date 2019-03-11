@@ -1,0 +1,54 @@
+---
+name: metric-store
+
+templates:
+  bpm.yml.erb: config/bpm.yml
+  metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
+  metric_store.crt.erb: config/certs/metric_store.crt
+  metric_store.key.erb: config/certs/metric_store.key
+
+packages:
+- metric-store
+
+provides:
+- name: metric-store
+  type: metric-store
+  properties:
+  - port
+  - tls
+  - disabled
+
+consumes:
+- name: metric-store
+  type: metric-store
+
+properties:
+  port:
+    description: "The port for the metric-store to listen on"
+    default: 8080
+
+  health_addr:
+    description: "The address for metric-store to bind a health endpoint"
+    default: localhost:6060
+  storage_path:
+    description: "Where metric-store should keep persistent data"
+    default: /var/vcap/store/metric-store
+  retention_period_in_days:
+    description: "How old metrics can be before being automatically expired"
+    default: 42
+  disk_free_percent_target:
+    description: "Percentage of free disk space below which old metrics are automatically pruned (takes precedence over retention period)"
+    default: 20
+  label_truncation_length:
+    description: "Maximum length of any label value; longer values will be automatically truncated"
+    default: 256
+  promql.query_timeout:
+    description: "The maximum allowed runtime for a single PromQL query. Smaller timeouts are recommended."
+    default: "60s"
+
+  tls.ca_cert:
+    description: "The Certificate Authority for metric-store mutual TLS."
+  tls.cert:
+    description: "The client cert for metric-store mutual TLS."
+  tls.key:
+    description: "The client private key for metric-store mutual TLS."

@@ -1,0 +1,5 @@
+check process metric-store-nozzle
+  with pidfile /var/vcap/sys/run/bpm/metric-store-nozzle/metric-store-nozzle.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start metric-store-nozzle"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop metric-store-nozzle"
+  group vcap

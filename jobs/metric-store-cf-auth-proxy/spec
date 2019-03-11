@@ -1,0 +1,51 @@
+---
+name: metric-store-cf-auth-proxy
+templates:
+  bpm.yml.erb: config/bpm.yml
+  cc_ca.crt.erb: config/certs/cc_ca.crt
+  uaa_ca.crt.erb: config/certs/uaa_ca.crt
+  external.crt.erb: config/certs/external.crt
+  external.key.erb: config/certs/external.key
+
+packages:
+- metric-store-cf-auth-proxy
+
+provides:
+- name: metric-store-cf-auth-proxy
+  type: metric-store-cf-auth-proxy
+  properties:
+  - proxy_port
+
+consumes:
+- name: metric-store
+  type: metric-store
+- name: metric-store-gateway
+  type: metric-store-gateway
+- name: cloud_controller
+  type: cloud_controller
+
+properties:
+  skip_cert_verify:
+    description: "Whether to accept invalid certs"
+    default: false
+  external_cert:
+    description: "The TLS cert for the auth proxy"
+  external_key:
+    description: "The TLS key for the auth proxy"
+  proxy_port:
+    description: "The port for the cf-auth-proxy to listen on"
+  security_event_log:
+    description: "When provided, the path to a file where security events will be logged"
+  cc.ca_cert:
+    description: "The CA for the internal api"
+  cc.common_name:
+    description: "The CN for the CA cert"
+  uaa.client_id:
+    description: "The client id to authenticate to UAA"
+  uaa.client_secret:
+    description: "The client secret to authenticate to UAA"
+  uaa.ca_cert:
+    description: "The CA for internal UAA api"
+  uaa.internal_addr:
+    description: "The endpoint used for the internal UAA api"
+

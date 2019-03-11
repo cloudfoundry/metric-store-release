@@ -1,0 +1,58 @@
+#!/bin/bash
+set -e
+
+go get github.com/vito/gosub
+
+if [ ! $(which gosub) ]; then
+    echo "Gosub required to update dependencies in bosh/*/spec files."
+    echo 'Please install with `go get github.com/vito/gosub`'
+    exit 1
+fi
+root_dir=$(git rev-parse --show-toplevel)
+vendor_dir=${root_dir}/vendor
+
+function sync_package() {
+  bosh_pkg=${1}
+
+  shift
+
+  (
+    set -e
+
+    cd packages/${bosh_pkg}
+
+    gosublist=$(gosub list "$@")
+
+    {
+      cat spec | grep -v '# gosub'
+      for i in $gosublist; do
+          echo $i | sed -e 's|\(.*\)|- \1/*.go # gosub|g'
+
+          if ls $vendor_dir/$i/*.s &> /dev/null; then
+              echo $i | sed -e 's|\(.*\)|- \1/*.s # gosub|g'
+          fi
+      done
+    } > spec.new
+
+    mv spec.new spec
+
+  )
+}
+
+# Vendor the packages so we can inspect for .s files
+ls $vendor_dir
+vendor_dir_status=$?
+go mod vendor
+
+sync_package metric-store                  -app  ${root_dir}/cmd/metric-store &
+sync_package metric-store-gateway          -app  ${root_dir}/cmd/gateway &
+sync_package metric-store-nozzle           -app  ${root_dir}/cmd/nozzle &
+sync_package metric-store-cf-auth-proxy    -app  ${root_dir}/cmd/cf-auth-proxy
+
+if [[ $vendor_dir_status -ne 0 ]]; then
+ rm -rf $vendor_dir
+fi
+
+wait
+
+go mod tidy

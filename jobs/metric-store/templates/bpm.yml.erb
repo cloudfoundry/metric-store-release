@@ -1,0 +1,25 @@
+<%
+  job_dir = "/var/vcap/jobs/metric-store"
+  cert_dir = "#{job_dir}/config/certs"
+%>
+---
+processes:
+- name: metric-store
+  executable: /var/vcap/packages/metric-store/metric-store
+  persistent_disk: true
+  env:
+    HEALTH_ADDR:              "<%= p('health_addr') %>"
+    ADDR:                     "<%= ":#{p('port')}" %>"
+    STORAGE_PATH:             "<%= p('storage_path') %>"
+    RETENTION_PERIOD_IN_DAYS: "<%= p('retention_period_in_days') %>"
+    DISK_FREE_PERCENT_TARGET: "<%= p('disk_free_percent_target') %>"
+    LABEL_TRUNCATION_LENGTH:  "<%= p('label_truncation_length') %>"
+    QUERY_TIMEOUT:            "<%= p('promql.query_timeout') %>"
+
+    # Mutual TLS
+    CA_PATH:   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
+    CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
+    KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
+
+  limits:
+    open_files: 8192

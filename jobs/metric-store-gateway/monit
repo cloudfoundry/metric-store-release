@@ -1,0 +1,5 @@
+check process metric-store-gateway
+  with pidfile /var/vcap/sys/run/bpm/metric-store-gateway/metric-store-gateway.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start metric-store-gateway"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop metric-store-gateway"
+  group vcap

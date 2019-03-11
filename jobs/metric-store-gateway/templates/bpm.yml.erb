@@ -1,0 +1,21 @@
+<%
+  job_dir = "/var/vcap/jobs/metric-store-gateway"
+  cert_dir = "#{job_dir}/config/certs"
+
+  ms = link("metric-store")
+%>
+---
+processes:
+- name: metric-store-gateway
+  executable: /var/vcap/packages/metric-store-gateway/metric-store-gateway
+  env:
+    METRIC_STORE_ADDR: "<%= "localhost:#{ms.p('port')}" %>"
+    ADDR:              "<%= p('gateway_addr') %>"
+
+    # Mutual TLS
+    CA_PATH:   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
+    CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
+    KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
+
+  limits:
+    open_files: 8192

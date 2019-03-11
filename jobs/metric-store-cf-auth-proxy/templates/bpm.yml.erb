@@ -1,0 +1,34 @@
+<%
+  job_dir = "/var/vcap/jobs/metric-store-cf-auth-proxy"
+  cert_dir = "#{job_dir}/config/certs"
+
+  gw = link('metric-store-gateway')
+  cc = link('cloud_controller')
+%>
+---
+processes:
+- name: metric-store-cf-auth-proxy
+  executable: /var/vcap/packages/metric-store-cf-auth-proxy/metric-store-cf-auth-proxy
+  env:
+    METRIC_STORE_GATEWAY_ADDR: "<%= "http://#{gw.p('gateway_addr')}" %>"
+    ADDR:                      "<%= ":#{p('proxy_port')}" %>"
+    INTERNAL_IP:               "<%= spec.ip %>"
+    EXTERNAL_CERT:             "<%= "#{cert_dir}/external.crt" %>"
+    EXTERNAL_KEY:              "<%= "#{cert_dir}/external.key" %>"
+    <% if_p('security_event_log') do |path| %>
+    SECURITY_EVENT_LOG:        "<%= path %>"
+    <% end %>
+
+    # External ADDR is plaintext because it assumes go-router SSL termination.
+    CAPI_ADDR_EXTERNAL: "<%= "http://#{cc.address}:9022" %>"
+    CAPI_CA_PATH:       "<%= "#{cert_dir}/cc_ca.crt" %>"
+    CAPI_COMMON_NAME:   "<%= p('cc.common_name') %>"
+
+    UAA_ADDR:          "<%= p('uaa.internal_addr') %>"
+    UAA_CA_PATH:       "<%= "#{cert_dir}/uaa_ca.crt" %>"
+    UAA_CLIENT_ID:     "<%= p('uaa.client_id') %>"
+    UAA_CLIENT_SECRET: "<%= p('uaa.client_secret') %>"
+    SKIP_CERT_VERIFY:  "<%= p('skip_cert_verify') %>"
+
+  limits:
+    open_files: 8192

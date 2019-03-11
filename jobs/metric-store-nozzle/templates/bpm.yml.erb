@@ -1,0 +1,37 @@
+<%
+  job_dir = "/var/vcap/jobs/metric-store-nozzle"
+  cert_dir = "#{job_dir}/config/certs"
+
+  ms = link("metric-store")
+  rlp = link('reverse_log_proxy')
+
+  sorted_instances = ms.instances.sort_by {|i| i.address}
+  index = sorted_instances.index(
+      sorted_instances.find {|i| i.id == spec.id}
+  )
+%>
+---
+processes:
+- name: metric-store-nozzle
+  executable: /var/vcap/packages/metric-store-nozzle/metric-store-nozzle
+  env:
+    HEALTH_ADDR:       "<%= p('health_addr') %>"
+    METRIC_STORE_ADDR: "<%= "localhost:#{ms.p('port')}" %>"
+    SHARD_ID:          "<%= p('shard_id') %>"
+
+    # Diode size for timer metrics aggregation
+    TIMER_ROLLUP_BUFFER_SIZE: "<%= p('timer_rollup_buffer_size') %>"
+
+    # Logs Provider
+    LOGS_PROVIDER_ADDR:           "<%= "#{rlp.address}:#{rlp.p('reverse_log_proxy.egress.port')}" %>"
+    LOGS_PROVIDER_CA_FILE_PATH:   "<%= "#{cert_dir}/logs_provider_ca.crt" %>"
+    LOGS_PROVIDER_CERT_FILE_PATH: "<%= "#{cert_dir}/logs_provider.crt" %>"
+    LOGS_PROVIDER_KEY_FILE_PATH:  "<%= "#{cert_dir}/logs_provider.key" %>"
+
+    # Mutual TLS
+    CA_PATH:   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
+    CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
+    KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
+
+  limits:
+    open_files: 8192

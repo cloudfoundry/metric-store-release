@@ -1,0 +1,5 @@
+export METRIC_STORE_ADDR="<%= "localhost:#{link('metric-store').p('port')}" %>"
+export ADDR="<%= "#{p('gateway_addr')}" %>"
+export CA_PATH="/var/vcap/jobs/metric-store-gateway/config/certs/metric_store_ca.crt"
+export CERT_PATH="/var/vcap/jobs/metric-store-gateway/config/certs/metric_store.crt"
+export KEY_PATH="/var/vcap/jobs/metric-store-gateway/config/certs/metric_store.key"

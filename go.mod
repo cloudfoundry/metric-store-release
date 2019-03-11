@@ -28,7 +28,7 @@ require (
 	github.com/nats-io/go-nats v1.7.2 // indirect
 	github.com/nats-io/nkeys v0.0.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
-	github.com/onsi/ginkgo v1.7.0
+	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.4.3
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.1-0.20181025174421-f30f42803563
@@ -44,8 +44,9 @@ require (
 	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
 	golang.org/x/sys v0.0.0-20190305064518-30e92a19ae4a
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
-	golang.org/x/tools v0.0.0-20190305160728-f8c04913dfb7 // indirect
+	golang.org/x/tools v0.0.0-20190308142131-b40df0fb21c3 // indirect
 	google.golang.org/genproto v0.0.0-20190305195749-c21a8b77f9f0
 	google.golang.org/grpc v1.19.0
 	gopkg.in/yaml.v2 v2.2.2 // indirect
+	honnef.co/go/tools v0.0.0-20190215041234-466a0476246c // indirect
 )
