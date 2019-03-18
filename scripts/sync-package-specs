@@ -22,6 +22,7 @@ function sync_package() {
     cd packages/${bosh_pkg}
 
     gosublist=$(gosub list "$@")
+    echo "gosub list $@"
 
     {
       cat spec | grep -v '# gosub'
@@ -39,10 +40,10 @@ function sync_package() {
   )
 }
 
-sync_package metric-store                  -app  ${root_dir}/cmd/metric-store &
-sync_package metric-store-gateway          -app  ${root_dir}/cmd/gateway &
-sync_package metric-store-nozzle           -app  ${root_dir}/cmd/nozzle &
-sync_package metric-store-cf-auth-proxy    -app  ${root_dir}/cmd/cf-auth-proxy
+sync_package metric-store                  -app  ${root_dir}/src/cmd/metric-store &
+sync_package metric-store-gateway          -app  ${root_dir}/src/cmd/gateway &
+sync_package metric-store-nozzle           -app  ${root_dir}/src/cmd/nozzle &
+sync_package metric-store-cf-auth-proxy    -app  ${root_dir}/src/cmd/cf-auth-proxy
 
 wait
 

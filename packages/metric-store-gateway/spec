@@ -6,10 +6,10 @@ dependencies:
 
 files:
 - code.cloudfoundry.org/go-envstruct/*.go # gosub
-- github.com/cloudfoundry/metric-store/cmd/gateway/*.go # gosub
-- github.com/cloudfoundry/metric-store/pkg/gateway/*.go # gosub
-- github.com/cloudfoundry/metric-store/pkg/rpc/metricstore_v1/*.go # gosub
-- github.com/cloudfoundry/metric-store/pkg/tls/*.go # gosub
+- github.com/cloudfoundry/metric-store/src/cmd/gateway/*.go # gosub
+- github.com/cloudfoundry/metric-store/src/pkg/gateway/*.go # gosub
+- github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1/*.go # gosub
+- github.com/cloudfoundry/metric-store/src/pkg/tls/*.go # gosub
 - github.com/francoispqt/gojay/*.go # gosub
 - github.com/golang/protobuf/jsonpb/*.go # gosub
 - github.com/golang/protobuf/proto/*.go # gosub
