@@ -1,4 +1,4 @@
-module github.com/cloudfoundry/metric-store
+module github.com/cloudfoundry/metric-store-release
 
 require (
 	code.cloudfoundry.org/go-diodes v0.0.0-20180905200951-72629b5276e3
