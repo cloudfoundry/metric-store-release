@@ -16,7 +16,6 @@ provides:
   properties:
   - port
   - tls
-  - disabled
 
 consumes:
 - name: metric-store
