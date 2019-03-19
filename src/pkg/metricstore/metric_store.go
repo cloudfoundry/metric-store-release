@@ -11,10 +11,10 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/local"
-	"github.com/cloudfoundry/metric-store/src/pkg/metrics"
-	"github.com/cloudfoundry/metric-store/src/pkg/query"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/local"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 )

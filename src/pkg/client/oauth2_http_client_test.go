@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	metricstore_client "github.com/cloudfoundry/metric-store/src/pkg/client"
+	metricstore_client "github.com/cloudfoundry/metric-store-release/src/pkg/client"
 )
 
 var _ metricstore_client.HTTPClient = &metricstore_client.Oauth2HTTPClient{}

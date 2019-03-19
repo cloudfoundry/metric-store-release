@@ -5,9 +5,9 @@ import (
 	"log"
 	"sort"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence/transform"
-	"github.com/cloudfoundry/metric-store/src/pkg/query"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 )
 
 type EgressReverseProxy struct {

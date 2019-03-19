@@ -9,15 +9,15 @@ import (
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	. "github.com/cloudfoundry/metric-store/src/pkg/nozzle"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
-	"github.com/cloudfoundry/metric-store/src/pkg/tls"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	. "github.com/cloudfoundry/metric-store/src/pkg/matchers"
-	"github.com/cloudfoundry/metric-store/src/pkg/testing"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

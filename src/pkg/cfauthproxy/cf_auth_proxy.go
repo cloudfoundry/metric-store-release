@@ -7,7 +7,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 )
 
 type CFAuthProxy struct {

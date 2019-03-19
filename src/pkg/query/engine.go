@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"

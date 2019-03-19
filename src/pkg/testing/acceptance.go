@@ -7,8 +7,8 @@ import (
 	"os/exec"
 	"sync"
 
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
-	"github.com/cloudfoundry/metric-store/src/pkg/tls"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 

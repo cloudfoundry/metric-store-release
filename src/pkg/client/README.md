@@ -8,7 +8,7 @@ This is a golang client library for [metric-store][metric-store].
 
 This repository should be imported as:
 
-`import metric-store-client "github.com/cloudfoundry/metric-store/src/pkg/client"`
+`import metric-store-client "github.com/cloudfoundry/metric-store-release/src/pkg/client"`
 
 [slack-badge]:            https://slack.cloudfoundry.org/badge.svg
 [log-cache-slack]:        https://cloudfoundry.slack.com/archives/log-cache

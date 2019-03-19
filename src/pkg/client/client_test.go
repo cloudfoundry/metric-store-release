@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	metricstore_client "github.com/cloudfoundry/metric-store/src/pkg/client"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	metricstore_client "github.com/cloudfoundry/metric-store-release/src/pkg/client"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"google.golang.org/grpc"
 
-	test "github.com/cloudfoundry/metric-store/src/pkg/testing"
+	test "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 )
 
 func TestClientPromQLRange(t *testing.T) {

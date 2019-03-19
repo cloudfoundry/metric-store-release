@@ -9,7 +9,7 @@ import (
 	_ "net/http/pprof"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	. "github.com/cloudfoundry/metric-store/src/pkg/gateway"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/gateway"
 	"google.golang.org/grpc"
 )
 

@@ -1,7 +1,7 @@
 package matchers
 
 import (
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/onsi/gomega/types"
 )
 

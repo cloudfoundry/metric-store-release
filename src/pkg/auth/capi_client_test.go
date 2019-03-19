@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/auth"
-	"github.com/cloudfoundry/metric-store/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 
 	"errors"
 	"net/http"

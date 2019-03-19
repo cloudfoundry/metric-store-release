@@ -1,7 +1,7 @@
 package transform_test
 
 import (
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence/transform"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/influxdata/influxql"
 	"github.com/prometheus/prometheus/pkg/labels"
 

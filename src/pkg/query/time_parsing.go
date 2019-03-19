@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence/transform"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/prometheus/common/model"
 )
 

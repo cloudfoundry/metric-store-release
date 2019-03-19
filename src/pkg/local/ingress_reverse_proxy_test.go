@@ -6,8 +6,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/local"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/local"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"google.golang.org/grpc"
 
 	. "github.com/onsi/ginkgo"

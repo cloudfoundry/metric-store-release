@@ -1,11 +1,11 @@
 package transform_test
 
 import (
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/influxdata/influxdb/query"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

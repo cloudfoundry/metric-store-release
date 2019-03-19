@@ -2,7 +2,7 @@ package main
 
 import (
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	"github.com/cloudfoundry/metric-store/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 // Config is the configuration for a MetricStore Gateway.

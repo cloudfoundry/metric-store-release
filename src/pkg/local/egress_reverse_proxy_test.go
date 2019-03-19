@@ -5,10 +5,10 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/local"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/local"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

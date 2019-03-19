@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/query"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"

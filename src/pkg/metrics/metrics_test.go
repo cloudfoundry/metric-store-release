@@ -1,9 +1,9 @@
 package metrics_test
 
 import (
-	"github.com/cloudfoundry/metric-store/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 
-	. "github.com/cloudfoundry/metric-store/src/pkg/matchers"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

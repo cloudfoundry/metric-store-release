@@ -12,11 +12,11 @@ import (
 	"crypto/x509"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	"github.com/cloudfoundry/metric-store/src/pkg/auth"
-	. "github.com/cloudfoundry/metric-store/src/pkg/cfauthproxy"
-	"github.com/cloudfoundry/metric-store/src/pkg/metrics"
-	"github.com/cloudfoundry/metric-store/src/pkg/query"
-	logtls "github.com/cloudfoundry/metric-store/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
+	logtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 func main() {

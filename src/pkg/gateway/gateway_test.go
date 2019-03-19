@@ -6,12 +6,12 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	. "github.com/cloudfoundry/metric-store/src/pkg/gateway"
-	"github.com/cloudfoundry/metric-store/src/pkg/tls"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/gateway"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

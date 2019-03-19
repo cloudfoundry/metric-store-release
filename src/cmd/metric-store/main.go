@@ -8,10 +8,10 @@ import (
 	"time"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	"github.com/cloudfoundry/metric-store/src/pkg/metrics"
-	"github.com/cloudfoundry/metric-store/src/pkg/metricstore"
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence"
-	"github.com/cloudfoundry/metric-store/src/pkg/system_stats"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
 	"google.golang.org/grpc"
 )
 

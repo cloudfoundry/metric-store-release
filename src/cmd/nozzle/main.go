@@ -10,8 +10,8 @@ import (
 	"time"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	"github.com/cloudfoundry/metric-store/src/pkg/metrics"
-	. "github.com/cloudfoundry/metric-store/src/pkg/nozzle"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
 	"google.golang.org/grpc"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"

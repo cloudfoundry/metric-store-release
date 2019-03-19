@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/system_stats"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

@@ -11,7 +11,7 @@ import (
 	"os"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	metricstore_client "github.com/cloudfoundry/metric-store/src/pkg/client"
+	metricstore_client "github.com/cloudfoundry/metric-store-release/src/pkg/client"
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

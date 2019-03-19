@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store/src/pkg/metricstore"
-	"github.com/cloudfoundry/metric-store/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/prometheus/common/expfmt"
 
-	. "github.com/cloudfoundry/metric-store/src/pkg/matchers"
-	"github.com/cloudfoundry/metric-store/src/pkg/testing"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -44,7 +44,7 @@ var _ = Describe("MetricStore", func() {
 		key := testing.Cert("metric-store.key")
 
 		tc.metricStoreProcess = testing.StartGoProcess(
-			"github.com/cloudfoundry/metric-store/src/cmd/metric-store",
+			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
 			[]string{
 				"ADDR=" + tc.addr,
 				"HEALTH_ADDR=" + tc.healthAddr,
@@ -57,7 +57,7 @@ var _ = Describe("MetricStore", func() {
 		)
 
 		tc.gatewayProcess = testing.StartGoProcess(
-			"github.com/cloudfoundry/metric-store/src/cmd/gateway",
+			"github.com/cloudfoundry/metric-store-release/src/cmd/gateway",
 			[]string{
 				"ADDR=" + tc.gatewayAddr,
 				"HEALTH_ADDR=" + tc.gatewayHealthAddr,

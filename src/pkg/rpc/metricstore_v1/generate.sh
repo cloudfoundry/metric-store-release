@@ -18,7 +18,7 @@ go get github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 tmp_dir="$(mktemp -d)/metric-store"
 mkdir -p $tmp_dir
 
-cp $GOPATH/src/github.com/cloudfoundry/metric-store/api/v1/*proto $tmp_dir
+cp $GOPATH/src/github.com/cloudfoundry/metric-store-release/src/api/v1/*proto $tmp_dir
 
 protoc \
     $tmp_dir/*.proto \
