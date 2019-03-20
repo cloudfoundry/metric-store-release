@@ -22,7 +22,6 @@ function sync_package() {
     cd packages/${bosh_pkg}
 
     gosublist=$(gosub list "$@")
-    echo "gosub list $@"
 
     {
       cat spec | grep -v '# gosub'
@@ -36,7 +35,6 @@ function sync_package() {
     } > spec.new
 
     mv spec.new spec
-
   )
 }
 
