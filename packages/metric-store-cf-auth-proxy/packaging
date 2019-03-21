@@ -7,7 +7,7 @@ export GOROOT=$(readlink -nf /var/vcap/packages/golang1.11.5)
 export GOPATH=$BOSH_INSTALL_TARGET
 export PATH=$GOROOT/bin:$PATH
 
-go build -o ${BOSH_INSTALL_TARGET}/metric-store-cf-auth-proxy github.com/cloudfoundry/metric-store/src/cmd/cf-auth-proxy
+go build -mod=vendor -o ${BOSH_INSTALL_TARGET}/metric-store-cf-auth-proxy ./cmd/cf-auth-proxy
 
 # clean up source artifacts
 rm -rf ${BOSH_INSTALL_TARGET}/src ${BOSH_INSTALL_TARGET}/pkg
