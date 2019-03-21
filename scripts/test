@@ -84,7 +84,7 @@ function run_unit {
   print_checkpoint "Checking for Data Races"
   race_log=$(mktemp metric_store_race_log.XXXXXXXX --tmpdir)
 
-  go test -race ./src/... \
+  go test -mod=vendor -race ./src/... \
     ${TEST_OPTIONS} \
     $@ 2>&1 > ${race_log} || true
   if egrep 'DATA RACE|race detected' ${race_log}; then
@@ -96,7 +96,7 @@ function run_unit {
   echo "No races found"
 
   print_checkpoint "Running Unit Tests"
-  go test ./src/... \
+  go test -mod=vendor ./src/... \
     ${TEST_OPTIONS} \
     $@
 }

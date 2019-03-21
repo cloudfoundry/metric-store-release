@@ -70,7 +70,7 @@ func StartGoProcess(importPath string, env []string, args ...string) *gexec.Sess
 	if ok {
 		commandPath = cacheValue.(string)
 	} else {
-		commandPath, err = gexec.Build(importPath, "-race")
+		commandPath, err = gexec.Build(importPath, "-race", "-mod=vendor")
 		Expect(err).ToNot(HaveOccurred())
 
 		builtPathsCache.Store(importPath, commandPath)
