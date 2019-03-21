@@ -15,7 +15,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 	logtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
@@ -50,7 +49,7 @@ func main() {
 		log,
 	)
 
-	queryParser := &query.QueryParser{}
+	queryParser := &QueryParser{}
 
 	middlewareProvider := auth.NewCFAuthMiddlewareProvider(
 		uaaClient,

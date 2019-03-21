@@ -1,7 +1,7 @@
-package query_test
+package cfauthproxy_test
 
 import (
-	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -10,7 +10,7 @@ import (
 var _ = Describe("Query Parser", func() {
 	Describe("ExtractSourceIds()", func() {
 		It("returns all the sourceIds from a query", func() {
-			qp := &query.QueryParser{}
+			qp := &cfauthproxy.QueryParser{}
 			query := `metric{source_id="source-0"}+metric{source_id="source-1"}`
 
 			ids, err := qp.ExtractSourceIds(query)
@@ -21,7 +21,7 @@ var _ = Describe("Query Parser", func() {
 		})
 
 		It("returns an error if a query is not valid", func() {
-			qp := &query.QueryParser{}
+			qp := &cfauthproxy.QueryParser{}
 			query := `metric=what`
 
 			ids, err := qp.ExtractSourceIds(query)
@@ -31,7 +31,7 @@ var _ = Describe("Query Parser", func() {
 		})
 
 		It("returns an error if a query term lacks a sourceId", func() {
-			qp := &query.QueryParser{}
+			qp := &cfauthproxy.QueryParser{}
 			query := `metric{source_id="source-0"}+metric`
 
 			ids, err := qp.ExtractSourceIds(query)
@@ -42,7 +42,7 @@ var _ = Describe("Query Parser", func() {
 		})
 
 		It("returns an error if a query term has an empty sourceId", func() {
-			qp := &query.QueryParser{}
+			qp := &cfauthproxy.QueryParser{}
 			query := `metric{source_id=""}`
 
 			ids, err := qp.ExtractSourceIds(query)

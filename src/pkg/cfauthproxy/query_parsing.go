@@ -1,4 +1,4 @@
-package query
+package cfauthproxy
 
 import (
 	"errors"
