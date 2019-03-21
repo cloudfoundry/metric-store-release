@@ -10,7 +10,6 @@ package metricstore_v1
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -71,11 +70,9 @@ func request_PromQLAPI_SeriesQuery_0(ctx context.Context, marshaler runtime.Mars
 	var protoReq PromQL_SeriesQueryRequest
 	var metadata runtime.ServerMetadata
 
-	fmt.Println("PB (before):", &protoReq)
 	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_PromQLAPI_SeriesQuery_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	fmt.Println("PB (after):", &protoReq)
 
 	msg, err := client.SeriesQuery(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
