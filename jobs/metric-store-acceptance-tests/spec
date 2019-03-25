@@ -1,0 +1,8 @@
+---
+name: metric-store-acceptance-tests
+
+templates:
+  bpm.yml.erb: config/bpm.yml
+
+packages:
+- metric-store-acceptance-tests

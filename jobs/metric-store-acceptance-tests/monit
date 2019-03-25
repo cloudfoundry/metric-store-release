@@ -1,0 +1,5 @@
+check process metric-store-acceptance-tests
+  with pidfile /var/vcap/sys/run/bpm/metric-store-acceptance-tests/metric-store-acceptance-tests.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start metric-store-acceptance-tests"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop metric-store-acceptance-tests"
+  group vcap

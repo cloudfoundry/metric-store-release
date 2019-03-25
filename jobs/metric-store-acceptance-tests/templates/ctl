@@ -1,0 +1,57 @@
+#!/bin/bash -e
+
+RUN_DIR=/var/vcap/sys/run/metric-store-acceptance-tests
+LOG_DIR=/var/vcap/sys/log/metric-store-acceptance-tests
+PIDFILE=${RUN_DIR}/metric-store-acceptance-tests.pid
+# JOB_DIR=/var/vcap/jobs/metric-store-acceptance-tests
+# CERT_DIR=$JOB_DIR/config/certs
+
+PACKAGE_DIR=/var/vcap/packages/metric-store-acceptance-tests
+ENVIRONMENT=/var/vcap/jobs/metric-store-acceptance-tests/bin/environment.sh
+
+case $1 in
+
+  start)
+    set +e
+      killall -15 metric-store-acceptance-tests
+      killall -9 metric-store-acceptance-tests
+      killall -2 metric-store-acceptance-tests
+      killall -3 metric-store-acceptance-tests
+    set -e
+
+    mkdir -p $RUN_DIR $LOG_DIR
+    chown -R vcap:vcap $RUN_DIR $LOG_DIR
+
+    cd $PACKAGE_DIR
+
+    ulimit -n 8192
+
+    source $ENVIRONMENT
+
+    mkdir -p $STORAGE_PATH
+    chown vcap:vcap $STORAGE_PATH
+    chmod 755 $STORAGE_PATH
+
+    echo $$ > $PIDFILE
+    exec chpst -u vcap:vcap ./metric-store-acceptance-tests &>> ${LOG_DIR}/metric-store-acceptance-tests.log
+
+    ;;
+
+  stop)
+    set +e
+      killall -15 metric-store-acceptance-tests
+      killall -9 metric-store-acceptance-tests
+      killall -2 metric-store-acceptance-tests
+      killall -3 metric-store-acceptance-tests
+    set -e
+
+    rm -f $PIDFILE
+
+    ;;
+
+  *)
+    echo "Usage: ctl {start|stop}"
+
+    ;;
+
+esac

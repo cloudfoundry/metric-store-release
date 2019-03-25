@@ -29,7 +29,7 @@ require (
 	github.com/nats-io/nkeys v0.0.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/onsi/ginkgo v1.8.0
-	github.com/onsi/gomega v1.4.3
+	github.com/onsi/gomega v1.5.0
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.1-0.20181025174421-f30f42803563
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
