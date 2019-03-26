@@ -2,8 +2,9 @@
 name: metric-store-nozzle
 
 dependencies:
-- golang1.11.5
+- golang1.12.1
 
 files:
-- ../vendor/**/*.go
-- ../vendor/**/*.s
+- cmd/**/*.go
+- pkg/**/*.go
+- internal/**/*.go
