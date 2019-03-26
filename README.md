@@ -5,9 +5,77 @@ Metric Store
 
 Metric Store persists metrics from the [Loggregator System][loggregator] on disk. It is multi-tenant aware (the auth proxy ensures that you only have access to metrics from your apps), easy to query (it is 100% compatible with the Prometheus API) and has an efficient storage engine (the influx engine will make sure that your data is compressed and secured).
 
-## Usage
+## Deploying
 
-Metric Store is most easily used as a BOSH release. See the [Metric Store Release](https://github.com/cloud-foundry/metric-store-release) repository for more guidance.
+Metric Store can be deployed either as a standalone deployment or within [Cloud Foundry](https://github.com/cloudfoundry/cf-deployment).
+
+In both cases Metric Store will have to know about Loggregator.
+
+### Cloud Config
+
+Every BOSH deployment requires a [cloud config](https://bosh.io/docs/cloud-config.html). The Metric Store deployment manifest assumes the CF-Deployment cloud config has been uploaded.
+
+### Creating and Uploading Release
+
+The first step in deploying Metric Store is to create a release. Final releases are preferable, however during the development process dev releases are useful.
+
+The following commands will create a dev release and upload it to an environment named `lite`.
+
+```
+bosh create-release --force
+bosh -e lite upload-release --rebase
+```
+### Standalone
+
+Standalone Metric Store only has to know where to find Loggregator. The Loggregator CA is named `loggregator_ca`. The given variables file should include the deployed Loggregator's CA.
+
+The following command will deploy a standalone Metric Store against a Loggregator that is deployed with a `loggregator-vars.yml` variables file.
+
+```
+bosh \
+    --environment lite \
+    --deployment metric-store deploy manifests/metric-store.yml \
+    --vars-store vars.yml \
+    --vars-file ~/workspace/loggregator-release/vars.yml
+```
+
+### Cloud Foundry
+
+Metric Store deployed within Cloud Foundry reads from the Loggregator system and registers with the [GoRouter](https://github.com/cloudfoundry/gorouter) at `metric-store.<system-domain>` (e.g. for bosh-lite `metric-store.bosh-lite.com`).
+
+The following commands will deploy Metric Store in CF.
+
+```
+bosh update-runtime-config \
+    ~/workspace/bosh-deployment/runtime-configs/dns.yml
+bosh update-cloud-config \
+    ~/workspace/cf-deployment/iaas-support/bosh-lite/cloud-config.yml
+bosh \
+    --environment lite \
+    --deployment cf \
+    deploy ~/workspace/cf-deployment/cf-deployment.yml \
+    --ops-file ~/workspace/cf-deployment/operations/bosh-lite.yml \
+    --ops-file ~/workspace/cf-deployment/operations/use-compiled-releases.yml \
+    -v system_domain=bosh-lite.com
+```
+
+#### Metric Store Client
+By Default, Metric Store uses the `doppler` client included with `cf-deployment`.
+
+If you would like to use a custom client, it requires the `uaa.resource` authority:
+```
+<custom_client_id>:
+    authorities: uaa.resource
+    override: true
+    authorized-grant-types: client_credentials
+    secret: <custom_client_secret>
+```
+
+## Operating Metric Store
+Metric Store is currently an experimental release with plans for integrations startingin early 2019.
+
+#### Reliability SLO
+Metric Store depends on Loggregator and is thus is tied to its reliability ceiling. Metric Store currently implements hinted handoff as a strategy for queueing writes to remote nodes that are offline due to restarts, and thus aims to successfully write 99.9% of all envelopes received from Loggregator.
 
 ## Indexing
 
