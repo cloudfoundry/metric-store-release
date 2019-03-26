@@ -207,6 +207,10 @@ func (n *Nozzle) envelopeBatcher(ch chan []*loggregator_v2.Envelope) {
 				}
 				t.Reset(BATCH_FLUSH_INTERVAL)
 			}
+
+			// this sleep keeps us from hammering an empty channel, which
+			// would otherwise cause us to peg the cpu when there's no work
+			// to be done.
 			if !found {
 				time.Sleep(time.Millisecond)
 			}
@@ -253,7 +257,7 @@ func (n *Nozzle) timerProcessor() {
 		envelope := *(*loggregator_v2.Envelope)(data)
 
 		timer := envelope.GetTimer()
-		value := timer.GetStop() - timer.GetStart()
+		value := float64(timer.GetStop()-timer.GetStart()) / float64(time.Second)
 
 		tags := []string{envelope.SourceId}
 
@@ -271,12 +275,12 @@ func (n *Nozzle) timerProcessor() {
 		n.timerMutex.Lock()
 		tv, found := n.timerMetrics[key]
 		if !found {
-			n.timerMetrics[key] = &timerValue{count: 1, value: float64(value)}
+			n.timerMetrics[key] = &timerValue{count: 1, value: value}
 			n.timerMutex.Unlock()
 			continue
 		}
 
-		tv.value = (float64(tv.count)*tv.value + float64(value)) / float64(tv.count+1)
+		tv.value += value
 		tv.count += 1
 		n.timerMutex.Unlock()
 	}
@@ -309,7 +313,7 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 			}
 
 			meanPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_mean",
+				Name:      n.rollupMetricName + "_seconds_sum",
 				Timestamp: timestamp.UnixNano(),
 				Value:     tv.value,
 				Labels: map[string]string{
@@ -318,7 +322,7 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 				},
 			}
 			countPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_count",
+				Name:      n.rollupMetricName + "_seconds_count",
 				Timestamp: timestamp.UnixNano(),
 				Value:     float64(tv.count),
 				Labels: map[string]string{
@@ -337,11 +341,15 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 			points = append(points, meanPoint, countPoint)
 		}
 
-		n.timerMetrics = make(map[string]*timerValue)
-		n.timerMutex.Unlock()
-		// TODO - do we still want these logs?
-		n.log.Printf("Timer map cleared in %s", time.Since(start))
+		// this is commented out because we are attempting to keep a
+		// monotonically increasing value for both sum and count. if we ever
+		// want to revert that decision, just uncomment the following line.
+		// n.timerMetrics = make(map[string]*timerValue)
 
+		n.timerMutex.Unlock()
+
+		// TODO: do we still want these logs?
+		n.log.Printf("Timer map processed in in %s", time.Since(start))
 		n.log.Printf("Preparing to write %d points", len(points))
 
 		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)

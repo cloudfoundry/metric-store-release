@@ -132,7 +132,7 @@ var _ = Describe("Nozzle", func() {
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
 							Start: 0,
-							Stop:  5,
+							Stop:  5000000000,
 						},
 					},
 					Tags: map[string]string{
@@ -146,8 +146,8 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 5,
-							Stop:  9,
+							Start: 5000000000,
+							Stop:  9000000000,
 						},
 					},
 					Tags: map[string]string{
@@ -161,8 +161,8 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 3,
-							Stop:  6,
+							Start: 3000000000,
+							Stop:  6000000000,
 						},
 					},
 				},
@@ -171,8 +171,8 @@ var _ = Describe("Nozzle", func() {
 			Eventually(metricStore.GetPoints).Should(HaveLen(4))
 			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_mean",
-					Value: 4.5,
+					Name:  "rolled_timer_seconds_sum",
+					Value: 9,
 					Labels: map[string]string{
 						"node_index": "0",
 						"source_id":  "source-id",
@@ -181,7 +181,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_count",
+					Name:  "rolled_timer_seconds_count",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -191,7 +191,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_mean",
+					Name:  "rolled_timer_seconds_sum",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -199,7 +199,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_count",
+					Name:  "rolled_timer_seconds_count",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -236,7 +236,7 @@ var _ = Describe("Nozzle", func() {
 						Timer: &loggregator_v2.Timer{
 							Name:  "unrolled_timer",
 							Start: 0,
-							Stop:  5,
+							Stop:  5000000000,
 						},
 					},
 				},
