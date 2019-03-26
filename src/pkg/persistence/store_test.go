@@ -256,6 +256,20 @@ var _ = Describe("Persistent Store", func() {
 				},
 			))
 		})
+
+		FIt("returns an empty set when an invalid query is provided", func() {
+			tc := setup()
+			defer teardown(tc)
+
+			seriesSet, err := tc.store.Get(
+				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				&labels.Matcher{Name: "__name__", Value: "i-definitely-do-not-exist", Type: labels.MatchEqual},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			series := testing.ExplodeSeriesSet(seriesSet)
+			Expect(series).To(HaveLen(0))
+		})
 	})
 
 	Describe("Labels()", func() {

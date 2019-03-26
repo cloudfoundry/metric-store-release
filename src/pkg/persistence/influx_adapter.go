@@ -124,13 +124,16 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		return nil, err
 	}
 
+	builder := transform.NewSeriesBuilder()
+
+	// if our query was invalid, we'll have a nil iterator. let's return our
+	// empty builder so that the query returns no results.
 	if iterator == nil {
-		return nil, fmt.Errorf("Couldn't create iterator for %+v", queryOpts)
+		return builder, nil
 	}
 
 	defer iterator.Close()
 
-	builder := transform.NewSeriesBuilder()
 	switch typedIterator := iterator.(type) {
 	case query.FloatIterator:
 		for {
