@@ -7,5 +7,6 @@ export PATH=$GOROOT/bin:$PATH
 mkdir -p cache
 export GOCACHE=$PWD/cache
 
-# TODO: this doesn't exist yet
-# go build -mod=vendor -o ${BOSH_INSTALL_TARGET}/metric-store-acceptance-tests ./src/cmd/acceptance-tests
+go test -mod=vendor ./src/pkg/acceptance -c
+
+mv acceptance.test ${BOSH_INSTALL_TARGET}/acceptance-tests

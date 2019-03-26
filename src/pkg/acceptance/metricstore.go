@@ -39,7 +39,6 @@ var _ = Describe("Metric Store on a CF", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			samples := result.GetVector().GetSamples()
-			fmt.Printf("%+v", samples)
 			Expect(len(samples)).ToNot(BeZero())
 			Expect(samples[0].Metric["__name__"]).To(Equal("absolute_entitlement"))
 			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
@@ -77,7 +76,6 @@ var _ = Describe("Metric Store on a CF", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			samples := result.GetVector().GetSamples()
-			fmt.Printf("%+v", samples)
 			Expect(len(samples)).ToNot(BeZero())
 			Expect(samples[0].Metric["__name__"]).To(Equal("absolute_entitlement"))
 			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
