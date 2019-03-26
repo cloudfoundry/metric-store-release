@@ -7,9 +7,7 @@ Metric Store persists metrics from the [Loggregator System][loggregator] on disk
 
 ## Deploying
 
-Metric Store can be deployed either as a standalone deployment or within [Cloud Foundry](https://github.com/cloudfoundry/cf-deployment).
-
-In both cases Metric Store will have to know about Loggregator.
+Metric Store can be deployed within [Cloud Foundry](https://github.com/cloudfoundry/cf-deployment). Metric Store will have to know about Loggregator.
 
 ### Cloud Config
 
@@ -24,19 +22,6 @@ The following commands will create a dev release and upload it to an environment
 ```
 bosh create-release --force
 bosh -e lite upload-release --rebase
-```
-### Standalone
-
-Standalone Metric Store only has to know where to find Loggregator. The Loggregator CA is named `loggregator_ca`. The given variables file should include the deployed Loggregator's CA.
-
-The following command will deploy a standalone Metric Store against a Loggregator that is deployed with a `loggregator-vars.yml` variables file.
-
-```
-bosh \
-    --environment lite \
-    --deployment metric-store deploy manifests/metric-store.yml \
-    --vars-store vars.yml \
-    --vars-file ~/workspace/loggregator-release/vars.yml
 ```
 
 ### Cloud Foundry
@@ -56,10 +41,11 @@ bosh \
     deploy ~/workspace/cf-deployment/cf-deployment.yml \
     --ops-file ~/workspace/cf-deployment/operations/bosh-lite.yml \
     --ops-file ~/workspace/cf-deployment/operations/use-compiled-releases.yml \
+    --ops-file ./manifests/ops-files/add-metric-store-to-cfd.yml
     -v system_domain=bosh-lite.com
 ```
 
-#### Metric Store Client
+### Metric Store Client
 By Default, Metric Store uses the `doppler` client included with `cf-deployment`.
 
 If you would like to use a custom client, it requires the `uaa.resource` authority:
