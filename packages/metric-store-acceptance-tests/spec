@@ -1,5 +1,5 @@
 ---
-name: metric-store
+name: metric-store-acceptance-tests
 
 dependencies:
 - golang1.12.1
