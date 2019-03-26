@@ -1,0 +1,145 @@
+---
+- type: replace
+  path: /releases/-
+  value:
+    name: metric-store
+    version: latest
+
+- type: replace
+  path: /instance_groups/-
+  value:
+    name: oss-metric-store
+    azs:
+    - z1
+    instances: 1
+    persistent_disk_type: 10GB
+    vm_type: minimal
+    stemcell: default
+    networks:
+    - name: default
+    jobs:
+    - name: metric-store
+      release: metric-store
+      provides:
+        metric-store: {shared: true, as: oss-metric-store}
+      consumes:
+        metric-store: {from: oss-metric-store}
+      properties:
+        egress_port: 8080
+        health_addr: localhost:6060
+        tls:
+          ca_cert: ((oss-metric_store.ca))
+          cert: ((oss-metric_store.certificate))
+          key: ((oss-metric_store.private_key))
+    - name: metric-store-gateway
+      release: metric-store
+      provides:
+        metric-store-gateway: {as: oss-metric-store-gateway}
+      consumes:
+        metric-store: {from: oss-metric-store}
+      properties:
+        gateway_addr: localhost:8081
+    - name: metric-store-nozzle
+      release: metric-store
+      provides:
+        metric-store-nozzle: {as: oss-metric-store-nozzle}
+      consumes:
+        reverse_log_proxy: {from: reverse_log_proxy, deployment: cf}
+        metric-store-nozzle: {from: oss-metric-store-nozzle}
+        metric-store: {from: oss-metric-store}
+      properties:
+        shard_id: oss-metric-store
+        logs_provider:
+          tls:
+            ca_cert: ((oss-metric_store_to_logs_provider.ca))
+            cert: ((oss-metric_store_to_logs_provider.certificate))
+            key: ((oss-metric_store_to_logs_provider.private_key))
+    - name: route_registrar
+      release: routing
+      properties:
+        route_registrar:
+          routes:
+          - name: oss-metric-store-reverse-proxy
+            port: 8083
+            tls_port: 8083
+            registration_interval: 20s
+            server_cert_domain_san: ossms.((system_domain))
+            uris:
+            - ossms.((system_domain))
+            - "*.ossms.((system_domain))"
+    - name: prom_scraper
+      release: loggregator-agent
+      consumes:
+        loggregator: {from: loggregator, deployment: cf}
+      properties:
+        metrics_urls: "http://localhost:6060/metrics,http://localhost:6061/metrics,http://localhost:6065/metrics"
+    - name: metric-store-cf-auth-proxy
+      release: metric-store
+      provides:
+        metric-store-cf-auth-proxy: {as: oss-metric-store-cf-auth-proxy}
+      consumes:
+        cloud_controller: {from: cloud_controller, deployment: cf}
+        metric-store-nozzle: {from: oss-metric-store-nozzle}
+        metric-store-gateway: {from: oss-metric-store-gateway}
+        metric-store: {from: oss-metric-store}
+      properties:
+        cc:
+          ca_cert: ((service_cf_internal_ca.certificate))
+          common_name: cloud-controller-ng.service.cf.internal
+        proxy_port: 8083
+        external_cert: ((oss-metricstore_ssl.certificate))
+        external_key: ((oss-metricstore_ssl.private_key))
+        uaa:
+          ca_cert: ((uaa_ca.certificate))
+          client_id: doppler
+          client_secret: ((uaa_clients_doppler_secret))
+          internal_addr: https://uaa.service.cf.internal:8443
+
+- type: replace
+  path: /variables/-
+  value:
+    name: oss-metric_store_to_logs_provider
+    type: certificate
+    options:
+      ca: loggregator_ca
+      common_name: oss-metric-store
+      extended_key_usage:
+      - client_auth
+      - server_auth
+
+- type: replace
+  path: /variables/-
+  value:
+    name: oss-metric_store_ca
+    type: certificate
+    options:
+      is_ca: true
+      common_name: oss-metric-store
+
+- type: replace
+  path: /variables/-
+  value:
+    name: oss-metric_store
+    type: certificate
+    options:
+      ca: oss-metric_store_ca
+      common_name: oss-metric-store
+      alternative_names:
+      - ossms
+      - oss-metric-store
+      - metric-store
+      extended_key_usage:
+      - client_auth
+      - server_auth
+
+- type: replace
+  path: /variables/-
+  value:
+    name: oss-metricstore_ssl
+    type: certificate
+    options:
+      ca: service_cf_internal_ca
+      common_name: oss-metric-store
+      alternative_names:
+      - ossms.((system_domain))
+      - "*.ossms.((system_domain))"
