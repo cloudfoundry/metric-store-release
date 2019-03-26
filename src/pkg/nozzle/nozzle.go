@@ -17,8 +17,6 @@ import (
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-
-	mapset "github.com/deckarep/golang-set"
 )
 
 type timerValue struct {
@@ -370,13 +368,6 @@ func (n *Nozzle) convertEnvelopesToPoints(envelopes []*loggregator_v2.Envelope) 
 	var points []*rpc.Point
 
 	for _, envelope := range envelopes {
-		// TODO: Remove this and all associated code before shipping.
-		// NOTE: This function call allows us to keep an in-memory index of all
-		// the tags seen for all envelopes received. It is useful for determining
-		// which data should be kept inside metric store, but can take up a lot of
-		// memory on PWS.
-		// n.updateTagInfo(envelope, name, value)
-
 		switch envelope.Message.(type) {
 		case *loggregator_v2.Envelope_Gauge:
 			points = append(points, n.createPointsFromGauge(envelope)...)
@@ -399,57 +390,6 @@ func (n *Nozzle) convertEnvelopesToPoints(envelopes []*loggregator_v2.Envelope) 
 		}
 	}
 	return points
-}
-
-type TagInfo struct {
-	MetricNames        mapset.Set `json:"metric_names"`
-	SourceIds          mapset.Set `json:"source_ids"`
-	Count              uint64     `json:"count"`
-	AverageValueLength float64    `json:"average_value_length"`
-	ShortestValue      string     `json:"shortest_value"`
-	LongestValue       string     `json:"longest_value"`
-	UniqueValues       mapset.Set `json:"unique_values"`
-}
-
-func (n *Nozzle) GetTagInfo() map[string]TagInfo {
-	tagInfoCopy := map[string]TagInfo{}
-	n.tagInfo.Range(func(t, v interface{}) bool {
-		tagName := t.(string)
-		info := v.(*TagInfo)
-
-		tagInfoCopy[tagName] = *info
-
-		return true
-	})
-
-	return tagInfoCopy
-}
-
-func (n *Nozzle) GetTagInfoCsv() string {
-	var s strings.Builder
-	w := csv.NewWriter(&s)
-	w.Write([]string{"tag_name", "num_metric_names", "num_source_ids", "count", "average_value_length", "shortest_value", "longest_value", "cardinality"})
-	n.tagInfo.Range(func(t, v interface{}) bool {
-		tagName := t.(string)
-		info := v.(*TagInfo)
-
-		w.Write([]string{
-			tagName,
-			strconv.Itoa(info.MetricNames.Cardinality()),
-			strconv.Itoa(info.SourceIds.Cardinality()),
-			strconv.Itoa(int(info.Count)),
-			strconv.FormatFloat(info.AverageValueLength, 'f', -1, 64),
-			info.ShortestValue,
-			info.LongestValue,
-			strconv.Itoa(info.UniqueValues.Cardinality()),
-		})
-
-		return true
-	})
-
-	w.Flush()
-
-	return s.String()
 }
 
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
@@ -475,22 +415,6 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 	return points
 }
 
-func (n *Nozzle) createPointFromTimer(envelope *loggregator_v2.Envelope) *rpc.Point {
-	timer := envelope.GetTimer()
-	labels := map[string]string{
-		"source_id": envelope.GetSourceId(),
-	}
-	for k, v := range envelope.GetTags() {
-		labels[k] = v
-	}
-	return &rpc.Point{
-		Timestamp: envelope.GetTimestamp(),
-		Name:      timer.GetName(),
-		Value:     float64(timer.GetStop() - timer.GetStart()),
-		Labels:    labels,
-	}
-}
-
 func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.Point {
 	counter := envelope.GetCounter()
 	labels := map[string]string{
@@ -504,40 +428,6 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 		Name:      counter.GetName(),
 		Value:     float64(counter.GetTotal()),
 		Labels:    labels,
-	}
-}
-
-func (n *Nozzle) updateTagInfo(envelope *loggregator_v2.Envelope, name string, value float64) {
-	tags := envelope.GetTags()
-	for tagName, tagValue := range tags {
-		value, ok := n.tagInfo.Load(tagName)
-		var tagInfo *TagInfo
-		if ok {
-			tagInfo = value.(*TagInfo)
-		} else {
-			tagInfo = &TagInfo{
-				MetricNames:  mapset.NewSet(),
-				SourceIds:    mapset.NewSet(),
-				UniqueValues: mapset.NewSet(),
-			}
-			n.tagInfo.Store(tagName, tagInfo)
-		}
-
-		tagInfo.MetricNames.Add(name)
-		tagInfo.SourceIds.Add(envelope.GetSourceId())
-		tagInfo.Count += 1
-		tagInfo.UniqueValues.Add(tagValue)
-
-		valueLengthDelta := float64(len(tagValue)) - tagInfo.AverageValueLength
-		tagInfo.AverageValueLength += valueLengthDelta / float64(tagInfo.Count)
-
-		if len(tagValue) < len(tagInfo.ShortestValue) || tagInfo.ShortestValue == "" {
-			tagInfo.ShortestValue = tagValue
-		}
-
-		if len(tagValue) > len(tagInfo.LongestValue) {
-			tagInfo.LongestValue = tagValue
-		}
 	}
 }
 
