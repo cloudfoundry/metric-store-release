@@ -121,7 +121,7 @@ var _ = Describe("Nozzle", func() {
 	})
 
 	Describe("when the envelope is a Timer", func() {
-		It("rolls up configured metrics", func() {
+		It("rolls up configured metrics when peer_type is not server", func() {
 			intervalStart := time.Now().Truncate(100 * time.Millisecond).UnixNano()
 
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{
@@ -165,6 +165,19 @@ var _ = Describe("Nozzle", func() {
 							Stop:  6000000000,
 						},
 					},
+					Tags: map[string]string{"peer_type": "client"},
+				},
+				{
+					Timestamp: intervalStart + 4,
+					SourceId:  "source-id-2",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 8000000000,
+							Stop:  9000000000,
+						},
+					},
+					Tags: map[string]string{"peer_type": "Server"},
 				},
 			}
 

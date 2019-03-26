@@ -141,7 +141,7 @@ func WithNozzleTimerRollup(interval time.Duration, metricName string, tags []str
 	}
 }
 
-// Start starts reading envelopes from the logs provider and writes them to
+// Start() starts reading envelopes from the logs provider and writes them to
 // metric-store. It blocks indefinitely.
 func (n *Nozzle) Start() {
 	rx := n.s.Stream(context.Background(), n.buildBatchReq())
@@ -164,7 +164,7 @@ func (n *Nozzle) Start() {
 
 	ch := make(chan []*loggregator_v2.Envelope, BATCH_CHANNEL_SIZE)
 
-	log.Printf("Starting %d nozzle workers...", runtime.NumCPU())
+	log.Printf("Starting %d nozzle workers...", 2*runtime.NumCPU())
 	for i := 0; i < 2*runtime.NumCPU(); i++ {
 		go n.envelopeWriter(ch, client, errInc, egressInc)
 	}
@@ -382,11 +382,16 @@ func (n *Nozzle) convertEnvelopesToPoints(envelopes []*loggregator_v2.Envelope) 
 			points = append(points, n.createPointsFromGauge(envelope)...)
 		case *loggregator_v2.Envelope_Timer:
 			timer := envelope.GetTimer()
-			if timer.GetName() == n.rollupMetricName {
-				n.buffer.Set(diodes.GenericDataType(envelope))
-				n.recordTimerDrift(float64(time.Now().UnixNano()-envelope.Timestamp) / float64(time.Second))
+			if timer.GetName() != n.rollupMetricName {
 				continue
 			}
+
+			if strings.ToLower(envelope.Tags["peer_type"]) == "server" {
+				continue
+			}
+
+			n.buffer.Set(diodes.GenericDataType(envelope))
+			n.recordTimerDrift(float64(time.Now().UnixNano()-envelope.Timestamp) / float64(time.Second))
 		case *loggregator_v2.Envelope_Counter:
 			points = append(points, n.createPointFromCounter(envelope))
 		default:
