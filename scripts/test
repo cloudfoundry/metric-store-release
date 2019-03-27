@@ -140,11 +140,6 @@ function setup_env {
   echo "Done setting up environment"
 }
 
-function teardown {
-  print_checkpoint "Tidying up"
-  go mod tidy
-}
-
 function main {
     setup_env
     parse_argc $1
@@ -153,8 +148,6 @@ function main {
     result=$?
     exit_on_failure $result
     green "SWEET SUITE SUCCESS"
-
-    teardown
 }
 
 main $@
