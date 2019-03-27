@@ -483,10 +483,16 @@ var _ = Describe("MetricStore", func() {
 			body, err := ioutil.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(body).To(MatchJSON(`{
+			Expect(body).To(Or(
+				MatchJSON(`{
 					"status":"success",
 					"data":["1", "10"]
-				}`))
+				}`),
+				MatchJSON(`{
+					"status":"success",
+					"data":["10", "1"]
+				}`),
+			))
 
 			resp, err = http.Get(fmt.Sprintf("http://%s/api/v1/label/user_agent/values", tc.gatewayAddr))
 			Expect(err).ToNot(HaveOccurred())
