@@ -3,7 +3,6 @@ package acceptance
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net/http"
 
 	ms "github.com/cloudfoundry/metric-store-release/src/pkg/client"
