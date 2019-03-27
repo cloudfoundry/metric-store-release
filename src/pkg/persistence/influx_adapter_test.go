@@ -87,7 +87,7 @@ var _ = Describe("Influx Adapter", func() {
 
 	Describe("GetPoints()", func() {
 		// Happy path covered layer up in store
-		It("returns nil for a nil iterator", func() {
+		It("returns an empty set for a nil iterator", func() {
 			tc := setup()
 
 			tc.influxStore.shardGroup = &mockShardGroup{
@@ -95,8 +95,8 @@ var _ = Describe("Influx Adapter", func() {
 			}
 
 			points, err := tc.adapter.GetPoints("measurement-name", 0, 2, nil)
-			Expect(err).To(HaveOccurred())
-			Expect(points).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(points.Len()).To(BeZero())
 		})
 
 		It("returns an error when CreateIterator errors", func() {

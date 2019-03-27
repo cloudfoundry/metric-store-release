@@ -257,7 +257,7 @@ var _ = Describe("Persistent Store", func() {
 			))
 		})
 
-		FIt("returns an empty set when an invalid query is provided", func() {
+		It("returns an empty set when an invalid query is provided", func() {
 			tc := setup()
 			defer teardown(tc)
 
