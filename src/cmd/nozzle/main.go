@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -70,22 +68,6 @@ func main() {
 	)
 
 	go nozzle.Start()
-
-	// Register (non-production) debug endpoints for tag info
-	http.HandleFunc("/debug/tag-info.json", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(nozzle.GetTagInfo())
-
-		if err != nil {
-			fmt.Printf("error serializing tag info: %q\n", err)
-		}
-	})
-
-	http.HandleFunc("/debug/tag-info.csv", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/csv")
-		w.Write([]byte(nozzle.GetTagInfoCsv()))
-	})
 
 	// Register prometheus-compatible metric endpoint
 	http.Handle("/metrics", metrics)
