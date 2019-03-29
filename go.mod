@@ -31,7 +31,7 @@ require (
 	github.com/onsi/gomega v1.5.0
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.1-0.20181025174421-f30f42803563
-	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
+	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
 	github.com/prometheus/prometheus v2.4.1-0.20181002125257-6932030aa1fd+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
