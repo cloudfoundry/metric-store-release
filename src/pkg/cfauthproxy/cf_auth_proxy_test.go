@@ -99,8 +99,10 @@ var _ = Describe("CFAuthProxy", func() {
 		)
 		proxy.Start()
 
-		_, err := makeTLSReq("http", proxy.Addr())
-		Expect(err).To(HaveOccurred())
+		resp, err := makeTLSReq("http", proxy.Addr())
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 	})
 })
 
