@@ -18,11 +18,10 @@ require (
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/influxdata/flux v0.21.3 // indirect
-	github.com/influxdata/influxdb v0.0.0-20180918231902-453f3e96ce9e
+	github.com/influxdata/influxdb v1.7.5
 	github.com/influxdata/influxql v0.0.0-20180925231337-1cbfca8e56b6
 	github.com/influxdata/platform v0.0.0-20190117200541-d500d3cf5589 // indirect
 	github.com/influxdata/roaring v0.4.12-0.20180809181101-fc520f41fab6 // indirect
-	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/mattn/go-isatty v0.0.6 // indirect
 	github.com/nats-io/gnatsd v1.4.1 // indirect
 	github.com/nats-io/go-nats v1.7.2 // indirect
