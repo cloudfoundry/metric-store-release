@@ -166,7 +166,7 @@ github.com/prometheus/procfs
 github.com/prometheus/procfs/nfs
 github.com/prometheus/procfs/xfs
 github.com/prometheus/procfs/internal/util
-# github.com/prometheus/prometheus v2.4.1-0.20181002125257-6932030aa1fd+incompatible
+# github.com/prometheus/prometheus v2.5.0+incompatible
 github.com/prometheus/prometheus/pkg/labels
 github.com/prometheus/prometheus/promql
 github.com/prometheus/prometheus/storage
