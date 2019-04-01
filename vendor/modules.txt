@@ -11,8 +11,6 @@ code.cloudfoundry.org/rfc5424
 github.com/beorn7/perks/quantile
 # github.com/cespare/xxhash v1.1.0
 github.com/cespare/xxhash
-# github.com/deckarep/golang-set v1.7.1
-github.com/deckarep/golang-set
 # github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8
 github.com/dgryski/go-bitstream
 # github.com/francoispqt/gojay v0.0.0-20190228132548-90d953358b68
@@ -157,7 +155,7 @@ github.com/pkg/errors
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
-# github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
+# github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
 github.com/prometheus/common/model
