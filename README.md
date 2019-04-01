@@ -60,19 +60,19 @@ Metric Store provides Prometheus Query Language (PromQL) compatible endpoints.
 Queries against Metric Store can be crafted using [Prometheus API
 Documentation][promql].
 
-##### Example: **GET** `/api/v1/query`
+##### Example
 Issues a PromQL query against Metric Store data.
 ```
 curl -G "http://metric-store.<system-domain>/api/v1/query" --data-urlencode 'query=metrics{source_id="source-id-1"}'
 ```
 See [PromQL documentation][promql] for more.
 
-#### Notes on PromQL
+##### Notes on PromQL
 A valid PromQL metric name consists of the characters [a-Z][0-9], underscore, and colon. Names can begin with [a-Z], underscore, or colon. Names cannot begin with a number [0-9].
 As a measure to work with existing metrics that do not comply with the above format a conversion process takes place when matching on metric names.
 As noted above, any character that is not in the set of valid characters is converted to an underscore before it is written to disk. For example, to match on a metric name `http.latency` use the name `http_latency` in your query.
 
-##### gRPC Client For Bosh Deployed Components
+#### gRPC Client For Bosh Deployed Components
 Interacting with Metric Store directly, circumventing the GoRouter and CF Auth
 Proxy, can be done using our [Go client library][client] or by generating your
 own with the `.proto` files. This will require a bosh deployed component to
