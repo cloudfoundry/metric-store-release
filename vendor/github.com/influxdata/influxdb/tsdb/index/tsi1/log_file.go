@@ -343,7 +343,9 @@ func (f *LogFile) TagKeySeriesIDIterator(name, key []byte) tsdb.SeriesIDIterator
 		if tv.cardinality() == 0 {
 			continue
 		}
-		itrs = append(itrs, tsdb.NewSeriesIDSetIterator(tv.seriesIDSet()))
+		if itr := tsdb.NewSeriesIDSetIterator(tv.seriesIDSet()); itr != nil {
+			itrs = append(itrs, itr)
+		}
 	}
 
 	return tsdb.MergeSeriesIDIterators(itrs...)
@@ -1049,7 +1051,7 @@ func (f *LogFile) seriesSketches() (sketch, tSketch estimator.Sketch, err error)
 	tSketch = hll.NewDefaultPlus()
 	f.tombstoneSeriesIDSet.ForEach(func(id uint64) {
 		name, keys := f.sfile.Series(id)
-		sketch.Add(models.MakeKey(name, keys))
+		tSketch.Add(models.MakeKey(name, keys))
 	})
 	return sketch, tSketch, nil
 }
