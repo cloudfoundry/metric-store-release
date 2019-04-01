@@ -12,7 +12,7 @@ require (
 	github.com/go-kit/kit v0.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
-	github.com/golang/protobuf v1.3.0
+	github.com/golang/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.0
 	github.com/grpc-ecosystem/grpc-gateway v1.3.1-0.20171208052158-8db8c1ac6f97
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
@@ -22,7 +22,6 @@ require (
 	github.com/influxdata/influxql v0.0.0-20180925231337-1cbfca8e56b6
 	github.com/influxdata/platform v0.0.0-20190117200541-d500d3cf5589 // indirect
 	github.com/influxdata/roaring v0.4.12-0.20180809181101-fc520f41fab6 // indirect
-	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/mattn/go-isatty v0.0.6 // indirect
 	github.com/nats-io/gnatsd v1.4.1 // indirect
 	github.com/nats-io/go-nats v1.7.2 // indirect
