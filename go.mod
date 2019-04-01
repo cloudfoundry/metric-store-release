@@ -33,7 +33,7 @@ require (
 	github.com/prometheus/client_golang v0.9.1-0.20181025174421-f30f42803563
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
-	github.com/prometheus/prometheus v2.4.1-0.20181002125257-6932030aa1fd+incompatible
+	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190222223459-a17d461953aa // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
