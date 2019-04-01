@@ -9,9 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.17.11 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
 	github.com/francoispqt/gojay v1.2.10
-	github.com/go-kit/kit v0.8.0 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/protobuf v1.3.0
 	github.com/gorilla/mux v1.7.0
 	github.com/grpc-ecosystem/grpc-gateway v1.3.1-0.20171208052158-8db8c1ac6f97
@@ -30,9 +28,9 @@ require (
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/pkg/errors v0.8.1 // indirect
-	github.com/prometheus/client_golang v0.9.1-0.20181025174421-f30f42803563
+	github.com/prometheus/client_golang v0.9.1
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
-	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
+	github.com/prometheus/common v0.2.0
 	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190222223459-a17d461953aa // indirect
