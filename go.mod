@@ -22,7 +22,6 @@ require (
 	github.com/influxdata/influxql v0.0.0-20180925231337-1cbfca8e56b6
 	github.com/influxdata/platform v0.0.0-20190117200541-d500d3cf5589 // indirect
 	github.com/influxdata/roaring v0.4.12-0.20180809181101-fc520f41fab6 // indirect
-	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/mattn/go-isatty v0.0.6 // indirect
 	github.com/nats-io/gnatsd v1.4.1 // indirect
 	github.com/nats-io/go-nats v1.7.2 // indirect
@@ -32,7 +31,7 @@ require (
 	github.com/onsi/gomega v1.5.0
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.1-0.20181025174421-f30f42803563
-	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
+	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
 	github.com/prometheus/prometheus v2.4.1-0.20181002125257-6932030aa1fd+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
