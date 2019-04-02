@@ -255,7 +255,7 @@ func (n *Nozzle) timerProcessor() {
 		envelope := *(*loggregator_v2.Envelope)(data)
 
 		timer := envelope.GetTimer()
-		value := float64(timer.GetStop()-timer.GetStart()) / float64(time.Second)
+		value := float64(timer.GetStop()-timer.GetStart()) / float64(time.Millisecond)
 
 		tags := []string{envelope.SourceId}
 
@@ -278,7 +278,7 @@ func (n *Nozzle) timerProcessor() {
 			continue
 		}
 
-		tv.value += value
+		tv.value = (float64(tv.count)*tv.value + value) / float64(tv.count+1)
 		tv.count += 1
 		n.timerMutex.Unlock()
 	}
@@ -311,7 +311,7 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 			}
 
 			meanPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_seconds_sum",
+				Name:      n.rollupMetricName + "_mean_ms",
 				Timestamp: timestamp.UnixNano(),
 				Value:     tv.value,
 				Labels: map[string]string{
@@ -320,7 +320,7 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 				},
 			}
 			countPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_seconds_count",
+				Name:      n.rollupMetricName + "_count",
 				Timestamp: timestamp.UnixNano(),
 				Value:     float64(tv.count),
 				Labels: map[string]string{
@@ -339,15 +339,11 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 			points = append(points, meanPoint, countPoint)
 		}
 
-		// this is commented out because we are attempting to keep a
-		// monotonically increasing value for both sum and count. if we ever
-		// want to revert that decision, just uncomment the following line.
-		// n.timerMetrics = make(map[string]*timerValue)
-
+		n.timerMetrics = make(map[string]*timerValue)
 		n.timerMutex.Unlock()
+		// TODO - do we still want these logs?
+		n.log.Printf("Timer map cleared in %s", time.Since(start))
 
-		// TODO: do we still want these logs?
-		n.log.Printf("Timer map processed in in %s", time.Since(start))
 		n.log.Printf("Preparing to write %d points", len(points))
 
 		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)

@@ -130,7 +130,7 @@ var _ = Describe("Nozzle", func() {
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
 							Start: 0,
-							Stop:  5000000000,
+							Stop:  5 * int64(time.Second),
 						},
 					},
 					Tags: map[string]string{
@@ -144,8 +144,8 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 5000000000,
-							Stop:  9000000000,
+							Start: 5 * int64(time.Second),
+							Stop:  9 * int64(time.Second),
 						},
 					},
 					Tags: map[string]string{
@@ -159,8 +159,8 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 3000000000,
-							Stop:  6000000000,
+							Start: 3 * int64(time.Second),
+							Stop:  6 * int64(time.Second),
 						},
 					},
 					Tags: map[string]string{"peer_type": "client"},
@@ -171,8 +171,8 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 8000000000,
-							Stop:  9000000000,
+							Start: 8 * int64(time.Second),
+							Stop:  9 * int64(time.Second),
 						},
 					},
 					Tags: map[string]string{"peer_type": "Server"},
@@ -182,8 +182,8 @@ var _ = Describe("Nozzle", func() {
 			Eventually(metricStore.GetPoints).Should(HaveLen(4))
 			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_seconds_sum",
-					Value: 9,
+					Name:  "rolled_timer_mean_ms",
+					Value: 4.5 * float64(time.Second/time.Millisecond),
 					Labels: map[string]string{
 						"node_index": "0",
 						"source_id":  "source-id",
@@ -192,7 +192,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_seconds_count",
+					Name:  "rolled_timer_count",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -202,15 +202,15 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_seconds_sum",
-					Value: 3,
+					Name:  "rolled_timer_mean_ms",
+					Value: 3 * float64(time.Second/time.Millisecond),
 					Labels: map[string]string{
 						"node_index": "0",
 						"source_id":  "source-id-2",
 					},
 				},
 				{
-					Name:  "rolled_timer_seconds_count",
+					Name:  "rolled_timer_count",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -247,7 +247,7 @@ var _ = Describe("Nozzle", func() {
 						Timer: &loggregator_v2.Timer{
 							Name:  "unrolled_timer",
 							Start: 0,
-							Stop:  5000000000,
+							Stop:  5,
 						},
 					},
 				},
