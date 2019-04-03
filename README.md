@@ -11,7 +11,7 @@ Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have
 
 Every BOSH deployment requires a [cloud config](https://bosh.io/docs/cloud-config.html). The Metric Store deployment manifest assumes the CF-Deployment cloud config has been uploaded.
 
-### Creating and Uploading Release
+### Creating and Uploading a Release
 
 The first step in deploying Metric Store is to create a release or download it from [bosh.io][bosh-io-release]. Final releases are preferable, however during the development process dev releases are useful.
 
@@ -25,7 +25,7 @@ bosh -e testing upload-release --rebase
 
 Metric Store deployed within Cloud Foundry reads from the Loggregator system and registers with the [GoRouter](https://github.com/cloudfoundry/gorouter) at `metric-store.<system-domain>`.
 
-You can deploy Metric Store easily within [Cloud Foundry][cfd] by using this
+You can deploy Metric Store by using this
 [operations file][ops-file].
 
 ```
@@ -69,7 +69,7 @@ if the provided token has the appropriate app access.
 
 #### PromQL via HTTP
 Metric Store provides Prometheus Query Language (PromQL) compatible endpoints.
-Queries against Metric Store can be crafted using [Prometheus API
+Queries against Metric Store can be crafted with the help of the [Prometheus API
 Documentation][promql].
 
 ##### Example: **GET** `/api/v1/query`
@@ -104,6 +104,10 @@ own with the `.proto` files. This will require a bosh deployed component to
 receive `metric-store` bosh links for certificate sharing. The resulting
 client interaction has admin access.
 
+## Contributing
+
+We'd love to hear feedback about your experiences with Metric Store. Please feel free to open up an [issue][issues], send us a [pull request][prs], or come chat with us on [Cloud Foundry Slack][slack-channel].
+
 [slack-badge]:     https://slack.cloudfoundry.org/badge.svg
 [slack-channel]:   https://cloudfoundry.slack.com/archives/metric-store
 [bosh]:            https://github.com/cloudfoundry/bosh
@@ -114,3 +118,5 @@ client interaction has admin access.
 [bosh-io-release]: https://bosh.io/releases/github.com/cloudfoundry/metric-store-release?latest
 [promql]:          https://prometheus.io/docs/prometheus/latest/querying/api/
 [client]:          https://github.com/cloudfoundry/metric-store-release/tree/develop/src/pkg/client
+[issues]:          https://github.com/cloudfoundry/metric-store-release/issues
+[prs]:             https://github.com/cloudfoundry/metric-store-release/pulls
