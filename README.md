@@ -1,24 +1,40 @@
-# Metric Store
+# Metric Store: A Cloud-Native Time Series Database
 [![slack.cloudfoundry.org][slack-badge]][slack-channel]
 
-Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a
-persistent storage layer for metrics sent through the Loggregator subsystem.
+Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a persistent storage layer for metrics sent through the Loggregator subsystem. It is multi-tenant aware (the auth proxy ensures that you only have access to metrics from your apps), easy to query (it is 100% compatible with the Prometheus API), and has a powerful storage engine (the InfluxDB storage engine has built-in compression and a memory-efficient series index).
 
-## Deploying Metric Store
+## Deploying
 
-Metric Store can be deployed within [Cloud Foundry][cfd] by using this
-[operation file][ops-file].
+Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have to know about Loggregator.
+
+### Cloud Config
+
+Every BOSH deployment requires a [cloud config](https://bosh.io/docs/cloud-config.html). The Metric Store deployment manifest assumes the CF-Deployment cloud config has been uploaded.
+
+### Creating and Uploading Release
+
+The first step in deploying Metric Store is to create a release or download it from [bosh.io][bosh-io-release]. Final releases are preferable, however during the development process dev releases are useful.
+
+The following commands will create a dev release and upload it to an environment named `testing`.
+```
+bosh create-release --force
+bosh -e testing upload-release --rebase
+```
+
+### Cloud Foundry
+
+Metric Store deployed within Cloud Foundry reads from the Loggregator system and registers with the [GoRouter](https://github.com/cloudfoundry/gorouter) at `metric-store.<system-domain>`.
+
+You can deploy Metric Store easily within [Cloud Foundry][cfd] by using this
+[operations file][ops-file].
 
 ```
-bosh -e my-bosh -d CF \
-    deploy [cf-deployment.yml][cfd-manifest] \
-    -o [add-metric-store-to-cfd.yml][ops-file]
+bosh -e testing -d cf \
+    deploy cf-deployment.yml \
+    -o add-metric-store-to-cfd.yml
 ```
 
-Metric Store registers with the [GoRouter][go-router] at
-`metric-store.<system-domain>`.
-
-#### Metric Store Client
+### Metric Store UAA Client
 By Default, Metric Store uses the `doppler` client included with `cf-deployment`.
 
 If you would like to use a custom client, it requires the `uaa.resource` authority:
@@ -30,59 +46,63 @@ If you would like to use a custom client, it requires the `uaa.resource` authori
     secret: <custom_client_secret>
 ```
 
-#### Creating and Uploading Release
-
-The first step in deploying Metric Store is to create a release or download from [bosh.io][bosh-io-release].
-
-The following commands will create a dev release and upload it to an
-environment named `my-bosh`.
-
-```
-bosh create-release --force
-bosh -e my-bosh upload-release --rebase
-```
-
 ## Using Metric Store
+
 ### Storing Metrics
-Metric Store ingresses all metrics (eliminating logs) from the Reverse Log
+Metric Store ingresses all metrics (discarding logs) from the Reverse Log
 Proxy on Loggregator. Any metric sent to a Loggregator Agent will travel
 downstream into Metric Store.
 
 ### Accessing Metrics in Metric Store
+
 #### Authorization and Authentication
 Metric Store as deployed in a Cloud Foundry deployment depends on the
 `CF Auth Proxy` job to convert your UAA provided auth token into an authorized
-list of source IDs for Metric Store. In order to see all metrics, the token
-used must have the `logs.admin` scope.
+list of source IDs for Metric Store. In Cloud Foundry terms, the source ID can either represent an application
+guid (e.g. `cf app <app-name> --guid`), or a component name (e.g. `doppler`).
 
-#### PromQL via HTTP Client
+Each request must have the `Authorization` header set with a UAA provided token.
+If the token contains the `doppler.firehose` scope, the request will be able
+to read data from any source ID.
+If the source ID is an app guid, the Cloud Controller is consulted to verify
+if the provided token has the appropriate app access.
+
+#### PromQL via HTTP
 Metric Store provides Prometheus Query Language (PromQL) compatible endpoints.
 Queries against Metric Store can be crafted using [Prometheus API
 Documentation][promql].
 
-##### Example
-Issues a PromQL query against Metric Store data.
+##### Example: **GET** `/api/v1/query`
+
+This issues a PromQL query against Metric Store data.
+
 ```
-curl -G "http://metric-store.<system-domain>/api/v1/query" --data-urlencode 'query=metrics{source_id="source-id-1"}'
+curl -G "http://<metric-store-addr>:8080/api/v1/query" --data-urlencode 'query=metrics{source_id="source-id-1"}'
 ```
-See [PromQL documentation][promql] for more.
+
+##### Response Body
+```
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [{ "metric": {...}, "point": [...] }]
+  }
+}
+```
+See the official [PromQL API documentation][promql] for more information.
 
 ##### Notes on PromQL
 A valid PromQL metric name consists of the characters [a-Z][0-9], underscore, and colon. Names can begin with [a-Z], underscore, or colon. Names cannot begin with a number [0-9].
 As a measure to work with existing metrics that do not comply with the above format a conversion process takes place when matching on metric names.
 As noted above, any character that is not in the set of valid characters is converted to an underscore before it is written to disk. For example, to match on a metric name `http.latency` use the name `http_latency` in your query.
 
-#### gRPC Client For Bosh Deployed Components
+#### Golang gRPC Client For BOSH-Deployed Components
 Interacting with Metric Store directly, circumventing the GoRouter and CF Auth
 Proxy, can be done using our [Go client library][client] or by generating your
 own with the `.proto` files. This will require a bosh deployed component to
 receive `metric-store` bosh links for certificate sharing. The resulting
 client interaction has admin access.
-
-### Reliability SLO
-Metric Store depends on Loggregator and is thus is tied to its reliability ceiling. Metric Store
-currently implements hinted handoff as a strategy for queueing writes to remote nodes that are offline
-due to restarts, and thus aims to successfully write 99.9% of all envelopes received from Loggregator.
 
 [slack-badge]:     https://slack.cloudfoundry.org/badge.svg
 [slack-channel]:   https://cloudfoundry.slack.com/archives/metric-store
@@ -93,3 +113,4 @@ due to restarts, and thus aims to successfully write 99.9% of all envelopes rece
 [go-router]:       https://github.com/cloudfoundry/gorouter
 [bosh-io-release]: https://bosh.io/releases/github.com/cloudfoundry/metric-store-release?latest
 [promql]:          https://prometheus.io/docs/prometheus/latest/querying/api/
+[client]:          https://github.com/cloudfoundry/metric-store-release/tree/develop/src/pkg/client
