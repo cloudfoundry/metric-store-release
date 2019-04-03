@@ -8,9 +8,6 @@ install: true
 
 script: scripts/test unit
 
-env:
-- GOFLAGS=-mod=vendor
-
 matrix:
   allow_failures:
   - go: master
