@@ -7,10 +7,11 @@ go:
 
 install: true
 
-script: scripts/test
+script: scripts/test unit
 
 env:
 - GO111MODULE=on
+- GOFLAGS=-mod=vendor
 
 matrix:
   allow_failures:
