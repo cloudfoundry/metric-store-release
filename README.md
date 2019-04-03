@@ -1,5 +1,5 @@
 # Metric Store: A Cloud-Native Time Series Database
-[![slack.cloudfoundry.org][slack-badge]][slack-channel]
+[![slack.cloudfoundry.org][slack-badge]][slack-channel] [![Build Status](https://travis-ci.org/cloudfoundry/metric-store-release.svg?branch=develop)](https://travis-ci.org/cloudfoundry/metric-store-release)
 
 Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a persistent storage layer for metrics sent through the Loggregator subsystem. It is multi-tenant aware (the auth proxy ensures that you only have access to metrics from your apps), easy to query (it is 100% compatible with the Prometheus API), and has a powerful storage engine (the InfluxDB storage engine has built-in compression and a memory-efficient series index).
 
