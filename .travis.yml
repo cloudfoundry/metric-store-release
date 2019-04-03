@@ -1,7 +1,6 @@
 language: go
 
 go:
-- 1.11.x
 - 1.12.x
 - master
 
@@ -10,7 +9,6 @@ install: true
 script: scripts/test unit
 
 env:
-- GO111MODULE=on
 - GOFLAGS=-mod=vendor
 
 matrix:
