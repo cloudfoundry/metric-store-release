@@ -14,3 +14,8 @@ env:
 matrix:
   allow_failures:
   - go: master
+
+branches:
+  except:
+  - release-elect
+  - master
