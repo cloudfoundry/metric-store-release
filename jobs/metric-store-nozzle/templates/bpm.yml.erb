@@ -1,14 +1,8 @@
 <%
-  job_dir = "/var/vcap/jobs/metric-store-nozzle"
-  cert_dir = "#{job_dir}/config/certs"
+  cert_dir = "/var/vcap/jobs/metric-store-nozzle/config/certs"
 
   ms = link("metric-store")
   rlp = link('reverse_log_proxy')
-
-  sorted_instances = ms.instances.sort_by {|i| i.address}
-  index = sorted_instances.index(
-      sorted_instances.find {|i| i.id == spec.id}
-  )
 %>
 ---
 processes:

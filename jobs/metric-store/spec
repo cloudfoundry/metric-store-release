@@ -17,10 +17,6 @@ provides:
   - port
   - tls
 
-consumes:
-- name: metric-store
-  type: metric-store
-
 properties:
   port:
     description: "The port for the metric-store to listen on"

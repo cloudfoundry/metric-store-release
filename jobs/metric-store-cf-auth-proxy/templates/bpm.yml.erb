@@ -1,6 +1,5 @@
 <%
-  job_dir = "/var/vcap/jobs/metric-store-cf-auth-proxy"
-  cert_dir = "#{job_dir}/config/certs"
+  cert_dir = "/var/vcap/jobs/metric-store-cf-auth-proxy/config/certs"
 
   gw = link('metric-store-gateway')
   cc = link('cloud_controller')

@@ -1,6 +1,5 @@
 <%
-  job_dir = "/var/vcap/jobs/metric-store"
-  cert_dir = "#{job_dir}/config/certs"
+  cert_dir = "/var/vcap/jobs/metric-store/config/certs"
 %>
 ---
 processes:
@@ -22,4 +21,4 @@ processes:
     KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
 
   limits:
-    open_files: 8192
+    open_files: 65536
