@@ -207,7 +207,7 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/buffer
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
-# golang.org/x/net v0.0.0-20190328230028-74de082e2cca
+# golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/internal/timeseries
