@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -111,8 +112,10 @@ func (c *UAAClient) Read(token string) (Oauth2ClientContext, error) {
 	}, nil
 }
 
+var bearerRE = regexp.MustCompile(`(?i)^bearer\s+`)
+
 func trimBearer(authToken string) string {
-	return strings.TrimSpace(strings.TrimPrefix(authToken, "bearer"))
+	return bearerRE.ReplaceAllString(authToken, "")
 }
 
 type uaaResponse struct {
