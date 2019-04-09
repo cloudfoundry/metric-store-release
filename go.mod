@@ -8,6 +8,7 @@ require (
 	collectd.org v0.3.0 // indirect
 	github.com/aws/aws-sdk-go v1.17.11 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
+	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 	github.com/francoispqt/gojay v1.2.10
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/golang/protobuf v1.3.1

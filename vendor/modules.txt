@@ -13,6 +13,15 @@ github.com/beorn7/perks/quantile
 github.com/cespare/xxhash
 # github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8
 github.com/dgryski/go-bitstream
+# github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
+github.com/dvsekhvalnov/jose2go
+github.com/dvsekhvalnov/jose2go/aes
+github.com/dvsekhvalnov/jose2go/arrays
+github.com/dvsekhvalnov/jose2go/base64url
+github.com/dvsekhvalnov/jose2go/compact
+github.com/dvsekhvalnov/jose2go/kdf
+github.com/dvsekhvalnov/jose2go/keys/ecc
+github.com/dvsekhvalnov/jose2go/padding
 # github.com/francoispqt/gojay v1.2.10
 github.com/francoispqt/gojay
 # github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd
