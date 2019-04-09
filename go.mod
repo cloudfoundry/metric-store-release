@@ -39,7 +39,7 @@ require (
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3
 	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
-	golang.org/x/sys v0.0.0-20190329044733-9eb1bfa1ce65
+	golang.org/x/sys v0.0.0-20190405154228-4b34438f7a67
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
 	golang.org/x/tools v0.0.0-20190308142131-b40df0fb21c3 // indirect
 	google.golang.org/genproto v0.0.0-20190401181712-f467c93bbac2
