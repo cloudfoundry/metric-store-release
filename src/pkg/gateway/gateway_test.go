@@ -1,13 +1,14 @@
 package gateway_test
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/gateway"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	internal_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -24,7 +25,7 @@ var _ = Describe("Gateway", func() {
 	)
 
 	BeforeEach(func() {
-		tlsConfig, err := tls.NewMutualTLSConfig(
+		tlsConfig, err := internal_tls.NewMutualTLSConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
@@ -38,6 +39,8 @@ var _ = Describe("Gateway", func() {
 		gw = NewGateway(
 			metricStoreAddr,
 			"127.0.0.1:0",
+			testing.Cert("localhost.crt"),
+			testing.Cert("localhost.key"),
 			WithGatewayMetricStoreDialOpts(
 				grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 			),
@@ -45,11 +48,10 @@ var _ = Describe("Gateway", func() {
 		gw.Start()
 	})
 
-	It("upgrades HTTP requests for instant queries via PromQLAPI GETs into gRPC requests", func() {
+	It("upgrades HTTPS requests for instant queries via PromQLAPI GETs into gRPC requests", func() {
 		path := `api/v1/query?query=metric{source_id="some-id"}&time=1234.000`
-		URL := fmt.Sprintf("http://%s/%s", gw.Addr(), path)
-		req, _ := http.NewRequest("GET", URL, nil)
-		resp, err := http.DefaultClient.Do(req)
+		URL := fmt.Sprintf("%s/%s", gw.Addr(), path)
+		resp, err := makeTLSReq("https", URL)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -59,11 +61,10 @@ var _ = Describe("Gateway", func() {
 		Expect(reqs[0].Time).To(Equal("1234.000"))
 	})
 
-	It("upgrades HTTP requests for range queries via PromQLAPI GETs into gRPC requests", func() {
+	It("upgrades HTTPS requests for range queries via PromQLAPI GETs into gRPC requests", func() {
 		path := `api/v1/query_range?query=metric{source_id="some-id"}&start=1234.000&end=5678.000&step=30s`
-		URL := fmt.Sprintf("http://%s/%s", gw.Addr(), path)
-		req, _ := http.NewRequest("GET", URL, nil)
-		resp, err := http.DefaultClient.Do(req)
+		URL := fmt.Sprintf("%s/%s", gw.Addr(), path)
+		resp, err := makeTLSReq("https", URL)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -75,11 +76,10 @@ var _ = Describe("Gateway", func() {
 		Expect(reqs[0].Step).To(Equal("30s"))
 	})
 
-	It("upgrades HTTP requests for series queries via PromQLAPI GETs into gRPC requests", func() {
+	It("upgrades HTTPS requests for series queries via PromQLAPI GETs into gRPC requests", func() {
 		path := `api/v1/series?match[]=metric{source_id="some-id"}&match[]=metric_2&start=1234.000&end=5678.000`
-		URL := fmt.Sprintf("http://%s/%s", gw.Addr(), path)
-		req, _ := http.NewRequest("GET", URL, nil)
-		resp, err := http.DefaultClient.Do(req)
+		URL := fmt.Sprintf("%s/%s", gw.Addr(), path)
+		resp, err := makeTLSReq("https", URL)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -92,11 +92,10 @@ var _ = Describe("Gateway", func() {
 
 	It("outputs json with zero-value points and correct Prometheus API fields", func() {
 		path := `api/v1/query?query=metric{source_id="some-id"}&time=1234`
-		URL := fmt.Sprintf("http://%s/%s", gw.Addr(), path)
-		req, _ := http.NewRequest("GET", URL, nil)
+		URL := fmt.Sprintf("%s/%s", gw.Addr(), path)
 		spyMetricStore.SetValue(0)
+		resp, err := makeTLSReq("https", URL)
 
-		resp, err := http.DefaultClient.Do(req)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
@@ -104,14 +103,19 @@ var _ = Describe("Gateway", func() {
 		Expect(body).To(MatchJSON(`{"status":"success","data":{"resultType":"scalar","result":[99,"0"]}}`))
 	})
 
+	It("does not accept unencrypted connections", func() {
+		resp, err := makeTLSReq("http", fmt.Sprintf("%s/api/v1/query", gw.Addr()))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+	})
+
 	Context("errors", func() {
 		It("passes through content-type correctly on errors", func() {
 			path := `api/v1/query?query=metric{source_id="some-id"}&time=1234`
 			spyMetricStore.QueryError = errors.New("expected error")
-			URL := fmt.Sprintf("http://%s/%s", gw.Addr(), path)
-			req, _ := http.NewRequest("GET", URL, nil)
+			URL := fmt.Sprintf("%s/%s", gw.Addr(), path)
+			resp, err := makeTLSReq("https", URL)
 
-			resp, err := http.DefaultClient.Do(req)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
 			Expect(resp.Header).To(HaveKeyWithValue("Content-Type", []string{"application/json"}))
@@ -119,10 +123,9 @@ var _ = Describe("Gateway", func() {
 
 		DescribeTable("adds necessary fields to match Prometheus API", func(path string) {
 			spyMetricStore.QueryError = errors.New("expected error")
-			URL := fmt.Sprintf("http://%s/%s", gw.Addr(), path)
-			req, _ := http.NewRequest("GET", URL, nil)
+			URL := fmt.Sprintf("%s/%s", gw.Addr(), path)
+			resp, err := makeTLSReq("https", URL)
 
-			resp, err := http.DefaultClient.Do(req)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusInternalServerError))
 
@@ -140,3 +143,15 @@ var _ = Describe("Gateway", func() {
 		)
 	})
 })
+
+func makeTLSReq(scheme, addr string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s://%s", scheme, addr), nil)
+	Expect(err).ToNot(HaveOccurred())
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	return client.Do(req)
+}

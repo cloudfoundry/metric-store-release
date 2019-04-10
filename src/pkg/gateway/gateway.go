@@ -24,16 +24,20 @@ type Gateway struct {
 	lis                 net.Listener
 	blockOnStart        bool
 	metricStoreDialOpts []grpc.DialOption
+	certPath            string
+	keyPath             string
 }
 
 // NewGateway creates a new Gateway. It will listen on the gatewayAddr and
 // submit requests via gRPC to the MetricStore on metricStoreAddr. Start() must be
 // invoked before using the Gateway.
-func NewGateway(metricStoreAddr, gatewayAddr string, opts ...GatewayOption) *Gateway {
+func NewGateway(metricStoreAddr, gatewayAddr, certPath, keyPath string, opts ...GatewayOption) *Gateway {
 	g := &Gateway{
 		log:             log.New(ioutil.Discard, "", 0),
 		metricStoreAddr: metricStoreAddr,
 		gatewayAddr:     gatewayAddr,
+		certPath:        certPath,
+		keyPath:         keyPath,
 	}
 
 	for _, o := range opts {
@@ -119,8 +123,8 @@ func (g *Gateway) listenAndServe() {
 	}
 
 	server := &http.Server{Handler: mux}
-	if err := server.Serve(g.lis); err != nil {
-		g.log.Fatalf("failed to serve HTTP endpoint: %s", err)
+	if err := server.ServeTLS(g.lis, g.certPath, g.keyPath); err != nil {
+		g.log.Fatalf("failed to serve HTTPS endpoint: %s", err)
 	}
 }
 

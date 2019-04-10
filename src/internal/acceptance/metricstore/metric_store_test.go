@@ -113,7 +113,7 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var makeInstantQuery = func(tc *testContext, query testInstantQuery) (*http.Response, error) {
-		queryUrl, err := url.Parse(fmt.Sprintf("http://%s/api/v1/query", tc.gatewayAddr))
+		queryUrl, err := url.Parse("api/v1/query")
 		Expect(err).ToNot(HaveOccurred())
 
 		queryString := queryUrl.Query()
@@ -121,7 +121,7 @@ var _ = Describe("MetricStore", func() {
 		queryString.Set("time", query.TimeInSeconds)
 		queryUrl.RawQuery = queryString.Encode()
 
-		return http.Get(queryUrl.String())
+		return testing.MakeTLSReq(tc.gatewayAddr, queryUrl.String())
 	}
 
 	type testRangeQuery struct {
@@ -132,7 +132,7 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var makeRangeQuery = func(tc *testContext, query testRangeQuery) (*http.Response, error) {
-		queryUrl, err := url.Parse(fmt.Sprintf("http://%s/api/v1/query_range", tc.gatewayAddr))
+		queryUrl, err := url.Parse("api/v1/query_range")
 		Expect(err).ToNot(HaveOccurred())
 
 		queryString := queryUrl.Query()
@@ -142,7 +142,7 @@ var _ = Describe("MetricStore", func() {
 		queryString.Set("step", query.StepDuration)
 		queryUrl.RawQuery = queryString.Encode()
 
-		return http.Get(queryUrl.String())
+		return testing.MakeTLSReq(tc.gatewayAddr, queryUrl.String())
 	}
 
 	type testSeriesQuery struct {
@@ -152,7 +152,7 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var makeSeriesQuery = func(tc *testContext, query testSeriesQuery) (*http.Response, error) {
-		queryUrl, err := url.Parse(fmt.Sprintf("http://%s/api/v1/series", tc.gatewayAddr))
+		queryUrl, err := url.Parse("api/v1/series")
 		Expect(err).ToNot(HaveOccurred())
 
 		queryString := queryUrl.Query()
@@ -163,7 +163,7 @@ var _ = Describe("MetricStore", func() {
 		queryString.Set("end", query.EndInSeconds)
 		queryUrl.RawQuery = queryString.Encode()
 
-		return http.Get(queryUrl.String())
+		return testing.MakeTLSReq(tc.gatewayAddr, queryUrl.String())
 	}
 
 	type testPoint struct {
@@ -205,7 +205,7 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			resp, _ := http.Get(fmt.Sprintf("http://%s/api/v1/label/__name__/values", tc.gatewayAddr))
+			resp, _ := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/__name__/values")
 			jsonBytes, _ := ioutil.ReadAll(resp.Body)
 
 			var result testLabelValuesResult
@@ -235,7 +235,7 @@ var _ = Describe("MetricStore", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 
-			resp, err := http.Get(fmt.Sprintf("http://%s/api/v1/label/__name__/values", tc.gatewayAddr))
+			resp, err := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/__name__/values")
 			if err != nil {
 				return nil
 			}
@@ -255,13 +255,13 @@ var _ = Describe("MetricStore", func() {
 		start(tc)
 
 		Eventually(func() error {
-			_, err := http.Get(fmt.Sprintf("http://%s/api/v1/label/__name__/values", tc.gatewayAddr))
+			_, err := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/__name__/values")
 
 			return err
 		}, 5).Should(Succeed())
 
 		Eventually(func() []string {
-			resp, err := http.Get(fmt.Sprintf("http://%s/api/v1/label/__name__/values", tc.gatewayAddr))
+			resp, err := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/__name__/values")
 			Expect(err).ToNot(HaveOccurred())
 
 			jsonBytes, _ := ioutil.ReadAll(resp.Body)
@@ -429,7 +429,7 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			resp, err := http.Get(fmt.Sprintf("http://%s/api/v1/labels", tc.gatewayAddr))
+			resp, err := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/labels")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			body, err := ioutil.ReadAll(resp.Body)
@@ -477,7 +477,7 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			resp, err := http.Get(fmt.Sprintf("http://%s/api/v1/label/source_id/values", tc.gatewayAddr))
+			resp, err := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/source_id/values")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			body, err := ioutil.ReadAll(resp.Body)
@@ -494,7 +494,7 @@ var _ = Describe("MetricStore", func() {
 				}`),
 			))
 
-			resp, err = http.Get(fmt.Sprintf("http://%s/api/v1/label/user_agent/values", tc.gatewayAddr))
+			resp, err = testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/user_agent/values")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			body, err = ioutil.ReadAll(resp.Body)
@@ -505,7 +505,7 @@ var _ = Describe("MetricStore", func() {
 				"data":[]
 			}`))
 
-			resp, err = http.Get(fmt.Sprintf("http://%s/api/v1/label/__name__/values", tc.gatewayAddr))
+			resp, err = testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/__name__/values")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			body, err = ioutil.ReadAll(resp.Body)

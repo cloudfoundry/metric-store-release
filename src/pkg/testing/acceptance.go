@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -8,7 +9,7 @@ import (
 	"sync"
 
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	internal_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -30,6 +31,18 @@ func NewIngressClient(addr string) (client rpc.IngressClient, cleanup func()) {
 	}
 }
 
+func MakeTLSReq(addr, path string) (*http.Response, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/%s", addr, path), nil)
+	Expect(err).ToNot(HaveOccurred())
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
+	return client.Do(req)
+}
+
 func WaitForHealthCheck(healthAddr string) {
 	Eventually(func() error {
 		resp, err := http.Get("http://" + healthAddr + "/debug/vars")
@@ -47,7 +60,7 @@ func WaitForHealthCheck(healthAddr string) {
 
 func WaitForServer(addr string) {
 	Eventually(func() error {
-		resp, err := http.Get("http://" + addr + "/api/v1/labels")
+		resp, err := MakeTLSReq(addr, "api/v1/labels")
 		if err != nil {
 			return err
 		}
@@ -89,7 +102,7 @@ func StartGoProcess(importPath string, env []string, args ...string) *gexec.Sess
 }
 
 func GrpcTLSCredentials() credentials.TransportCredentials {
-	credentials, err := tls.NewTLSCredentials(
+	credentials, err := internal_tls.NewTLSCredentials(
 		Cert("metric-store-ca.crt"),
 		Cert("metric-store.crt"),
 		Cert("metric-store.key"),

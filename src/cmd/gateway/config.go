@@ -10,6 +10,8 @@ type Config struct {
 	Addr            string `env:"ADDR, required, report"`
 	MetricStoreAddr string `env:"METRIC_STORE_ADDR, required, report"`
 	HealthAddr      string `env:"HEALTH_ADDR, report"`
+	CertPath        string `env:"CERT_PATH, report"`
+	KeyPath         string `env:"KEY_PATH, report"`
 	TLS             tls.TLS
 }
 
