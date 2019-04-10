@@ -31,15 +31,13 @@ var _ = Describe("Metric Store on a CF", func() {
 		})
 
 		It("returns results for /api/v1/query", func() {
-			// absolute_entitlement requires an app to be deployed on the CF
-			// if it is failing, check if there are any apps deployed
 			ctx := context.Background()
-			result, err := client.PromQL(ctx, "absolute_entitlement")
+			result, err := client.PromQL(ctx, "egress")
 			Expect(err).ToNot(HaveOccurred())
 
 			samples := result.GetVector().GetSamples()
 			Expect(len(samples)).ToNot(BeZero())
-			Expect(samples[0].Metric["__name__"]).To(Equal("absolute_entitlement"))
+			Expect(samples[0].Metric["__name__"]).To(Equal("egress"))
 			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
 			Expect(samples[0].Point).ToNot(BeNil())
 		})
@@ -68,22 +66,18 @@ var _ = Describe("Metric Store on a CF", func() {
 		})
 
 		It("returns results for /api/v1/query", func() {
-			// absolute_entitlement requires an app to be deployed on the CF
-			// if it is failing, check if there are any apps deployed
 			ctx := context.Background()
-			result, err := client.PromQL(ctx, "absolute_entitlement")
+			result, err := client.PromQL(ctx, "egress")
 			Expect(err).ToNot(HaveOccurred())
 
 			samples := result.GetVector().GetSamples()
 			Expect(len(samples)).ToNot(BeZero())
-			Expect(samples[0].Metric["__name__"]).To(Equal("absolute_entitlement"))
+			Expect(samples[0].Metric["__name__"]).To(Equal("egress"))
 			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
 			Expect(samples[0].Point).ToNot(BeNil())
 		})
 
 		XIt("returns results for /api/v1/label/job/values", func() {
-			// absolute_entitlement requires an app to be deployed on the CF
-			// if it is failing, check if there are any apps deployed
 		})
 
 		XIt("returns series results", func() {
