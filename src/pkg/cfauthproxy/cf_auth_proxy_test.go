@@ -3,8 +3,11 @@ package cfauthproxy_test
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
@@ -15,12 +18,64 @@ import (
 )
 
 var _ = Describe("CFAuthProxy", func() {
-	It("proxies requests to metric-store gateways", func() {
-		var called bool
+	It("only proxies requests to a secure log cache gateway", func() {
+		gateway := startSecureGateway("Hello World!")
+		defer gateway.Close()
+
+		proxy := NewCFAuthProxy(
+			gateway.URL,
+			"127.0.0.1:0",
+			testing.Cert("localhost.crt"),
+			testing.Cert("localhost.key"),
+		)
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		proxy.Start()
+
+		resp, err := makeTLSReq("https", proxy.Addr())
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		body, _ := ioutil.ReadAll(resp.Body)
+		Expect(body).To(Equal([]byte("Hello World!")))
+	})
+
+	It("upgrades insecure gateway scheme to HTTPS", func() {
+		gateway := startSecureGateway("Hello World!")
+		defer gateway.Close()
+
+		insecureGatewayURL, err := url.Parse(gateway.URL)
+		insecureGatewayURL.Scheme = "http"
+
+		proxy := NewCFAuthProxy(
+			insecureGatewayURL.String(),
+			"127.0.0.1:0",
+			testing.Cert("localhost.crt"),
+			testing.Cert("localhost.key"),
+		)
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		proxy.Start()
+
+		resp, err := makeTLSReq("https", proxy.Addr())
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		body, _ := ioutil.ReadAll(resp.Body)
+		Expect(body).To(Equal([]byte("Hello World!")))
+	})
+
+	It("returns an error when proxying requests to an insecure log cache gateway", func() {
+		// suppress tls error in test
+		log.SetOutput(ioutil.Discard)
+
 		testServer := httptest.NewServer(
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				called = true
+				w.Write([]byte("Insecure Gateway not allowed, lol"))
 			}))
+		defer testServer.Close()
 
 		proxy := NewCFAuthProxy(
 			testServer.URL,
@@ -28,13 +83,15 @@ var _ = Describe("CFAuthProxy", func() {
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
 		)
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
 		proxy.Start()
 
 		resp, err := makeTLSReq("https", proxy.Addr())
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		Expect(called).To(BeTrue())
+		Expect(resp.StatusCode).To(Equal(http.StatusBadGateway))
 	})
 
 	It("delegates to the auth middleware", func() {
@@ -105,6 +162,15 @@ var _ = Describe("CFAuthProxy", func() {
 		Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 	})
 })
+
+func startSecureGateway(responseBody string) *httptest.Server {
+	testGateway := httptest.NewTLSServer(
+		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Write([]byte(responseBody))
+		}),
+	)
+	return testGateway
+}
 
 func makeTLSReq(scheme, addr string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s://%s", scheme, addr), nil)

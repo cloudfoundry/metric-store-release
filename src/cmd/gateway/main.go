@@ -26,7 +26,7 @@ func main() {
 
 	envstruct.WriteReport(cfg)
 
-	gateway := NewGateway(cfg.MetricStoreAddr, cfg.Addr, cfg.CertPath, cfg.KeyPath,
+	gateway := NewGateway(cfg.MetricStoreAddr, cfg.Addr, cfg.ProxyCertPath, cfg.ProxyKeyPath,
 		WithGatewayLogger(log.New(os.Stderr, "[GATEWAY] ", log.LstdFlags)),
 		WithGatewayMetricStoreDialOpts(
 			grpc.WithTransportCredentials(cfg.TLS.Credentials("metric-store")),

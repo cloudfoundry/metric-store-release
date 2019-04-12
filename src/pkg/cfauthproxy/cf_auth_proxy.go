@@ -29,6 +29,10 @@ func NewCFAuthProxy(gatewayAddr, addr, certPath, keyPath string, opts ...CFAuthP
 		log.Fatalf("failed to parse gateway address: %s", err)
 	}
 
+	// Force communication with the gateway to happen via HTTPS, regardless of
+	// the scheme provided in the config
+	gatewayURL.Scheme = "https"
+
 	p := &CFAuthProxy{
 		gatewayURL: gatewayURL,
 		addr:       addr,

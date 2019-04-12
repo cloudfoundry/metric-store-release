@@ -12,9 +12,11 @@ processes:
     ADDR:              "<%= p('gateway_addr') %>"
 
     # Mutual TLS
-    CA_PATH:   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
-    CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
-    KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
+    CA_PATH:         "<%= "#{cert_dir}/metric_store_ca.crt" %>"
+    CERT_PATH:       "<%= "#{cert_dir}/metric_store.crt" %>"
+    KEY_PATH:        "<%= "#{cert_dir}/metric_store.key" %>"
+    PROXY_CERT_PATH: "<%= "#{certDir}/proxy.crt" %>"
+    PROXY_KEY_PATH:  "<%= "#{certDir}/proxy.key" %>"
 
   limits:
     open_files: 8192
