@@ -224,7 +224,7 @@ func (c *UAAClient) Read(token string) (Oauth2ClientContext, error) {
 
 	return Oauth2ClientContext{
 		IsAdmin:   isAdmin,
-		Token:     trimBearer(token),
+		Token:     token,
 		ExpiresAt: decodedToken.ExpTime,
 	}, err
 }
