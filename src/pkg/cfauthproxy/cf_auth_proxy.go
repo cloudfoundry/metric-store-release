@@ -1,11 +1,14 @@
 package cfauthproxy
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 )
@@ -14,16 +17,17 @@ type CFAuthProxy struct {
 	blockOnStart bool
 	ln           net.Listener
 
-	gatewayURL *url.URL
-	addr       string
-	certPath   string
-	keyPath    string
+	gatewayURL      *url.URL
+	addr            string
+	certPath        string
+	keyPath         string
+	proxyCACertPool *x509.CertPool
 
 	authMiddleware   func(http.Handler) http.Handler
 	accessMiddleware func(http.Handler) *auth.AccessHandler
 }
 
-func NewCFAuthProxy(gatewayAddr, addr, certPath, keyPath string, opts ...CFAuthProxyOption) *CFAuthProxy {
+func NewCFAuthProxy(gatewayAddr, addr, certPath, keyPath string, proxyCACertPool *x509.CertPool, opts ...CFAuthProxyOption) *CFAuthProxy {
 	gatewayURL, err := url.Parse(gatewayAddr)
 	if err != nil {
 		log.Fatalf("failed to parse gateway address: %s", err)
@@ -34,10 +38,11 @@ func NewCFAuthProxy(gatewayAddr, addr, certPath, keyPath string, opts ...CFAuthP
 	gatewayURL.Scheme = "https"
 
 	p := &CFAuthProxy{
-		gatewayURL: gatewayURL,
-		addr:       addr,
-		certPath:   certPath,
-		keyPath:    keyPath,
+		gatewayURL:      gatewayURL,
+		addr:            addr,
+		certPath:        certPath,
+		keyPath:         keyPath,
+		proxyCACertPool: proxyCACertPool,
 		authMiddleware: func(h http.Handler) http.Handler {
 			return h
 		},
@@ -107,5 +112,25 @@ func (p *CFAuthProxy) Addr() string {
 }
 
 func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
-	return httputil.NewSingleHostReverseProxy(p.gatewayURL)
+	proxy := httputil.NewSingleHostReverseProxy(p.gatewayURL)
+
+	// Aside from the Root CA for the gateway, these values are defaults
+	// from Golang's http.DefaultTransport
+	proxy.Transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{
+			RootCAs: p.proxyCACertPool,
+		},
+	}
+
+	return proxy
 }

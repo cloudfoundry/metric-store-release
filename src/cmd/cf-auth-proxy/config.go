@@ -25,6 +25,7 @@ type Config struct {
 	CertPath               string `env:"EXTERNAL_CERT, required, report"`
 	KeyPath                string `env:"EXTERNAL_KEY, required, report"`
 	SkipCertVerify         bool   `env:"SKIP_CERT_VERIFY, report"`
+	ProxyCAPath            string `env:"PROXY_CA_PATH, required, report"`
 	SecurityEventLog       string `env:"SECURITY_EVENT_LOG, report"`
 
 	CAPI CAPI

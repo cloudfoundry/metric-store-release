@@ -2,6 +2,7 @@ package cfauthproxy_test
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,6 +19,17 @@ import (
 )
 
 var _ = Describe("CFAuthProxy", func() {
+	var proxyCACertPool *x509.CertPool
+
+	BeforeEach(func() {
+		proxyCACert, err := ioutil.ReadFile(testing.Cert("localhost.crt"))
+		Expect(err).To(BeNil())
+
+		proxyCACertPool = x509.NewCertPool()
+		ok := proxyCACertPool.AppendCertsFromPEM(proxyCACert)
+		Expect(ok).To(BeTrue())
+	})
+
 	It("only proxies requests to a secure log cache gateway", func() {
 		gateway := startSecureGateway("Hello World!")
 		defer gateway.Close()
@@ -27,10 +39,8 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
+			proxyCACertPool,
 		)
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
 		proxy.Start()
 
 		resp, err := makeTLSReq("https", proxy.Addr())
@@ -53,10 +63,8 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
+			proxyCACertPool,
 		)
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
 		proxy.Start()
 
 		resp, err := makeTLSReq("https", proxy.Addr())
@@ -82,10 +90,8 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
+			proxyCACertPool,
 		)
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
 		proxy.Start()
 
 		resp, err := makeTLSReq("https", proxy.Addr())
@@ -106,6 +112,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
+			proxyCACertPool,
 			WithAuthMiddleware(func(http.Handler) http.Handler {
 				return middleware
 			}),
@@ -131,6 +138,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
+			proxyCACertPool,
 			WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
 				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234")
 			}),
@@ -153,6 +161,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"localhost:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
+			proxyCACertPool,
 		)
 		proxy.Start()
 

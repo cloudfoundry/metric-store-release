@@ -62,11 +62,14 @@ func main() {
 		metrics,
 	)
 
+	proxyCACertPool := loadCA(cfg.ProxyCAPath)
+
 	proxy := NewCFAuthProxy(
 		cfg.MetricStoreGatewayAddr,
 		cfg.Addr,
 		cfg.CertPath,
 		cfg.KeyPath,
+		proxyCACertPool,
 		WithAuthMiddleware(middlewareProvider.Middleware),
 	)
 
