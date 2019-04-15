@@ -32,13 +32,13 @@ var _ = Describe("Metric Store on a CF", func() {
 
 		It("returns results for /api/v1/query", func() {
 			ctx := context.Background()
-			result, err := client.PromQL(ctx, "doppler_egress")
+			result, err := client.PromQL(ctx, "egress{source_id=\"doppler\"}")
 			Expect(err).ToNot(HaveOccurred())
 
 			samples := result.GetVector().GetSamples()
 			Expect(len(samples)).ToNot(BeZero())
-			Expect(samples[0].Metric["__name__"]).To(Equal("doppler_egress"))
-			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
+			Expect(samples[0].Metric["__name__"]).To(Equal("egress"))
+			Expect(samples[0].Metric["source_id"]).To(Equal("doppler"))
 			Expect(samples[0].Point).ToNot(BeNil())
 		})
 	})
@@ -55,13 +55,13 @@ var _ = Describe("Metric Store on a CF", func() {
 
 		It("returns results for /api/v1/query", func() {
 			ctx := context.Background()
-			result, err := client.PromQL(ctx, "doppler_egress")
+			result, err := client.PromQL(ctx, "egress{source_id=\"doppler\"}")
 			Expect(err).ToNot(HaveOccurred())
 
 			samples := result.GetVector().GetSamples()
 			Expect(len(samples)).ToNot(BeZero())
-			Expect(samples[0].Metric["__name__"]).To(Equal("doppler_egress"))
-			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
+			Expect(samples[0].Metric["__name__"]).To(Equal("egress"))
+			Expect(samples[0].Metric["source_id"]).To(Equal("doppler"))
 			Expect(samples[0].Point).ToNot(BeNil())
 		})
 	})
