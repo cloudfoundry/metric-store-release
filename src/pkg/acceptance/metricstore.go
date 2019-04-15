@@ -41,18 +41,6 @@ var _ = Describe("Metric Store on a CF", func() {
 			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
 			Expect(samples[0].Point).ToNot(BeNil())
 		})
-
-		XIt("returns results for /api/v1/label/job/values", func() {
-			// when I query that endpoint
-			// metric store should def be in this list
-		})
-
-		// I don't know that we need this endpoint but merh
-		XIt("returns series results", func() {
-			// when i query the series endpoint for metric-store job egress
-			// metric over 30 seconds
-			// there should be a metric
-		})
 	})
 
 	Context("using HTTP client to traverse the auth proxy", func() {
@@ -75,22 +63,6 @@ var _ = Describe("Metric Store on a CF", func() {
 			Expect(samples[0].Metric["__name__"]).To(Equal("doppler_egress"))
 			Expect(samples[0].Metric["unit"]).To(Equal("nanoseconds"))
 			Expect(samples[0].Point).ToNot(BeNil())
-		})
-
-		XIt("returns results for /api/v1/label/job/values", func() {
-		})
-
-		XIt("returns series results", func() {
-			// when i query the series endpoint for metric-store job egress
-			// metric over 30 seconds
-			// there should be a metric
-			// NOTE: https://metric-store.SYSTEM-DOMAIN/api/v1/series --data-urlencode 'match[]=egress{job="metric-store"}' --data-urlencode 'start=1552603300' --data-urlencode 'end=1552603397'
-		})
-
-		XIt("returns query results", func() {
-			// when i query the series endpoint for metric-store job egress
-			// metric over 30 seconds
-			// there should be a metric
 		})
 	})
 })
