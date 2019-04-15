@@ -1,5 +1,5 @@
 ---
-name: metric-store-acceptance-tests
+name: metric-store-smoke-tests
 
 templates:
   bpm.yml.erb: config/bpm.yml

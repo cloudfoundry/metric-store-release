@@ -1,15 +1,15 @@
 <%
-  cert_dir = "/var/vcap/jobs/metric-store-acceptance-tests/config/certs"
+  cert_dir = "/var/vcap/jobs/metric-store-smoke-tests/config/certs"
 %>
 ---
 processes:
-- name: metric-store-acceptance-tests
+- name: metric-store-smoke-tests
   args:
     - "-ginkgo.slowSpecThreshold"
     - "30"
     - "-ginkgo.progress"
     - "-ginkgo.trace"
-  executable: /var/vcap/packages/metric-store-acceptance-tests/acceptance-tests
+  executable: /var/vcap/packages/metric-store-smoke-tests/acceptance-tests
   env:
     CLIENT_ID: "<%= p('client_id') %>"
     CLIENT_SECRET: "<%= p('client_secret') %>"
