@@ -6,6 +6,7 @@ templates:
   uaa_ca.crt.erb: config/certs/uaa_ca.crt
   external.crt.erb: config/certs/external.crt
   external.key.erb: config/certs/external.key
+  proxy_ca.crt.erb: config/certs/proxy_ca.crt
 
 packages:
 - metric-store-cf-auth-proxy
@@ -36,6 +37,8 @@ properties:
     description: "The port for the cf-auth-proxy to listen on"
   security_event_log:
     description: "When provided, the path to a file where security events will be logged"
+  proxy_ca_cert:
+    description: "The CA used to sign the certificates that the reverse proxy uses to talk to the gateway"
   cc.ca_cert:
     description: "The CA for the internal api"
   cc.common_name:
