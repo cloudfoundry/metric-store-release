@@ -9,7 +9,7 @@ processes:
     - "30"
     - "-ginkgo.progress"
     - "-ginkgo.trace"
-  executable: /var/vcap/packages/metric-store-smoke-tests/acceptance-tests
+  executable: /var/vcap/packages/metric-store-acceptance-tests/acceptance-tests
   env:
     CLIENT_ID: "<%= p('client_id') %>"
     CLIENT_SECRET: "<%= p('client_secret') %>"
