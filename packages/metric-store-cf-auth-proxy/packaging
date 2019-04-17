@@ -1,10 +1,5 @@
 set -ex
 
-export GOPATH=$BOSH_INSTALL_TARGET
-export GOROOT=$(readlink -nf /var/vcap/packages/golang1.12.1)
-export PATH=$GOROOT/bin:$PATH
-
-mkdir -p cache
-export GOCACHE=$PWD/cache
+source /var/vcap/packages/golang-1.12-linux/bosh/compile.env
 
 go build -mod=vendor -o ${BOSH_INSTALL_TARGET}/metric-store-cf-auth-proxy ./src/cmd/cf-auth-proxy

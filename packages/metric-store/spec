@@ -2,7 +2,7 @@
 name: metric-store
 
 dependencies:
-- golang1.12.1
+- golang-1.12-linux
 
 files:
 - cmd/**/*.go
