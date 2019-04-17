@@ -17,6 +17,11 @@ func OpenTsStore(storagePath string) (*tsdb.Store, error) {
 	tsStore.EngineOptions.Config.MaxSeriesPerDatabase = 0
 	tsStore.EngineOptions.Config.MaxValuesPerTag = 0
 
+	// These might be redundant, but for now it seems safer to set both of
+	// them to the new TSI index
+	tsStore.EngineOptions.IndexVersion = tsdb.TSI1IndexName
+	tsStore.EngineOptions.Config.Index = tsdb.TSI1IndexName
+
 	if err := tsStore.Open(); err != nil {
 		return nil, err
 	}
