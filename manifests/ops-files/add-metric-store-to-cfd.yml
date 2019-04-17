@@ -22,8 +22,6 @@
       release: metric-store
       provides:
         metric-store: {shared: true, as: metric-store}
-      consumes:
-        metric-store: {from: metric-store}
       properties:
         egress_port: 8080
         health_addr: localhost:6060
@@ -145,7 +143,7 @@
       common_name: metric-store
       alternative_names:
       - metric-store.((system_domain))
-      - "*.metric-store.((system_domain))"
+      - '*.metric-store.((system_domain))'
 
 - type: replace
   path: /variables/-
