@@ -6,7 +6,6 @@ releases/**/*.tgz
 .dev_builds
 .final_builds/jobs/**/*.tgz
 .final_builds/packages/**/*.tgz
-.final_builds/packages/**/*.yml
 .DS_Store
 .idea
 *.swp
