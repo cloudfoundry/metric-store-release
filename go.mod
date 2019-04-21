@@ -8,26 +8,29 @@ require (
 	collectd.org v0.3.0 // indirect
 	github.com/aws/aws-sdk-go v1.17.11 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
+	github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 	github.com/francoispqt/gojay v1.2.10
+	github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd // indirect
+	github.com/glycerine/goconvey v0.0.0-20180728074245-46e3a41ad493 // indirect
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.1
 	github.com/grpc-ecosystem/grpc-gateway v1.3.1
-	github.com/hashicorp/go-msgpack v0.5.3 // indirect
-	github.com/hashicorp/go-uuid v1.0.1 // indirect
 	github.com/influxdata/flux v0.21.3 // indirect
-	github.com/influxdata/influxdb v1.7.5
+	github.com/influxdata/influxdb v1.7.6
 	github.com/influxdata/influxql v1.0.0
-	github.com/influxdata/platform v0.0.0-20190117200541-d500d3cf5589 // indirect
 	github.com/influxdata/roaring v0.4.12-0.20180809181101-fc520f41fab6 // indirect
+	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
+	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
+	github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef // indirect
 	github.com/mattn/go-isatty v0.0.6 // indirect
-	github.com/nats-io/gnatsd v1.4.1 // indirect
-	github.com/nats-io/go-nats v1.7.2 // indirect
-	github.com/nats-io/nkeys v0.0.2 // indirect
+	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
+	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v0.9.2
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
@@ -35,8 +38,10 @@ require (
 	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190222223459-a17d461953aa // indirect
+	github.com/spf13/cast v1.2.0 // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
+	github.com/willf/bitset v1.1.9 // indirect
 	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
 	golang.org/x/net v0.0.0-20190415100556-4a65cf94b679
 	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890 // indirect
