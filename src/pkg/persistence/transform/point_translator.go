@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"regexp"
 	"time"
 
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
@@ -21,14 +20,6 @@ var UNINDEXED_LABELS = map[string]bool{
 	"forwarded":      true,
 	"remote_address": true,
 }
-
-// First character: Match if it's NOT A-z, underscore, or colon [^A-z_:]
-// All others: Match if they're NOT alphanumeric, underscore, or colon [\w_:]+?
-var metricNameRegexp = regexp.MustCompile(`^[^A-z_:]|[^\w_:]+?`)
-
-// First character: Match if it's NOT A-z, underscore, or colon [^A-z_:]
-// All others: Match if they're NOT alphanumeric or underscore [\w_]+?
-var labelNameRegexp = regexp.MustCompile(`^[^A-z_:]|[^\w_]+?`)
 
 func ToInfluxPoints(points []*rpc.Point) []models.Point {
 	transformedPoints := make([]models.Point, len(points))
@@ -103,10 +94,50 @@ func SeriesDataFromPromQLSeries(promQLSeries *rpc.PromQL_Series) ([]seriesSample
 	return samples, labels
 }
 
+// PromQL Metric Name Sanitization
+// https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+// First character: Match if it's NOT A-z, underscore, or colon [^A-z_:]
+// All others: Match if they're NOT alphanumeric, underscore, or colon [\w_:]+?
 func SanitizeMetricName(name string) string {
-	return metricNameRegexp.ReplaceAllString(name, "_")
+	buffer := make([]byte, len(name))
+
+	for n := 0; n < len(name); n++ {
+		if name[n] == '_' || name[n] == ':' || (name[n] >= 'A' && name[n] <= 'Z') || (name[n] >= 'a' && name[n] <= 'z') {
+			buffer[n] = name[n]
+			continue
+		}
+
+		if (n > 0) && (name[n] >= '0' && name[n] <= '9') {
+			buffer[n] = name[n]
+			continue
+		}
+
+		buffer[n] = '_'
+	}
+
+	return string(buffer)
 }
 
+// PromQL Label Name Sanitization
+// From: https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+// First character: Match if it's NOT A-z or underscore [^A-z_]
+// All others: Match if they're NOT alphanumeric or underscore [\w_]+?
 func SanitizeLabelName(name string) string {
-	return labelNameRegexp.ReplaceAllString(name, "_")
+	buffer := make([]byte, len(name))
+
+	for n := 0; n < len(name); n++ {
+		if name[n] == '_' || (name[n] >= 'A' && name[n] <= 'Z') || (name[n] >= 'a' && name[n] <= 'z') {
+			buffer[n] = name[n]
+			continue
+		}
+
+		if (n > 0) && (name[n] >= '0' && name[n] <= '9') {
+			buffer[n] = name[n]
+			continue
+		}
+
+		buffer[n] = '_'
+	}
+
+	return string(buffer)
 }
