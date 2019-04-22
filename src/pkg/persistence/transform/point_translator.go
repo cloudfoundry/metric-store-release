@@ -22,6 +22,14 @@ var UNINDEXED_LABELS = map[string]bool{
 	"remote_address": true,
 }
 
+// First character: Match if it's NOT A-z, underscore, or colon [^A-z_:]
+// All others: Match if they're NOT alphanumeric, underscore, or colon [\w_:]+?
+var metricNameRegexp = regexp.MustCompile(`^[^A-z_:]|[^\w_:]+?`)
+
+// First character: Match if it's NOT A-z, underscore, or colon [^A-z_:]
+// All others: Match if they're NOT alphanumeric or underscore [\w_]+?
+var labelNameRegexp = regexp.MustCompile(`^[^A-z_:]|[^\w_]+?`)
+
 func ToInfluxPoints(points []*rpc.Point) []models.Point {
 	transformedPoints := make([]models.Point, len(points))
 
@@ -96,19 +104,9 @@ func SeriesDataFromPromQLSeries(promQLSeries *rpc.PromQL_Series) ([]seriesSample
 }
 
 func SanitizeMetricName(name string) string {
-	// Forcefully convert all invalid separators to underscores
-	// First character: Match if it's NOT A-z, underscore or colon [^A-z_:]
-	// All others: Match if they're NOT alphanumeric, understore, or colon [\W_:]+?
-
-	var re = regexp.MustCompile(`^[^A-z_:]|[^\w_:]+?`)
-	return re.ReplaceAllString(name, "_")
+	return metricNameRegexp.ReplaceAllString(name, "_")
 }
 
 func SanitizeLabelName(name string) string {
-	// Forcefully convert all invalid separators to underscores
-	// First character: Match if it's NOT A-z, underscore or colon [^A-z_:]
-	// All others: Match if they're NOT alphanumeric, understore, or colon [\W_:]+?
-
-	var re = regexp.MustCompile(`^[^A-z_:]|[^\w_]+?`)
-	return re.ReplaceAllString(name, "_")
+	return labelNameRegexp.ReplaceAllString(name, "_")
 }
