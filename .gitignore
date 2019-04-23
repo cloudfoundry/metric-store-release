@@ -15,6 +15,8 @@ releases/**/*.tgz
 
 # Bosh Deploys
 vars.yml
+oss_sha
+css_sha
 
 # Golang Tools
 src/github.com/client9/misspell
