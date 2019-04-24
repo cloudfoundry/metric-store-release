@@ -149,7 +149,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 				Expect(tc.baseHandlerCalled).To(BeTrue())
 			})
 
-			It("returns 422 if the user is not authorized for any of the query's source_ids", func() {
+			It("returns 401 if the user is not authorized for any of the query's source_ids", func() {
 				tc := setup(`/api/v1/query?query=metric{source_id="some-id"}`)
 				tc.spyQueryParser.sourceIds = []string{"some-id"}
 				tc.spyLogAuthorizer.unauthorizedSourceIds = map[string]struct{}{
@@ -159,8 +159,8 @@ var _ = Describe("CfAuthMiddleware", func() {
 				tc.invokeAuthHandler()
 
 				body, _ := ioutil.ReadAll(tc.recorder.Result().Body)
-				Expect(tc.recorder.Code).To(Equal(http.StatusUnprocessableEntity))
-				Expect(string(body)).To(ContainSubstring("query parse error"))
+				Expect(tc.recorder.Code).To(Equal(http.StatusUnauthorized))
+				Expect(string(body)).To(ContainSubstring("there are no matching source IDs for your query"))
 				Expect(tc.baseHandlerCalled).To(BeFalse())
 			})
 

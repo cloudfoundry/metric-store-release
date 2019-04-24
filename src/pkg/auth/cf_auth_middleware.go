@@ -123,8 +123,12 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 		if !userContext.IsAdmin {
 			query := r.URL.Query().Get("query")
 			relevantSourceIds, err := m.queryParser.ExtractSourceIds(query)
-			if err != nil || !m.authorized(relevantSourceIds, userContext) {
+			if err != nil {
 				http.Error(w, fmt.Sprintf("query parse error: %s", err), http.StatusUnprocessableEntity)
+				return
+			}
+			if !m.authorized(relevantSourceIds, userContext) {
+				http.Error(w, fmt.Sprintf("there are no matching source IDs for your query"), http.StatusUnauthorized)
 				return
 			}
 		}
