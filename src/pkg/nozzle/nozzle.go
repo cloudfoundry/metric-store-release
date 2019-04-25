@@ -54,7 +54,12 @@ type Nozzle struct {
 	rollupInterval   time.Duration
 	rollupMetricName string
 	rollupTags       []string
-	recordTimerDrift func(float64)
+
+	numBatchesEgressInc     func(uint64)
+	numPointsIngressInc     func(uint64)
+	numPointsEgressInc      func(uint64)
+	remoteNodeWriteErrorInc func(uint64)
+	remoteNodeWriteDuration func(float64)
 }
 
 // StreamConnector reads envelopes from the the logs provider.
@@ -80,13 +85,18 @@ func NewNozzle(c StreamConnector, metricStoreAddr string, shardId string, nodeIn
 		timerRollupBufferSize: 4096,
 		forwardedTags:         []string{},
 		timerMetrics:          make(map[string]*timerValue),
-		recordTimerDrift:      func(float64) {},
 		tagInfo:               &sync.Map{},
 	}
 
 	for _, o := range opts {
 		o(n)
 	}
+
+	n.numBatchesEgressInc = n.metrics.NewCounter("nozzle_batches_egress")
+	n.numPointsIngressInc = n.metrics.NewCounter("nozzle_points_ingress")
+	n.numPointsEgressInc = n.metrics.NewCounter("nozzle_points_egress")
+	n.remoteNodeWriteErrorInc = n.metrics.NewCounter("nozzle_remote_node_write_errors")
+	n.remoteNodeWriteDuration = n.metrics.NewSummary("nozzle_remote_node_write_duration", "ms")
 
 	n.buffer = diodes.NewOneToOne(int(n.timerRollupBufferSize), diodes.AlertFunc(func(missed int) {
 		n.log.Printf("Timer buffer dropped %d points", missed)
@@ -150,21 +160,16 @@ func (n *Nozzle) Start() {
 	}
 	client := rpc.NewIngressClient(conn)
 
-	ingressInc := n.metrics.NewCounter("nozzle_ingress")
-	egressInc := n.metrics.NewCounter("nozzle_egress")
-	errInc := n.metrics.NewCounter("nozzle_err")
-	n.recordTimerDrift = n.metrics.NewSummary("nozzle_timer_drift", "seconds")
-
 	go n.timerProcessor()
 	go n.timerEmitter(client)
 
-	go n.envelopeReader(rx, ingressInc)
+	go n.envelopeReader(rx)
 
 	ch := make(chan []*loggregator_v2.Envelope, BATCH_CHANNEL_SIZE)
 
 	log.Printf("Starting %d nozzle workers...", 2*runtime.NumCPU())
 	for i := 0; i < 2*runtime.NumCPU(); i++ {
-		go n.envelopeWriter(ch, client, errInc, egressInc)
+		go n.envelopeWriter(ch, client)
 	}
 
 	// The batcher will block indefinitely.
@@ -215,10 +220,11 @@ func (n *Nozzle) envelopeBatcher(ch chan []*loggregator_v2.Envelope) {
 		}
 	}
 }
-func (n *Nozzle) envelopeWriter(ch chan []*loggregator_v2.Envelope, client rpc.IngressClient, errInc, egressInc func(uint64)) {
+func (n *Nozzle) envelopeWriter(ch chan []*loggregator_v2.Envelope, client rpc.IngressClient) {
 	for {
 		envelopes := <-ch
 
+		start := time.Now()
 		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 		_, err := client.Send(ctx, &rpc.SendRequest{
 			Batch: &rpc.Points{
@@ -227,20 +233,23 @@ func (n *Nozzle) envelopeWriter(ch chan []*loggregator_v2.Envelope, client rpc.I
 		})
 
 		if err != nil {
-			errInc(1)
+			n.remoteNodeWriteErrorInc(1)
 			continue
 		}
 
-		egressInc(uint64(len(envelopes)))
+		n.numBatchesEgressInc(1)
+		n.remoteNodeWriteDuration(float64(time.Since(start) / time.Millisecond))
+
+		n.numPointsEgressInc(uint64(len(envelopes)))
 	}
 }
 
-func (n *Nozzle) envelopeReader(rx loggregator.EnvelopeStream, ingressInc func(uint64)) {
+func (n *Nozzle) envelopeReader(rx loggregator.EnvelopeStream) {
 	for {
 		envelopeBatch := rx()
 		for _, envelope := range envelopeBatch {
 			n.streamBuffer.Set(diodes.GenericDataType(envelope))
-			ingressInc(1)
+			n.numPointsIngressInc(1)
 		}
 	}
 }
@@ -293,7 +302,6 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 
 		var points []*rpc.Point
 
-		start := time.Now()
 		n.timerMutex.Lock()
 		for k, tv := range n.timerMetrics {
 			keyParts, err := csv.NewReader(strings.NewReader(k)).Read()
@@ -341,10 +349,6 @@ func (n *Nozzle) timerEmitter(client rpc.IngressClient) {
 
 		n.timerMetrics = make(map[string]*timerValue)
 		n.timerMutex.Unlock()
-		// TODO - do we still want these logs?
-		n.log.Printf("Timer map cleared in %s", time.Since(start))
-
-		n.log.Printf("Preparing to write %d points", len(points))
 
 		ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 		_, err := client.Send(ctx, &rpc.SendRequest{
@@ -378,7 +382,6 @@ func (n *Nozzle) convertEnvelopesToPoints(envelopes []*loggregator_v2.Envelope) 
 			}
 
 			n.buffer.Set(diodes.GenericDataType(envelope))
-			n.recordTimerDrift(float64(time.Now().UnixNano()-envelope.Timestamp) / float64(time.Second))
 		case *loggregator_v2.Envelope_Counter:
 			points = append(points, n.createPointFromCounter(envelope))
 		default:

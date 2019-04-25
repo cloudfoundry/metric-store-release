@@ -228,13 +228,6 @@ var _ = Describe("Nozzle", func() {
 			for _, point := range metricStore.GetPoints() {
 				Expect(point.Timestamp).To(Equal(firstPointTimestamp))
 			}
-
-			Expect(metricMap.SummaryObservationsGetter("nozzle_timer_drift")()).To(ConsistOf(
-				BeNumerically("~", 0.5, .5),
-				BeNumerically("~", 0.5, .5),
-				BeNumerically("~", 0.5, .5),
-			))
-			Expect(metricMap.GetUnit("nozzle_timer_drift")).To(Equal("seconds"))
 		})
 
 		It("ignores other metrics", func() {
@@ -406,9 +399,11 @@ var _ = Describe("Nozzle", func() {
 		addEnvelope(2, "memory", "some-source-id", streamConnector)
 		addEnvelope(3, "memory", "some-source-id", streamConnector)
 
-		Eventually(metricMap.Getter("nozzle_ingress")).Should(Equal(float64(3)))
-		Eventually(metricMap.Getter("nozzle_egress")).Should(Equal(float64(3)))
-		Eventually(metricMap.Getter("nozzle_err")).Should(Equal(float64(0)))
+		Eventually(metricMap.Getter("nozzle_points_ingress")).Should(Equal(float64(3)))
+		Eventually(metricMap.Getter("nozzle_points_egress")).Should(Equal(float64(3)))
+		Eventually(metricMap.Getter("nozzle_batches_egress")).Should(Equal(float64(1)))
+		Eventually(metricMap.Getter("nozzle_remote_node_write_duration")).Should(BeNumerically(">", 0))
+		Eventually(metricMap.Getter("nozzle_remote_node_write_errors")).Should(Equal(float64(0)))
 	})
 
 	It("forwards all tags", func() {
