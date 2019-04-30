@@ -1,0 +1,20 @@
+prep_src() {
+  mkdir -p src/github.com/cloudfoundry/metric-store-release/src/{pkg,cmd}
+  cp -r vendor/* src/
+
+  cp -r src/pkg src/github.com/cloudfoundry/metric-store-release/src
+  cp -r src/cmd src/github.com/cloudfoundry/metric-store-release/src
+}
+
+create_release() {
+  local file=${1}
+  bosh create-release --force --tarball ${file}
+}
+
+cleanup() {
+  rm -rf src/github.com/cloudfoundry/metric-store-release
+  rm -rf src/*.org
+  rm -rf src/*.in
+  rm -rf src/*.com
+  rm -f src/modules.txt
+}

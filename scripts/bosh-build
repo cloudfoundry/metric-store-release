@@ -1,0 +1,33 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $DIR/shared
+
+echo "-- BOSH create-release"
+prep_src
+create_release release.tgz
+
+boshdir=$(mktemp -d)
+echo "-- BOSH extract and compile in ${boshdir}"
+pushd ${boshdir}
+  tar -xzf ${DIR}/../release.tgz
+
+  pushd packages
+    mkdir -p metric-store metric-store-nozzle metric-store-gateway metric-store-cf-auth-proxy
+    tar -xzf metric-store.tgz -C metric-store
+    tar -xzf metric-store-nozzle.tgz -C metric-store-nozzle
+    tar -xzf metric-store-gateway.tgz -C metric-store-gateway
+    tar -xzf metric-store-cf-auth-proxy.tgz -C metric-store-cf-auth-proxy
+
+    pushd metric-store
+      go build -mod=vendor -o ./metric-store ./src/cmd/metric-store
+      go build -mod=vendor -o ./metric-store-nozzle ./src/cmd/nozzle
+      go build -mod=vendor -o ./metric-store-gateway ./src/cmd/gateway
+      go build -mod=vendor -o ./metric-store-cf-auth-proxy ./src/cmd/cf-auth-proxy
+    popd
+  popd
+popd
+
+cleanup
+rm -f ${DIR}/../release.tgz
+rm -rf ${boshdir}
