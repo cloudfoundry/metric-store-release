@@ -34,7 +34,7 @@ var _ = Describe("MetricStore", func() {
 		addr               string
 		healthPort         string
 		gatewayAddr        string
-		gatewayHealthAddr  string
+		gatewayHealthPort  string
 		metricStoreProcess *gexec.Session
 		gatewayProcess     *gexec.Session
 	}
@@ -61,7 +61,7 @@ var _ = Describe("MetricStore", func() {
 			"github.com/cloudfoundry/metric-store-release/src/cmd/gateway",
 			[]string{
 				"ADDR=" + tc.gatewayAddr,
-				"HEALTH_PORT=" + tc.gatewayHealthAddr,
+				"HEALTH_PORT=" + tc.gatewayHealthPort,
 				"METRIC_STORE_ADDR=" + tc.addr,
 				"CA_PATH=" + caCert,
 				"CERT_PATH=" + cert,
@@ -100,7 +100,7 @@ var _ = Describe("MetricStore", func() {
 		tc.addr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
 		tc.healthPort = strconv.Itoa(testing.GetFreePort())
 		tc.gatewayAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
-		tc.gatewayHealthAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
+		tc.gatewayHealthPort = strconv.Itoa(testing.GetFreePort())
 
 		perform(tc, start)
 
