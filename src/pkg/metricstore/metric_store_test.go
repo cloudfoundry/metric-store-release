@@ -13,10 +13,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -79,6 +81,7 @@ var _ = Describe("MetricStore", func() {
 			persistentStore,
 			tc.diskFreeReporter.Get,
 			metricstore.WithAddr("127.0.0.1:0"),
+			metricstore.WithIngressAddr("127.0.0.1:0"),
 			metricstore.WithMetrics(tc.spyMetrics),
 			metricstore.WithServerOpts(
 				grpc.Creds(credentials.NewTLS(tc.tlsConfig)),
@@ -123,7 +126,7 @@ var _ = Describe("MetricStore", func() {
 		defer cleanup()
 
 		now := time.Now()
-		writePoints(tc.store.Addr(), []*rpc.Point{
+		writePoints(tc.store.IngressAddr(), []*rpc.Point{
 			{
 				Timestamp: now.Add(-2 * time.Second).UnixNano(),
 				Name:      MEASUREMENT_NAME,
@@ -162,7 +165,7 @@ var _ = Describe("MetricStore", func() {
 		defer cleanup()
 
 		now := time.Now()
-		writePoints(tc.store.Addr(), []*rpc.Point{
+		writePoints(tc.store.IngressAddr(), []*rpc.Point{
 			{
 				Timestamp: now.Add(-2 * time.Second).UnixNano(),
 				Name:      MEASUREMENT_NAME,
@@ -312,27 +315,22 @@ var _ = Describe("MetricStore", func() {
 	})
 })
 
-func writePoints(addr string, testPoints []*rpc.Point) {
-	tlsConfig, err := testing.NewMutualTLSConfig(
-		testing.Cert("metric-store-ca.crt"),
-		testing.Cert("metric-store.crt"),
-		testing.Cert("metric-store.key"),
-		"metric-store",
-	)
+func writePoints(ingressAddr string, testPoints []*rpc.Point) {
+	cfg := &leanstreams.TCPConnConfig{
+		MaxMessageSize: 65536,
+		Address:        ingressAddr,
+	}
+	remoteConnection, err := leanstreams.DialTCP(cfg)
 	Expect(err).ToNot(HaveOccurred())
 
-	conn, err := grpc.Dial(addr,
-		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
-	)
-	Expect(err).ToNot(HaveOccurred())
-
-	client := rpc.NewIngressClient(conn)
-
-	_, err = client.Send(context.Background(), &rpc.SendRequest{
+	payload, err := proto.Marshal(&rpc.SendRequest{
 		Batch: &rpc.Points{
 			Points: testPoints,
 		},
 	})
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = remoteConnection.Write(payload)
 	Expect(err).ToNot(HaveOccurred())
 }
 

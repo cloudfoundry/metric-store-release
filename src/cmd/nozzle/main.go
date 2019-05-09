@@ -55,6 +55,7 @@ func main() {
 	nozzle := NewNozzle(
 		streamConnector,
 		cfg.MetricStoreAddr,
+		cfg.IngressAddr,
 		cfg.ShardId,
 		cfg.NodeIndex,
 		WithNozzleLogger(log.New(os.Stderr, "", log.LstdFlags)),

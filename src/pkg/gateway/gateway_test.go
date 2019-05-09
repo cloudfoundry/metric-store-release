@@ -34,10 +34,10 @@ var _ = Describe("Gateway", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		spyMetricStore = testing.NewSpyMetricStore(tlsConfig)
-		metricStoreAddr := spyMetricStore.Start()
+		metricStoreAddrs := spyMetricStore.Start()
 
 		gw = NewGateway(
-			metricStoreAddr,
+			metricStoreAddrs.GrpcAddr,
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),

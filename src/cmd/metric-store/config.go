@@ -10,6 +10,7 @@ import (
 // Config is the configuration for a MetricStore.
 type Config struct {
 	Addr                  string        `env:"ADDR, required, report"`
+	IngressAddr           string        `env:"INGRESS_ADDR, required, report"`
 	HealthPort            int           `env:"HEALTH_PORT, report"`
 	StoragePath           string        `env:"STORAGE_PATH, report"`
 	RetentionPeriodInDays uint          `env:"RETENTION_PERIOD_IN_DAYS, report"`
@@ -24,6 +25,7 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	c := Config{
 		Addr:                  ":8080",
+		IngressAddr:           ":8090",
 		HealthPort:            6060,
 		StoragePath:           "/tmp/metric-store",
 		RetentionPeriod:       7 * 24 * time.Hour,

@@ -7,12 +7,14 @@ import (
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
+	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"golang.org/x/net/context"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
@@ -39,15 +41,19 @@ var _ = Describe("Nozzle", func() {
 		streamConnector = newSpyStreamConnector()
 		metricMap = testing.NewSpyMetrics()
 		metricStore = testing.NewSpyMetricStore(tlsConfig)
-		addr := metricStore.Start()
+		addrs := metricStore.Start()
 
-		n = NewNozzle(streamConnector, addr, "metric-store", 0,
+		n = NewNozzle(streamConnector, addrs.GrpcAddr, addrs.TcpAddr, "metric-store", 0,
 			WithNozzleMetrics(metricMap),
 			WithNozzleDialOpts(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))),
 			WithNozzleTimerRollup(100*time.Millisecond, "rolled_timer", []string{"tag1", "tag2"}),
 			WithNozzleLogger(log.New(GinkgoWriter, "", 0)),
 		)
 		go n.Start()
+	})
+
+	AfterEach(func() {
+		metricStore.Stop()
 	})
 
 	It("connects and reads from a logs provider server", func() {
@@ -115,7 +121,6 @@ var _ = Describe("Nozzle", func() {
 				},
 			},
 		}))
-
 	})
 
 	Describe("when the envelope is a Timer", func() {

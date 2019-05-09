@@ -70,6 +70,7 @@ func main() {
 		diskFreeReporter,
 		metricstore.WithMetrics(metrics),
 		metricstore.WithAddr(cfg.Addr),
+		metricstore.WithIngressAddr(cfg.IngressAddr),
 		metricstore.WithServerOpts(grpc.Creds(cfg.TLS.Credentials("metric-store"))),
 		metricstore.WithRetentionConfig(metricstore.RetentionConfig{
 			ExpiryFrequency:       15 * time.Minute,

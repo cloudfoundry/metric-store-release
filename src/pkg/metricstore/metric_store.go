@@ -1,7 +1,6 @@
 package metricstore
 
 import (
-	"context"
 	"io/ioutil"
 	"log"
 	"math"
@@ -11,10 +10,13 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/local"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -44,8 +46,9 @@ type diskFreeReporter func() float64
 type MetricStore struct {
 	log *log.Logger
 
-	lis    net.Listener
-	server *grpc.Server
+	lis             net.Listener
+	server          *grpc.Server
+	ingressListener *leanstreams.TCPListener
 
 	serverOpts []grpc.ServerOption
 	metrics    metrics.Initializer
@@ -56,8 +59,9 @@ type MetricStore struct {
 	expiryConfig     RetentionConfig
 	queryTimeout     time.Duration
 
-	addr    string
-	extAddr string
+	addr        string
+	ingressAddr string
+	extAddr     string
 }
 
 func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, opts ...MetricStoreOption) *MetricStore {
@@ -74,6 +78,7 @@ func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, opt
 		},
 		queryTimeout: 10 * time.Second,
 		addr:         ":8080",
+		ingressAddr:  ":8090",
 	}
 
 	for _, o := range opts {
@@ -99,6 +104,14 @@ func WithLogger(l *log.Logger) MetricStoreOption {
 func WithAddr(addr string) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.addr = addr
+	}
+}
+
+// WithIngressAddr configures the address to listen for ingress. It defaults to
+// :8090.
+func WithIngressAddr(ingressAddr string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.ingressAddr = ingressAddr
 	}
 }
 
@@ -184,12 +197,49 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 
 	localStoreReader := local.NewLocalStoreReader(s)
 
-	ingressClient := local.IngressClientFunc(func(ctx context.Context, r *rpc.SendRequest, opts ...grpc.CallOption) (*rpc.SendResponse, error) {
-		s.Put(r.GetBatch().GetPoints())
-		return &rpc.SendResponse{}, nil
-	})
+	writeBinary := func(payload []byte) error {
+		r := &rpc.SendRequest{}
+		var points []*rpc.Point
 
-	ingressReverseProxy := local.NewIngressReverseProxy(ingressClient, store.log)
+		err := proto.Unmarshal(payload, r)
+		if err != nil {
+			return err
+		}
+
+		for _, point := range r.Batch.Points {
+			point.Name = transform.SanitizeMetricName(point.GetName())
+
+			sanitizedLabels := make(map[string]string)
+			for label, value := range point.GetLabels() {
+				sanitizedLabels[transform.SanitizeLabelName(label)] = value
+			}
+			if len(sanitizedLabels) > 0 {
+				point.Labels = sanitizedLabels
+			}
+
+			points = append(points, point)
+		}
+
+		s.Put(points)
+
+		return nil
+	}
+
+	cfg := leanstreams.TCPListenerConfig{
+		MaxMessageSize: 65536,
+		Callback:       writeBinary,
+		Address:        store.ingressAddr,
+	}
+	btl, err := leanstreams.ListenTCP(cfg)
+	store.ingressListener = btl
+	if err != nil {
+		store.log.Fatalf("failed to listen on ingress port: %v", err)
+	}
+
+	err = btl.StartListeningAsync()
+	if err != nil {
+		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
+	}
 
 	queryEngine := query.NewEngine(
 		store.metrics,
@@ -204,7 +254,6 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 	store.server = grpc.NewServer(store.serverOpts...)
 
 	go func() {
-		rpc.RegisterIngressServer(store.server, ingressReverseProxy)
 		rpc.RegisterPromQLAPIServer(store.server, egressReverseProxy)
 		if err := store.server.Serve(lis); err != nil && atomic.LoadInt64(&store.closing) == 0 {
 			store.log.Fatalf("failed to serve gRPC ingress server: %s %#v", err, err)
@@ -218,9 +267,16 @@ func (store *MetricStore) Addr() string {
 	return store.lis.Addr().String()
 }
 
+// IngressAddr returns the address that the MetricStore is listening on for ingress.
+// This is only valid after Start has been invoked.
+func (store *MetricStore) IngressAddr() string {
+	return store.ingressListener.Address()
+}
+
 // Close will shutdown the gRPC server
 func (store *MetricStore) Close() error {
 	atomic.AddInt64(&store.closing, 1)
 	store.server.GracefulStop()
+	store.ingressListener.Close()
 	return nil
 }

@@ -16,12 +16,16 @@ provides:
   type: metric-store
   properties:
   - port
+  - ingress_port
   - tls
 
 properties:
   port:
     description: "The port for the metric-store to listen on"
     default: 8080
+  ingress_port:
+    description: "The port for the metric-store to listen on for ingress"
+    default: 8090
 
   health_port:
     description: "The port for metric-store to bind a health endpoint"

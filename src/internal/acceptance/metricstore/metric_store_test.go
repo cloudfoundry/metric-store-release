@@ -1,7 +1,6 @@
 package metricstore_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,9 +11,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/common/expfmt"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
@@ -32,6 +33,7 @@ var storagePath = "/tmp/metric-store-node"
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
 		addr               string
+		ingressAddr        string
 		healthPort         string
 		gatewayAddr        string
 		gatewayHealthPort  string
@@ -48,6 +50,7 @@ var _ = Describe("MetricStore", func() {
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
 			[]string{
 				"ADDR=" + tc.addr,
+				"INGRESS_ADDR=" + tc.ingressAddr,
 				"HEALTH_PORT=" + tc.healthPort,
 				"STORAGE_PATH=" + storagePath,
 				"RETENTION_PERIOD_IN_DAYS=1",
@@ -76,8 +79,8 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var stop = func(tc *testContext) {
-		tc.metricStoreProcess.Terminate()
-		tc.gatewayProcess.Terminate()
+		tc.metricStoreProcess.Kill()
+		tc.gatewayProcess.Kill()
 		Eventually(tc.metricStoreProcess.Exited).Should(BeClosed())
 		Eventually(tc.gatewayProcess.Exited).Should(BeClosed())
 	}
@@ -98,6 +101,7 @@ var _ = Describe("MetricStore", func() {
 		tc := &testContext{}
 
 		tc.addr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
+		tc.ingressAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
 		tc.healthPort = strconv.Itoa(testing.GetFreePort())
 		tc.gatewayAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
 		tc.gatewayHealthPort = strconv.Itoa(testing.GetFreePort())
@@ -182,9 +186,6 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var writePoints = func(tc *testContext, points []testPoint) {
-		ingressClient, cleanup := testing.NewIngressClient(tc.addr)
-		defer cleanup()
-
 		var rpcPoints []*rpc.Point
 		metricNameCounts := make(map[string]int)
 		for _, point := range points {
@@ -200,11 +201,22 @@ var _ = Describe("MetricStore", func() {
 			metricNameCounts[point.Name]++
 		}
 
-		_, err := ingressClient.Send(context.Background(), &rpc.SendRequest{
+		cfg := &leanstreams.TCPConnConfig{
+			MaxMessageSize: 65536,
+			Address:        tc.ingressAddr,
+		}
+		remoteConnection, err := leanstreams.DialTCP(cfg)
+		Expect(err).ToNot(HaveOccurred())
+		defer remoteConnection.Close()
+
+		payload, err := proto.Marshal(&rpc.SendRequest{
 			Batch: &rpc.Points{
 				Points: rpcPoints,
 			},
 		})
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = remoteConnection.Write(payload)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
@@ -224,19 +236,19 @@ var _ = Describe("MetricStore", func() {
 
 		now := time.Now()
 		Eventually(func() []string {
-			ic1, cleanup1 := testing.NewIngressClient(tc.addr)
-			defer cleanup1()
-
-			_, err := ic1.Send(context.Background(), &rpc.SendRequest{
-				Batch: &rpc.Points{
-					Points: []*rpc.Point{
-						{Name: "metric_name_old", Timestamp: 1},
-						{Name: "metric_name_new", Timestamp: now.UnixNano()},
+			writePoints(
+				tc,
+				[]testPoint{
+					{
+						Name:               "metric_name_old",
+						TimeInMilliseconds: 1000,
+					},
+					{
+						Name:               "metric_name_new",
+						TimeInMilliseconds: now.UnixNano() / int64(time.Millisecond),
 					},
 				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			)
 
 			resp, err := testing.MakeTLSReq(tc.gatewayAddr, "api/v1/label/__name__/values")
 			if err != nil {
@@ -566,16 +578,15 @@ var _ = Describe("MetricStore", func() {
 		tc, cleanup := setup()
 		defer cleanup()
 
-		ic1, cleanup1 := testing.NewIngressClient(tc.addr)
-		defer cleanup1()
-
-		_, err := ic1.Send(context.Background(), &rpc.SendRequest{
-			Batch: &rpc.Points{
-				Points: []*rpc.Point{
-					{Name: "metric_name", Timestamp: 1},
+		writePoints(
+			tc,
+			[]testPoint{
+				{
+					Name:               "metric_name",
+					TimeInMilliseconds: 1000,
 				},
 			},
-		})
+		)
 
 		resp, err := http.Get(fmt.Sprintf("http://localhost:%s/metrics", tc.healthPort))
 		Expect(err).ToNot(HaveOccurred())
