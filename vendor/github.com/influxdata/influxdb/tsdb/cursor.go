@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/influxdata/influxdb/query"
-	"github.com/influxdata/influxdb/tsdb/cursors"
+	"github.com/influxdata/platform/tsdb/cursors"
 )
 
 type (

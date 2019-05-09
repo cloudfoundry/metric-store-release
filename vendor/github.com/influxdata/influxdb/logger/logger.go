@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	zaplogfmt "github.com/jsternberg/zap-logfmt"
+	"github.com/jsternberg/zap-logfmt"
 	isatty "github.com/mattn/go-isatty"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

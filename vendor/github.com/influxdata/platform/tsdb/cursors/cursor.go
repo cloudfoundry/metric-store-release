@@ -3,7 +3,7 @@ package cursors
 import (
 	"context"
 
-	"github.com/influxdata/influxdb/models"
+	"github.com/influxdata/platform/models"
 )
 
 const DefaultMaxPointsPerBlock = 1000
