@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -31,7 +32,7 @@ var storagePath = "/tmp/metric-store-node"
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
 		addr               string
-		healthAddr         string
+		healthPort         string
 		gatewayAddr        string
 		gatewayHealthAddr  string
 		metricStoreProcess *gexec.Session
@@ -47,7 +48,7 @@ var _ = Describe("MetricStore", func() {
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
 			[]string{
 				"ADDR=" + tc.addr,
-				"HEALTH_ADDR=" + tc.healthAddr,
+				"HEALTH_PORT=" + tc.healthPort,
 				"STORAGE_PATH=" + storagePath,
 				"RETENTION_PERIOD_IN_DAYS=1",
 				"CA_PATH=" + caCert,
@@ -60,7 +61,7 @@ var _ = Describe("MetricStore", func() {
 			"github.com/cloudfoundry/metric-store-release/src/cmd/gateway",
 			[]string{
 				"ADDR=" + tc.gatewayAddr,
-				"HEALTH_ADDR=" + tc.gatewayHealthAddr,
+				"HEALTH_PORT=" + tc.gatewayHealthAddr,
 				"METRIC_STORE_ADDR=" + tc.addr,
 				"CA_PATH=" + caCert,
 				"CERT_PATH=" + cert,
@@ -70,7 +71,7 @@ var _ = Describe("MetricStore", func() {
 			},
 		)
 
-		testing.WaitForHealthCheck(tc.healthAddr)
+		testing.WaitForHealthCheck(tc.healthPort)
 		testing.WaitForServer(tc.gatewayAddr)
 	}
 
@@ -97,7 +98,7 @@ var _ = Describe("MetricStore", func() {
 		tc := &testContext{}
 
 		tc.addr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
-		tc.healthAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
+		tc.healthPort = strconv.Itoa(testing.GetFreePort())
 		tc.gatewayAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
 		tc.gatewayHealthAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
 
@@ -576,7 +577,7 @@ var _ = Describe("MetricStore", func() {
 			},
 		})
 
-		resp, err := http.Get(fmt.Sprintf("http://%s/metrics", tc.healthAddr))
+		resp, err := http.Get(fmt.Sprintf("http://localhost:%s/metrics", tc.healthPort))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 

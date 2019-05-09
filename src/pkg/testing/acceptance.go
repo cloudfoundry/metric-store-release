@@ -43,9 +43,9 @@ func MakeTLSReq(addr, path string) (*http.Response, error) {
 	return client.Do(req)
 }
 
-func WaitForHealthCheck(healthAddr string) {
+func WaitForHealthCheck(healthPort string) {
 	Eventually(func() error {
-		resp, err := http.Get("http://" + healthAddr + "/debug/vars")
+		resp, err := http.Get("http://localhost:" + healthPort + "/debug/vars")
 		if err != nil {
 			return err
 		}
