@@ -6,6 +6,7 @@ templates:
   metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store.crt.erb: config/certs/metric_store.crt
   metric_store.key.erb: config/certs/metric_store.key
+  metric_port.yml.erb: config/metric_port.yml
   proxy.crt.erb: config/certs/proxy.crt
   proxy.key.erb: config/certs/proxy.key
 
@@ -26,6 +27,9 @@ properties:
   gateway_addr:
     description: "The address for the metric-store-gateway to listen on"
     default: "localhost:8081"
+  health_port:
+    description: "The port for the metric-store-gateway to bind a health endpoint"
+    default: 6063
   proxy_cert:
     description: "The TLS cert for the proxy"
   proxy_key:

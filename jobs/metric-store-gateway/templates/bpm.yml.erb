@@ -10,6 +10,7 @@ processes:
   env:
     METRIC_STORE_ADDR: "<%= "localhost:#{ms.p('port')}" %>"
     ADDR:              "<%= p('gateway_addr') %>"
+    HEALTH_PORT:       "<%= p('health_port') %>"
 
     # Mutual TLS
     CA_PATH:         "<%= "#{cert_dir}/metric_store_ca.crt" %>"

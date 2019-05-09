@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -36,5 +37,5 @@ func main() {
 	gateway.Start()
 
 	// Start listening on health endpoint and block forever
-	http.ListenAndServe(cfg.HealthAddr, nil)
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.HealthPort), nil)
 }

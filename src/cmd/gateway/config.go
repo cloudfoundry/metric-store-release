@@ -9,7 +9,7 @@ import (
 type Config struct {
 	Addr            string `env:"ADDR, required, report"`
 	MetricStoreAddr string `env:"METRIC_STORE_ADDR, required, report"`
-	HealthAddr      string `env:"HEALTH_ADDR, report"`
+	HealthPort      int    `env:"HEALTH_PORT, report"`
 	ProxyCertPath   string `env:"PROXY_CERT_PATH, report"`
 	ProxyKeyPath    string `env:"PROXY_KEY_PATH, report"`
 	TLS             tls.TLS
@@ -19,7 +19,7 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	c := Config{
 		Addr:            "localhost:8081",
-		HealthAddr:      "localhost:6063",
+		HealthPort:      6063,
 		MetricStoreAddr: "localhost:8080",
 	}
 
