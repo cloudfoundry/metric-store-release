@@ -21,7 +21,7 @@ type Config struct {
 	MetricStoreGatewayAddr string `env:"METRIC_STORE_GATEWAY_ADDR, required, report"`
 	Addr                   string `env:"ADDR, required, report"`
 	InternalIP             string `env:"INTERNAL_IP, report"`
-	HealthAddr             string `env:"HEALTH_ADDR, report"`
+	HealthPort             int    `env:"HEALTH_PORT, report"`
 	CertPath               string `env:"EXTERNAL_CERT, required, report"`
 	KeyPath                string `env:"EXTERNAL_KEY, required, report"`
 	SkipCertVerify         bool   `env:"SKIP_CERT_VERIFY, report"`
@@ -37,7 +37,7 @@ func LoadConfig() (*Config, error) {
 		SkipCertVerify:         false,
 		Addr:                   ":8083",
 		InternalIP:             "0.0.0.0",
-		HealthAddr:             "localhost:6065",
+		HealthPort:             6065,
 		MetricStoreGatewayAddr: "localhost:8081",
 	}
 

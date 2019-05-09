@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -85,7 +86,7 @@ func main() {
 	http.Handle("/metrics", metrics)
 
 	// Start listening on metrics/health endpoint and block forever
-	http.ListenAndServe(cfg.HealthAddr, nil)
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.HealthPort), nil)
 }
 
 func newDiskFreeReporter(storagePath string, metricStoreLog *log.Logger, metrics *metrics.Metrics) func() float64 {

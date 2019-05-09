@@ -6,6 +6,7 @@ templates:
   metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store.crt.erb: config/certs/metric_store.crt
   metric_store.key.erb: config/certs/metric_store.key
+  metric_port.yml.erb: config/metric_port.yml
 
 packages:
 - metric-store
@@ -22,9 +23,9 @@ properties:
     description: "The port for the metric-store to listen on"
     default: 8080
 
-  health_addr:
-    description: "The address for metric-store to bind a health endpoint"
-    default: localhost:6060
+  health_port:
+    description: "The port for metric-store to bind a health endpoint"
+    default: 6060
   storage_path:
     description: "Where metric-store should keep persistent data"
     default: /var/vcap/store/metric-store

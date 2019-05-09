@@ -7,7 +7,7 @@ processes:
   executable: /var/vcap/packages/metric-store/metric-store
   persistent_disk: true
   env:
-    HEALTH_ADDR:              "<%= p('health_addr') %>"
+    HEALTH_PORT:              "<%= p('health_port') %>"
     ADDR:                     "<%= ":#{p('port')}" %>"
     STORAGE_PATH:             "<%= p('storage_path') %>"
     RETENTION_PERIOD_IN_DAYS: "<%= p('retention_period_in_days') %>"

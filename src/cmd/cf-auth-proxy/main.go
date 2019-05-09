@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -99,7 +100,7 @@ func main() {
 	http.Handle("/metrics", metrics)
 
 	// Start listening on metrics/health endpoint and block forever
-	http.ListenAndServe(cfg.HealthAddr, nil)
+	http.ListenAndServe(fmt.Sprintf("localhost:%d", cfg.HealthPort), nil)
 }
 
 func buildUAAClient(cfg *Config) *http.Client {

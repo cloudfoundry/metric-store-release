@@ -7,6 +7,7 @@ templates:
   external.crt.erb: config/certs/external.crt
   external.key.erb: config/certs/external.key
   proxy_ca.crt.erb: config/certs/proxy_ca.crt
+  metric_port.yml.erb: config/metric_port.yml
 
 packages:
 - metric-store-cf-auth-proxy
@@ -33,6 +34,9 @@ properties:
     description: "The TLS cert for the auth proxy"
   external_key:
     description: "The TLS key for the auth proxy"
+  health_port:
+    description: "The port for the CF Auth Proxy to bind a health endpoint"
+    default: 6065
   proxy_port:
     description: "The port for the cf-auth-proxy to listen on"
   security_event_log:

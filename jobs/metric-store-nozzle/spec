@@ -9,6 +9,7 @@ templates:
   metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store.crt.erb: config/certs/metric_store.crt
   metric_store.key.erb: config/certs/metric_store.key
+  metric_port.yml.erb: config/metric_port.yml
 
 packages:
 - metric-store-nozzle
@@ -31,9 +32,9 @@ properties:
   logs_provider.tls.key:
     description: "TLS key for the logs-provider connection"
 
-  health_addr:
-    description: "The address for the Nozzle to bind a health endpoint"
-    default: "localhost:6061"
+  health_port:
+    description: "The port for the Nozzle to bind a health endpoint"
+    default: 6061
   shard_id:
     description: "The sharding group name to use for egress from RLP"
     default: "metric-store"
