@@ -1,6 +1,7 @@
 package transform_test
 
 import (
+	"math"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -218,6 +219,52 @@ var _ = Describe("Point Translator", func() {
 
 			Expect(labels).To(HaveKeyWithValue("__name__", "metric_name"))
 			Expect(labels).To(HaveKeyWithValue("foo", "bar"))
+		})
+	})
+
+	Describe("IsValidFloat()", func() {
+		// According to IEEE 754, infinity values are defined as:
+		// Sign bit: EIther 0 (negative infinity) or 1 (positive infinity)
+		// Exponent: All 1s (11 bits)
+		// Mantissa: All 0s (52 bits)
+		It("considers +/- Inf values to be invalid", func() {
+			var NegInf = math.Float64frombits(0x7FF0000000000000)
+			var PosInf = math.Float64frombits(0xFFF0000000000000)
+
+			Expect(transform.IsValidFloat(NegInf)).To(BeFalse())
+			Expect(transform.IsValidFloat(PosInf)).To(BeFalse())
+		})
+
+		// According to IEEE 754, NaN values are defined as:
+		// Sign bit: Either 0 or 1
+		// Exponent: All 1s (11 bits)
+		// Mantissa: Anything
+		It("considers NaN values to be invalid", func() {
+			var nans = []float64{
+				math.Float64frombits(0x7FF0000000000001),
+				math.Float64frombits(0x7FF8000000000001),
+				math.Float64frombits(0x7FF000000000FFFF),
+				math.Float64frombits(0x7FF800000000FFFF),
+			}
+
+			for _, nan := range nans {
+				Expect(transform.IsValidFloat(nan)).To(BeFalse())
+			}
+		})
+
+		// According to IEEE 754, all values that do not match the above
+		// descriptions are considered valid
+		It("considers all other values to be invalid", func() {
+			var valids = []float64{
+				math.Float64frombits(0x8880000000000001),
+				math.Float64frombits(0x8888000000000001),
+				math.Float64frombits(0x888000000000FFFF),
+				math.Float64frombits(0x888800000000FFFF),
+			}
+
+			for _, valid := range valids {
+				Expect(transform.IsValidFloat(valid)).To(BeTrue())
+			}
 		})
 	})
 })

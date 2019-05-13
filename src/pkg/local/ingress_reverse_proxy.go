@@ -31,6 +31,10 @@ func (p *IngressReverseProxy) Send(ctx context.Context, r *rpc.SendRequest) (*rp
 	var points []*rpc.Point
 
 	for _, point := range r.Batch.Points {
+		if !transform.IsValidFloat(point.Value) {
+			continue
+		}
+
 		point.Name = transform.SanitizeMetricName(point.GetName())
 
 		sanitizedLabels := make(map[string]string)

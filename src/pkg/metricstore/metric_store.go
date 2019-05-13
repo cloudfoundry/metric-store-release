@@ -207,6 +207,10 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 		}
 
 		for _, point := range r.Batch.Points {
+			if !transform.IsValidFloat(point.Value) {
+				continue
+			}
+
 			point.Name = transform.SanitizeMetricName(point.GetName())
 
 			sanitizedLabels := make(map[string]string)

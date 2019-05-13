@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"math"
 	"time"
 
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
@@ -140,4 +141,8 @@ func SanitizeLabelName(name string) string {
 	}
 
 	return string(buffer)
+}
+
+func IsValidFloat(value float64) bool {
+	return !math.IsInf(value, 0) && !math.IsNaN(value)
 }
