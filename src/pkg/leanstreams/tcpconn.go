@@ -205,6 +205,11 @@ func (c *TCPConn) Read(b []byte) (int, error) {
 		return hLength, ErrLessThanZeroBytesReadHeader
 	}
 
+	if msgLength < 0 {
+		c.Close()
+		return 0, fmt.Errorf("Message length in header is invalid: %d", msgLength)
+	}
+
 	// Make sure we don't overrun the slice
 	if int(msgLength) > len(b) {
 		c.Close()
