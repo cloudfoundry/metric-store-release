@@ -100,7 +100,7 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 
 	return SpyMetricStoreAddrs{
 		GrpcAddr: lis.Addr().String(),
-		TcpAddr:  btl.Address(),
+		TcpAddr:  btl.Address,
 	}
 }
 

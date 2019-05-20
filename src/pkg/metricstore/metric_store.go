@@ -274,7 +274,7 @@ func (store *MetricStore) Addr() string {
 // IngressAddr returns the address that the MetricStore is listening on for ingress.
 // This is only valid after Start has been invoked.
 func (store *MetricStore) IngressAddr() string {
-	return store.ingressListener.Address()
+	return store.ingressListener.Address
 }
 
 // Close will shutdown the gRPC server

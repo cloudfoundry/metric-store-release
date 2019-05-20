@@ -67,24 +67,34 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 	btl.StartListeningAsync()
+	defer func() { btl.Close() }()
+
 	btl2, err = ListenTCP(listenConfig2)
 	if err != nil {
 		log.Fatal(err)
 	}
 	btl2.StartListeningAsync()
+	defer func() { btl2.Close() }()
+
 	btl3, err = ListenTCP(listenConfig3)
 	if err != nil {
 		log.Fatal(err)
 	}
 	btl3.StartListeningAsync()
+	defer func() { btl3.Close() }()
+
 	btc, err = DialTCP(&buffWriteConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() { btc.Close() }()
+
 	btc2, err = DialTCP(&buffWriteConfig2)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() { btc2.Close() }()
+
 	os.Exit(m.Run())
 }
 

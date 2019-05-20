@@ -22,8 +22,10 @@ type TCPListener struct {
 	shutdownChannel chan struct{}
 	shutdownGroup   *sync.WaitGroup
 	connConfig      *TCPConnConfig
+	Address         string
 
 	groupMu sync.Mutex
+	blockMu sync.Mutex
 }
 
 // TCPListenerConfig representss the information needed to begin listening for
@@ -63,6 +65,7 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 		shutdownChannel: make(chan struct{}),
 		shutdownGroup:   &sync.WaitGroup{},
 		connConfig:      &connCfg,
+		Address:         "",
 	}
 
 	if err := btl.openSocket(); err != nil {
@@ -123,22 +126,35 @@ func (t *TCPListener) openSocket() error {
 		return err
 	}
 	t.socket = receiveSocket
+	t.Address = receiveSocket.Addr().String()
 	return err
 }
 
-func (t *TCPListener) Address() string {
-	return t.socket.Addr().String()
-}
+func (t *TCPListener) reopenSocket() error {
+	t.blockMu.Lock()
 
-// StartListening represents a way to start accepting TCP connections, which are
-// handled by the Callback provided upon initialization. This method will block
-// the current executing thread / go-routine.
-func (t *TCPListener) StartListening() error {
-	return t.blockListen()
+	t.groupMu.Lock()
+	t.shutdownGroup.Wait()
+	t.groupMu.Unlock()
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", t.Address)
+	if err != nil {
+		return err
+	}
+	receiveSocket, err := net.ListenTCP("tcp", tcpAddr)
+	if err != nil {
+		return err
+	}
+
+	t.socket = receiveSocket
+	t.shutdownChannel = make(chan struct{})
+	t.blockMu.Unlock()
+
+	return err
 }
 
 // Close represents a way to signal to the Listener that it should no longer accept
-// incoming connections, and begin to shutdown.
+// incoming connections, and shutdown
 func (t *TCPListener) Close() {
 	close(t.shutdownChannel)
 	t.socket.Close()
@@ -154,9 +170,20 @@ func (t *TCPListener) Close() {
 func (t *TCPListener) StartListeningAsync() error {
 	var err error
 	go func() {
+		t.blockMu.Lock()
 		err = t.blockListen()
+		t.blockMu.Unlock()
 	}()
 	return err
+}
+
+func (t *TCPListener) RestartListeningAsync() error {
+	err := t.reopenSocket()
+	if err != nil {
+		return err
+	}
+
+	return t.StartListeningAsync()
 }
 
 // Handles each incoming connection, run within it's own goroutine. This method will

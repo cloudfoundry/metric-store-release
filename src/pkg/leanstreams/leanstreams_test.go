@@ -124,7 +124,7 @@ var _ = Describe("Leanstreams", func() {
 	})
 
 	Context("When the listeners read buffer is overrun", func() {
-		It("Closes the connection", func() {
+		It("recovers and continues to write to a connection", func() {
 			tc, cleanup := setup(5037)
 			defer cleanup()
 
@@ -134,10 +134,40 @@ var _ = Describe("Leanstreams", func() {
 
 			time.Sleep(time.Second)
 
-			n, err = tc.Write(randStr(200))
-			Expect(n).To(Equal(0))
-			// Next write fails due to async closing of connection
-			Expect(err).To(HaveOccurred())
+			n, err = tc.Write("This is an example message")
+			Expect(n).To(Equal(54))
+			Expect(err).ToNot(HaveOccurred())
+			tc.WaitForResults()
+
+			receivedData := tc.Results()[0]
+			Expect(receivedData).To(Equal("This is an example message"))
+		})
+	})
+
+	Context("When the connection is closed", func() {
+		It("The server resumes listening and the client reopens when writing", func() {
+			tc, cleanup := setup(5038)
+			defer cleanup()
+
+			tc.Listener.Close()
+
+			err := tc.Listener.RestartListeningAsync()
+			Expect(err).ToNot(HaveOccurred())
+
+			messageSize, err := tc.Write("This is an example message")
+			Expect(messageSize).To(Equal(54))
+			Expect(err).ToNot(HaveOccurred())
+			tc.WaitForResults()
+
+			receivedData := tc.Results()[0]
+			Expect(receivedData).To(Equal("This is an example message"))
+
+			_, err = tc.Write("This is an example message")
+			Expect(err).ToNot(HaveOccurred())
+
+			tc.Listener.Close()
+			err = tc.Listener.RestartListeningAsync()
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

@@ -113,7 +113,7 @@ func (c *TCPConn) Close() error {
 // you pass in will be pre-pended with it's size. If the connection isn't open
 // you will receive an error. If not all bytes can be written, Write will keep
 // trying until the full message is delivered, or the connection is broken.
-func (c *TCPConn) Write(data []byte) (int, error) {
+func (c *TCPConn) write(data []byte) (int, error) {
 	// Calculate how big the message is, using a consistent header size.
 	// Append the size to the message, so now it has a header
 	c.outgoingDataBuffer = append(intToByteArray(int64(len(data)), c.headerByteSize), data...)
@@ -148,14 +148,32 @@ func (c *TCPConn) Write(data []byte) (int, error) {
 		// If there are remainder bytes, adjust the contents of toWrite
 		// totalBytesWritten will be the index of the nextByte waiting to be read
 		bytesWritten, writeError = c.socket.Write(c.outgoingDataBuffer[totalBytesWritten:])
-		totalBytesWritten += bytesWritten
-	}
-	if writeError != nil {
-		c.Close()
+
+		if writeError != nil {
+			c.Close()
+		} else {
+			_, writeError = c.socket.Write([]byte(""))
+			if writeError != nil {
+				fmt.Println("Failed to write, connection assumed closed, replaying", writeError)
+				c.Close()
+			} else {
+				totalBytesWritten += bytesWritten
+			}
+		}
 	}
 
 	// Return the bytes written, any error
 	return totalBytesWritten, writeError
+}
+
+func (c *TCPConn) Write(data []byte) (int, error) {
+	bytesWritten, err := c.write(data)
+	if err != nil {
+		c.Open()
+		bytesWritten, err = c.write(data)
+	}
+
+	return bytesWritten, err
 }
 
 func (c *TCPConn) lowLevelRead(buffer []byte) (int, error) {
