@@ -14,16 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// var (
-// 	listener = &TCPListener{}
-// 	btc      = &TCPConn{}
-// 	name     = "TestMessage"
-// 	date     = time.Now().UnixNano()
-// 	data     = "This is an intenntionally long and rambling sentence to pad out the size of the message."
-// 	msg      = &message.Note{Name: &name, Date: &date, Comment: &data}
-// 	msgBytes = func(*message.Note) []byte { b, _ := proto.Marshal(msg); return b }(msg)
-// )
-
 type leanstreamsTestContext struct {
 	Listener   *TCPListener
 	Connection *TCPConn
@@ -78,9 +68,7 @@ func (tc *leanstreamsTestContext) Results() []string {
 
 var _ = Describe("Leanstreams", func() {
 	var setup = func(port int) (tc *leanstreamsTestContext, cleanup func()) {
-		tc = &leanstreamsTestContext{
-			// MessageCommentsReceived: []string{},
-		}
+		tc = &leanstreamsTestContext{}
 
 		maxMessageSize := 100
 		listenConfig := TCPListenerConfig{
