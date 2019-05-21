@@ -28,6 +28,11 @@ var _ = Describe("Metric Store on a CF", func() {
 					),
 				),
 			)
+
+			Eventually(func() error {
+				_, err := client.PromQL(context.TODO(), "egress{source_id=\"doppler\"}")
+				return err
+			}, 60).ShouldNot(HaveOccurred())
 		})
 
 		It("returns results for /api/v1/query", func() {
@@ -51,6 +56,11 @@ var _ = Describe("Metric Store on a CF", func() {
 				cfg.MetricStoreCFAuthProxyURL,
 				ms.WithHTTPClient(oauthClient),
 			)
+
+			Eventually(func() error {
+				_, err := client.PromQL(context.TODO(), "egress{source_id=\"doppler\"}")
+				return err
+			}, 60).ShouldNot(HaveOccurred())
 		})
 
 		It("returns results for /api/v1/query", func() {
