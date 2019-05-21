@@ -34,8 +34,8 @@ type SpyMetricStore struct {
 }
 
 type SpyMetricStoreAddrs struct {
-	GrpcAddr string
-	TcpAddr  string
+	EgressAddr  string
+	IngressAddr string
 }
 
 func (s *SpyMetricStore) SetValue(value float64) {
@@ -53,7 +53,7 @@ func NewSpyMetricStore(tlsConfig *tls.Config) *SpyMetricStore {
 }
 
 func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
-	// TCP connection
+	// TCP/ingress connection
 	callback := func(payload []byte) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -88,19 +88,18 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 		fmt.Printf("failed to start async listening: %v", err)
 	}
 
-	// gRPC connection
+	// gRPC/egress connection
 	lis, err := net.Listen("tcp", ":0")
 	Expect(err).ToNot(HaveOccurred())
 	srv := grpc.NewServer(
 		grpc.Creds(credentials.NewTLS(s.tlsConfig)),
 	)
-	rpc.RegisterIngressServer(srv, s)
 	rpc.RegisterPromQLAPIServer(srv, s)
 	go srv.Serve(lis)
 
 	return SpyMetricStoreAddrs{
-		GrpcAddr: lis.Addr().String(),
-		TcpAddr:  btl.Address,
+		EgressAddr:  lis.Addr().String(),
+		IngressAddr: btl.Address,
 	}
 }
 

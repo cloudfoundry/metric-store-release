@@ -37,7 +37,7 @@ var _ = Describe("Gateway", func() {
 		metricStoreAddrs := spyMetricStore.Start()
 
 		gw = NewGateway(
-			metricStoreAddrs.GrpcAddr,
+			metricStoreAddrs.EgressAddr,
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
