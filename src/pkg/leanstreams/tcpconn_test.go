@@ -1,4 +1,4 @@
-package leanstreams
+package leanstreams_test
 
 import (
 	"log"
@@ -7,7 +7,11 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
+
+	shared "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -18,14 +22,23 @@ func exampleCallback(bts []byte) error {
 }
 
 var (
+	tlsConfig, _ = tls.NewMutualTLSConfig(
+		shared.Cert("metric-store-ca.crt"),
+		shared.Cert("metric-store.crt"),
+		shared.Cert("metric-store.key"),
+		"metric-store",
+	)
+
 	buffWriteConfig = TCPConnConfig{
 		MaxMessageSize: 2048,
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5034)),
+		TLSConfig:      tlsConfig,
 	}
 
 	buffWriteConfig2 = TCPConnConfig{
 		MaxMessageSize: 2048,
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5035)),
+		TLSConfig:      tlsConfig,
 	}
 
 	listenConfig = TCPListenerConfig{
@@ -33,6 +46,7 @@ var (
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5033)),
 		Callback:       exampleCallback,
+		TLSConfig:      tlsConfig,
 	}
 
 	listenConfig2 = TCPListenerConfig{
@@ -40,6 +54,7 @@ var (
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5034)),
 		Callback:       exampleCallback,
+		TLSConfig:      tlsConfig,
 	}
 
 	listenConfig3 = TCPListenerConfig{
@@ -47,6 +62,7 @@ var (
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5035)),
 		Callback:       exampleCallback,
+		TLSConfig:      tlsConfig,
 	}
 
 	btl      = &TCPListener{}
@@ -100,14 +116,15 @@ func TestMain(m *testing.M) {
 
 func TestDialBuffTCPUsesDefaultMessageSize(t *testing.T) {
 	cfg := TCPConnConfig{
-		Address: buffWriteConfig.Address,
+		Address:   buffWriteConfig.Address,
+		TLSConfig: tlsConfig,
 	}
 	buffM, err := DialTCP(&cfg)
 	if err != nil {
 		t.Errorf("Failed to open connection to %s: %s", cfg.Address, err)
 	}
-	if buffM.maxMessageSize != DefaultMaxMessageSize {
-		t.Errorf("Expected Max Message Size to be %d, actually got %d", DefaultMaxMessageSize, buffM.maxMessageSize)
+	if buffM.MaxMessageSize != DefaultMaxMessageSize {
+		t.Errorf("Expected Max Message Size to be %d, actually got %d", DefaultMaxMessageSize, buffM.MaxMessageSize)
 	}
 }
 
@@ -115,13 +132,14 @@ func TestDialBuffTCPUsesSpecifiedMaxMessageSize(t *testing.T) {
 	cfg := TCPConnConfig{
 		Address:        buffWriteConfig.Address,
 		MaxMessageSize: 8196,
+		TLSConfig:      tlsConfig,
 	}
 	conn, err := DialTCP(&cfg)
 	if err != nil {
 		t.Errorf("Failed to open connection to %s: %s", cfg.Address, err)
 	}
-	if conn.maxMessageSize != cfg.MaxMessageSize {
-		t.Errorf("Expected Max Message Size to be %d, actually got %d", cfg.MaxMessageSize, conn.maxMessageSize)
+	if conn.MaxMessageSize != cfg.MaxMessageSize {
+		t.Errorf("Expected Max Message Size to be %d, actually got %d", cfg.MaxMessageSize, conn.MaxMessageSize)
 	}
 }
 

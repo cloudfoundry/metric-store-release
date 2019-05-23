@@ -45,6 +45,26 @@ type testContext struct {
 	registry                  *prometheus.Registry
 }
 
+func (tc *testContext) writePoints(testPoints []*rpc.Point) {
+	cfg := &leanstreams.TCPConnConfig{
+		MaxMessageSize: 65536,
+		Address:        tc.store.IngressAddr(),
+		TLSConfig:      tc.tlsConfig,
+	}
+	remoteConnection, err := leanstreams.DialTCP(cfg)
+	Expect(err).ToNot(HaveOccurred())
+
+	payload, err := proto.Marshal(&rpc.SendRequest{
+		Batch: &rpc.Points{
+			Points: testPoints,
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = remoteConnection.Write(payload)
+	Expect(err).ToNot(HaveOccurred())
+}
+
 type testConfig struct {
 	RetentionPeriod time.Duration
 }
@@ -80,6 +100,7 @@ var _ = Describe("MetricStore", func() {
 		tc.store = metricstore.New(
 			persistentStore,
 			tc.diskFreeReporter.Get,
+			tc.tlsConfig,
 			metricstore.WithAddr("127.0.0.1:0"),
 			metricstore.WithIngressAddr("127.0.0.1:0"),
 			metricstore.WithMetrics(tc.spyMetrics),
@@ -126,7 +147,7 @@ var _ = Describe("MetricStore", func() {
 		defer cleanup()
 
 		now := time.Now()
-		writePoints(tc.store.IngressAddr(), []*rpc.Point{
+		tc.writePoints([]*rpc.Point{
 			{
 				Timestamp: now.Add(-2 * time.Second).UnixNano(),
 				Name:      MEASUREMENT_NAME,
@@ -165,7 +186,7 @@ var _ = Describe("MetricStore", func() {
 		defer cleanup()
 
 		now := time.Now()
-		writePoints(tc.store.IngressAddr(), []*rpc.Point{
+		tc.writePoints([]*rpc.Point{
 			{
 				Timestamp: now.Add(-2 * time.Second).UnixNano(),
 				Name:      MEASUREMENT_NAME,
@@ -314,25 +335,6 @@ var _ = Describe("MetricStore", func() {
 		})
 	})
 })
-
-func writePoints(ingressAddr string, testPoints []*rpc.Point) {
-	cfg := &leanstreams.TCPConnConfig{
-		MaxMessageSize: 65536,
-		Address:        ingressAddr,
-	}
-	remoteConnection, err := leanstreams.DialTCP(cfg)
-	Expect(err).ToNot(HaveOccurred())
-
-	payload, err := proto.Marshal(&rpc.SendRequest{
-		Batch: &rpc.Points{
-			Points: testPoints,
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = remoteConnection.Write(payload)
-	Expect(err).ToNot(HaveOccurred())
-}
 
 type mockPersistentStore struct {
 	deleteOlderThanCalls chan time.Time

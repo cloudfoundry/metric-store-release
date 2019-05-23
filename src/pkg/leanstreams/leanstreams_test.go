@@ -1,4 +1,4 @@
-package leanstreams
+package leanstreams_test
 
 import (
 	"crypto/rand"
@@ -8,7 +8,10 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -70,12 +73,21 @@ var _ = Describe("Leanstreams", func() {
 	var setup = func(port int) (tc *leanstreamsTestContext, cleanup func()) {
 		tc = &leanstreamsTestContext{}
 
+		tlsConfig, err := tls.NewMutualTLSConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		Expect(err).ToNot(HaveOccurred())
+
 		maxMessageSize := 100
 		listenConfig := TCPListenerConfig{
 			MaxMessageSize: maxMessageSize,
 			EnableLogging:  true,
 			Address:        FormatAddress("", strconv.Itoa(port)),
 			Callback:       tc.Callback,
+			TLSConfig:      tlsConfig,
 		}
 		listener, err := ListenTCP(listenConfig)
 		if err != nil {
@@ -87,6 +99,7 @@ var _ = Describe("Leanstreams", func() {
 		writeConfig := TCPConnConfig{
 			MaxMessageSize: maxMessageSize,
 			Address:        FormatAddress("127.0.0.1", strconv.Itoa(port)),
+			TLSConfig:      tlsConfig,
 		}
 		connection, err := DialTCP(&writeConfig)
 		if err != nil {
@@ -107,7 +120,7 @@ var _ = Describe("Leanstreams", func() {
 		return str[:len]
 	}
 
-	It("Writes to a connection are successfully read by the listener", func() {
+	It("Secure writes to a connection are successfully read by the listener", func() {
 		tc, cleanup := setup(5036)
 		defer cleanup()
 

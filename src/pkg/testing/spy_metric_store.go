@@ -76,6 +76,7 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 		MaxMessageSize: nozzle.MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES,
 		Callback:       callback,
 		Address:        ":0",
+		TLSConfig:      s.tlsConfig,
 	}
 	btl, err := leanstreams.ListenTCP(cfg)
 	s.remoteConnection = btl

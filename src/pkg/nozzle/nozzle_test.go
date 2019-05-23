@@ -43,7 +43,7 @@ var _ = Describe("Nozzle", func() {
 		metricStore = testing.NewSpyMetricStore(tlsConfig)
 		addrs := metricStore.Start()
 
-		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, "metric-store", 0,
+		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsConfig, "metric-store", 0,
 			WithNozzleMetrics(metricMap),
 			WithNozzleDialOpts(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))),
 			WithNozzleTimerRollup(100*time.Millisecond, "rolled_timer", []string{"tag1", "tag2"}),

@@ -11,6 +11,7 @@ import (
 	envstruct "code.cloudfoundry.org/go-envstruct"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
@@ -52,10 +53,21 @@ func main() {
 		}),
 	)
 
+	tlsConfig, err := tls.NewMutualTLSConfig(
+		cfg.MetricStoreTLS.CAPath,
+		cfg.MetricStoreTLS.CertPath,
+		cfg.MetricStoreTLS.KeyPath,
+		"metric-store",
+	)
+	if err != nil {
+		log.Fatalf("invalid nozzle Mutual TLS for metric-store configuration: %s", err)
+	}
+
 	nozzle := NewNozzle(
 		streamConnector,
 		cfg.MetricStoreAddr,
 		cfg.IngressAddr,
+		tlsConfig,
 		cfg.ShardId,
 		cfg.NodeIndex,
 		WithNozzleLogger(log.New(os.Stderr, "", log.LstdFlags)),

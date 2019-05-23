@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"crypto/tls"
 	"encoding/csv"
 	"io/ioutil"
 	"log"
@@ -51,6 +52,7 @@ type Nozzle struct {
 
 	addr        string
 	ingressAddr string
+	tlsConfig   *tls.Config
 	opts        []grpc.DialOption
 
 	tagInfo *sync.Map
@@ -89,11 +91,12 @@ const (
 	MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES = 2 * MAX_BATCH_SIZE_IN_BYTES
 )
 
-func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr, shardId string, nodeIndex int, opts ...NozzleOption) *Nozzle {
+func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...NozzleOption) *Nozzle {
 	n := &Nozzle{
 		s:                     c,
 		addr:                  metricStoreAddr,
 		ingressAddr:           ingressAddr,
+		tlsConfig:             tlsConfig,
 		opts:                  []grpc.DialOption{grpc.WithInsecure()},
 		log:                   log.New(ioutil.Discard, "", 0),
 		metrics:               metrics.NullMetrics{},
@@ -182,6 +185,7 @@ func (n *Nozzle) Start() {
 	n.remoteCfg = &leanstreams.TCPConnConfig{
 		MaxMessageSize: MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES,
 		Address:        n.remoteAddress,
+		TLSConfig:      n.tlsConfig,
 	}
 	for {
 		rc, err := leanstreams.DialTCP(n.remoteCfg)

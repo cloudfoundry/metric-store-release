@@ -1,6 +1,7 @@
 package leanstreams
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -20,10 +21,11 @@ var (
 // buffer messages
 type TCPConn struct {
 	// General
-	socket         *net.TCPConn
+	socket         net.Conn
 	address        string
+	tlsConfig      *tls.Config
 	headerByteSize int
-	maxMessageSize int
+	MaxMessageSize int
 
 	// For processing incoming data
 	incomingHeaderBuffer []byte
@@ -41,6 +43,8 @@ type TCPConnConfig struct {
 	MaxMessageSize int
 	// Address is the address to connect to for writing streaming messages.
 	Address string
+
+	TLSConfig *tls.Config
 }
 
 func newTCPConn(cfg *TCPConnConfig) *TCPConn {
@@ -53,12 +57,13 @@ func newTCPConn(cfg *TCPConnConfig) *TCPConn {
 	headerByteSize := messageSizeToBitLength(maxMessageSize)
 
 	return &TCPConn{
-		maxMessageSize:       maxMessageSize,
+		MaxMessageSize:       maxMessageSize,
 		headerByteSize:       headerByteSize,
 		address:              cfg.Address,
 		incomingHeaderBuffer: make([]byte, headerByteSize),
 		writeLock:            sync.Mutex{},
 		outgoingDataBuffer:   make([]byte, maxMessageSize),
+		tlsConfig:            cfg.TLSConfig,
 	}
 }
 
@@ -78,7 +83,7 @@ func (c *TCPConn) Open() error {
 	if err != nil {
 		return err
 	}
-	conn, err := net.DialTCP("tcp", nil, tcpAddr)
+	conn, err := tls.Dial("tcp", tcpAddr.String(), c.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -117,6 +122,7 @@ func (c *TCPConn) write(data []byte) (int, error) {
 	// Calculate how big the message is, using a consistent header size.
 	// Append the size to the message, so now it has a header
 	c.outgoingDataBuffer = append(intToByteArray(int64(len(data)), c.headerByteSize), data...)
+	emptyBuffer := append(intToByteArray(int64(len([]byte(""))), c.headerByteSize), []byte("")...)
 
 	toWriteLen := len(c.outgoingDataBuffer)
 
@@ -152,9 +158,9 @@ func (c *TCPConn) write(data []byte) (int, error) {
 		if writeError != nil {
 			c.Close()
 		} else {
-			_, writeError = c.socket.Write([]byte(""))
+			_, writeError = c.socket.Write(emptyBuffer)
 			if writeError != nil {
-				fmt.Println("Failed to write, connection assumed closed, replaying", writeError)
+				fmt.Printf("Error writing: %s\n", writeError)
 				c.Close()
 			} else {
 				totalBytesWritten += bytesWritten
@@ -168,9 +174,17 @@ func (c *TCPConn) write(data []byte) (int, error) {
 
 func (c *TCPConn) Write(data []byte) (int, error) {
 	bytesWritten, err := c.write(data)
+
 	if err != nil {
-		c.Open()
+		err = c.Open()
+		if err != nil {
+			return bytesWritten, err
+		}
+
 		bytesWritten, err = c.write(data)
+		if err != nil {
+			return bytesWritten, err
+		}
 	}
 
 	return bytesWritten, err

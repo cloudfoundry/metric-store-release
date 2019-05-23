@@ -1,6 +1,7 @@
 package metricstore_test
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/common/expfmt"
 
@@ -39,12 +41,19 @@ var _ = Describe("MetricStore", func() {
 		gatewayHealthPort  string
 		metricStoreProcess *gexec.Session
 		gatewayProcess     *gexec.Session
+		tlsConfig          *tls.Config
 	}
 
 	var start = func(tc *testContext) {
 		caCert := testing.Cert("metric-store-ca.crt")
 		cert := testing.Cert("metric-store.crt")
 		key := testing.Cert("metric-store.key")
+
+		tlsConfig, err := metrictls.NewMutualTLSConfig(caCert, cert, key, "metric-store")
+		if err != nil {
+			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
+		}
+		tc.tlsConfig = tlsConfig
 
 		tc.metricStoreProcess = testing.StartGoProcess(
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
@@ -204,6 +213,7 @@ var _ = Describe("MetricStore", func() {
 		cfg := &leanstreams.TCPConnConfig{
 			MaxMessageSize: 65536,
 			Address:        tc.ingressAddr,
+			TLSConfig:      tc.tlsConfig,
 		}
 		remoteConnection, err := leanstreams.DialTCP(cfg)
 		Expect(err).ToNot(HaveOccurred())

@@ -13,6 +13,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 )
 
@@ -28,6 +29,16 @@ func main() {
 	}
 
 	envstruct.WriteReport(cfg)
+
+	tlsConfig, err := tls.NewMutualTLSConfig(
+		cfg.TLS.CAPath,
+		cfg.TLS.CertPath,
+		cfg.TLS.KeyPath,
+		"metric-store",
+	)
+	if err != nil {
+		log.Fatalf("invalid metric-store Mutual TLS configuration: %s", err)
+	}
 
 	tsStore, err := persistence.OpenTsStore(cfg.StoragePath)
 	if err != nil {
@@ -68,6 +79,7 @@ func main() {
 	store := metricstore.New(
 		persistentStore,
 		diskFreeReporter,
+		tlsConfig,
 		metricstore.WithMetrics(metrics),
 		metricstore.WithAddr(cfg.Addr),
 		metricstore.WithIngressAddr(cfg.IngressAddr),

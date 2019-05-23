@@ -1,6 +1,7 @@
 package metricstore
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 	"log"
 	"math"
@@ -62,9 +63,10 @@ type MetricStore struct {
 	addr        string
 	ingressAddr string
 	extAddr     string
+	tlsConfig   *tls.Config
 }
 
-func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, opts ...MetricStoreOption) *MetricStore {
+func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, tlsConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     log.New(ioutil.Discard, "", 0),
 		metrics: metrics.NullMetrics{},
@@ -79,6 +81,7 @@ func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, opt
 		queryTimeout: 10 * time.Second,
 		addr:         ":8080",
 		ingressAddr:  ":8090",
+		tlsConfig:    tlsConfig,
 	}
 
 	for _, o := range opts {
@@ -233,6 +236,7 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 		MaxMessageSize: 65536,
 		Callback:       writeBinary,
 		Address:        store.ingressAddr,
+		TLSConfig:      store.tlsConfig,
 	}
 	btl, err := leanstreams.ListenTCP(cfg)
 	store.ingressListener = btl
