@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
-	"strconv"
 	"sync"
 	"time"
 
@@ -70,7 +69,7 @@ func (tc *leanstreamsTestContext) Results() []string {
 }
 
 var _ = Describe("Leanstreams", func() {
-	var setup = func(port int) (tc *leanstreamsTestContext, cleanup func()) {
+	var setup = func() (tc *leanstreamsTestContext, cleanup func()) {
 		tc = &leanstreamsTestContext{}
 
 		tlsConfig, err := tls.NewMutualTLSConfig(
@@ -85,7 +84,7 @@ var _ = Describe("Leanstreams", func() {
 		listenConfig := TCPListenerConfig{
 			MaxMessageSize: maxMessageSize,
 			EnableLogging:  true,
-			Address:        FormatAddress("", strconv.Itoa(port)),
+			Address:        ":0",
 			Callback:       tc.Callback,
 			TLSConfig:      tlsConfig,
 		}
@@ -98,7 +97,7 @@ var _ = Describe("Leanstreams", func() {
 
 		writeConfig := TCPConnConfig{
 			MaxMessageSize: maxMessageSize,
-			Address:        FormatAddress("127.0.0.1", strconv.Itoa(port)),
+			Address:        listener.Address,
 			TLSConfig:      tlsConfig,
 		}
 		connection, err := DialTCP(&writeConfig)
@@ -121,7 +120,7 @@ var _ = Describe("Leanstreams", func() {
 	}
 
 	It("Secure writes to a connection are successfully read by the listener", func() {
-		tc, cleanup := setup(5036)
+		tc, cleanup := setup()
 		defer cleanup()
 
 		n, err := tc.Write("This is an example message")
@@ -138,7 +137,7 @@ var _ = Describe("Leanstreams", func() {
 
 	Context("When the listeners read buffer is overrun", func() {
 		It("recovers and continues to write to a connection", func() {
-			tc, cleanup := setup(5037)
+			tc, cleanup := setup()
 			defer cleanup()
 
 			n, err := tc.Write(randStr(200))
@@ -159,7 +158,7 @@ var _ = Describe("Leanstreams", func() {
 
 	Context("When the connection is closed", func() {
 		It("The server resumes listening and the client reopens when writing", func() {
-			tc, cleanup := setup(5038)
+			tc, cleanup := setup()
 			defer cleanup()
 
 			tc.Listener.Close()
