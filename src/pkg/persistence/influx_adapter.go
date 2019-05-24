@@ -235,6 +235,22 @@ func (t *InfluxAdapter) ShardIDs() []uint64 {
 	return shards
 }
 
+func (t *InfluxAdapter) OldestShardID() (uint64, error) {
+	shardIDs := t.ShardIDs()
+	if len(shardIDs) == 0 {
+		return 0, fmt.Errorf("Cannot determine oldest shardID when there are no shardIDs")
+	}
+
+	oldestShardID := shardIDs[0]
+	for _, shardID := range shardIDs {
+		if shardID < oldestShardID {
+			oldestShardID = shardID
+		}
+	}
+
+	return oldestShardID, nil
+}
+
 func (t *InfluxAdapter) Close() {
 	t.influx.Close()
 }

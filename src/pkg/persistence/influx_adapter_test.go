@@ -233,6 +233,34 @@ var _ = Describe("Influx Adapter", func() {
 			))
 		})
 	})
+
+	Describe("OldestShardID()", func() {
+		It("deletes the oldest shard", func() {
+			tc := setup()
+
+			oldestShardID, err := tc.adapter.OldestShardID()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldestShardID).To(Equal(getShardIdForDay(0)))
+
+			tc.adapter.DeleteOldest()
+
+			oldestShardID, err = tc.adapter.OldestShardID()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldestShardID).To(Equal(getShardIdForDay(1)))
+		})
+
+		It("returns an error when there are no shards", func() {
+			tc := setup()
+
+			tc.adapter.DeleteOldest()
+			tc.adapter.DeleteOldest()
+			tc.adapter.DeleteOldest()
+			tc.adapter.DeleteOldest()
+
+			_, err := tc.adapter.OldestShardID()
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
 
 func getShardIdForDay(days uint64) uint64 {

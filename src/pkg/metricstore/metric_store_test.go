@@ -112,6 +112,7 @@ var _ = Describe("MetricStore", func() {
 				ExpiryFrequency:       250 * time.Millisecond,
 				DiskFreePercentTarget: 50,
 			}),
+			metricstore.WithMetricsEmitDuration(1*time.Second),
 			metricstore.WithLogger(log.New(GinkgoWriter, "", 0)),
 		)
 		tc.store.Start()
@@ -334,17 +335,30 @@ var _ = Describe("MetricStore", func() {
 			Consistently(mockPersistentStore.deleteOldestCalls, 1.1).Should(HaveLen(2))
 		})
 	})
+
+	Context("periodic metrics", func() {
+		It("periodicly emits metrics with storage duration", func() {
+			mockPersistentStore := newMockPersistentStore()
+			_, cleanup := setupWithPersistentStore(mockPersistentStore)
+			defer cleanup()
+
+			Eventually(mockPersistentStore.emitStorageDurationMetricCalls, 1.1).Should(HaveLen(1))
+			Eventually(mockPersistentStore.emitStorageDurationMetricCalls, 1.1).Should(HaveLen(2))
+		})
+	})
 })
 
 type mockPersistentStore struct {
-	deleteOlderThanCalls chan time.Time
-	deleteOldestCalls    chan struct{}
+	deleteOlderThanCalls           chan time.Time
+	deleteOldestCalls              chan struct{}
+	emitStorageDurationMetricCalls chan time.Time
 }
 
 func newMockPersistentStore() *mockPersistentStore {
 	return &mockPersistentStore{
-		deleteOlderThanCalls: make(chan time.Time, 10),
-		deleteOldestCalls:    make(chan struct{}, 10),
+		deleteOlderThanCalls:           make(chan time.Time, 10),
+		deleteOldestCalls:              make(chan struct{}, 10),
+		emitStorageDurationMetricCalls: make(chan time.Time, 10),
 	}
 }
 
@@ -362,6 +376,10 @@ func (m *mockPersistentStore) DeleteOlderThan(cutoff time.Time) {
 
 func (m *mockPersistentStore) DeleteOldest() {
 	m.deleteOldestCalls <- struct{}{}
+}
+
+func (m *mockPersistentStore) EmitStorageDurationMetric() {
+	m.emitStorageDurationMetricCalls <- time.Now()
 }
 
 func (m *mockPersistentStore) Close() {

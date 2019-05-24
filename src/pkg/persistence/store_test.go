@@ -416,6 +416,33 @@ var _ = Describe("Persistent Store", func() {
 
 			Expect(tc.metrics.Get("metric_store_egress")).To(BeEquivalentTo(1))
 		})
+
+		It("updates storage duration metrics", func() {
+			tc := setup()
+			defer teardown(tc)
+
+			today := time.Now().Truncate(24 * time.Hour)
+			todayInMilliseconds := today.UnixNano() / int64(time.Millisecond)
+			oneDayAgo := today.Add(-1 * 24 * time.Hour)
+			oneDayAgoInMilliseconds := oneDayAgo.UnixNano() / int64(time.Millisecond)
+			threeDaysAgo := today.Add(-3 * 24 * time.Hour)
+			threeDaysAgoInMilliseconds := threeDaysAgo.UnixNano() / int64(time.Millisecond)
+
+			tc.storePoint(todayInMilliseconds, "counter", 1)
+
+			tc.store.EmitStorageDurationMetric()
+			Expect(tc.metrics.Getter("metric_store_storage_duration")()).To(BeEquivalentTo(0))
+
+			tc.storePoint(oneDayAgoInMilliseconds, "counter", 1)
+
+			tc.store.EmitStorageDurationMetric()
+			Expect(tc.metrics.Getter("metric_store_storage_duration")()).To(BeEquivalentTo(1))
+
+			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
+
+			tc.store.EmitStorageDurationMetric()
+			Expect(tc.metrics.Getter("metric_store_storage_duration")()).To(BeEquivalentTo(3))
+		})
 	})
 })
 

@@ -32,6 +32,7 @@ type Metrics struct {
 	incNumShardsExpired            func(delta uint64)
 	incNumShardsPruned             func(delta uint64)
 	incNumGetErrors                func(delta uint64)
+	storageDurationGauge           func(value float64)
 	labelTagsQueryTime             func(time float64)
 	labelFieldsQueryTime           func(time float64)
 	labelMeasurementNamesQueryTime func(time float64)
@@ -42,11 +43,12 @@ func NewStore(influxStore InfluxStore, m MetricsInitializer, opts ...WithStoreOp
 		adapter: NewInfluxAdapter(influxStore, m),
 
 		metrics: Metrics{
-			incIngress:          m.NewCounter("metric_store_ingress"),
-			incEgress:           m.NewCounter("metric_store_egress"),
-			incNumShardsExpired: m.NewCounter("metric_store_num_shards_expired"),
-			incNumShardsPruned:  m.NewCounter("metric_store_num_shards_pruned"),
-			incNumGetErrors:     m.NewCounter("metric_store_num_get_errors"),
+			incIngress:           m.NewCounter("metric_store_ingress"),
+			incEgress:            m.NewCounter("metric_store_egress"),
+			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
+			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
+			incNumGetErrors:      m.NewCounter("metric_store_num_get_errors"),
+			storageDurationGauge: m.NewGauge("metric_store_storage_duration", "days"),
 		},
 
 		labelTruncationLength: 256,
@@ -126,6 +128,16 @@ func (store *Store) DeleteOldest() {
 		fmt.Println(err)
 	}
 	store.metrics.incNumShardsPruned(1)
+}
+
+func (store *Store) EmitStorageDurationMetric() {
+	oldestShardID, err := store.adapter.OldestShardID()
+	if err != nil {
+		return
+	}
+
+	duration := time.Since(time.Unix(0, int64(oldestShardID)))
+	store.metrics.storageDurationGauge(float64(int(duration.Hours()) / 24))
 }
 
 func (store *Store) Close() {

@@ -35,6 +35,7 @@ type PersistentStore interface {
 	Get(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, error)
 	DeleteOlderThan(cutoff time.Time)
 	DeleteOldest()
+	EmitStorageDurationMetric()
 	Close()
 	Labels() (*rpc.PromQL_LabelsQueryResult, error)
 	LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error)
@@ -55,10 +56,11 @@ type MetricStore struct {
 	metrics    metrics.Initializer
 	closing    int64
 
-	persistentStore  PersistentStore
-	diskFreeReporter diskFreeReporter
-	expiryConfig     RetentionConfig
-	queryTimeout     time.Duration
+	persistentStore     PersistentStore
+	diskFreeReporter    diskFreeReporter
+	expiryConfig        RetentionConfig
+	queryTimeout        time.Duration
+	metricsEmitDuration time.Duration
 
 	addr        string
 	ingressAddr string
@@ -78,10 +80,11 @@ func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, tls
 			RetentionPeriod:       time.Duration(math.MaxInt64),
 			DiskFreePercentTarget: 0,
 		},
-		queryTimeout: 10 * time.Second,
-		addr:         ":8080",
-		ingressAddr:  ":8090",
-		tlsConfig:    tlsConfig,
+		queryTimeout:        10 * time.Second,
+		metricsEmitDuration: 10 * time.Minute,
+		addr:                ":8080",
+		ingressAddr:         ":8090",
+		tlsConfig:           tlsConfig,
 	}
 
 	for _, o := range opts {
@@ -159,10 +162,19 @@ func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	}
 }
 
+// WithMetricsEmitDuration sets the duration to which periodic metrics are
+// emitted
+func WithMetricsEmitDuration(metricsEmitDuration time.Duration) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.metricsEmitDuration = metricsEmitDuration
+	}
+}
+
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
 	go store.periodicExpiry(store.persistentStore)
+	go store.periodicMetrics(store.persistentStore)
 	store.setupRouting(store.persistentStore)
 }
 
@@ -170,6 +182,13 @@ func (store *MetricStore) periodicExpiry(ps PersistentStore) {
 	store.deleteExpiredData(ps)
 	for range time.Tick(store.expiryConfig.ExpiryFrequency) {
 		store.deleteExpiredData(ps)
+	}
+}
+
+func (store *MetricStore) periodicMetrics(ps PersistentStore) {
+	ps.EmitStorageDurationMetric()
+	for range time.Tick(store.metricsEmitDuration) {
+		ps.EmitStorageDurationMetric()
 	}
 }
 
