@@ -9,7 +9,6 @@ import (
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
-
 	shared "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/golang/protobuf/proto"
@@ -29,13 +28,13 @@ var (
 		"metric-store",
 	)
 
-	buffWriteConfig = TCPConnConfig{
+	buffWriteConfig = TCPClientConfig{
 		MaxMessageSize: 2048,
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5034)),
 		TLSConfig:      tlsConfig,
 	}
 
-	buffWriteConfig2 = TCPConnConfig{
+	buffWriteConfig2 = TCPClientConfig{
 		MaxMessageSize: 2048,
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5035)),
 		TLSConfig:      tlsConfig,
@@ -68,8 +67,8 @@ var (
 	btl      = &TCPListener{}
 	btl2     = &TCPListener{}
 	btl3     = &TCPListener{}
-	btc      = &TCPConn{}
-	btc2     = &TCPConn{}
+	btc      = &TCPClient{}
+	btc2     = &TCPClient{}
 	name     = "TestMessage"
 	date     = time.Now().UnixNano()
 	data     = "This is an intenntionally long and rambling sentence to pad out the size of the message."
@@ -115,7 +114,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestDialBuffTCPUsesDefaultMessageSize(t *testing.T) {
-	cfg := TCPConnConfig{
+	cfg := TCPClientConfig{
 		Address:   buffWriteConfig.Address,
 		TLSConfig: tlsConfig,
 	}
@@ -129,7 +128,7 @@ func TestDialBuffTCPUsesDefaultMessageSize(t *testing.T) {
 }
 
 func TestDialBuffTCPUsesSpecifiedMaxMessageSize(t *testing.T) {
-	cfg := TCPConnConfig{
+	cfg := TCPClientConfig{
 		Address:        buffWriteConfig.Address,
 		MaxMessageSize: 8196,
 		TLSConfig:      tlsConfig,

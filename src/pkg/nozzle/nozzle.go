@@ -72,9 +72,9 @@ type Nozzle struct {
 	remoteNodeWriteDuration        func(float64)
 	batchChanSize                  func(float64)
 
-	remoteConnection *leanstreams.TCPConn
+	remoteConnection *leanstreams.TCPClient
 	remoteAddress    string
-	remoteCfg        *leanstreams.TCPConnConfig
+	remoteCfg        *leanstreams.TCPClientConfig
 }
 
 // StreamConnector reads envelopes from the the logs provider.
@@ -182,7 +182,7 @@ func (n *Nozzle) Start() {
 	rx := n.s.Stream(context.Background(), n.buildBatchReq())
 	n.remoteAddress = n.ingressAddr
 
-	n.remoteCfg = &leanstreams.TCPConnConfig{
+	n.remoteCfg = &leanstreams.TCPClientConfig{
 		MaxMessageSize: MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES,
 		Address:        n.remoteAddress,
 		TLSConfig:      n.tlsConfig,

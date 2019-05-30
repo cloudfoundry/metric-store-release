@@ -46,7 +46,7 @@ type testContext struct {
 }
 
 func (tc *testContext) writePoints(testPoints []*rpc.Point) {
-	cfg := &leanstreams.TCPConnConfig{
+	cfg := &leanstreams.TCPClientConfig{
 		MaxMessageSize: 65536,
 		Address:        tc.store.IngressAddr(),
 		TLSConfig:      tc.tlsConfig,

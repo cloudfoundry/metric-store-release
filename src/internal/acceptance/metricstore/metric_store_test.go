@@ -210,7 +210,7 @@ var _ = Describe("MetricStore", func() {
 			metricNameCounts[point.Name]++
 		}
 
-		cfg := &leanstreams.TCPConnConfig{
+		cfg := &leanstreams.TCPClientConfig{
 			MaxMessageSize: 65536,
 			Address:        tc.ingressAddr,
 			TLSConfig:      tc.tlsConfig,

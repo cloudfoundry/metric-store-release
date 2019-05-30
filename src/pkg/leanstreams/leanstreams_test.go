@@ -17,8 +17,8 @@ import (
 )
 
 type leanstreamsTestContext struct {
-	Listener   *TCPListener
-	Connection *TCPConn
+	Listener *TCPListener
+	Client   *TCPClient
 
 	MessageCommentsReceived []string
 	sync.Mutex
@@ -34,7 +34,7 @@ func (tc *leanstreamsTestContext) Write(comment string) (int, error) {
 	}
 	messageBytes, _ := proto.Marshal(msg)
 
-	return tc.Connection.Write(messageBytes)
+	return tc.Client.Write(messageBytes)
 }
 
 func (tc *leanstreamsTestContext) WaitForResults() {
@@ -95,7 +95,7 @@ var _ = Describe("Leanstreams", func() {
 		listener.StartListeningAsync()
 		tc.Listener = listener
 
-		writeConfig := TCPConnConfig{
+		writeConfig := TCPClientConfig{
 			MaxMessageSize: maxMessageSize,
 			Address:        listener.Address,
 			TLSConfig:      tlsConfig,
@@ -104,10 +104,10 @@ var _ = Describe("Leanstreams", func() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		tc.Connection = connection
+		tc.Client = connection
 
 		return tc, func() {
-			tc.Connection.Close()
+			tc.Client.Close()
 		}
 	}
 

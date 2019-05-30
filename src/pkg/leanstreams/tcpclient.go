@@ -2,24 +2,15 @@ package leanstreams
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
-	"io"
 	"net"
 	"sync"
 )
 
-var (
-	// ErrZeroBytesReadHeader is thrown when the value parsed from the header is not valid
-	ErrZeroBytesReadHeader = errors.New("0 Bytes parsed from header. Connection Closed")
-	// ErrLessThanZeroBytesReadHeader is thrown when the value parsed from the header caused some kind of underrun
-	ErrLessThanZeroBytesReadHeader = errors.New("Less than zero bytes parsed from header. Connection Closed")
-)
-
-// TCPConn is an abstraction over the normal net.TCPConn, but optimized for wtiting
+// TCPClient is an abstraction over the normal net.TCPConn, but optimized for wtiting
 // data encoded in a length+data format, like you would treat networked protocol
 // buffer messages
-type TCPConn struct {
+type TCPClient struct {
 	// General
 	socket         net.Conn
 	address        string
@@ -35,9 +26,9 @@ type TCPConn struct {
 	outgoingDataBuffer []byte
 }
 
-// TCPConnConfig representss the information needed to begin listening for
+// TCPClientConfig represents the information needed to begin listening for
 // writing messages.
-type TCPConnConfig struct {
+type TCPClientConfig struct {
 	// Controls how large the largest Message may be. The server will reject any messages whose clients
 	// header size does not match this configuration.
 	MaxMessageSize int
@@ -47,7 +38,7 @@ type TCPConnConfig struct {
 	TLSConfig *tls.Config
 }
 
-func newTCPConn(cfg *TCPConnConfig) *TCPConn {
+func newTCPClient(cfg *TCPClientConfig) *TCPClient {
 	maxMessageSize := DefaultMaxMessageSize
 	// 0 is the default, and the message must be atleast 1 byte large
 	if cfg.MaxMessageSize != 0 {
@@ -56,7 +47,7 @@ func newTCPConn(cfg *TCPConnConfig) *TCPConn {
 
 	headerByteSize := messageSizeToBitLength(maxMessageSize)
 
-	return &TCPConn{
+	return &TCPClient{
 		MaxMessageSize:       maxMessageSize,
 		headerByteSize:       headerByteSize,
 		address:              cfg.Address,
@@ -69,8 +60,8 @@ func newTCPConn(cfg *TCPConnConfig) *TCPConn {
 
 // DialTCP creates a TCPWriter, and dials a connection to the remote
 // endpoint. It does not begin writing anything until you begin to do so.
-func DialTCP(cfg *TCPConnConfig) (*TCPConn, error) {
-	c := newTCPConn(cfg)
+func DialTCP(cfg *TCPClientConfig) (*TCPClient, error) {
+	c := newTCPClient(cfg)
 	if err := c.Open(); err != nil {
 		return nil, err
 	}
@@ -78,7 +69,7 @@ func DialTCP(cfg *TCPConnConfig) (*TCPConn, error) {
 }
 
 // open will dial a connection to the remote endpoint.
-func (c *TCPConn) Open() error {
+func (c *TCPClient) Open() error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", c.address)
 	if err != nil {
 		return err
@@ -93,7 +84,7 @@ func (c *TCPConn) Open() error {
 
 // Reopen allows you to close and re-establish a connection to the existing Address
 // without needing to create a whole new TCPWriter object.
-func (c *TCPConn) Reopen() error {
+func (c *TCPClient) Reopen() error {
 	if err := c.Close(); err != nil {
 		return err
 	}
@@ -110,7 +101,7 @@ func (c *TCPConn) Reopen() error {
 // control access to the underlying pool of readers/writers. This call should be
 // threadsafe, so that any other threads writing will finish, or be blocked, when
 // this is invoked.
-func (c *TCPConn) Close() error {
+func (c *TCPClient) Close() error {
 	return c.socket.Close()
 }
 
@@ -118,7 +109,7 @@ func (c *TCPConn) Close() error {
 // you pass in will be pre-pended with it's size. If the connection isn't open
 // you will receive an error. If not all bytes can be written, Write will keep
 // trying until the full message is delivered, or the connection is broken.
-func (c *TCPConn) write(data []byte) (int, error) {
+func (c *TCPClient) write(data []byte) (int, error) {
 	// Calculate how big the message is, using a consistent header size.
 	// Append the size to the message, so now it has a header
 	c.outgoingDataBuffer = append(intToByteArray(int64(len(data)), c.headerByteSize), data...)
@@ -172,7 +163,7 @@ func (c *TCPConn) write(data []byte) (int, error) {
 	return totalBytesWritten, writeError
 }
 
-func (c *TCPConn) Write(data []byte) (int, error) {
+func (c *TCPClient) Write(data []byte) (int, error) {
 	bytesWritten, err := c.write(data)
 
 	if err != nil {
@@ -188,70 +179,4 @@ func (c *TCPConn) Write(data []byte) (int, error) {
 	}
 
 	return bytesWritten, err
-}
-
-func (c *TCPConn) lowLevelRead(buffer []byte) (int, error) {
-	var totalBytesRead = 0
-	var err error
-	var bytesRead = 0
-	var toRead = len(buffer)
-	// This fills the buffer
-	bytesRead, err = c.socket.Read(buffer)
-	totalBytesRead += bytesRead
-	for totalBytesRead < toRead && err == nil {
-		bytesRead, err = c.socket.Read(buffer[totalBytesRead:])
-		totalBytesRead += bytesRead
-	}
-
-	// Output the content of the bytes to the queue
-	if totalBytesRead == 0 && err != nil && err == io.EOF {
-		// "End of individual transmission"
-		// We're just done reading from that conn
-		return totalBytesRead, err
-	} else if err != nil {
-		//"Underlying network failure?"
-		// Not sure what this error would be, but it could exist and i've seen it handled
-		// as a general case in other networking code. Following in the footsteps of (greatness|madness)
-		return totalBytesRead, err
-	}
-	// Read some bytes, return the length
-
-	return totalBytesRead, nil
-}
-
-func (c *TCPConn) Read(b []byte) (int, error) {
-	// Read the header
-	hLength, err := c.lowLevelRead(c.incomingHeaderBuffer)
-	if err != nil {
-		return hLength, err
-	}
-	// Decode it
-	msgLength, bytesParsed := byteArrayToUInt32(c.incomingHeaderBuffer)
-	if bytesParsed == 0 {
-		// "Buffer too small"
-		c.Close()
-		return hLength, ErrZeroBytesReadHeader
-	} else if bytesParsed < 0 {
-		// "Buffer overflow"
-		c.Close()
-		return hLength, ErrLessThanZeroBytesReadHeader
-	}
-
-	if msgLength < 0 {
-		c.Close()
-		return 0, fmt.Errorf("Message length in header is invalid: %d", msgLength)
-	}
-
-	// Make sure we don't overrun the slice
-	if int(msgLength) > len(b) {
-		c.Close()
-		return 0, fmt.Errorf("Message is too long: %d bytes", msgLength)
-	}
-
-	// Using the header, read the remaining body
-	bLength, err := c.lowLevelRead(b[:msgLength])
-	if err != nil {
-		c.Close()
-	}
-	return bLength, err
 }

@@ -22,7 +22,7 @@ type TCPListener struct {
 	callback        ListenCallback
 	shutdownChannel chan struct{}
 	shutdownGroup   *sync.WaitGroup
-	ConnConfig      *TCPConnConfig
+	ConnConfig      *TCPServerConfig
 	tlsConfig       *tls.Config
 	Address         string
 
@@ -58,7 +58,7 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 	if cfg.MaxMessageSize != 0 {
 		maxMessageSize = cfg.MaxMessageSize
 	}
-	connCfg := TCPConnConfig{
+	connCfg := TCPServerConfig{
 		MaxMessageSize: maxMessageSize,
 		Address:        cfg.Address,
 		TLSConfig:      cfg.TLSConfig,
@@ -105,7 +105,7 @@ func (t *TCPListener) blockListen() error {
 			continue
 		}
 
-		conn := newTCPConn(t.ConnConfig)
+		conn := newTCPServer(t.ConnConfig)
 		// Don't dial out, wrap the underlying conn in one of ours
 		conn.socket = c
 
@@ -197,7 +197,7 @@ func (t *TCPListener) RestartListeningAsync() error {
 
 // Handles each incoming connection, run within it's own goroutine. This method will
 // loop until the client disconnects or another error occurs and is not handled
-func (t *TCPListener) readLoop(conn *TCPConn) {
+func (t *TCPListener) readLoop(conn *TCPServer) {
 	defer t.shutdownGroup.Done()
 	// dataBuffer will hold the message from each read
 	dataBuffer := make([]byte, conn.MaxMessageSize)
@@ -205,7 +205,7 @@ func (t *TCPListener) readLoop(conn *TCPConn) {
 	// Start an asyncrhonous call that will wait on the shutdown channel, and then close
 	// the connection. This will let us respond to the shutdown but also not incur
 	// a cost for checking the channel on each run of the loop
-	go func(c *TCPConn, s <-chan struct{}) {
+	go func(c *TCPServer, s <-chan struct{}) {
 		<-s
 		c.Close()
 	}(conn, t.shutdownChannel)
