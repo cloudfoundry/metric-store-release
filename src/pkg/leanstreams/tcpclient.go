@@ -74,11 +74,11 @@ func (c *TCPClient) Open() error {
 	if err != nil {
 		return err
 	}
-	conn, err := tls.Dial("tcp", tcpAddr.String(), c.tlsConfig)
+	secureConnection, err := tls.Dial("tcp", tcpAddr.String(), c.tlsConfig)
 	if err != nil {
 		return err
 	}
-	c.socket = conn
+	c.socket = secureConnection
 	return err
 }
 
