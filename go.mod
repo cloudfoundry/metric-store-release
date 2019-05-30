@@ -46,4 +46,6 @@ require (
 	google.golang.org/grpc v1.19.0
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 	honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a // indirect
+	labix.org/v2/mgo v0.0.0-20140701140051-000000000287 // indirect
+	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )
