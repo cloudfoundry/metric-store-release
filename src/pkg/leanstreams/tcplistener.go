@@ -36,7 +36,7 @@ type TCPListenerConfig struct {
 	// Controls how large the largest Message may be. The server will reject any messages whose clients
 	// header size does not match this configuration
 	MaxMessageSize int
-	// Controls the ability to enable logging errors occuring in the library
+	// Controls the ability to enable logging errors occurring in the library
 	EnableLogging bool
 	// The local address to listen for incoming connections on. Typically, you exclude
 	// the ip, and just provide port, ie: ":5031"

@@ -117,7 +117,7 @@ func (c *TCPClient) write(data []byte) (int, error) {
 
 	toWriteLen := len(c.outgoingDataBuffer)
 
-	// Three conditions could have occured:
+	// Three conditions could have occurred:
 	// 1. There was an error
 	// 2. Not all bytes were written
 	// 3. Both 1 and 2

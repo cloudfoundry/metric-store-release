@@ -54,7 +54,7 @@ func TestMessageBytesToInt(t *testing.T) {
 		byteSize := messageSizeToBitLength(int(c.input))
 		bytes := intToByteArray(c.input, byteSize)
 		result, _ := byteArrayToUInt32(bytes)
-		if int64(result) != c.output {
+		if result != c.output {
 			t.Errorf("Conversion between bytes incorrect. Original value %d, got %d", c.input, result)
 		}
 	}
