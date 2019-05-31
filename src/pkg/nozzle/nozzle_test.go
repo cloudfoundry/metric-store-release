@@ -404,11 +404,11 @@ var _ = Describe("Nozzle", func() {
 		addEnvelope(2, "memory", "some-source-id", streamConnector)
 		addEnvelope(3, "memory", "some-source-id", streamConnector)
 
-		Eventually(metricMap.Getter("nozzle_points_ingress")).Should(Equal(float64(3)))
+		Eventually(metricMap.Getter("nozzle_envelopes_ingress")).Should(Equal(float64(3)))
 		Eventually(metricMap.Getter("nozzle_points_egress")).Should(Equal(float64(3)))
 		Eventually(metricMap.Getter("nozzle_batches_egress")).Should(Equal(float64(1)))
-		Eventually(metricMap.Getter("nozzle_remote_node_write_duration")).Should(BeNumerically(">", 0))
-		Eventually(metricMap.Getter("nozzle_remote_node_write_errors")).Should(Equal(float64(0)))
+		Eventually(metricMap.Getter("nozzle_egress_write_duration")).Should(BeNumerically(">", 0))
+		Eventually(metricMap.Getter("nozzle_egress_write_errors")).Should(Equal(float64(0)))
 	})
 
 	It("forwards all tags", func() {

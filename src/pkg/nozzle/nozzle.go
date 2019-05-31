@@ -61,16 +61,15 @@ type Nozzle struct {
 	rollupMetricName string
 	rollupTags       []string
 
-	numBatchesEgressInc            func(uint64)
-	numPointsIngressInc            func(uint64)
-	numPointsEgressInc             func(uint64)
-	numStreamDiodePointsDroppedInc func(uint64)
-	numTimerDiodePointsDroppedInc  func(uint64)
-	numStreamBatchPointsDroppedInc func(uint64)
-	numTimerBatchPointsDroppedInc  func(uint64)
-	remoteNodeWriteErrorInc        func(uint64)
-	remoteNodeWriteDuration        func(float64)
-	batchChanSize                  func(float64)
+	numEnvelopesIngressInc           func(uint64)
+	numStreamDiodePointsDroppedInc   func(uint64)
+	numStreamChannelPointsDroppedInc func(uint64)
+	numTimerDiodePointsDroppedInc    func(uint64)
+	numTimerChannelPointsDroppedInc  func(uint64)
+	numBatchesEgressInc              func(uint64)
+	numPointsEgressInc               func(uint64)
+	egressWriteDuration              func(float64)
+	egressWriteErrorInc              func(uint64)
 
 	remoteConnection *leanstreams.TCPClient
 	remoteAddress    string
@@ -112,16 +111,15 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		o(n)
 	}
 
-	n.numBatchesEgressInc = n.metrics.NewCounter("nozzle_batches_egress")
-	n.numPointsIngressInc = n.metrics.NewCounter("nozzle_points_ingress")
-	n.numPointsEgressInc = n.metrics.NewCounter("nozzle_points_egress")
-	n.remoteNodeWriteErrorInc = n.metrics.NewCounter("nozzle_remote_node_write_errors")
-	n.remoteNodeWriteDuration = n.metrics.NewSummary("nozzle_remote_node_write_duration", "ms")
+	n.numEnvelopesIngressInc = n.metrics.NewCounter("nozzle_envelopes_ingress")
 	n.numStreamDiodePointsDroppedInc = n.metrics.NewCounter("nozzle_stream_diode_points_dropped")
+	n.numStreamChannelPointsDroppedInc = n.metrics.NewCounter("nozzle_stream_channel_points_dropped")
 	n.numTimerDiodePointsDroppedInc = n.metrics.NewCounter("nozzle_timer_diode_points_dropped")
-	n.batchChanSize = n.metrics.NewGauge("nozzle_batch_chan_size", "points")
-	n.numStreamBatchPointsDroppedInc = n.metrics.NewCounter("nozzle_stream_batch_points_dropped")
-	n.numTimerBatchPointsDroppedInc = n.metrics.NewCounter("nozzle_timer_batch_points_dropped")
+	n.numTimerChannelPointsDroppedInc = n.metrics.NewCounter("nozzle_timer_channel_points_dropped")
+	n.numBatchesEgressInc = n.metrics.NewCounter("nozzle_batches_egress")
+	n.numPointsEgressInc = n.metrics.NewCounter("nozzle_points_egress")
+	n.egressWriteDuration = n.metrics.NewSummary("nozzle_egress_write_duration", "ms")
+	n.egressWriteErrorInc = n.metrics.NewCounter("nozzle_egress_write_errors")
 
 	n.buffer = diodes.NewOneToOne(int(n.timerRollupBufferSize), diodes.AlertFunc(func(missed int) {
 		n.numTimerDiodePointsDroppedInc(uint64(missed))
@@ -234,7 +232,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 		select {
 		case <-t.C:
 			if len(points) > 0 {
-				points = writeToChannelOrDiscard(ch, points, n.numStreamBatchPointsDroppedInc)
+				points = writeToChannelOrDiscard(ch, points, n.numStreamChannelPointsDroppedInc)
 			}
 			t.Reset(BATCH_FLUSH_INTERVAL)
 			size = 0
@@ -244,7 +242,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 
 			// if len(points) >= BATCH_CHANNEL_SIZE {
 			if size >= MAX_BATCH_SIZE_IN_BYTES {
-				points = writeToChannelOrDiscard(ch, points, n.numStreamBatchPointsDroppedInc)
+				points = writeToChannelOrDiscard(ch, points, n.numStreamChannelPointsDroppedInc)
 				t.Reset(BATCH_FLUSH_INTERVAL)
 				size = 0
 			}
@@ -287,7 +285,6 @@ func estimatePointSize(point *rpc.Point) (size int) {
 
 func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 	for {
-		n.batchChanSize(float64(len(ch)))
 		points := <-ch
 		start := time.Now()
 
@@ -307,7 +304,7 @@ func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 
 		if err != nil {
 			n.log.Printf("Error writing: %v\n", err)
-			n.remoteNodeWriteErrorInc(1)
+			n.egressWriteErrorInc(1)
 
 			if err = n.remoteConnection.Open(); err != nil {
 				n.log.Printf("Could not reopen conn: %s\n", err)
@@ -315,7 +312,7 @@ func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 			}
 		}
 
-		n.remoteNodeWriteDuration(float64(time.Since(start) / time.Millisecond))
+		n.egressWriteDuration(float64(time.Since(start) / time.Millisecond))
 		n.numBatchesEgressInc(1)
 		n.numPointsEgressInc(uint64(len(points)))
 	}
@@ -326,7 +323,7 @@ func (n *Nozzle) envelopeReader(rx loggregator.EnvelopeStream) {
 		envelopeBatch := rx()
 		for _, envelope := range envelopeBatch {
 			n.streamBuffer.Set(diodes.GenericDataType(envelope))
-			n.numPointsIngressInc(1)
+			n.numEnvelopesIngressInc(1)
 		}
 	}
 }
@@ -427,13 +424,13 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			size += estimatePointSize(countPoint)
 
 			if size >= MAX_BATCH_SIZE_IN_BYTES {
-				points = writeToChannelOrDiscard(ch, points, n.numTimerBatchPointsDroppedInc)
+				points = writeToChannelOrDiscard(ch, points, n.numTimerChannelPointsDroppedInc)
 				size = 0
 			}
 		}
 
 		if len(points) > 0 {
-			points = writeToChannelOrDiscard(ch, points, n.numTimerBatchPointsDroppedInc)
+			points = writeToChannelOrDiscard(ch, points, n.numTimerChannelPointsDroppedInc)
 		}
 
 		n.timerMetrics = make(map[string]*timerValue)
