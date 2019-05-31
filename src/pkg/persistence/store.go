@@ -28,7 +28,6 @@ type Store struct {
 
 type Metrics struct {
 	incIngress                     func(delta uint64)
-	incEgress                      func(delta uint64)
 	incNumShardsExpired            func(delta uint64)
 	incNumShardsPruned             func(delta uint64)
 	incNumGetErrors                func(delta uint64)
@@ -44,7 +43,6 @@ func NewStore(influxStore InfluxStore, m MetricsInitializer, opts ...WithStoreOp
 
 		metrics: Metrics{
 			incIngress:           m.NewCounter("metric_store_ingress"),
-			incEgress:            m.NewCounter("metric_store_egress"),
 			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
 			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
 			incNumGetErrors:      m.NewCounter("metric_store_num_get_errors"),
@@ -108,8 +106,6 @@ func (store *Store) Get(params *storage.SelectParams, labelMatchers ...*labels.M
 		store.metrics.incNumGetErrors(1)
 		return nil, err
 	}
-
-	store.metrics.incEgress(uint64(builder.Len()))
 
 	return builder.SeriesSet(), nil
 }

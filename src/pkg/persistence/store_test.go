@@ -403,20 +403,6 @@ var _ = Describe("Persistent Store", func() {
 			Expect(tc.metrics.Get("metric_store_ingress")).To(BeEquivalentTo(1))
 		})
 
-		It("updates egress metrics", func() {
-			tc := setup()
-			defer teardown(tc)
-
-			tc.storePoint(1, "metric", 1)
-			_, err := tc.store.Get(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
-				&labels.Matcher{Name: "__name__", Value: "metric", Type: labels.MatchEqual},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(tc.metrics.Get("metric_store_egress")).To(BeEquivalentTo(1))
-		})
-
 		It("updates storage duration metrics", func() {
 			tc := setup()
 			defer teardown(tc)
