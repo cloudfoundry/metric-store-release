@@ -21,5 +21,10 @@ processes:
     CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
     KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
 
+    # Metric Store Server Mutual TLS
+    METRIC_STORE_SERVER_CA_PATH:   "<%= "#{cert_dir}/metric_store_server_ca.crt" %>"
+    METRIC_STORE_SERVER_CERT_PATH: "<%= "#{cert_dir}/metric_store_server.crt" %>"
+    METRIC_STORE_SERVER_KEY_PATH:  "<%= "#{cert_dir}/metric_store_server.key" %>"
+
   limits:
     open_files: 65536

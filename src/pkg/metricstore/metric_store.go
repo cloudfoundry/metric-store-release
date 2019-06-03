@@ -52,9 +52,10 @@ type MetricStore struct {
 	server          *grpc.Server
 	ingressListener *leanstreams.TCPListener
 
-	serverOpts []grpc.ServerOption
-	metrics    metrics.Initializer
-	closing    int64
+	serverOpts       []grpc.ServerOption
+	ingressTLSConfig *tls.Config
+	metrics          metrics.Initializer
+	closing          int64
 
 	persistentStore     PersistentStore
 	diskFreeReporter    diskFreeReporter
@@ -65,10 +66,9 @@ type MetricStore struct {
 	addr        string
 	ingressAddr string
 	extAddr     string
-	tlsConfig   *tls.Config
 }
 
-func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, tlsConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
+func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     log.New(ioutil.Discard, "", 0),
 		metrics: metrics.NullMetrics{},
@@ -84,7 +84,7 @@ func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, tls
 		metricsEmitDuration: 10 * time.Minute,
 		addr:                ":8080",
 		ingressAddr:         ":8090",
-		tlsConfig:           tlsConfig,
+		ingressTLSConfig:    ingressTLSConfig,
 	}
 
 	for _, o := range opts {
@@ -255,7 +255,7 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 		MaxMessageSize: 65536,
 		Callback:       writeBinary,
 		Address:        store.ingressAddr,
-		TLSConfig:      store.tlsConfig,
+		TLSConfig:      store.ingressTLSConfig,
 	}
 	btl, err := leanstreams.ListenTCP(cfg)
 	store.ingressListener = btl

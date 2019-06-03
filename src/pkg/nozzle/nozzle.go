@@ -20,7 +20,6 @@ import (
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/gogo/protobuf/proto"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 )
 
 type timerValue struct {
@@ -53,7 +52,6 @@ type Nozzle struct {
 	addr        string
 	ingressAddr string
 	tlsConfig   *tls.Config
-	opts        []grpc.DialOption
 
 	tagInfo *sync.Map
 
@@ -96,7 +94,6 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		addr:                  metricStoreAddr,
 		ingressAddr:           ingressAddr,
 		tlsConfig:             tlsConfig,
-		opts:                  []grpc.DialOption{grpc.WithInsecure()},
 		log:                   log.New(ioutil.Discard, "", 0),
 		metrics:               metrics.NullMetrics{},
 		shardId:               shardId,
@@ -149,14 +146,6 @@ func WithNozzleLogger(l *log.Logger) NozzleOption {
 func WithNozzleMetrics(m MetricsInitializer) NozzleOption {
 	return func(n *Nozzle) {
 		n.metrics = m
-	}
-}
-
-// WithNozzleDialOpts returns a NozzleOption that configures the dial options
-// for dialing the metric-store. It defaults to grpc.WithInsecure().
-func WithNozzleDialOpts(opts ...grpc.DialOption) NozzleOption {
-	return func(n *Nozzle) {
-		n.opts = opts
 	}
 }
 

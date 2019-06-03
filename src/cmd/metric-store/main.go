@@ -30,14 +30,14 @@ func main() {
 
 	envstruct.WriteReport(cfg)
 
-	tlsConfig, err := tls.NewMutualTLSConfig(
-		cfg.TLS.CAPath,
-		cfg.TLS.CertPath,
-		cfg.TLS.KeyPath,
+	tlsServerConfig, err := tls.NewMutualTLSConfig(
+		cfg.MetricStoreServerTLS.CAPath,
+		cfg.MetricStoreServerTLS.CertPath,
+		cfg.MetricStoreServerTLS.KeyPath,
 		"metric-store",
 	)
 	if err != nil {
-		log.Fatalf("invalid metric-store Mutual TLS configuration: %s", err)
+		log.Fatalf("invalid metric-store TCP server Mutual TLS configuration: %s", err)
 	}
 
 	tsStore, err := persistence.OpenTsStore(cfg.StoragePath)
@@ -79,7 +79,7 @@ func main() {
 	store := metricstore.New(
 		persistentStore,
 		diskFreeReporter,
-		tlsConfig,
+		tlsServerConfig,
 		metricstore.WithMetrics(metrics),
 		metricstore.WithAddr(cfg.Addr),
 		metricstore.WithIngressAddr(cfg.IngressAddr),

@@ -29,6 +29,11 @@
           ca_cert: ((metric_store.ca))
           cert: ((metric_store.certificate))
           key: ((metric_store.private_key))
+        metric_store_server:
+          tls:
+            ca_cert: ((metric_store_server.ca))
+            cert: ((metric_store_server.certificate))
+            key: ((metric_store_server.private_key))
     - name: metric-store-gateway
       release: metric-store
       provides:
@@ -49,6 +54,11 @@
         metric-store: {from: metric-store}
       properties:
         shard_id: metric-store
+        metric_store_client:
+          tls:
+            ca_cert: ((nozzle_to_metric_store_client.ca))
+            cert: ((nozzle_to_metric_store_client.certificate))
+            key: ((nozzle_to_metric_store_client.private_key))
         logs_provider:
           tls:
             ca_cert: ((metric_store_to_logs_provider.ca))
@@ -132,6 +142,32 @@
       extended_key_usage:
       - client_auth
       - server_auth
+
+- type: replace
+  path: /variables/-
+  value:
+    name: metric_store_server
+    type: certificate
+    options:
+      ca: metric_store_ca
+      common_name: metric-store
+      alternative_names:
+      - metric-store
+      extended_key_usage:
+      - server_auth
+
+- type: replace
+  path: /variables/-
+  value:
+    name: nozzle_to_metric_store_client
+    type: certificate
+    options:
+      ca: metric_store_ca
+      common_name: metric-store
+      alternative_names:
+      - metric-store
+      extended_key_usage:
+      - client_auth
 
 - type: replace
   path: /variables/-

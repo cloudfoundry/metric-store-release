@@ -7,8 +7,6 @@ import (
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
@@ -45,7 +43,6 @@ var _ = Describe("Nozzle", func() {
 
 		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsConfig, "metric-store", 0,
 			WithNozzleMetrics(metricMap),
-			WithNozzleDialOpts(grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))),
 			WithNozzleTimerRollup(100*time.Millisecond, "rolled_timer", []string{"tag1", "tag2"}),
 			WithNozzleLogger(log.New(GinkgoWriter, "", 0)),
 		)

@@ -66,6 +66,9 @@ var _ = Describe("MetricStore", func() {
 				"CA_PATH=" + caCert,
 				"CERT_PATH=" + cert,
 				"KEY_PATH=" + key,
+				"METRIC_STORE_SERVER_CA_PATH=" + caCert,
+				"METRIC_STORE_SERVER_CERT_PATH=" + cert,
+				"METRIC_STORE_SERVER_KEY_PATH=" + key,
 			},
 		)
 

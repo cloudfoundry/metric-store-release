@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"google.golang.org/grpc"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 )
@@ -72,11 +71,6 @@ func main() {
 		cfg.NodeIndex,
 		WithNozzleLogger(log.New(os.Stderr, "", log.LstdFlags)),
 		WithNozzleMetrics(metrics),
-		WithNozzleDialOpts(
-			grpc.WithTransportCredentials(
-				cfg.MetricStoreTLS.Credentials("metric-store"),
-			),
-		),
 		WithNozzleTimerRollup(10*time.Second, "http", []string{"index", "status_code"}),
 		WithNozzleTimerRollupBufferSize(cfg.TimerRollupBufferSize),
 	)

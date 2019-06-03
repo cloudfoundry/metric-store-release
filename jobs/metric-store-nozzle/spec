@@ -6,9 +6,9 @@ templates:
   logs_provider.crt.erb: config/certs/logs_provider.crt
   logs_provider.key.erb: config/certs/logs_provider.key
   logs_provider_ca.crt.erb: config/certs/logs_provider_ca.crt
-  metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
-  metric_store.crt.erb: config/certs/metric_store.crt
-  metric_store.key.erb: config/certs/metric_store.key
+  metric_store_client_ca.crt.erb: config/certs/metric_store_client_ca.crt
+  metric_store_client.crt.erb: config/certs/metric_store_client.crt
+  metric_store_client.key.erb: config/certs/metric_store_client.key
   metric_port.yml.erb: config/metric_port.yml
 
 packages:
@@ -25,6 +25,13 @@ consumes:
   type: metric-store
 
 properties:
+  metric_store_client.tls.ca_cert:
+    description: "The Certificate Authority for metric-store mutual TLS."
+  metric_store_client.tls.cert:
+    description: "The cert for metric-store TCP client mutual TLS"
+  metric_store_client.tls.key:
+    description: "The private key for metric-store TCP client mutual TLS"
+
   logs_provider.tls.ca_cert:
     description: "CA root required for key/cert verification to connect to the logs-provider"
   logs_provider.tls.cert:

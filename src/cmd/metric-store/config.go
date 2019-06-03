@@ -19,6 +19,13 @@ type Config struct {
 	LabelTruncationLength uint          `env:"LABEL_TRUNCATION_LENGTH, report"`
 	QueryTimeout          time.Duration `env:"QUERY_TIMEOUT, report"`
 	TLS                   tls.TLS
+	MetricStoreServerTLS  MetricStoreServerTLS
+}
+
+type MetricStoreServerTLS struct {
+	CAPath   string `env:"METRIC_STORE_SERVER_CA_PATH, required, report"`
+	CertPath string `env:"METRIC_STORE_SERVER_CERT_PATH, required, report"`
+	KeyPath  string `env:"METRIC_STORE_SERVER_KEY_PATH, required, report"`
 }
 
 // LoadConfig creates Config object from environment variables
