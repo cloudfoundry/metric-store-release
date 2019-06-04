@@ -32,7 +32,7 @@ func main() {
 	}
 	envstruct.WriteReport(cfg)
 
-	metrics := metrics.New()
+	metrics := metrics.New("metric-store-cf-auth-proxy")
 
 	uaaClient := auth.NewUAAClient(
 		cfg.UAA.Addr,

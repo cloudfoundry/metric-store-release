@@ -41,12 +41,14 @@ func (m NullMetrics) NewSummary(name, unit string) func(float64) {
 // metrics.
 type Metrics struct {
 	Registry *prometheus.Registry
+	sourceID string
 }
 
 // New returns a new Metrics.
-func New() *Metrics {
+func New(sourceID string) *Metrics {
 	return &Metrics{
 		Registry: prometheus.NewRegistry(),
+		sourceID: sourceID,
 	}
 }
 
@@ -55,6 +57,9 @@ func (m *Metrics) NewCounter(name string) func(delta uint64) {
 
 	prometheusCounterMetric := prometheus.NewCounter(prometheus.CounterOpts{
 		Name: name,
+		ConstLabels: prometheus.Labels{
+			"source_id": m.sourceID,
+		},
 	})
 	m.Registry.MustRegister(prometheusCounterMetric)
 
@@ -67,8 +72,9 @@ func (m *Metrics) NewCounter(name string) func(delta uint64) {
 func (m *Metrics) NewGauge(name, unit string) func(value float64) {
 	prometheusGaugeMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name: name,
-		ConstLabels: map[string]string{
-			"unit": unit,
+		ConstLabels: prometheus.Labels{
+			"source_id": m.sourceID,
+			"unit":      unit,
 		},
 	})
 	m.Registry.MustRegister(prometheusGaugeMetric)
@@ -80,8 +86,9 @@ func (m *Metrics) NewGauge(name, unit string) func(value float64) {
 func (m *Metrics) NewSummary(name, unit string) func(value float64) {
 	prometheusSummaryMetric := prometheus.NewSummary(prometheus.SummaryOpts{
 		Name: name,
-		ConstLabels: map[string]string{
-			"unit": unit,
+		ConstLabels: prometheus.Labels{
+			"source_id": m.sourceID,
+			"unit":      unit,
 		},
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 	})

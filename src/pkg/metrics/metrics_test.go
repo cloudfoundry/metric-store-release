@@ -14,7 +14,7 @@ var _ = Describe("Metrics", func() {
 	)
 
 	BeforeEach(func() {
-		m = metrics.New()
+		m = metrics.New("test")
 	})
 
 	It("publishes the total of a counter", func() {

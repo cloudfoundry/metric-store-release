@@ -45,7 +45,7 @@ func main() {
 		metricStoreLog.Fatalf("failed to open store: %v", err)
 	}
 
-	metrics := metrics.New()
+	metrics := metrics.New("metric-store")
 	indexSizeGauge := metrics.NewGauge("metric_store_index_size", "byte")
 	numberOfSeriesGauge := metrics.NewGauge("metric_store_num_series", "series")
 	numberOfMeasurementsGauge := metrics.NewGauge("metric_store_num_measurements", "measurement")

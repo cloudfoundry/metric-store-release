@@ -38,7 +38,7 @@ func main() {
 		log.Fatalf("invalid LogsProviderTLS configuration: %s", err)
 	}
 
-	metrics := metrics.New()
+	metrics := metrics.New("metric-store-nozzle")
 	loggr := log.New(os.Stderr, "[LOGGR] ", log.LstdFlags)
 
 	dropped := metrics.NewCounter("nozzle_dropped")
