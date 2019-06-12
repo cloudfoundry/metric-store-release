@@ -2,33 +2,6 @@ package leanstreams
 
 import "testing"
 
-func TestMessageSizeToBitLength(t *testing.T) {
-	cases := []struct {
-		input, output int
-	}{
-		{1, 2},
-		{2, 2},
-		{4, 2},
-		{8, 2},
-		{32, 2},
-		{64, 2},
-		{255, 2},
-		{256, 3},
-		{257, 3},
-		{512, 3},
-		{2048, 3},
-		{4096, 3},
-		{8192, 3},
-	}
-
-	for _, c := range cases {
-		length := messageSizeToBitLength(c.input)
-		if length != c.output {
-			t.Errorf("Bit Length incorrect. For message size %d, got %d, expected %d", c.input, length, c.output)
-		}
-	}
-}
-
 func TestMessageBytesToInt(t *testing.T) {
 	cases := []struct {
 		input, output int64
@@ -51,8 +24,7 @@ func TestMessageBytesToInt(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		byteSize := messageSizeToBitLength(int(c.input))
-		bytes := int64ToByteArray(c.input, byteSize)
+		bytes := int64ToByteArray(c.input, headerByteSize)
 		result, _ := byteArrayToInt64(bytes)
 		if result != c.output {
 			t.Errorf("Conversion between bytes incorrect. Original value %d, got %d", c.input, result)
