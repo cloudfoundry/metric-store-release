@@ -124,7 +124,7 @@ var _ = Describe("Leanstreams", func() {
 		defer cleanup()
 
 		n, err := tc.Write("This is an example message")
-		Expect(n).To(Equal(54))
+		Expect(n).To(Equal(60))
 		Expect(err).ToNot(HaveOccurred())
 		tc.WaitForResults()
 
@@ -141,13 +141,13 @@ var _ = Describe("Leanstreams", func() {
 			defer cleanup()
 
 			n, err := tc.Write(randStr(200))
-			Expect(n).To(Equal(229))
+			Expect(n).To(Equal(235))
 			Expect(err).ToNot(HaveOccurred())
 
 			time.Sleep(time.Second)
 
 			n, err = tc.Write("This is an example message")
-			Expect(n).To(Equal(54))
+			Expect(n).To(Equal(60))
 			Expect(err).ToNot(HaveOccurred())
 			tc.WaitForResults()
 
@@ -167,7 +167,7 @@ var _ = Describe("Leanstreams", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			messageSize, err := tc.Write("This is an example message")
-			Expect(messageSize).To(Equal(54))
+			Expect(messageSize).To(Equal(60))
 			Expect(err).ToNot(HaveOccurred())
 			tc.WaitForResults()
 
