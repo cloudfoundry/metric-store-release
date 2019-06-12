@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/gomega"
@@ -73,7 +73,7 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 	}
 
 	cfg := leanstreams.TCPListenerConfig{
-		MaxMessageSize: nozzle.MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES,
+		MaxMessageSize: ingressclient.MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES,
 		Callback:       callback,
 		Address:        ":0",
 		TLSConfig:      s.tlsConfig,

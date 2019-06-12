@@ -257,13 +257,13 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 		Address:        store.ingressAddr,
 		TLSConfig:      store.ingressTLSConfig,
 	}
-	btl, err := leanstreams.ListenTCP(cfg)
-	store.ingressListener = btl
+	ingressConnection, err := leanstreams.ListenTCP(cfg)
+	store.ingressListener = ingressConnection
 	if err != nil {
 		store.log.Fatalf("failed to listen on ingress port: %v", err)
 	}
 
-	err = btl.StartListeningAsync()
+	err = ingressConnection.StartListeningAsync()
 	if err != nil {
 		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
 	}

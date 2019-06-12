@@ -3,6 +3,7 @@ package nozzle
 import (
 	"crypto/tls"
 	"encoding/csv"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"runtime"
@@ -11,14 +12,12 @@ import (
 	"sync"
 	"time"
 
-	diodes "code.cloudfoundry.org/go-diodes"
-	loggregator "code.cloudfoundry.org/go-loggregator"
+	"code.cloudfoundry.org/go-diodes"
+	"code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	"github.com/gogo/protobuf/proto"
 	"golang.org/x/net/context"
 )
 
@@ -51,6 +50,7 @@ type Nozzle struct {
 
 	addr        string
 	ingressAddr string
+	client      *ingressclient.IngressClient
 	tlsConfig   *tls.Config
 
 	tagInfo *sync.Map
@@ -68,10 +68,6 @@ type Nozzle struct {
 	numPointsEgressInc               func(uint64)
 	egressWriteDuration              func(float64)
 	egressWriteErrorInc              func(uint64)
-
-	remoteConnection *leanstreams.TCPClient
-	remoteAddress    string
-	remoteCfg        *leanstreams.TCPClientConfig
 }
 
 // StreamConnector reads envelopes from the the logs provider.
@@ -83,9 +79,6 @@ type StreamConnector interface {
 const (
 	BATCH_FLUSH_INTERVAL = 500 * time.Millisecond
 	BATCH_CHANNEL_SIZE   = 512
-
-	MAX_BATCH_SIZE_IN_BYTES           = 32 * 1024
-	MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES = 2 * MAX_BATCH_SIZE_IN_BYTES
 )
 
 func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...NozzleOption) *Nozzle {
@@ -107,6 +100,17 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 	for _, o := range opts {
 		o(n)
 	}
+
+	client, err := ingressclient.NewIngressClient(
+		ingressAddr,
+		tlsConfig,
+		ingressclient.WithIngressClientLogger(n.log),
+		ingressclient.WithDialTimeout(time.Minute),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("Could not connect to ingress server at %s", ingressAddr))
+	}
+	n.client = client
 
 	n.numEnvelopesIngressInc = n.metrics.NewCounter("nozzle_envelopes_ingress")
 	n.numStreamDiodePointsDroppedInc = n.metrics.NewCounter("nozzle_stream_diode_points_dropped")
@@ -167,24 +171,6 @@ func WithNozzleTimerRollup(interval time.Duration, metricName string, tags []str
 // metric-store. It blocks indefinitely.
 func (n *Nozzle) Start() {
 	rx := n.s.Stream(context.Background(), n.buildBatchReq())
-	n.remoteAddress = n.ingressAddr
-
-	n.remoteCfg = &leanstreams.TCPClientConfig{
-		MaxMessageSize: MAX_INGRESS_PAYLOAD_SIZE_IN_BYTES,
-		Address:        n.remoteAddress,
-		TLSConfig:      n.tlsConfig,
-	}
-	for {
-		rc, err := leanstreams.DialTCP(n.remoteCfg)
-		if err != nil {
-			// waiting for metric-store to start up
-			time.Sleep(100 * time.Millisecond)
-			continue
-		}
-
-		n.remoteConnection = rc
-		break
-	}
 
 	ch := make(chan []*rpc.Point, BATCH_CHANNEL_SIZE)
 
@@ -205,7 +191,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 	var size int
 
 	poller := diodes.NewPoller(n.streamBuffer)
-	points := make([]*metricstore_v1.Point, 0)
+	points := make([]*rpc.Point, 0)
 
 	t := time.NewTimer(BATCH_FLUSH_INTERVAL)
 	for {
@@ -230,7 +216,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 			// subset crosses the threshold?
 
 			// if len(points) >= BATCH_CHANNEL_SIZE {
-			if size >= MAX_BATCH_SIZE_IN_BYTES {
+			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
 				points = writeToChannelOrDiscard(ch, points, n.numStreamChannelPointsDroppedInc)
 				t.Reset(BATCH_FLUSH_INTERVAL)
 				size = 0
@@ -277,28 +263,10 @@ func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 		points := <-ch
 		start := time.Now()
 
-		payload, err := proto.Marshal(&rpc.SendRequest{
-			Batch: &rpc.Points{
-				Points: points,
-			},
-		})
-
-		if err != nil {
-			return
-		}
-
-		// TODO: consider adding back in a timeout (i.e. 3 seconds)
-		bytesWritten, err := n.remoteConnection.Write(payload)
-		n.log.Printf("Wrote %d of %d bytes\n", bytesWritten, len(payload))
-
+		err := n.client.Write(points)
 		if err != nil {
 			n.log.Printf("Error writing: %v\n", err)
 			n.egressWriteErrorInc(1)
-
-			if err = n.remoteConnection.Open(); err != nil {
-				n.log.Printf("Could not reopen conn: %s\n", err)
-				return
-			}
 		}
 
 		n.egressWriteDuration(float64(time.Since(start) / time.Millisecond))
@@ -412,7 +380,7 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			size += estimatePointSize(meanPoint)
 			size += estimatePointSize(countPoint)
 
-			if size >= MAX_BATCH_SIZE_IN_BYTES {
+			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
 				points = writeToChannelOrDiscard(ch, points, n.numTimerChannelPointsDroppedInc)
 				size = 0
 			}
