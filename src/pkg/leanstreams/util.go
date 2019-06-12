@@ -5,11 +5,11 @@ import (
 	"math"
 )
 
-func byteArrayToUInt32(bytes []byte) (result int64, bytesRead int) {
+func byteArrayToInt64(bytes []byte) (result int64, bytesRead int) {
 	return binary.Varint(bytes)
 }
 
-func intToByteArray(value int64, bufferSize int) []byte {
+func int64ToByteArray(value int64, bufferSize int) []byte {
 	toWriteLen := make([]byte, bufferSize)
 	binary.PutVarint(toWriteLen, value)
 	return toWriteLen

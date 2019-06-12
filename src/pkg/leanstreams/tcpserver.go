@@ -9,6 +9,10 @@ import (
 	"sync"
 )
 
+const (
+	headerByteSize = 8
+)
+
 var (
 	// ErrZeroBytesReadHeader is thrown when the value parsed from the header is not valid
 	ErrZeroBytesReadHeader = errors.New("0 Bytes parsed from header. Connection Closed")
@@ -53,8 +57,6 @@ func newTCPServer(cfg *TCPServerConfig) *TCPServer {
 	if cfg.MaxMessageSize != 0 {
 		maxMessageSize = cfg.MaxMessageSize
 	}
-
-	headerByteSize := messageSizeToBitLength(maxMessageSize)
 
 	return &TCPServer{
 		MaxMessageSize:       maxMessageSize,
@@ -112,7 +114,7 @@ func (c *TCPServer) Read(b []byte) (int, error) {
 		return hLength, err
 	}
 	// Decode it
-	msgLength, bytesParsed := byteArrayToUInt32(c.incomingHeaderBuffer)
+	msgLength, bytesParsed := byteArrayToInt64(c.incomingHeaderBuffer)
 	if bytesParsed == 0 {
 		// "Buffer too small"
 		c.Close()

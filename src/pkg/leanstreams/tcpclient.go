@@ -45,8 +45,6 @@ func newTCPClient(cfg *TCPClientConfig) *TCPClient {
 		maxMessageSize = cfg.MaxMessageSize
 	}
 
-	headerByteSize := messageSizeToBitLength(maxMessageSize)
-
 	return &TCPClient{
 		MaxMessageSize:       maxMessageSize,
 		headerByteSize:       headerByteSize,
@@ -112,8 +110,8 @@ func (c *TCPClient) Close() error {
 func (c *TCPClient) write(data []byte) (int, error) {
 	// Calculate how big the message is, using a consistent header size.
 	// Append the size to the message, so now it has a header
-	c.outgoingDataBuffer = append(intToByteArray(int64(len(data)), c.headerByteSize), data...)
-	emptyBuffer := append(intToByteArray(int64(len([]byte(""))), c.headerByteSize), []byte("")...)
+	c.outgoingDataBuffer = append(int64ToByteArray(int64(len(data)), c.headerByteSize), data...)
+	emptyBuffer := append(int64ToByteArray(int64(len([]byte(""))), c.headerByteSize), []byte("")...)
 
 	toWriteLen := len(c.outgoingDataBuffer)
 
