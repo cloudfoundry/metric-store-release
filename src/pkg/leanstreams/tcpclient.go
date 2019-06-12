@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 // TCPClient is an abstraction over the normal net.TCPConn, but optimized for wtiting
@@ -64,6 +65,23 @@ func DialTCP(cfg *TCPClientConfig) (*TCPClient, error) {
 		return nil, err
 	}
 	return c, nil
+}
+
+func DialTCPUntilConnected(cfg *TCPClientConfig, timeout time.Duration) (*TCPClient, error) {
+	start := time.Now()
+
+	for {
+		if start.Add(timeout).Before(time.Now()) {
+			return nil, fmt.Errorf("Dial timeout, could not connect to %s within %d", cfg.Address, timeout)
+		}
+
+		connection, err := DialTCP(cfg)
+		if err == nil {
+			return connection, nil
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // open will dial a connection to the remote endpoint.

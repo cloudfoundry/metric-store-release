@@ -142,6 +142,76 @@ func TestDialBuffTCPUsesSpecifiedMaxMessageSize(t *testing.T) {
 	}
 }
 
+func TestDialTCPUntilConnected(t *testing.T) {
+	cfg := TCPClientConfig{
+		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5036)),
+		MaxMessageSize: 8196,
+		TLSConfig:      tlsConfig,
+	}
+	result := make(chan bool)
+
+	go func() {
+		_, err := DialTCPUntilConnected(&cfg, time.Second)
+		result <- (err == nil)
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+
+	serverConfig := TCPListenerConfig{
+		MaxMessageSize: 2048,
+		EnableLogging:  true,
+		Address:        FormatAddress("", strconv.Itoa(5036)),
+		Callback:       exampleCallback,
+		TLSConfig:      tlsConfig,
+	}
+	server, err := ListenTCP(serverConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	server.StartListeningAsync()
+	defer func() { server.Close() }()
+
+	successfulConnection := <-result
+	if !successfulConnection {
+		t.Errorf("Failed to eventually open connection")
+	}
+}
+
+func TestDialTCPUntilConnectedTimeout(t *testing.T) {
+	cfg := TCPClientConfig{
+		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5037)),
+		MaxMessageSize: 8196,
+		TLSConfig:      tlsConfig,
+	}
+	result := make(chan bool)
+
+	go func() {
+		_, err := DialTCPUntilConnected(&cfg, 100*time.Millisecond)
+		result <- (err == nil)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	serverConfig := TCPListenerConfig{
+		MaxMessageSize: 2048,
+		EnableLogging:  true,
+		Address:        FormatAddress("", strconv.Itoa(5037)),
+		Callback:       exampleCallback,
+		TLSConfig:      tlsConfig,
+	}
+	server, err := ListenTCP(serverConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	server.StartListeningAsync()
+	defer func() { server.Close() }()
+
+	successfulConnection := <-result
+	if successfulConnection {
+		t.Errorf("Failed to timeout dialing before atually connecting")
+	}
+}
+
 func BenchmarkWrite(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		btc.Write(msgBytes)
