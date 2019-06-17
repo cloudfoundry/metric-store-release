@@ -17,14 +17,15 @@ import (
 )
 
 type InfluxStore interface {
-	ShardIDs() []uint64
-	WriteToShard(shardId uint64, points []models.Point) error
+	Close() error
 	CreateShard(database string, retentionPolicy string, shardId uint64, enabled bool) error
-	ShardGroup(shardIds []uint64) tsdb.ShardGroup
 	DeleteShard(shardId uint64) error
+	ShardGroup(shardIds []uint64) tsdb.ShardGroup
+	ShardIDs() []uint64
+	Statistics(database map[string]string) []models.Statistic
 	TagKeys(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error)
 	TagValues(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error)
-	Close() error
+	WriteToShard(shardId uint64, points []models.Point) error
 }
 
 type InfluxAdapter struct {

@@ -340,6 +340,10 @@ func (m *mockInfluxStore) Close() error {
 	panic("not implemented")
 }
 
+func (m *mockInfluxStore) Statistics(tags map[string]string) []models.Statistic {
+	return nil
+}
+
 func newMockShardGroup() *mockShardGroup {
 	return &mockShardGroup{
 		delay: 0 * time.Second,
