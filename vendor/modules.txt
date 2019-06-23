@@ -2,7 +2,7 @@
 code.cloudfoundry.org/go-diodes
 # code.cloudfoundry.org/go-envstruct v1.4.0
 code.cloudfoundry.org/go-envstruct
-# code.cloudfoundry.org/go-loggregator v7.3.0+incompatible
+# code.cloudfoundry.org/go-loggregator v7.4.0+incompatible
 code.cloudfoundry.org/go-loggregator
 code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2
 # code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a
