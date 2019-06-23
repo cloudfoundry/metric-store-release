@@ -14,7 +14,6 @@ require (
 	github.com/francoispqt/gojay v1.2.11
 	github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd // indirect
 	github.com/glycerine/goconvey v0.0.0-20180728074245-46e3a41ad493 // indirect
-	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.1
 	github.com/gorilla/mux v1.7.2
@@ -36,7 +35,7 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v1.0.0
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
-	github.com/prometheus/common v0.4.1
+	github.com/prometheus/common v0.6.0
 	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/prometheus/tsdb v0.2.0 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190222223459-a17d461953aa // indirect
