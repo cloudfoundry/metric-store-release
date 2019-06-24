@@ -276,7 +276,14 @@ func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryReq
 		return nil, fmt.Errorf("couldn't parse end: %s", err)
 	}
 
-	if len(req.Match) == 0 {
+	var validMatchers []string
+	for _, matcher := range req.Match {
+		if matcher != "" {
+			validMatchers = append(validMatchers, matcher)
+		}
+	}
+
+	if len(validMatchers) == 0 {
 		return nil, errors.New("requires at least one matcher")
 	}
 
@@ -286,7 +293,7 @@ func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryReq
 	}
 
 	var seriesSets []storage.SeriesSet
-	for _, s := range req.Match {
+	for _, s := range validMatchers {
 		matchers, err := promql.ParseMetricSelector(s)
 		if err != nil {
 			return nil, err
@@ -306,7 +313,7 @@ func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryReq
 func (q *Engine) toSeriesQueryResult(seriesSets []storage.SeriesSet) *rpc.PromQL_SeriesQueryResult {
 	var series []*rpc.PromQL_SeriesInfo
 
-	set := storage.NewMergeSeriesSet(seriesSets)
+	set := storage.NewMergeSeriesSet(seriesSets, nil)
 	for set.Next() {
 		series = append(series, &rpc.PromQL_SeriesInfo{
 			Info: set.At().Labels().Map(),
@@ -339,6 +346,10 @@ type MetricStoreQuerier struct {
 	queryable  *metricStoreQueryable
 }
 
+func (querier *MetricStoreQuerier) LabelNames() ([]string, error) {
+	panic("not implemented")
+}
+
 func (querier *MetricStoreQuerier) LabelValues(name string) ([]string, error) {
 	panic("not implemented")
 }
@@ -347,12 +358,12 @@ func (querier *MetricStoreQuerier) Close() error {
 	return nil
 }
 
-func (querier *MetricStoreQuerier) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, error) {
+func (querier *MetricStoreQuerier) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
 	seriesSet, err := querier.dataReader.Read(querier.ctx, params, labelMatchers...)
 	if err != nil {
 		querier.queryable.err = err
-		return nil, err
+		return nil, nil, err
 	}
 
-	return seriesSet, nil
+	return seriesSet, nil, nil
 }

@@ -85,7 +85,8 @@ var _ = Describe("Gateway", func() {
 
 		reqs := spyMetricStore.GetSeriesQueryRequests()
 		Expect(reqs).To(HaveLen(1))
-		Expect(reqs[0].Match).To(ConsistOf(`metric{source_id="some-id"}`, `metric_2`))
+		Expect(reqs[0].Match).To(ContainElement(`metric{source_id="some-id"}`))
+		Expect(reqs[0].Match).To(ContainElement(`metric_2`))
 		Expect(reqs[0].Start).To(Equal("1234.000"))
 		Expect(reqs[0].End).To(Equal("5678.000"))
 	})
