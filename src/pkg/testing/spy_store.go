@@ -1,7 +1,6 @@
 package testing
 
 import (
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -35,6 +34,6 @@ func (s *SpyStore) LabelNames() ([]string, error) {
 	return nil, nil
 }
 
-func (s *SpyStore) LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
+func (s *SpyStore) LabelValues(string) ([]string, error) {
 	return nil, nil
 }

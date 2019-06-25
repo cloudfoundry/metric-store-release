@@ -118,9 +118,7 @@ var _ = Describe("EgressReverseProxy", func() {
 		It("returns label values", func() {
 			tc := egressReverseProxySetup()
 
-			tc.spyLocalDataReader.LabelValuesResponse = &rpc.PromQL_LabelValuesQueryResult{
-				Values: []string{"100", "10"},
-			}
+			tc.spyLocalDataReader.LabelValuesResponse = []string{"100", "10"}
 
 			result, err := tc.erp.LabelValuesQuery(
 				context.Background(),

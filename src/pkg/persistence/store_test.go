@@ -302,9 +302,9 @@ var _ = Describe("Persistent Store", func() {
 				"source_id": "10",
 			})
 
-			res, err := tc.store.LabelValues(&rpc.PromQL_LabelValuesQueryRequest{Name: "source_id"})
+			res, err := tc.store.LabelValues("source_id")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.GetValues()).To(ConsistOf("1", "10"))
+			Expect(res).To(ConsistOf("1", "10"))
 		})
 
 		It("returns all measurement names for label __name__", func() {
@@ -322,9 +322,9 @@ var _ = Describe("Persistent Store", func() {
 				"user_agent": "10",
 			})
 
-			res, err := tc.store.LabelValues(&rpc.PromQL_LabelValuesQueryRequest{Name: "__name__"})
+			res, err := tc.store.LabelValues("__name__")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.GetValues()).To(ConsistOf("metric-one", "metric-two"))
+			Expect(res).To(ConsistOf("metric-one", "metric-two"))
 		})
 	})
 

@@ -18,7 +18,7 @@ type SpyDataReader struct {
 
 	LabelsResponse      []string
 	LabelsError         error
-	LabelValuesResponse *rpc.PromQL_LabelValuesQueryResult
+	LabelValuesResponse []string
 	LabelValuesError    error
 }
 
@@ -55,7 +55,7 @@ func (s *SpyDataReader) LabelNames() ([]string, error) {
 	return s.LabelsResponse, s.LabelsError
 }
 
-func (s *SpyDataReader) LabelValues(in *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
+func (s *SpyDataReader) LabelValues(string) ([]string, error) {
 	return s.LabelValuesResponse, s.LabelValuesError
 }
 

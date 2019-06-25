@@ -164,15 +164,15 @@ func (store *Store) LabelNames() ([]string, error) {
 	return labels, nil
 }
 
-func (store *Store) LabelValues(req *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
+func (store *Store) LabelValues(name string) ([]string, error) {
 	distinctValues := make(map[string]struct{})
 
-	if req.GetName() == transform.MEASUREMENT_NAME {
+	if name == transform.MEASUREMENT_NAME {
 		values := store.adapter.AllMeasurementNames()
-		return &rpc.PromQL_LabelValuesQueryResult{Values: values}, nil
+		return values, nil
 	}
 
-	tagValues := store.adapter.AllTagValues(req.GetName())
+	tagValues := store.adapter.AllTagValues(name)
 	for _, tagValue := range tagValues {
 		distinctValues[tagValue] = struct{}{}
 	}
@@ -182,5 +182,5 @@ func (store *Store) LabelValues(req *rpc.PromQL_LabelValuesQueryRequest) (*rpc.P
 		values = append(values, v)
 	}
 
-	return &rpc.PromQL_LabelValuesQueryResult{Values: values}, nil
+	return values, nil
 }

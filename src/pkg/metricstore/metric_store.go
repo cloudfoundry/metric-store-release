@@ -38,7 +38,7 @@ type PersistentStore interface {
 	EmitStorageDurationMetric()
 	Close()
 	LabelNames() ([]string, error)
-	LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error)
+	LabelValues(string) ([]string, error)
 }
 
 type diskFreeReporter func() float64

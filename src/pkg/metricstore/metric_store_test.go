@@ -390,7 +390,7 @@ func (m *mockPersistentStore) LabelNames() ([]string, error) {
 	panic("not implemented")
 }
 
-func (m *mockPersistentStore) LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
+func (m *mockPersistentStore) LabelValues(string) ([]string, error) {
 	panic("not implemented")
 }
 

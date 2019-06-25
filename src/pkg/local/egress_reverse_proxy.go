@@ -79,5 +79,11 @@ func labelFormatter(labels []string) []string {
 }
 
 func (erp *EgressReverseProxy) LabelValuesQuery(ctx context.Context, req *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
-	return erp.localReader.LabelValues(req)
+	values, err := erp.localReader.LabelValues(req.Name)
+
+	result := &rpc.PromQL_LabelValuesQueryResult{
+		Values: values,
+	}
+
+	return result, err
 }

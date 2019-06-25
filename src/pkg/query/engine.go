@@ -17,7 +17,7 @@ import (
 type Store interface {
 	Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error)
 	LabelNames() ([]string, error)
-	LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error)
+	LabelValues(string) ([]string, error)
 }
 
 type Engine struct {
@@ -353,7 +353,7 @@ func (querier *MetricStoreQuerier) LabelNames() ([]string, error) {
 }
 
 // LabelValues returns all potential values for a label name.
-func (querier *MetricStoreQuerier) LabelValues(name string) ([]string, error) {
+func (querier *MetricStoreQuerier) LabelValues(string) ([]string, error) {
 	panic("not implemented")
 }
 
