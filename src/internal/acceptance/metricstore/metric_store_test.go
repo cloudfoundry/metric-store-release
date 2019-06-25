@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"strconv"
@@ -18,6 +20,7 @@ import (
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/prometheus/notifier"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
@@ -41,6 +44,9 @@ var _ = Describe("MetricStore", func() {
 		metricStoreProcess *gexec.Session
 		gatewayProcess     *gexec.Session
 		tlsConfig          *tls.Config
+
+		rulesPath        string
+		alertmanagerAddr string
 	}
 
 	var start = func(tc *testContext) {
@@ -68,6 +74,8 @@ var _ = Describe("MetricStore", func() {
 				"METRIC_STORE_SERVER_CA_PATH=" + caCert,
 				"METRIC_STORE_SERVER_CERT_PATH=" + cert,
 				"METRIC_STORE_SERVER_KEY_PATH=" + key,
+				"RULES_PATH=" + tc.rulesPath,
+				"ALERTMANAGER_ADDR=" + tc.alertmanagerAddr,
 			},
 		)
 
@@ -108,8 +116,14 @@ var _ = Describe("MetricStore", func() {
 		wg.Wait()
 	}
 
-	var setup = func() (*testContext, func()) {
+	type WithTestContextOption func(*testContext)
+
+	var setup = func(opts ...WithTestContextOption) (*testContext, func()) {
 		tc := &testContext{}
+
+		for _, opt := range opts {
+			opt(tc)
+		}
 
 		tc.addr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
 		tc.ingressAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
@@ -122,6 +136,18 @@ var _ = Describe("MetricStore", func() {
 		return tc, func() {
 			perform(tc, stop)
 			os.RemoveAll(storagePath)
+		}
+	}
+
+	var WithOptionRulesPath = func(path string) WithTestContextOption {
+		return func(tc *testContext) {
+			tc.rulesPath = path
+		}
+	}
+
+	var WithOptionAlertManagerAddr = func(addr string) WithTestContextOption {
+		return func(tc *testContext) {
+			tc.alertmanagerAddr = addr
 		}
 	}
 
@@ -599,5 +625,98 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(parsed).To(ContainCounterMetric("metric_store_ingress", float64(1)))
+	})
+
+	It("processes alerting rules to trigger alerts", func() {
+		rules_yml := []byte(`
+---
+groups:
+- name: example
+  rules:
+  - alert: HighNumberOfTestMetrics
+    expr: metric_store_test_metric > 2
+    for: 1s
+    labels:
+      severity: page
+    annotations:
+      summary: High Test Metric Count
+      description: this is a good thing
+`)
+
+		tmpfile, err := ioutil.TempFile("", "rules_yml")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.Remove(tmpfile.Name())
+		if _, err := tmpfile.Write(rules_yml); err != nil {
+			log.Fatal(err)
+		}
+		if err := tmpfile.Close(); err != nil {
+			log.Fatal(err)
+		}
+
+		receivedAlertCountChan := make(chan int)
+		f := func(w http.ResponseWriter, r *http.Request) {
+			var receivedAlerts []*notifier.Alert
+			defer r.Body.Close()
+
+			err := json.NewDecoder(r.Body).Decode(&receivedAlerts)
+			Expect(err).NotTo(HaveOccurred())
+
+			receivedAlertCountChan <- len(receivedAlerts)
+		}
+
+		spyAlertManager := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			f(w, r)
+			w.WriteHeader(http.StatusOK)
+		}))
+		spyAlertManagerAddr, _ := url.Parse(spyAlertManager.URL)
+
+		tc, cleanup := setup(
+			WithOptionRulesPath(tmpfile.Name()),
+			WithOptionAlertManagerAddr(fmt.Sprintf(":%s", spyAlertManagerAddr.Port())),
+		)
+		defer cleanup()
+		defer spyAlertManager.Close()
+
+		client, err := ingressclient.NewIngressClient(
+			tc.ingressAddr,
+			tc.tlsConfig,
+		)
+		points := []*rpc.Point{
+			&rpc.Point{
+				Name:      "metric_store_test_metric",
+				Timestamp: time.Now().UnixNano(),
+				Value:     1,
+				Labels: map[string]string{
+					"node": "1",
+				},
+			},
+			&rpc.Point{
+				Name:      "metric_store_test_metric",
+				Timestamp: time.Now().UnixNano(),
+				Value:     2,
+				Labels: map[string]string{
+					"node": "2",
+				},
+			},
+			&rpc.Point{
+				Name:      "metric_store_test_metric",
+				Timestamp: time.Now().UnixNano(),
+				Value:     3,
+				Labels: map[string]string{
+					"node": "3",
+				},
+			},
+		}
+		err = client.Write(points)
+
+		checkCount := func() bool {
+			select {
+			case count := <-receivedAlertCountChan:
+				return count > 0
+			default:
+				return false
+			}
+		}
+		Eventually(checkCount, 20).Should(BeTrue())
 	})
 })

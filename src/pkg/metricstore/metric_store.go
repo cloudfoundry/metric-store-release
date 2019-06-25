@@ -2,11 +2,16 @@ package metricstore
 
 import (
 	"context"
+	"crypto/md5"
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math"
 	"net"
+	"net/url"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -18,8 +23,16 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	promLog "github.com/go-kit/kit/log"
 	"github.com/gogo/protobuf/proto"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/discovery"
+	sd_config "github.com/prometheus/prometheus/discovery/config"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
 )
 
@@ -56,6 +69,8 @@ type MetricStore struct {
 	closing          int64
 
 	persistentStore     PersistentStore
+	ruleManager         *rules.Manager
+	notifierManager     *notifier.Manager
 	diskFreeReporter    diskFreeReporter
 	expiryConfig        RetentionConfig
 	queryTimeout        time.Duration
@@ -64,6 +79,9 @@ type MetricStore struct {
 	addr        string
 	ingressAddr string
 	extAddr     string
+
+	alertmanagerAddr string
+	rulesPath        string
 }
 
 func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
@@ -119,6 +137,13 @@ func WithIngressAddr(ingressAddr string) MetricStoreOption {
 	}
 }
 
+// WithAlertmanagerAddr configures the address where an alertmanager is.
+func WithAlertmanagerAddr(alertmanagerAddr string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.alertmanagerAddr = alertmanagerAddr
+	}
+}
+
 // WithServerOpts configures the gRPC server options. It defaults to an
 // empty list.
 func WithServerOpts(opts ...grpc.ServerOption) MetricStoreOption {
@@ -168,6 +193,14 @@ func WithMetricsEmitDuration(metricsEmitDuration time.Duration) MetricStoreOptio
 	}
 }
 
+// WithRulesPath sets the path where configuration for alerting rules can be
+// found
+func WithRulesPath(rulesPath string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.rulesPath = rulesPath
+	}
+}
+
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
@@ -181,6 +214,86 @@ func (store *MetricStore) Start() {
 	)
 
 	store.setupRouting(queryEngine)
+
+	go store.configureAlertManager()
+	go store.processRules(queryEngine)
+}
+
+func (store *MetricStore) processRules(queryEngine *query.Engine) {
+	if store.rulesPath == "" {
+		return
+	}
+
+	querier, _ := store.persistentStore.Querier(context.Background(), 0, 0)
+
+	store.ruleManager = rules.NewManager(&rules.ManagerOptions{
+		Appendable:  store.persistentStore,
+		TSDB:        store.persistentStore,
+		QueryFunc:   query.EngineQueryFunc(queryEngine, querier),
+		NotifyFunc:  sendAlerts(store.notifierManager),
+		Context:     context.Background(),
+		ExternalURL: &url.URL{},
+		Logger:      promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stdout)),
+	})
+
+	store.ruleManager.Update(5*time.Second, []string{store.rulesPath})
+	store.ruleManager.Run()
+}
+
+func (store *MetricStore) configureAlertManager() {
+	if store.alertmanagerAddr == "" {
+		return
+	}
+
+	options := &notifier.Options{
+		QueueCapacity: 10,
+	}
+	store.notifierManager = notifier.NewManager(options, promLog.NewNopLogger())
+
+	discoveryManagerNotify := discovery.NewManager(
+		context.Background(),
+		promLog.NewNopLogger(),
+		discovery.Name("notify"),
+	)
+	go discoveryManagerNotify.Run()
+	go store.notifierManager.Run(discoveryManagerNotify.SyncCh())
+
+	cfg := &config.Config{
+		AlertingConfig: config.AlertingConfig{
+			AlertmanagerConfigs: []*config.AlertmanagerConfig{
+				&config.AlertmanagerConfig{
+					ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
+						StaticConfigs: []*targetgroup.Group{
+							&targetgroup.Group{
+								Targets: []model.LabelSet{
+									model.LabelSet{
+										"__address__": model.LabelValue(store.alertmanagerAddr),
+									},
+								},
+							},
+						},
+					},
+					Scheme:  "http",
+					Timeout: 10000000000,
+				},
+			},
+		},
+	}
+
+	if err := store.notifierManager.ApplyConfig(cfg); err != nil {
+		store.log.Fatalf("Error Applying the config: %v", err)
+	}
+
+	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
+	for _, v := range cfg.AlertingConfig.AlertmanagerConfigs {
+		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
+		b, err := json.Marshal(v)
+		if err != nil {
+			store.log.Fatalf("Error parsing alertmanager config")
+		}
+		discoveredConfig[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
+	}
+	discoveryManagerNotify.ApplyConfig(discoveredConfig)
 }
 
 func (store *MetricStore) periodicExpiry() {
@@ -302,4 +415,28 @@ func (store *MetricStore) Close() error {
 	store.server.GracefulStop()
 	store.ingressListener.Close()
 	return nil
+}
+
+func sendAlerts(s *notifier.Manager) rules.NotifyFunc {
+	return func(ctx context.Context, expr string, alerts ...*rules.Alert) {
+		var res []*notifier.Alert
+
+		for _, alert := range alerts {
+			a := &notifier.Alert{
+				StartsAt:    alert.FiredAt,
+				Labels:      alert.Labels,
+				Annotations: alert.Annotations,
+			}
+			if !alert.ResolvedAt.IsZero() {
+				a.EndsAt = alert.ResolvedAt
+			} else {
+				a.EndsAt = alert.ValidUntil
+			}
+			res = append(res, a)
+		}
+
+		if len(alerts) > 0 {
+			s.Send(res...)
+		}
+	}
 }

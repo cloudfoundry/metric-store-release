@@ -20,6 +20,9 @@ type Config struct {
 	QueryTimeout          time.Duration `env:"QUERY_TIMEOUT, report"`
 	TLS                   tls.TLS
 	MetricStoreServerTLS  MetricStoreServerTLS
+
+	RulesPath        string `env:"RULES_PATH, report"`
+	AlertmanagerAddr string `env:"ALERTMANAGER_ADDR, report"`
 }
 
 type MetricStoreServerTLS struct {

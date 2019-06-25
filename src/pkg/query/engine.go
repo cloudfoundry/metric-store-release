@@ -356,6 +356,9 @@ func (querier *MetricStoreQuerier) Close() error {
 	return nil
 }
 
+// TODO: this is essentially the Store interface
+//  - update Store to have same signature, then use it inplace of NullQuerier
+// Select returns a set of series that matches the given label matchers.
 func (querier *MetricStoreQuerier) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
 	seriesSet, _, err := querier.dataReader.Select(params, labelMatchers...)
 	if err != nil {
