@@ -37,7 +37,7 @@ type PersistentStore interface {
 	DeleteOldest()
 	EmitStorageDurationMetric()
 	Close()
-	LabelNames() (*rpc.PromQL_LabelsQueryResult, error)
+	LabelNames() ([]string, error)
 	LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error)
 }
 

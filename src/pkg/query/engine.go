@@ -16,7 +16,7 @@ import (
 
 type Store interface {
 	Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error)
-	LabelNames() (*rpc.PromQL_LabelsQueryResult, error)
+	LabelNames() ([]string, error)
 	LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error)
 }
 

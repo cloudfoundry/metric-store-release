@@ -148,7 +148,7 @@ func (store *Store) Close() {
 	store.adapter.Close()
 }
 
-func (store *Store) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
+func (store *Store) LabelNames() ([]string, error) {
 	distinctKeys := make(map[string]struct{})
 
 	tagKeys := store.adapter.AllTagKeys()
@@ -161,7 +161,7 @@ func (store *Store) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
 		labels = append(labels, k)
 	}
 
-	return &rpc.PromQL_LabelsQueryResult{Labels: labels}, nil
+	return labels, nil
 }
 
 func (store *Store) LabelValues(req *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {

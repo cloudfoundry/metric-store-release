@@ -60,10 +60,12 @@ func (erp *EgressReverseProxy) SeriesQuery(ctx context.Context, req *rpc.PromQL_
 }
 
 func (erp *EgressReverseProxy) LabelsQuery(ctx context.Context, req *rpc.PromQL_LabelsQueryRequest) (*rpc.PromQL_LabelsQueryResult, error) {
-	result, err := erp.localReader.LabelNames()
+	labels, err := erp.localReader.LabelNames()
 
-	if result != nil {
-		result.Labels = labelFormatter(result.Labels)
+	result := &rpc.PromQL_LabelsQueryResult{}
+
+	if labels != nil {
+		result.Labels = labelFormatter(labels)
 	}
 
 	return result, err

@@ -286,7 +286,7 @@ var _ = Describe("Persistent Store", func() {
 
 			res, err := tc.store.LabelNames()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res.GetLabels()).To(ConsistOf("source_id", "ip", "job"))
+			Expect(res).To(ConsistOf("source_id", "ip", "job"))
 		})
 	})
 

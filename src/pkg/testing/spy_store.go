@@ -31,7 +31,7 @@ func (s *SpyStore) Select(params *storage.SelectParams, labelMatchers ...*labels
 	return s.GetPoints, nil, s.GetErr
 }
 
-func (s *SpyStore) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
+func (s *SpyStore) LabelNames() ([]string, error) {
 	return nil, nil
 }
 

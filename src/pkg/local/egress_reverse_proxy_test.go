@@ -102,9 +102,7 @@ var _ = Describe("EgressReverseProxy", func() {
 		It("returns all labels and prepends __name__ for promql compatibility", func() {
 			tc := egressReverseProxySetup()
 
-			tc.spyLocalDataReader.LabelsResponse = &rpc.PromQL_LabelsQueryResult{
-				Labels: []string{"foo", "bar", "baz"},
-			}
+			tc.spyLocalDataReader.LabelsResponse = []string{"foo", "bar", "baz"}
 
 			result, err := tc.erp.LabelsQuery(
 				context.Background(),
