@@ -144,8 +144,8 @@ func (store *Store) EmitStorageDurationMetric() {
 	store.metrics.storageDurationGauge(float64(int(duration.Hours()) / 24))
 }
 
-func (store *Store) Close() {
-	store.adapter.Close()
+func (store *Store) Close() error {
+	return store.adapter.Close()
 }
 
 func (store *Store) LabelNames() ([]string, error) {

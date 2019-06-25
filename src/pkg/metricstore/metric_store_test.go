@@ -382,7 +382,7 @@ func (m *mockPersistentStore) EmitStorageDurationMetric() {
 	m.emitStorageDurationMetricCalls <- time.Now()
 }
 
-func (m *mockPersistentStore) Close() {
+func (m *mockPersistentStore) Close() error {
 	panic("not implemented")
 }
 

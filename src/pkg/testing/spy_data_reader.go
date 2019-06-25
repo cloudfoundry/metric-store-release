@@ -59,6 +59,10 @@ func (s *SpyDataReader) LabelValues(string) ([]string, error) {
 	return s.LabelValuesResponse, s.LabelValuesError
 }
 
+func (s *SpyDataReader) Close() error {
+	return nil
+}
+
 func NewSpyDataReader() *SpyDataReader {
 	return &SpyDataReader{}
 }

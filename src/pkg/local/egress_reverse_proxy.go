@@ -6,20 +6,20 @@ import (
 	"sort"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/prometheus/prometheus/storage"
 )
 
 type EgressReverseProxy struct {
 	engine      QueryEngine
-	localReader query.Store
+	localReader storage.Querier
 	log         *log.Logger
 }
 
 type erpOption func(*EgressReverseProxy)
 
 func NewEgressReverseProxy(
-	localReader query.Store,
+	localReader storage.Querier,
 	engine QueryEngine,
 	opts ...erpOption,
 ) *EgressReverseProxy {
@@ -42,9 +42,9 @@ func WithLogger(l *log.Logger) erpOption {
 }
 
 type QueryEngine interface {
-	InstantQuery(context.Context, *rpc.PromQL_InstantQueryRequest, query.Store) (*rpc.PromQL_InstantQueryResult, error)
-	RangeQuery(context.Context, *rpc.PromQL_RangeQueryRequest, query.Store) (*rpc.PromQL_RangeQueryResult, error)
-	SeriesQuery(context.Context, *rpc.PromQL_SeriesQueryRequest, query.Store) (*rpc.PromQL_SeriesQueryResult, error)
+	InstantQuery(context.Context, *rpc.PromQL_InstantQueryRequest, storage.Querier) (*rpc.PromQL_InstantQueryResult, error)
+	RangeQuery(context.Context, *rpc.PromQL_RangeQueryRequest, storage.Querier) (*rpc.PromQL_RangeQueryResult, error)
+	SeriesQuery(context.Context, *rpc.PromQL_SeriesQueryRequest, storage.Querier) (*rpc.PromQL_SeriesQueryResult, error)
 }
 
 func (erp *EgressReverseProxy) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest) (*rpc.PromQL_InstantQueryResult, error) {

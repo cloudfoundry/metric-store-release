@@ -252,8 +252,8 @@ func (t *InfluxAdapter) OldestShardID() (uint64, error) {
 	return oldestShardID, nil
 }
 
-func (t *InfluxAdapter) Close() {
-	t.influx.Close()
+func (t *InfluxAdapter) Close() error {
+	return t.influx.Close()
 }
 
 func (t *InfluxAdapter) AllMeasurementNames() []string {

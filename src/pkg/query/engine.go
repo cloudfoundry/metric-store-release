@@ -14,12 +14,6 @@ import (
 	"github.com/prometheus/prometheus/storage"
 )
 
-type Store interface {
-	Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error)
-	LabelNames() ([]string, error)
-	LabelValues(string) ([]string, error)
-}
-
 type Engine struct {
 	log          *log.Logger
 	queryTimeout time.Duration
@@ -62,7 +56,7 @@ type Metrics interface {
 	NewGauge(name, unit string) func(value float64)
 }
 
-func (q *Engine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest, dataReader Store) (*rpc.PromQL_InstantQueryResult, error) {
+func (q *Engine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest, dataReader storage.Querier) (*rpc.PromQL_InstantQueryResult, error) {
 	queryable, engine := q.createPromQLEngine(dataReader)
 
 	var err error
@@ -169,7 +163,7 @@ func (q *Engine) toInstantQueryResult(r *promql.Result) *rpc.PromQL_InstantQuery
 	}
 }
 
-func (q *Engine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest, dataReader Store) (*rpc.PromQL_RangeQueryResult, error) {
+func (q *Engine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest, dataReader storage.Querier) (*rpc.PromQL_RangeQueryResult, error) {
 	queryable, engine := q.createPromQLEngine(dataReader)
 
 	var err error
@@ -248,7 +242,7 @@ func (q *Engine) toRangeQueryResult(r *promql.Result) *rpc.PromQL_RangeQueryResu
 	}
 }
 
-func (e *Engine) createPromQLEngine(dataReader Store) (*MetricStoreQueryable, *promql.Engine) {
+func (e *Engine) createPromQLEngine(dataReader storage.Querier) (*MetricStoreQueryable, *promql.Engine) {
 	msq := &MetricStoreQueryable{
 		DataReader: dataReader,
 	}
@@ -263,7 +257,7 @@ func (e *Engine) createPromQLEngine(dataReader Store) (*MetricStoreQueryable, *p
 	return msq, engine
 }
 
-func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest, dataReader Store) (*rpc.PromQL_SeriesQueryResult, error) {
+func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest, dataReader storage.Querier) (*rpc.PromQL_SeriesQueryResult, error) {
 	var err error
 
 	requestStartInSeconds, err := ParseTime(req.Start)
@@ -324,7 +318,7 @@ func (q *Engine) toSeriesQueryResult(seriesSets []storage.SeriesSet) *rpc.PromQL
 }
 
 type MetricStoreQueryable struct {
-	DataReader Store
+	DataReader storage.Querier
 	err        error
 }
 
@@ -343,7 +337,7 @@ type MetricStoreQuerier struct {
 	ctx        context.Context
 	start      time.Time
 	end        time.Time
-	dataReader Store
+	dataReader storage.Querier
 	queryable  *MetricStoreQueryable
 }
 

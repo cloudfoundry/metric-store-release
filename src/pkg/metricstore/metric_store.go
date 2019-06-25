@@ -36,7 +36,7 @@ type PersistentStore interface {
 	DeleteOlderThan(cutoff time.Time)
 	DeleteOldest()
 	EmitStorageDurationMetric()
-	Close()
+	Close() error
 	LabelNames() ([]string, error)
 	LabelValues(string) ([]string, error)
 }
