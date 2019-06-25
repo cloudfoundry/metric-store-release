@@ -82,3 +82,7 @@ func (c *IngressClient) Write(points []*rpc.Point) error {
 
 	return err
 }
+
+func (c *IngressClient) Close() {
+	c.connection.Close()
+}

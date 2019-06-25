@@ -12,12 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/common/expfmt"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
@@ -213,23 +212,13 @@ var _ = Describe("MetricStore", func() {
 			metricNameCounts[point.Name]++
 		}
 
-		cfg := &leanstreams.TCPClientConfig{
-			MaxMessageSize: 65536,
-			Address:        tc.ingressAddr,
-			TLSConfig:      tc.tlsConfig,
-		}
-		remoteConnection, err := leanstreams.DialTCP(cfg)
-		Expect(err).ToNot(HaveOccurred())
-		defer remoteConnection.Close()
+		client, err := ingressclient.NewIngressClient(
+			tc.ingressAddr,
+			tc.tlsConfig,
+		)
+		defer client.Close()
 
-		payload, err := proto.Marshal(&rpc.SendRequest{
-			Batch: &rpc.Points{
-				Points: rpcPoints,
-			},
-		})
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = remoteConnection.Write(payload)
+		err = client.Write(rpcPoints)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
