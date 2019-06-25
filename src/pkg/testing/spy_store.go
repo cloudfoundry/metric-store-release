@@ -19,7 +19,7 @@ func NewSpyStoreReader() *SpyStore {
 	return &SpyStore{}
 }
 
-func (s *SpyStore) Get(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, error) {
+func (s *SpyStore) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
 	for _, matcher := range labelMatchers {
 		if matcher.Name == "__name__" {
 			s.Name = matcher.Value
@@ -28,10 +28,10 @@ func (s *SpyStore) Get(params *storage.SelectParams, labelMatchers ...*labels.Ma
 	s.Start = params.Start
 	s.End = params.End
 
-	return s.GetPoints, s.GetErr
+	return s.GetPoints, nil, s.GetErr
 }
 
-func (s *SpyStore) Labels() (*rpc.PromQL_LabelsQueryResult, error) {
+func (s *SpyStore) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
 	return nil, nil
 }
 

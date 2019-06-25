@@ -59,7 +59,7 @@ var _ = Describe("Persistent Store", func() {
 		os.RemoveAll(tc.storagePath)
 	}
 
-	Describe("Get()", func() {
+	Describe("Select()", func() {
 		Context("when the metric has no extra fields", func() {
 			It("fetches the point and its metadata", func() {
 				tc := setup()
@@ -67,7 +67,7 @@ var _ = Describe("Persistent Store", func() {
 
 				tc.storePointWithLabels(10, "counter", 1.0, map[string]string{"source_id": "source_id"})
 
-				seriesSet, err := tc.store.Get(
+				seriesSet, _, err := tc.store.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 				)
@@ -96,7 +96,7 @@ var _ = Describe("Persistent Store", func() {
 					"source_id":  "source_id",
 				})
 
-				seriesSet, err := tc.store.Get(
+				seriesSet, _, err := tc.store.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				)
@@ -128,7 +128,7 @@ var _ = Describe("Persistent Store", func() {
 					"source_id":  "source_id",
 				})
 
-				seriesSet, err := tc.store.Get(
+				seriesSet, _, err := tc.store.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				)
@@ -158,7 +158,7 @@ var _ = Describe("Persistent Store", func() {
 
 				tc.storeDefaultFilteringPoints()
 
-				seriesSet, err := tc.store.Get(
+				seriesSet, _, err := tc.store.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 					&labels.Matcher{Name: "deployment", Value: expression, Type: operator},
@@ -180,7 +180,7 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storeDefaultFilteringPoints()
 
-			seriesSet, err := tc.store.Get(
+			seriesSet, _, err := tc.store.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				&labels.Matcher{Name: "deployment", Value: "der-schnitzel", Type: labels.MatchEqual},
@@ -215,7 +215,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(30, "counter", 3)
 			tc.storePoint(40, "counter", 4)
 
-			seriesSet, err := tc.store.Get(
+			seriesSet, _, err := tc.store.Select(
 				&storage.SelectParams{Start: 10, End: 30},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
@@ -240,7 +240,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(10, "cpu", 1)
 			tc.storePoint(20, "memory", 2)
 
-			seriesSet, err := tc.store.Get(
+			seriesSet, _, err := tc.store.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "cpu", Type: labels.MatchEqual},
 			)
@@ -261,7 +261,7 @@ var _ = Describe("Persistent Store", func() {
 			tc := setup()
 			defer teardown(tc)
 
-			seriesSet, err := tc.store.Get(
+			seriesSet, _, err := tc.store.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "i-definitely-do-not-exist", Type: labels.MatchEqual},
 			)
@@ -284,7 +284,7 @@ var _ = Describe("Persistent Store", func() {
 				"source_id": "1", "job": "1",
 			})
 
-			res, err := tc.store.Labels()
+			res, err := tc.store.LabelNames()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.GetLabels()).To(ConsistOf("source_id", "ip", "job"))
 		})
@@ -345,7 +345,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.store.DeleteOlderThan(oneDayAgo)
 			Expect(tc.metrics.Getter("metric_store_num_shards_expired")()).To(BeEquivalentTo(1))
 
-			seriesSet, err := tc.store.Get(
+			seriesSet, _, err := tc.store.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
@@ -375,7 +375,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.store.DeleteOldest()
 			Expect(tc.metrics.Getter("metric_store_num_shards_pruned")()).To(BeEquivalentTo(1))
 
-			seriesSet, err := tc.store.Get(
+			seriesSet, _, err := tc.store.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)

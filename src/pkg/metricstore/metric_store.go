@@ -32,12 +32,12 @@ type RetentionConfig struct {
 
 type PersistentStore interface {
 	Put(points []*rpc.Point)
-	Get(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, error)
+	Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error)
 	DeleteOlderThan(cutoff time.Time)
 	DeleteOldest()
 	EmitStorageDurationMetric()
 	Close()
-	Labels() (*rpc.PromQL_LabelsQueryResult, error)
+	LabelNames() (*rpc.PromQL_LabelsQueryResult, error)
 	LabelValues(*rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error)
 }
 
@@ -175,7 +175,14 @@ func WithMetricsEmitDuration(metricsEmitDuration time.Duration) MetricStoreOptio
 func (store *MetricStore) Start() {
 	go store.periodicExpiry(store.persistentStore)
 	go store.periodicMetrics(store.persistentStore)
-	store.setupRouting(store.persistentStore)
+
+	queryEngine := query.NewEngine(
+		store.metrics,
+		query.WithQueryTimeout(store.queryTimeout),
+		query.WithLogger(store.log),
+	)
+
+	store.setupRouting(store.persistentStore, queryEngine)
 }
 
 func (store *MetricStore) periodicExpiry(ps PersistentStore) {
@@ -204,7 +211,7 @@ func (store *MetricStore) deleteExpiredData(ps PersistentStore) {
 	}
 }
 
-func (store *MetricStore) setupRouting(s PersistentStore) {
+func (store *MetricStore) setupRouting(s PersistentStore, queryEngine *query.Engine) {
 	// gRPC
 	lis, err := net.Listen("tcp", store.addr)
 	if err != nil {
@@ -216,8 +223,6 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 	if store.extAddr == "" {
 		store.extAddr = store.lis.Addr().String()
 	}
-
-	localStoreReader := local.NewLocalStoreReader(s)
 
 	writeBinary := func(payload []byte) error {
 		r := &rpc.SendRequest{}
@@ -268,13 +273,8 @@ func (store *MetricStore) setupRouting(s PersistentStore) {
 		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
 	}
 
-	queryEngine := query.NewEngine(
-		store.metrics,
-		query.WithQueryTimeout(store.queryTimeout),
-		query.WithLogger(store.log),
-	)
 	egressReverseProxy := local.NewEgressReverseProxy(
-		localStoreReader,
+		s,
 		queryEngine,
 		local.WithLogger(store.log),
 	)

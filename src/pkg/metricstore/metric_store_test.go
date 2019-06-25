@@ -366,7 +366,7 @@ func (m *mockPersistentStore) Put(points []*rpc.Point) {
 	panic("not implemented")
 }
 
-func (m *mockPersistentStore) Get(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, error) {
+func (m *mockPersistentStore) Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
 	panic("not implemented")
 }
 
@@ -386,7 +386,7 @@ func (m *mockPersistentStore) Close() {
 	panic("not implemented")
 }
 
-func (m *mockPersistentStore) Labels() (*rpc.PromQL_LabelsQueryResult, error) {
+func (m *mockPersistentStore) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
 	panic("not implemented")
 }
 

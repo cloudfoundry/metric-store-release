@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"context"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -23,7 +22,7 @@ type SpyDataReader struct {
 	LabelValuesError    error
 }
 
-func (s *SpyDataReader) Read(ctx context.Context, params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, error) {
+func (s *SpyDataReader) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
 	s.ReadStarts = append(s.ReadStarts, params.Start)
 	s.ReadEnds = append(s.ReadEnds, params.End)
 
@@ -49,14 +48,14 @@ func (s *SpyDataReader) Read(ctx context.Context, params *storage.SelectParams, 
 	// Give ourselves some time to capture runtime metrics
 	time.Sleep(time.Millisecond)
 
-	return builder.SeriesSet(), err
+	return builder.SeriesSet(), nil, err
 }
 
-func (s *SpyDataReader) Labels(ctx context.Context, in *rpc.PromQL_LabelsQueryRequest) (*rpc.PromQL_LabelsQueryResult, error) {
+func (s *SpyDataReader) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
 	return s.LabelsResponse, s.LabelsError
 }
 
-func (s *SpyDataReader) LabelValues(ctx context.Context, in *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
+func (s *SpyDataReader) LabelValues(in *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
 	return s.LabelValuesResponse, s.LabelValuesError
 }
 

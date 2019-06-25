@@ -88,7 +88,15 @@ func (store *Store) truncateLabels(points []*rpc.Point) {
 	}
 }
 
-func (store *Store) Get(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, error) {
+func (store *Store) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
+	if params.End != 0 && params.Start > params.End {
+		return nil, nil, fmt.Errorf("Start (%d) must be before End (%d)", params.Start, params.End)
+	}
+
+	if params.End == 0 {
+		params.End = time.Now().UnixNano()
+	}
+
 	var name string
 	for index, labelMatcher := range labelMatchers {
 		if labelMatcher.Name == "__name__" {
@@ -104,10 +112,10 @@ func (store *Store) Get(params *storage.SelectParams, labelMatchers ...*labels.M
 	builder, err := store.adapter.GetPoints(name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
 	if err != nil {
 		store.metrics.incNumGetErrors(1)
-		return nil, err
+		return nil, nil, err
 	}
 
-	return builder.SeriesSet(), nil
+	return builder.SeriesSet(), nil, nil
 }
 
 func (store *Store) DeleteOlderThan(cutoff time.Time) {
@@ -140,7 +148,7 @@ func (store *Store) Close() {
 	store.adapter.Close()
 }
 
-func (store *Store) Labels() (*rpc.PromQL_LabelsQueryResult, error) {
+func (store *Store) LabelNames() (*rpc.PromQL_LabelsQueryResult, error) {
 	distinctKeys := make(map[string]struct{})
 
 	tagKeys := store.adapter.AllTagKeys()

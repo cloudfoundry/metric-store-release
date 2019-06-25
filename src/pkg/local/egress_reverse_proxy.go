@@ -12,14 +12,14 @@ import (
 
 type EgressReverseProxy struct {
 	engine      QueryEngine
-	localReader query.DataReader
+	localReader query.Store
 	log         *log.Logger
 }
 
 type erpOption func(*EgressReverseProxy)
 
 func NewEgressReverseProxy(
-	localReader query.DataReader,
+	localReader query.Store,
 	engine QueryEngine,
 	opts ...erpOption,
 ) *EgressReverseProxy {
@@ -42,9 +42,9 @@ func WithLogger(l *log.Logger) erpOption {
 }
 
 type QueryEngine interface {
-	InstantQuery(context.Context, *rpc.PromQL_InstantQueryRequest, query.DataReader) (*rpc.PromQL_InstantQueryResult, error)
-	RangeQuery(context.Context, *rpc.PromQL_RangeQueryRequest, query.DataReader) (*rpc.PromQL_RangeQueryResult, error)
-	SeriesQuery(context.Context, *rpc.PromQL_SeriesQueryRequest, query.DataReader) (*rpc.PromQL_SeriesQueryResult, error)
+	InstantQuery(context.Context, *rpc.PromQL_InstantQueryRequest, query.Store) (*rpc.PromQL_InstantQueryResult, error)
+	RangeQuery(context.Context, *rpc.PromQL_RangeQueryRequest, query.Store) (*rpc.PromQL_RangeQueryResult, error)
+	SeriesQuery(context.Context, *rpc.PromQL_SeriesQueryRequest, query.Store) (*rpc.PromQL_SeriesQueryResult, error)
 }
 
 func (erp *EgressReverseProxy) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest) (*rpc.PromQL_InstantQueryResult, error) {
@@ -60,7 +60,7 @@ func (erp *EgressReverseProxy) SeriesQuery(ctx context.Context, req *rpc.PromQL_
 }
 
 func (erp *EgressReverseProxy) LabelsQuery(ctx context.Context, req *rpc.PromQL_LabelsQueryRequest) (*rpc.PromQL_LabelsQueryResult, error) {
-	result, err := erp.localReader.Labels(ctx, req)
+	result, err := erp.localReader.LabelNames()
 
 	if result != nil {
 		result.Labels = labelFormatter(result.Labels)
@@ -77,5 +77,5 @@ func labelFormatter(labels []string) []string {
 }
 
 func (erp *EgressReverseProxy) LabelValuesQuery(ctx context.Context, req *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
-	return erp.localReader.LabelValues(ctx, req)
+	return erp.localReader.LabelValues(req)
 }
