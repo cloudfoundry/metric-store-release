@@ -12,7 +12,6 @@ import (
 	"github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 )
 
 type MetricsInitializer interface {
@@ -21,13 +20,12 @@ type MetricsInitializer interface {
 }
 
 type Store struct {
-	adapter               *InfluxAdapter
-	metrics               Metrics
-	labelTruncationLength uint
+	adapter  *InfluxAdapter
+	metrics  Metrics
+	appender storage.Appender
 }
 
 type Metrics struct {
-	incIngress                     func(delta uint64)
 	incNumShardsExpired            func(delta uint64)
 	incNumShardsPruned             func(delta uint64)
 	incNumGetErrors                func(delta uint64)
@@ -37,55 +35,24 @@ type Metrics struct {
 	labelMeasurementNamesQueryTime func(time float64)
 }
 
-func NewStore(influxStore InfluxStore, m MetricsInitializer, opts ...WithStoreOption) *Store {
+func NewStore(appender storage.Appender, adapter *InfluxAdapter, m MetricsInitializer) *Store {
 	store := &Store{
-		adapter: NewInfluxAdapter(influxStore, m),
+		appender: appender,
+		adapter:  adapter,
 
 		metrics: Metrics{
-			incIngress:           m.NewCounter("metric_store_ingress"),
 			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
 			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
 			incNumGetErrors:      m.NewCounter("metric_store_num_get_errors"),
 			storageDurationGauge: m.NewGauge("metric_store_storage_duration", "days"),
 		},
-
-		labelTruncationLength: 256,
-	}
-
-	for _, opt := range opts {
-		opt(store)
 	}
 
 	return store
 }
 
-type WithStoreOption func(*Store)
-
-func WithLabelTruncationLength(length uint) WithStoreOption {
-	return func(store *Store) {
-		store.labelTruncationLength = length
-	}
-}
-
-func (store *Store) Put(points []*rpc.Point) {
-	store.metrics.incIngress(uint64(len(points)))
-
-	store.truncateLabels(points)
-	err := store.adapter.WritePoints(points)
-
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (store *Store) truncateLabels(points []*rpc.Point) {
-	for _, point := range points {
-		for name, value := range point.Labels {
-			if uint(len(value)) > store.labelTruncationLength {
-				point.Labels[name] = value[:store.labelTruncationLength]
-			}
-		}
-	}
+func (store *Store) Appender() (storage.Appender, error) {
+	return store.appender, nil
 }
 
 func (store *Store) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {

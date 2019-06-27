@@ -31,14 +31,18 @@ type RetentionConfig struct {
 }
 
 type PersistentStore interface {
-	Put(points []*rpc.Point)
+	// Queryable
 	Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error)
+	LabelNames() ([]string, error)
+	LabelValues(string) ([]string, error)
+	Close() error
+
+	// Appender
+	Appender() (storage.Appender, error)
+
 	DeleteOlderThan(cutoff time.Time)
 	DeleteOldest()
 	EmitStorageDurationMetric()
-	Close() error
-	LabelNames() ([]string, error)
-	LabelValues(string) ([]string, error)
 }
 
 type diskFreeReporter func() float64
@@ -226,32 +230,29 @@ func (store *MetricStore) setupRouting(s PersistentStore, queryEngine *query.Eng
 
 	writeBinary := func(payload []byte) error {
 		r := &rpc.SendRequest{}
-		var points []*rpc.Point
 
 		err := proto.Unmarshal(payload, r)
 		if err != nil {
 			return err
 		}
 
+		appender, _ := s.Appender()
 		for _, point := range r.Batch.Points {
 			if !transform.IsValidFloat(point.Value) {
 				continue
 			}
 
-			point.Name = transform.SanitizeMetricName(point.GetName())
-
 			sanitizedLabels := make(map[string]string)
+			sanitizedLabels["__name__"] = transform.SanitizeMetricName(point.GetName())
+
 			for label, value := range point.GetLabels() {
 				sanitizedLabels[transform.SanitizeLabelName(label)] = value
 			}
-			if len(sanitizedLabels) > 0 {
-				point.Labels = sanitizedLabels
-			}
 
-			points = append(points, point)
+			appender.Add(labels.FromMap(sanitizedLabels), point.GetTimestamp(), point.GetValue())
 		}
 
-		s.Put(points)
+		appender.Commit()
 
 		return nil
 	}

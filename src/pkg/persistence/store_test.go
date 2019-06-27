@@ -7,7 +7,6 @@ import (
 	"time"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 
@@ -41,12 +40,20 @@ var _ = Describe("Persistent Store", func() {
 		influx, err := OpenTsStore(storagePath)
 		Expect(err).ToNot(HaveOccurred())
 
+		adapter := NewInfluxAdapter(influx, metrics)
+
+		appender := NewAppender(
+			adapter,
+			metrics,
+			WithLabelTruncationLength(64),
+		)
+
 		return storeTestContext{
 			metrics: metrics,
 			store: NewStore(
-				influx,
+				appender,
+				adapter,
 				metrics,
-				WithLabelTruncationLength(64),
 			),
 			storagePath:           storagePath,
 			minTimeInMilliseconds: influxql.MinTime / int64(time.Millisecond),
@@ -272,7 +279,7 @@ var _ = Describe("Persistent Store", func() {
 		})
 	})
 
-	Describe("Labels()", func() {
+	Describe("LabelNames()", func() {
 		It("returns labels that are stored as tags", func() {
 			tc := setup()
 			defer teardown(tc)
@@ -436,15 +443,21 @@ func (tc *storeTestContext) storePoint(ts int64, name string, value float64) {
 	tc.storePointWithLabels(ts, name, value, nil)
 }
 
-func (tc *storeTestContext) storePointWithLabels(ts int64, name string, value float64, labels map[string]string) {
-	point := &rpc.Point{
-		Name:      name,
-		Timestamp: ts * int64(time.Millisecond),
-		Value:     value,
-		Labels:    labels,
-	}
+func (tc *storeTestContext) storePointWithLabels(ts int64, name string, value float64, addLabels map[string]string) {
+	// point := &rpc.Point{
+	// 	Name:      name,
+	// 	Timestamp: ts * int64(time.Millisecond),
+	// 	Value:     value,
+	// 	Labels:    labels,
+	// }
 
-	tc.store.Put([]*rpc.Point{point})
+	// tc.store.Put([]*rpc.Point{point})
+
+	appender, _ := tc.store.Appender()
+	pointLabels := labels.FromMap(addLabels)
+	pointLabels = append(pointLabels, labels.Label{Name: "__name__", Value: name})
+	appender.Add(pointLabels, ts*int64(time.Millisecond), value)
+	appender.Commit()
 }
 
 func (tc *storeTestContext) storeDefaultFilteringPoints() {

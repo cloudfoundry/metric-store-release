@@ -132,7 +132,9 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		spyPersistentStoreMetrics := testing.NewSpyMetrics()
-		persistentStore := persistence.NewStore(tsStore, spyPersistentStoreMetrics)
+		adapter := persistence.NewInfluxAdapter(tsStore, spyPersistentStoreMetrics)
+		appender := persistence.NewAppender(adapter, spyPersistentStoreMetrics)
+		persistentStore := persistence.NewStore(appender, adapter, spyPersistentStoreMetrics)
 
 		tc, innerCleanup := setupWithPersistentStore(persistentStore, opts...)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
@@ -362,8 +364,8 @@ func newMockPersistentStore() *mockPersistentStore {
 	}
 }
 
-func (m *mockPersistentStore) Put(points []*rpc.Point) {
-	panic("not implemented")
+func (m *mockPersistentStore) Appender() (storage.Appender, error) {
+	return nil, nil
 }
 
 func (m *mockPersistentStore) Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
