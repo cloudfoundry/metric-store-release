@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 type storeTestContext struct {
 	store                 *Store
+	querier               storage.Querier
 	storagePath           string
 	metrics               *testing.SpyMetrics
 	minTimeInMilliseconds int64
@@ -41,23 +43,25 @@ var _ = Describe("Persistent Store", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		adapter := NewInfluxAdapter(influx, metrics)
-
 		appender := NewAppender(
 			adapter,
 			metrics,
 			WithLabelTruncationLength(64),
 		)
+		store := NewStore(
+			appender,
+			adapter,
+			metrics,
+		)
+		querier, _ := store.Querier(context.TODO(), 0, 0)
 
 		return storeTestContext{
-			metrics: metrics,
-			store: NewStore(
-				appender,
-				adapter,
-				metrics,
-			),
+			metrics:               metrics,
+			store:                 store,
 			storagePath:           storagePath,
 			minTimeInMilliseconds: influxql.MinTime / int64(time.Millisecond),
 			maxTimeInMilliseconds: influxql.MaxTime / int64(time.Millisecond),
+			querier:               querier,
 		}
 	}
 
@@ -74,7 +78,7 @@ var _ = Describe("Persistent Store", func() {
 
 				tc.storePointWithLabels(10, "counter", 1.0, map[string]string{"source_id": "source_id"})
 
-				seriesSet, _, err := tc.store.Select(
+				seriesSet, _, err := tc.querier.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 				)
@@ -103,7 +107,7 @@ var _ = Describe("Persistent Store", func() {
 					"source_id":  "source_id",
 				})
 
-				seriesSet, _, err := tc.store.Select(
+				seriesSet, _, err := tc.querier.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				)
@@ -135,7 +139,7 @@ var _ = Describe("Persistent Store", func() {
 					"source_id":  "source_id",
 				})
 
-				seriesSet, _, err := tc.store.Select(
+				seriesSet, _, err := tc.querier.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				)
@@ -165,7 +169,7 @@ var _ = Describe("Persistent Store", func() {
 
 				tc.storeDefaultFilteringPoints()
 
-				seriesSet, _, err := tc.store.Select(
+				seriesSet, _, err := tc.querier.Select(
 					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 					&labels.Matcher{Name: "deployment", Value: expression, Type: operator},
@@ -187,7 +191,7 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storeDefaultFilteringPoints()
 
-			seriesSet, _, err := tc.store.Select(
+			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				&labels.Matcher{Name: "deployment", Value: "der-schnitzel", Type: labels.MatchEqual},
@@ -222,7 +226,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(30, "counter", 3)
 			tc.storePoint(40, "counter", 4)
 
-			seriesSet, _, err := tc.store.Select(
+			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: 10, End: 30},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
@@ -247,7 +251,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(10, "cpu", 1)
 			tc.storePoint(20, "memory", 2)
 
-			seriesSet, _, err := tc.store.Select(
+			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "cpu", Type: labels.MatchEqual},
 			)
@@ -268,7 +272,7 @@ var _ = Describe("Persistent Store", func() {
 			tc := setup()
 			defer teardown(tc)
 
-			seriesSet, _, err := tc.store.Select(
+			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "i-definitely-do-not-exist", Type: labels.MatchEqual},
 			)
@@ -291,7 +295,7 @@ var _ = Describe("Persistent Store", func() {
 				"source_id": "1", "job": "1",
 			})
 
-			res, err := tc.store.LabelNames()
+			res, err := tc.querier.LabelNames()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(ConsistOf("source_id", "ip", "job"))
 		})
@@ -309,7 +313,7 @@ var _ = Describe("Persistent Store", func() {
 				"source_id": "10",
 			})
 
-			res, err := tc.store.LabelValues("source_id")
+			res, err := tc.querier.LabelValues("source_id")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(ConsistOf("1", "10"))
 		})
@@ -329,7 +333,7 @@ var _ = Describe("Persistent Store", func() {
 				"user_agent": "10",
 			})
 
-			res, err := tc.store.LabelValues("__name__")
+			res, err := tc.querier.LabelValues("__name__")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(ConsistOf("metric-one", "metric-two"))
 		})
@@ -352,7 +356,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.store.DeleteOlderThan(oneDayAgo)
 			Expect(tc.metrics.Getter("metric_store_num_shards_expired")()).To(BeEquivalentTo(1))
 
-			seriesSet, _, err := tc.store.Select(
+			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
@@ -382,7 +386,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.store.DeleteOldest()
 			Expect(tc.metrics.Getter("metric_store_num_shards_pruned")()).To(BeEquivalentTo(1))
 
-			seriesSet, _, err := tc.store.Select(
+			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)

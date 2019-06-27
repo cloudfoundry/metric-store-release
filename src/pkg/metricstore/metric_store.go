@@ -1,6 +1,7 @@
 package metricstore
 
 import (
+	"context"
 	"crypto/tls"
 	"io/ioutil"
 	"log"
@@ -31,14 +32,7 @@ type RetentionConfig struct {
 }
 
 type PersistentStore interface {
-	// Queryable
-	Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error)
-	LabelNames() ([]string, error)
-	LabelValues(string) ([]string, error)
-	Close() error
-
-	// Appender
-	Appender() (storage.Appender, error)
+	storage.Storage
 
 	DeleteOlderThan(cutoff time.Time)
 	DeleteOldest()
@@ -177,8 +171,8 @@ func WithMetricsEmitDuration(metricsEmitDuration time.Duration) MetricStoreOptio
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
-	go store.periodicExpiry(store.persistentStore)
-	go store.periodicMetrics(store.persistentStore)
+	go store.periodicExpiry()
+	go store.periodicMetrics()
 
 	queryEngine := query.NewEngine(
 		store.metrics,
@@ -186,36 +180,36 @@ func (store *MetricStore) Start() {
 		query.WithLogger(store.log),
 	)
 
-	store.setupRouting(store.persistentStore, queryEngine)
+	store.setupRouting(queryEngine)
 }
 
-func (store *MetricStore) periodicExpiry(ps PersistentStore) {
-	store.deleteExpiredData(ps)
+func (store *MetricStore) periodicExpiry() {
+	store.deleteExpiredData()
 	for range time.Tick(store.expiryConfig.ExpiryFrequency) {
-		store.deleteExpiredData(ps)
+		store.deleteExpiredData()
 	}
 }
 
-func (store *MetricStore) periodicMetrics(ps PersistentStore) {
-	ps.EmitStorageDurationMetric()
+func (store *MetricStore) periodicMetrics() {
+	store.persistentStore.EmitStorageDurationMetric()
 	for range time.Tick(store.metricsEmitDuration) {
-		ps.EmitStorageDurationMetric()
+		store.persistentStore.EmitStorageDurationMetric()
 	}
 }
 
-func (store *MetricStore) deleteExpiredData(ps PersistentStore) {
+func (store *MetricStore) deleteExpiredData() {
 	cutoff := time.Now().Add(-store.expiryConfig.RetentionPeriod)
 	store.log.Printf("expiring data older than %s", cutoff.Format(time.RFC3339))
-	ps.DeleteOlderThan(cutoff)
+	store.persistentStore.DeleteOlderThan(cutoff)
 
 	diskFree := store.diskFreeReporter()
 	if diskFree < store.expiryConfig.DiskFreePercentTarget {
 		store.log.Printf("expiring data due to disk free space of %.0f%%", diskFree)
-		ps.DeleteOldest()
+		store.persistentStore.DeleteOldest()
 	}
 }
 
-func (store *MetricStore) setupRouting(s PersistentStore, queryEngine *query.Engine) {
+func (store *MetricStore) setupRouting(queryEngine *query.Engine) {
 	// gRPC
 	lis, err := net.Listen("tcp", store.addr)
 	if err != nil {
@@ -236,7 +230,7 @@ func (store *MetricStore) setupRouting(s PersistentStore, queryEngine *query.Eng
 			return err
 		}
 
-		appender, _ := s.Appender()
+		appender, _ := store.persistentStore.Appender()
 		for _, point := range r.Batch.Points {
 			if !transform.IsValidFloat(point.Value) {
 				continue
@@ -274,8 +268,9 @@ func (store *MetricStore) setupRouting(s PersistentStore, queryEngine *query.Eng
 		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
 	}
 
+	querier, _ := store.persistentStore.Querier(context.Background(), 0, 0)
 	egressReverseProxy := local.NewEgressReverseProxy(
-		s,
+		querier,
 		queryEngine,
 		local.WithLogger(store.log),
 	)

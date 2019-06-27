@@ -20,7 +20,6 @@ import (
 	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
@@ -364,12 +363,12 @@ func newMockPersistentStore() *mockPersistentStore {
 	}
 }
 
-func (m *mockPersistentStore) Appender() (storage.Appender, error) {
+func (m *mockPersistentStore) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
 	return nil, nil
 }
 
-func (m *mockPersistentStore) Select(*storage.SelectParams, ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
-	panic("not implemented")
+func (m *mockPersistentStore) Appender() (storage.Appender, error) {
+	return nil, nil
 }
 
 func (m *mockPersistentStore) DeleteOlderThan(cutoff time.Time) {
@@ -384,15 +383,11 @@ func (m *mockPersistentStore) EmitStorageDurationMetric() {
 	m.emitStorageDurationMetricCalls <- time.Now()
 }
 
+func (m *mockPersistentStore) StartTime() (int64, error) {
+	panic("not implemented")
+}
+
 func (m *mockPersistentStore) Close() error {
-	panic("not implemented")
-}
-
-func (m *mockPersistentStore) LabelNames() ([]string, error) {
-	panic("not implemented")
-}
-
-func (m *mockPersistentStore) LabelValues(string) ([]string, error) {
 	panic("not implemented")
 }
 

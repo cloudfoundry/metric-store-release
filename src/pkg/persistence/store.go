@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -8,10 +9,7 @@ import (
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
 	_ "github.com/influxdata/influxdb/tsdb/engine"
-	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
-
-	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 )
 
 type MetricsInitializer interface {
@@ -23,6 +21,7 @@ type Store struct {
 	adapter  *InfluxAdapter
 	metrics  Metrics
 	appender storage.Appender
+	querier  storage.Querier
 }
 
 type Metrics struct {
@@ -43,46 +42,20 @@ func NewStore(appender storage.Appender, adapter *InfluxAdapter, m MetricsInitia
 		metrics: Metrics{
 			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
 			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
-			incNumGetErrors:      m.NewCounter("metric_store_num_get_errors"),
 			storageDurationGauge: m.NewGauge("metric_store_storage_duration", "days"),
 		},
+		querier: NewQuerier(adapter, m),
 	}
 
 	return store
 }
 
-func (store *Store) Appender() (storage.Appender, error) {
-	return store.appender, nil
+func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
+	return store.querier, nil
 }
 
-func (store *Store) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
-	if params.End != 0 && params.Start > params.End {
-		return nil, nil, fmt.Errorf("Start (%d) must be before End (%d)", params.Start, params.End)
-	}
-
-	if params.End == 0 {
-		params.End = time.Now().UnixNano()
-	}
-
-	var name string
-	for index, labelMatcher := range labelMatchers {
-		if labelMatcher.Name == "__name__" {
-			name = labelMatcher.Value
-			labelMatchers = append(labelMatchers[:index], labelMatchers[index+1:]...)
-			break
-		}
-	}
-
-	startTimeInNanoseconds := transform.MillisecondsToNanoseconds(params.Start)
-	endTimeInNanoseconds := transform.MillisecondsToNanoseconds(params.End) - 1
-
-	builder, err := store.adapter.GetPoints(name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
-	if err != nil {
-		store.metrics.incNumGetErrors(1)
-		return nil, nil, err
-	}
-
-	return builder.SeriesSet(), nil, nil
+func (store *Store) Appender() (storage.Appender, error) {
+	return store.appender, nil
 }
 
 func (store *Store) DeleteOlderThan(cutoff time.Time) {
@@ -111,43 +84,10 @@ func (store *Store) EmitStorageDurationMetric() {
 	store.metrics.storageDurationGauge(float64(int(duration.Hours()) / 24))
 }
 
-func (store *Store) Close() error {
-	return store.adapter.Close()
+func (s *Store) Close() error {
+	return s.querier.Close()
 }
 
-func (store *Store) LabelNames() ([]string, error) {
-	distinctKeys := make(map[string]struct{})
-
-	tagKeys := store.adapter.AllTagKeys()
-	for _, tagKey := range tagKeys {
-		distinctKeys[tagKey] = struct{}{}
-	}
-
-	var labels []string
-	for k := range distinctKeys {
-		labels = append(labels, k)
-	}
-
-	return labels, nil
-}
-
-func (store *Store) LabelValues(name string) ([]string, error) {
-	distinctValues := make(map[string]struct{})
-
-	if name == transform.MEASUREMENT_NAME {
-		values := store.adapter.AllMeasurementNames()
-		return values, nil
-	}
-
-	tagValues := store.adapter.AllTagValues(name)
-	for _, tagValue := range tagValues {
-		distinctValues[tagValue] = struct{}{}
-	}
-
-	var values []string
-	for v := range distinctValues {
-		values = append(values, v)
-	}
-
-	return values, nil
+func (s *Store) StartTime() (int64, error) {
+	panic("not implemented")
 }
