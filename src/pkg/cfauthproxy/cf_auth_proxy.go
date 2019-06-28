@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	mtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 type CFAuthProxy struct {
@@ -22,6 +23,7 @@ type CFAuthProxy struct {
 	certPath        string
 	keyPath         string
 	proxyCACertPool *x509.CertPool
+	clientTLSConfig *tls.Config
 
 	authMiddleware   func(http.Handler) http.Handler
 	accessMiddleware func(http.Handler) *auth.AccessHandler
@@ -82,6 +84,18 @@ func WithAccessMiddleware(accessMiddleware func(http.Handler) *auth.AccessHandle
 	}
 }
 
+// WithClientTLS will use client TLS cert and key for communication to the
+// proxy destination.
+func WithClientTLS(caCert, cert, key, cn string) CFAuthProxyOption {
+	return func(p *CFAuthProxy) {
+		var err error
+		p.clientTLSConfig, err = mtls.NewMutualTLSConfig(caCert, cert, key, cn)
+		if err != nil {
+			log.Fatalf("failed to create client TLS config: %s", err)
+		}
+	}
+}
+
 // Start starts the HTTP listener and serves the HTTP server. If the
 // CFAuthProxy was initialized with the WithCFAuthProxyBlock option this
 // method will block.
@@ -116,7 +130,7 @@ func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 
 	// Aside from the Root CA for the gateway, these values are defaults
 	// from Golang's http.DefaultTransport
-	proxy.Transport = &http.Transport{
+	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -131,6 +145,10 @@ func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 			RootCAs: p.proxyCACertPool,
 		},
 	}
+	if p.clientTLSConfig != nil {
+		transport.TLSClientConfig = p.clientTLSConfig
+	}
+	proxy.Transport = transport
 
 	return proxy
 }

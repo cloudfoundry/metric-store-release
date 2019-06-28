@@ -13,6 +13,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	mtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -64,6 +65,33 @@ var _ = Describe("CFAuthProxy", func() {
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
 			proxyCACertPool,
+		)
+		proxy.Start()
+
+		resp, err := makeTLSReq("https", proxy.Addr())
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		body, _ := ioutil.ReadAll(resp.Body)
+		Expect(body).To(Equal([]byte("Hello World!")))
+	})
+
+	It("authenticates with mTLS", func() {
+		gateway := startMTLSSecureGateway("Hello World!")
+		defer gateway.Close()
+
+		proxy := NewCFAuthProxy(
+			gateway.URL,
+			"127.0.0.1:0",
+			testing.Cert("localhost.crt"),
+			testing.Cert("localhost.key"),
+			proxyCACertPool,
+			WithClientTLS(
+				testing.Cert("localhost.crt"),
+				testing.Cert("localhost.crt"),
+				testing.Cert("localhost.key"),
+				"example.com",
+			),
 		)
 		proxy.Start()
 
@@ -178,6 +206,28 @@ func startSecureGateway(responseBody string) *httptest.Server {
 			w.Write([]byte(responseBody))
 		}),
 	)
+	return testGateway
+}
+
+func startMTLSSecureGateway(responseBody string) *httptest.Server {
+	testGateway := httptest.NewUnstartedServer(
+		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Write([]byte(responseBody))
+		}),
+	)
+
+	tlsConfig, err := mtls.NewMutualTLSConfig(
+		testing.Cert("localhost.crt"),
+		testing.Cert("localhost.crt"),
+		testing.Cert("localhost.key"),
+		"",
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	tlsConfig.ClientAuth = tls.RequireAnyClientCert
+	testGateway.TLS = tlsConfig
+	testGateway.StartTLS()
+
 	return testGateway
 }
 
