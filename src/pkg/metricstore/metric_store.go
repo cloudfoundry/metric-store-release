@@ -215,6 +215,11 @@ func (store *MetricStore) Start() {
 
 	store.setupRouting(queryEngine)
 
+	options := &notifier.Options{
+		QueueCapacity: 10,
+	}
+	store.notifierManager = notifier.NewManager(options, promLog.NewNopLogger())
+
 	go store.configureAlertManager()
 	go store.processRules(queryEngine)
 }
@@ -244,11 +249,6 @@ func (store *MetricStore) configureAlertManager() {
 	if store.alertmanagerAddr == "" {
 		return
 	}
-
-	options := &notifier.Options{
-		QueueCapacity: 10,
-	}
-	store.notifierManager = notifier.NewManager(options, promLog.NewNopLogger())
 
 	discoveryManagerNotify := discovery.NewManager(
 		context.Background(),
