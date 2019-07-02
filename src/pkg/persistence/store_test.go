@@ -263,6 +263,84 @@ var _ = Describe("Persistent Store", func() {
 			))
 		})
 
+		It("defaults Start to 0, End to now for nil params", func() {
+			tc := setup()
+			defer teardown(tc)
+
+			now := time.Now().UnixNano() / int64(time.Millisecond)
+			tc.storePoint(1, "point-to-test-nil-default", 1)
+			tc.storePoint(now, "point-to-test-nil-default", 2)
+
+			seriesSet, _, err := tc.querier.Select(
+				nil,
+				&labels.Matcher{Name: "__name__", Value: "point-to-test-nil-default", Type: labels.MatchEqual},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			series := testing.ExplodeSeriesSet(seriesSet)
+			Expect(series).To(ConsistOf(
+				testing.Series{
+					Labels: map[string]string{"__name__": "point-to-test-nil-default"},
+					Points: []testing.Point{
+						{Time: 1, Value: 1},
+						{Time: now, Value: 2},
+					},
+				},
+			))
+		})
+
+		It("defaults Start to 0, End to now for empty params", func() {
+			tc := setup()
+			defer teardown(tc)
+
+			now := time.Now().UnixNano() / int64(time.Millisecond)
+			tc.storePoint(1, "point-to-test-empty-default", 1)
+			tc.storePoint(now, "point-to-test-empty-default", 2)
+
+			seriesSet, _, err := tc.querier.Select(
+				&storage.SelectParams{},
+				&labels.Matcher{Name: "__name__", Value: "point-to-test-empty-default", Type: labels.MatchEqual},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			series := testing.ExplodeSeriesSet(seriesSet)
+			Expect(series).To(ConsistOf(
+				testing.Series{
+					Labels: map[string]string{"__name__": "point-to-test-empty-default"},
+					Points: []testing.Point{
+						{Time: 1, Value: 1},
+						{Time: now, Value: 2},
+					},
+				},
+			))
+		})
+
+		It("accepts query with a start time but without an end time", func() {
+			tc := setup()
+			defer teardown(tc)
+
+			now := time.Now().UnixNano() / int64(time.Millisecond)
+			tc.storePoint(1, "point-to-test-end-default", 1)
+			tc.storePoint(now, "point-to-test-end-default", 2)
+
+			seriesSet, _, err := tc.querier.Select(
+				&storage.SelectParams{Start: 0},
+				&labels.Matcher{Name: "__name__", Value: "point-to-test-end-default", Type: labels.MatchEqual},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			series := testing.ExplodeSeriesSet(seriesSet)
+			Expect(series).To(ConsistOf(
+				testing.Series{
+					Labels: map[string]string{"__name__": "point-to-test-end-default"},
+					Points: []testing.Point{
+						{Time: 1, Value: 1},
+						{Time: now, Value: 2},
+					},
+				},
+			))
+		})
+
 		It("returns an empty set when an invalid query is provided", func() {
 			tc := setup()
 			defer teardown(tc)

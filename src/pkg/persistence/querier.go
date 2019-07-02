@@ -31,7 +31,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 	if params == nil {
 		params = &storage.SelectParams{
 			Start: 0,
-			End:   time.Now().UnixNano(),
+			End:   time.Now().UnixNano() / int64(time.Millisecond),
 		}
 	}
 
@@ -40,7 +40,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 	}
 
 	if params.End == 0 {
-		params.End = time.Now().UnixNano()
+		params.End = time.Now().UnixNano() / int64(time.Millisecond)
 	}
 
 	var name string
