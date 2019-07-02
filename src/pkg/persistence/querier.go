@@ -28,6 +28,13 @@ func NewQuerier(adapter *InfluxAdapter, m MetricsInitializer) *Querier {
 }
 
 func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
+	if params == nil {
+		params = &storage.SelectParams{
+			Start: 0,
+			End:   time.Now().UnixNano(),
+		}
+	}
+
 	if params.End != 0 && params.Start > params.End {
 		return nil, nil, fmt.Errorf("Start (%d) must be before End (%d)", params.Start, params.End)
 	}
