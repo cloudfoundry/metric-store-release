@@ -70,16 +70,11 @@ func main() {
 	}()
 
 	adapter := persistence.NewInfluxAdapter(tsStore, metrics)
-	appender := persistence.NewAppender(
-		adapter,
-		metrics,
-		persistence.WithLabelTruncationLength(cfg.LabelTruncationLength),
-	)
 
 	persistentStore := persistence.NewStore(
-		appender,
 		adapter,
 		metrics,
+		persistence.WithAppenderLabelTruncationLength(cfg.LabelTruncationLength),
 	)
 	diskFreeReporter := newDiskFreeReporter(cfg.StoragePath, metricStoreLog, metrics)
 

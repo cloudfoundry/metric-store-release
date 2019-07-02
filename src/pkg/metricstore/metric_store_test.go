@@ -132,8 +132,7 @@ var _ = Describe("MetricStore", func() {
 
 		spyPersistentStoreMetrics := testing.NewSpyMetrics()
 		adapter := persistence.NewInfluxAdapter(tsStore, spyPersistentStoreMetrics)
-		appender := persistence.NewAppender(adapter, spyPersistentStoreMetrics)
-		persistentStore := persistence.NewStore(appender, adapter, spyPersistentStoreMetrics)
+		persistentStore := persistence.NewStore(adapter, spyPersistentStoreMetrics)
 
 		tc, innerCleanup := setupWithPersistentStore(persistentStore, opts...)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics

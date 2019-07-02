@@ -18,10 +18,11 @@ type MetricsInitializer interface {
 }
 
 type Store struct {
-	adapter  *InfluxAdapter
-	metrics  Metrics
-	appender storage.Appender
-	querier  storage.Querier
+	adapter *InfluxAdapter
+	metrics Metrics
+	querier storage.Querier
+
+	labelTruncationLength uint
 }
 
 type Metrics struct {
@@ -32,22 +33,38 @@ type Metrics struct {
 	labelTagsQueryTime             func(time float64)
 	labelFieldsQueryTime           func(time float64)
 	labelMeasurementNamesQueryTime func(time float64)
+
+	// appender
+	incIngress func(delta uint64)
 }
 
-func NewStore(appender storage.Appender, adapter *InfluxAdapter, m MetricsInitializer) *Store {
+func NewStore(adapter *InfluxAdapter, m MetricsInitializer, opts ...StoreOption) *Store {
 	store := &Store{
-		appender: appender,
-		adapter:  adapter,
+		adapter: adapter,
 
 		metrics: Metrics{
 			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
 			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
 			storageDurationGauge: m.NewGauge("metric_store_storage_duration", "days"),
+			incIngress:           m.NewCounter("metric_store_ingress"),
 		},
-		querier: NewQuerier(adapter, m),
+		querier:               NewQuerier(adapter, m),
+		labelTruncationLength: 256,
+	}
+
+	for _, opt := range opts {
+		opt(store)
 	}
 
 	return store
+}
+
+type StoreOption func(*Store)
+
+func WithAppenderLabelTruncationLength(length uint) StoreOption {
+	return func(s *Store) {
+		s.labelTruncationLength = length
+	}
 }
 
 func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
@@ -55,7 +72,11 @@ func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Quer
 }
 
 func (store *Store) Appender() (storage.Appender, error) {
-	return store.appender, nil
+	return NewAppender(
+		store.adapter,
+		store.metrics,
+		WithLabelTruncationLength(store.labelTruncationLength),
+	), nil
 }
 
 func (store *Store) DeleteOlderThan(cutoff time.Time) {

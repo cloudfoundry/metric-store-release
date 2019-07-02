@@ -18,23 +18,14 @@ type StoreAppender struct {
 	mu                    sync.Mutex
 	points                []*rpc.Point
 	adapter               *InfluxAdapter
-	metrics               AppenderMetrics
+	metrics               Metrics
 	labelTruncationLength uint
 }
 
-// TODO: refactor?
-type AppenderMetrics struct {
-	incIngress func(delta uint64)
-}
-
-func NewAppender(adapter *InfluxAdapter, m MetricsInitializer, opts ...WithAppenderOption) *StoreAppender {
+func NewAppender(adapter *InfluxAdapter, metrics Metrics, opts ...AppenderOption) *StoreAppender {
 	appender := &StoreAppender{
-		adapter: adapter,
-
-		metrics: AppenderMetrics{
-			incIngress: m.NewCounter("metric_store_ingress"),
-		},
-
+		adapter:               adapter,
+		metrics:               metrics,
 		labelTruncationLength: 256,
 		points:                []*rpc.Point{},
 	}
@@ -46,9 +37,9 @@ func NewAppender(adapter *InfluxAdapter, m MetricsInitializer, opts ...WithAppen
 	return appender
 }
 
-type WithAppenderOption func(*StoreAppender)
+type AppenderOption func(*StoreAppender)
 
-func WithLabelTruncationLength(length uint) WithAppenderOption {
+func WithLabelTruncationLength(length uint) AppenderOption {
 	return func(a *StoreAppender) {
 		a.labelTruncationLength = length
 	}

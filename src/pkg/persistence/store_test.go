@@ -43,15 +43,10 @@ var _ = Describe("Persistent Store", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		adapter := NewInfluxAdapter(influx, metrics)
-		appender := NewAppender(
-			adapter,
-			metrics,
-			WithLabelTruncationLength(64),
-		)
 		store := NewStore(
-			appender,
 			adapter,
 			metrics,
+			WithAppenderLabelTruncationLength(64),
 		)
 		querier, _ := store.Querier(context.TODO(), 0, 0)
 
