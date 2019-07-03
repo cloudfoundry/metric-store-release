@@ -8,7 +8,6 @@ require (
 	collectd.org v0.3.0 // indirect
 	github.com/aws/aws-sdk-go v1.17.11 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 	github.com/francoispqt/gojay v1.2.11
@@ -36,8 +35,7 @@ require (
 	github.com/prometheus/client_golang v0.9.3
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 	github.com/prometheus/common v0.4.1
-	github.com/prometheus/prometheus v2.9.2+incompatible
-	github.com/prometheus/tsdb v0.8.0 // indirect
+	github.com/prometheus/prometheus v0.0.0-20190525122359-d20e84d0fb64
 	github.com/smartystreets/goconvey v0.0.0-20190222223459-a17d461953aa // indirect
 	github.com/spf13/cast v1.2.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
@@ -54,5 +52,4 @@ require (
 	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3
 	google.golang.org/grpc v1.20.1
 	honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a // indirect
-	k8s.io/apimachinery v0.0.0-20181127025237-2b1284ed4c93
 )

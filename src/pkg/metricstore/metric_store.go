@@ -241,7 +241,7 @@ func (store *MetricStore) processRules(queryEngine *query.Engine) {
 		Logger:      promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stdout)),
 	})
 
-	store.ruleManager.Update(5*time.Second, []string{store.rulesPath})
+	store.ruleManager.Update(5*time.Second, []string{store.rulesPath}, nil)
 	store.ruleManager.Run()
 }
 
