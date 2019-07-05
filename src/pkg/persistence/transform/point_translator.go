@@ -7,6 +7,7 @@ import (
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/query"
+	"github.com/prometheus/prometheus/pkg/labels"
 )
 
 const (
@@ -145,4 +146,20 @@ func SanitizeLabelName(name string) string {
 
 func IsValidFloat(value float64) bool {
 	return !math.IsInf(value, 0) && !math.IsNaN(value)
+}
+
+func ConvertLabels(point *rpc.Point) labels.Labels {
+	originalLabels := point.GetLabels()
+	newLabels := labels.Labels{}
+
+	if originalLabels == nil {
+		originalLabels = make(map[string]string)
+	}
+
+	for key, value := range originalLabels {
+		newLabels = append(newLabels, labels.Label{Name: key, Value: value})
+	}
+	newLabels = append(newLabels, labels.Label{Name: "__name__", Value: point.GetName()})
+
+	return newLabels
 }
