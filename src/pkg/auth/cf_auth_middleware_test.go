@@ -372,7 +372,7 @@ func (s *spyLogAuthorizer) IsAuthorized(sourceId string, clientToken string) boo
 	return !exists
 }
 
-func (s *spyLogAuthorizer) AvailableSourceIds(token string) []string {
+func (s *spyLogAuthorizer) AvailableSourceIDs(token string) []string {
 	s.availableCalled++
 	s.token = token
 	return s.available

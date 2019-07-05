@@ -35,7 +35,7 @@ type QueryParser interface {
 
 type LogAuthorizer interface {
 	IsAuthorized(sourceId string, clientToken string) bool
-	AvailableSourceIds(token string) []string
+	AvailableSourceIDs(token string) []string
 }
 
 type authMetrics struct {

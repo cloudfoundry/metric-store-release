@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+const (
+	MAX_RETRIES = 3
+)
+
 type CAPIClient struct {
 	client                  HTTPClient
 	externalCapi            string
@@ -75,25 +79,53 @@ func WithCacheExpirationInterval(interval time.Duration) CAPIOption {
 }
 
 type authorizedSourceIds struct {
-	sourceIds []string
-	expiresAt time.Time
+	sourceIds  []string
+	retryCount int
+	expiresAt  time.Time
 }
 
 func (c *CAPIClient) IsAuthorized(sourceId string, clientToken string) bool {
 	var sourceIds []string
+	var retryCount int
 	s, ok := c.tokenCache.Load(clientToken)
 
+	// if the token was found in the cache and hasn't expired yet, we'll
+	// check to see if the sourceId is contained
 	if ok && time.Now().Before(s.(authorizedSourceIds).expiresAt) {
 		sourceIds = s.(authorizedSourceIds).sourceIds
-	} else {
-		sourceIds = c.AvailableSourceIds(clientToken)
+		retryCount = s.(authorizedSourceIds).retryCount
 
-		c.tokenCache.Store(clientToken, authorizedSourceIds{
-			sourceIds: sourceIds,
-			expiresAt: time.Now().Add(c.cacheExpirationInterval),
-		})
+		// if our cache contains the sourceId, then we're all set
+		if isContained(sourceIds, sourceId) {
+			return true
+		}
+
+		// if our cache doesn't have the sourceId and we're already at our retry limit
+		if retryCount >= MAX_RETRIES {
+			return false
+		}
+
+		retryCount += 1
 	}
 
+	// if we are here, one of two scenarios is possible:
+	// 1) we didn't find the token in the cache, so we're fetching from
+	//    CAPI for the very first time for this token
+	// 2) we found the token in the cache, but failed to find the sourceId
+	//    and are under our retry limit, thus we want to ask CAPI for a
+	//    refreshed list of sourceIds
+	sourceIds = c.AvailableSourceIDs(clientToken)
+
+	c.tokenCache.Store(clientToken, authorizedSourceIds{
+		sourceIds:  sourceIds,
+		retryCount: retryCount,
+		expiresAt:  time.Now().Add(c.cacheExpirationInterval),
+	})
+
+	return isContained(sourceIds, sourceId)
+}
+
+func isContained(sourceIds []string, sourceId string) bool {
 	for _, s := range sourceIds {
 		if s == sourceId {
 			return true
@@ -103,34 +135,21 @@ func (c *CAPIClient) IsAuthorized(sourceId string, clientToken string) bool {
 	return false
 }
 
-func (c *CAPIClient) AvailableSourceIds(authToken string) []string {
-	// TODO - this method can't even return an error, we're begging to cache
-	// an empty list
-	var sourceIds []string
+func (c *CAPIClient) AvailableSourceIDs(authToken string) []string {
+	var sourceIDs []string
 	req, err := http.NewRequest(http.MethodGet, c.externalCapi+"/v3/apps", nil)
 	if err != nil {
 		c.log.Printf("failed to build authorize log access request: %s", err)
 		return nil
 	}
 
-	preserveScheme, preserveHost := req.URL.Scheme, req.URL.Host
-	for {
-		resources, nextPageURL, err := c.doResourceRequest(req, authToken, c.storeAppsLatency)
-		if err != nil {
-			c.log.Print(err)
-			return nil
-		}
-
-		for _, resource := range resources {
-			sourceIds = append(sourceIds, resource.Guid)
-		}
-
-		if nextPageURL == nil {
-			break
-		}
-
-		req.URL = nextPageURL
-		req.URL.Scheme, req.URL.Host = preserveScheme, preserveHost
+	resources, err := c.doPaginatedResourceRequest(req, authToken, c.storeAppsLatency)
+	if err != nil {
+		c.log.Print(err)
+		return nil
+	}
+	for _, resource := range resources {
+		sourceIDs = append(sourceIDs, resource.Guid)
 	}
 
 	req, err = http.NewRequest(http.MethodGet, c.externalCapi+"/v3/service_instances", nil)
@@ -139,24 +158,16 @@ func (c *CAPIClient) AvailableSourceIds(authToken string) []string {
 		return nil
 	}
 
-	for {
-		resources, nextPageURL, err := c.doResourceRequest(req, authToken, c.storeListServiceInstancesLatency)
-		if err != nil || resources == nil {
-			c.log.Print(err)
-			return nil
-		}
-
-		for _, resource := range resources {
-			sourceIds = append(sourceIds, resource.Guid)
-		}
-
-		if nextPageURL == nil {
-			break
-		}
-		req.URL = nextPageURL
+	resources, err = c.doPaginatedResourceRequest(req, authToken, c.storeListServiceInstancesLatency)
+	if err != nil {
+		c.log.Print(err)
+		return nil
+	}
+	for _, resource := range resources {
+		sourceIDs = append(sourceIDs, resource.Guid)
 	}
 
-	return sourceIds
+	return sourceIDs
 }
 
 func (c *CAPIClient) GetRelatedSourceIds(appNames []string, authToken string) map[string][]string {
@@ -177,22 +188,13 @@ func (c *CAPIClient) GetRelatedSourceIds(appNames []string, authToken string) ma
 
 	guidSets := make(map[string][]string)
 
-	for {
-		resources, nextPageURL, err := c.doResourceRequest(req, authToken, c.storeAppsByNameLatency)
-		if err != nil {
-			c.log.Print(err)
-			return map[string][]string{}
-		}
-
-		for _, resource := range resources {
-			guidSets[resource.Name] = append(guidSets[resource.Name], resource.Guid)
-		}
-
-		if nextPageURL == nil {
-			break
-		}
-
-		req.URL = nextPageURL
+	resources, err := c.doPaginatedResourceRequest(req, authToken, c.storeAppsByNameLatency)
+	if err != nil {
+		c.log.Print(err)
+		return map[string][]string{}
+	}
+	for _, resource := range resources {
+		guidSets[resource.Name] = append(guidSets[resource.Name], resource.Guid)
 	}
 
 	return guidSets
@@ -201,6 +203,26 @@ func (c *CAPIClient) GetRelatedSourceIds(appNames []string, authToken string) ma
 type resource struct {
 	Guid string `json:"guid"`
 	Name string `json:"name"`
+}
+
+func (c *CAPIClient) doPaginatedResourceRequest(req *http.Request, authToken string, metric func(float64)) ([]resource, error) {
+	var resources []resource
+
+	for {
+		page, nextPageURL, err := c.doResourceRequest(req, authToken, metric)
+		if err != nil {
+			return nil, err
+		}
+
+		resources = append(resources, page...)
+
+		if nextPageURL == nil {
+			break
+		}
+		req.URL = nextPageURL
+	}
+
+	return resources, nil
 }
 
 func (c *CAPIClient) doResourceRequest(req *http.Request, authToken string, metric func(float64)) ([]resource, *url.URL, error) {
@@ -241,6 +263,7 @@ func (c *CAPIClient) doResourceRequest(req *http.Request, authToken string, metr
 		if err != nil {
 			return apps.Resources, nextPageURL, fmt.Errorf("failed to parse URL %s: %s", apps.Pagination.Next.Href, err)
 		}
+		nextPageURL.Scheme, nextPageURL.Host = req.URL.Scheme, req.URL.Host
 	}
 
 	return apps.Resources, nextPageURL, nil
