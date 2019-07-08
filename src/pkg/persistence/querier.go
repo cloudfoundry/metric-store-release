@@ -102,5 +102,5 @@ func (q *Querier) LabelValues(name string) ([]string, error) {
 }
 
 func (q *Querier) Close() error {
-	return q.adapter.Close()
+	return nil
 }

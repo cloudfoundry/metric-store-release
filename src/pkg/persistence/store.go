@@ -101,7 +101,7 @@ func (store *Store) EmitStorageDurationMetric() {
 }
 
 func (s *Store) Close() error {
-	return s.querier.Close()
+	return s.adapter.Close()
 }
 
 func (s *Store) StartTime() (int64, error) {
