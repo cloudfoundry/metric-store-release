@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
-	mtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 type CFAuthProxy struct {
@@ -89,7 +89,7 @@ func WithAccessMiddleware(accessMiddleware func(http.Handler) *auth.AccessHandle
 func WithClientTLS(caCert, cert, key, cn string) CFAuthProxyOption {
 	return func(p *CFAuthProxy) {
 		var err error
-		p.clientTLSConfig, err = mtls.NewMutualTLSConfig(caCert, cert, key, cn)
+		p.clientTLSConfig, err = sharedtls.NewMutualTLSConfig(caCert, cert, key, cn)
 		if err != nil {
 			log.Fatalf("failed to create client TLS config: %s", err)
 		}

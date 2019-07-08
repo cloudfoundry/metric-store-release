@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/gateway"
-	internal_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -25,7 +25,7 @@ var _ = Describe("Gateway", func() {
 	)
 
 	BeforeEach(func() {
-		tlsConfig, err := internal_tls.NewMutualTLSConfig(
+		tlsConfig, err := sharedtls.NewMutualTLSConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),

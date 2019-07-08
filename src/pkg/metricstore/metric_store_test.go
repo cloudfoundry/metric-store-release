@@ -17,7 +17,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/prometheus/storage"
@@ -84,7 +84,7 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		var err error
-		tc.tlsConfig, err = metrictls.NewMutualTLSConfig(
+		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),

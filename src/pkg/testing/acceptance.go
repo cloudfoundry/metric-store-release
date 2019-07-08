@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	internal_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -102,7 +102,7 @@ func StartGoProcess(importPath string, env []string, args ...string) *gexec.Sess
 }
 
 func GrpcTLSCredentials() credentials.TransportCredentials {
-	credentials, err := internal_tls.NewTLSCredentials(
+	credentials, err := sharedtls.NewTLSCredentials(
 		Cert("metric-store-ca.crt"),
 		Cert("metric-store.crt"),
 		Cert("metric-store.key"),

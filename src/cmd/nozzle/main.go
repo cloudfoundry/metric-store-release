@@ -11,7 +11,7 @@ import (
 	envstruct "code.cloudfoundry.org/go-envstruct"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 )
@@ -52,7 +52,7 @@ func main() {
 		}),
 	)
 
-	tlsConfig, err := tls.NewMutualTLSConfig(
+	tlsConfig, err := sharedtls.NewMutualTLSConfig(
 		cfg.MetricStoreTLS.CAPath,
 		cfg.MetricStoreTLS.CertPath,
 		cfg.MetricStoreTLS.KeyPath,

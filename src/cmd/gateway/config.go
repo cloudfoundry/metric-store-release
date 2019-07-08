@@ -2,7 +2,7 @@ package main
 
 import (
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 // Config is the configuration for a MetricStore Gateway.
@@ -12,7 +12,7 @@ type Config struct {
 	HealthPort      int    `env:"HEALTH_PORT, report"`
 	ProxyCertPath   string `env:"PROXY_CERT_PATH, report"`
 	ProxyKeyPath    string `env:"PROXY_KEY_PATH, report"`
-	TLS             tls.TLS
+	TLS             sharedtls.TLS
 }
 
 // LoadConfig creates Config object from environment variables

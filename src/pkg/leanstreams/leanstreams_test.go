@@ -10,7 +10,7 @@ import (
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -72,7 +72,7 @@ var _ = Describe("Leanstreams", func() {
 	var setup = func() (tc *leanstreamsTestContext, cleanup func()) {
 		tc = &leanstreamsTestContext{}
 
-		tlsConfig, err := tls.NewMutualTLSConfig(
+		tlsConfig, err := sharedtls.NewMutualTLSConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),

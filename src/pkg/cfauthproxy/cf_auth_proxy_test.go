@@ -13,7 +13,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
-	mtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -216,7 +216,7 @@ func startMTLSSecureGateway(responseBody string) *httptest.Server {
 		}),
 	)
 
-	tlsConfig, err := mtls.NewMutualTLSConfig(
+	tlsConfig, err := sharedtls.NewMutualTLSConfig(
 		testing.Cert("localhost.crt"),
 		testing.Cert("localhost.crt"),
 		testing.Cert("localhost.key"),

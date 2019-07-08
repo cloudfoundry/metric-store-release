@@ -11,7 +11,7 @@ import (
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"golang.org/x/net/context"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
@@ -29,7 +29,7 @@ var _ = Describe("Nozzle", func() {
 	)
 
 	BeforeEach(func() {
-		tlsConfig, err := tls.NewMutualTLSConfig(
+		tlsConfig, err := sharedtls.NewMutualTLSConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),

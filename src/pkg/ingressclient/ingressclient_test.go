@@ -6,7 +6,7 @@ import (
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	metricstoretls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
@@ -22,7 +22,7 @@ var _ = Describe("IngressClient", func() {
 	)
 
 	BeforeEach(func() {
-		tlsConfig, err := metricstoretls.NewMutualTLSConfig(
+		tlsConfig, err := sharedtls.NewMutualTLSConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),

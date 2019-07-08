@@ -16,7 +16,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
-	logtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 func main() {
@@ -104,7 +104,7 @@ func main() {
 }
 
 func buildUAAClient(cfg *Config) *http.Client {
-	tlsConfig := logtls.NewBaseTLSConfig()
+	tlsConfig := sharedtls.NewBaseTLSConfig()
 	tlsConfig.InsecureSkipVerify = cfg.SkipCertVerify
 
 	tlsConfig.RootCAs = loadCA(cfg.UAA.CAPath)
@@ -122,7 +122,7 @@ func buildUAAClient(cfg *Config) *http.Client {
 }
 
 func buildCAPIClient(cfg *Config) *http.Client {
-	tlsConfig := logtls.NewBaseTLSConfig()
+	tlsConfig := sharedtls.NewBaseTLSConfig()
 	tlsConfig.ServerName = cfg.CAPI.CommonName
 
 	tlsConfig.RootCAs = loadCA(cfg.CAPI.CAPath)

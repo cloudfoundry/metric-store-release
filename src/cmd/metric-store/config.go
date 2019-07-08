@@ -4,7 +4,7 @@ import (
 	"time"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 )
 
 // Config is the configuration for a MetricStore.
@@ -18,7 +18,7 @@ type Config struct {
 	DiskFreePercentTarget uint          `env:"DISK_FREE_PERCENT_TARGET, report"`
 	LabelTruncationLength uint          `env:"LABEL_TRUNCATION_LENGTH, report"`
 	QueryTimeout          time.Duration `env:"QUERY_TIMEOUT, report"`
-	TLS                   tls.TLS
+	TLS                   sharedtls.TLS
 	MetricStoreServerTLS  MetricStoreServerTLS
 
 	RulesPath        string `env:"RULES_PATH, report"`

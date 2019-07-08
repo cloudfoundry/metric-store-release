@@ -10,7 +10,7 @@ import (
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
 	shared "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -21,7 +21,7 @@ func exampleCallback(bts []byte) error {
 }
 
 var (
-	tlsConfig, _ = tls.NewMutualTLSConfig(
+	tlsConfig, _ = sharedtls.NewMutualTLSConfig(
 		shared.Cert("metric-store-ca.crt"),
 		shared.Cert("metric-store.crt"),
 		shared.Cert("metric-store.key"),

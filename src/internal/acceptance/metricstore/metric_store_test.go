@@ -18,7 +18,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	metrictls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prometheus/notifier"
 
@@ -54,7 +54,7 @@ var _ = Describe("MetricStore", func() {
 		cert := testing.Cert("metric-store.crt")
 		key := testing.Cert("metric-store.key")
 
-		tlsConfig, err := metrictls.NewMutualTLSConfig(caCert, cert, key, "metric-store")
+		tlsConfig, err := sharedtls.NewMutualTLSConfig(caCert, cert, key, "metric-store")
 		if err != nil {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
 		}

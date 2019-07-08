@@ -13,7 +13,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"google.golang.org/grpc"
 )
 
@@ -30,7 +30,7 @@ func main() {
 
 	envstruct.WriteReport(cfg)
 
-	tlsServerConfig, err := tls.NewMutualTLSConfig(
+	tlsServerConfig, err := sharedtls.NewMutualTLSConfig(
 		cfg.MetricStoreServerTLS.CAPath,
 		cfg.MetricStoreServerTLS.CertPath,
 		cfg.MetricStoreServerTLS.KeyPath,
