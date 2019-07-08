@@ -11,6 +11,7 @@ import (
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/pkg/labels"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 )
 
@@ -48,6 +49,11 @@ func WithLabelTruncationLength(length uint) AppenderOption {
 func (a *StoreAppender) Add(l labels.Labels, time int64, value float64) (uint64, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	if !transform.IsValidFloat(value) {
+		return 0, nil
+	}
+
 	a.metrics.incIngress(1)
 
 	point := &rpc.Point{
