@@ -62,3 +62,8 @@ properties:
     description: "The cert for metric-store TCP server mutual TLS."
   metric_store_server.tls.key:
     description: "The private key for metric-store TCP server mutual TLS."
+
+  alertmanager.addr:
+    description: "Address of the alertmanager HTTP API."
+  rules_path:
+    description: "Path to the rules file for recording rules or alertmanager."
