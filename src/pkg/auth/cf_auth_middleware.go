@@ -39,7 +39,6 @@ type LogAuthorizer interface {
 }
 
 type authMetrics struct {
-	setTotalReadTime  func(float64)
 	setTotalQueryTime func(float64)
 }
 
@@ -54,7 +53,6 @@ func NewCFAuthMiddlewareProvider(
 		logAuthorizer: logAuthorizer,
 		queryParser:   queryParser,
 		metrics: authMetrics{
-			setTotalReadTime:  metrics.NewGauge("cf_auth_proxy_total_read_time", "nanoseconds"),
 			setTotalQueryTime: metrics.NewGauge("cf_auth_proxy_total_query_time", "nanoseconds"),
 		},
 	}
@@ -68,41 +66,6 @@ type promqlErrorBody struct {
 
 func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 	router := mux.NewRouter()
-
-	router.HandleFunc("/api/v1/read/{name}", func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		_, ok := mux.Vars(r)["name"]
-		if !ok {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		authToken := r.Header.Get("Authorization")
-		if authToken == "" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		userContext, err := m.oauth2Reader.Read(authToken)
-		if err != nil {
-			log.Printf("failed to read from Oauth2 server: %s", err)
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		if !userContext.IsAdmin {
-			// /api/v1/read is intended only for node-to-node communication
-			// it does not provide a non-admin auth model
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-
-		h.ServeHTTP(w, r)
-
-		totalReadTime := time.Since(start).Nanoseconds()
-		m.metrics.setTotalReadTime(float64(totalReadTime))
-	})
 
 	router.HandleFunc("/api/v1/{subpath:query|query_range}", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

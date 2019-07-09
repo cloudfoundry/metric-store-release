@@ -69,61 +69,6 @@ func (tc *testContext) invokeAuthHandler() {
 }
 
 var _ = Describe("CfAuthMiddleware", func() {
-	Describe("/api/v1/read", func() {
-		It("forwards the request to the handler if user is an admin", func() {
-			tc := setup("/api/v1/read/metric")
-
-			tc.spyOauth2ClientReader.isAdminResult = true
-
-			tc.invokeAuthHandler()
-
-			Expect(tc.recorder.Code).To(Equal(http.StatusOK))
-			Expect(tc.baseHandlerCalled).To(BeTrue())
-
-			Expect(tc.spyOauth2ClientReader.token).To(Equal("bearer valid-token"))
-		})
-
-		It("returns 404 Not Found if there's no authorization header present", func() {
-			tc := setup("/api/v1/read/memory")
-			tc.request.Header.Del("Authorization")
-
-			tc.invokeAuthHandler()
-
-			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
-			Expect(tc.baseHandlerCalled).To(BeFalse())
-		})
-
-		It("returns 404 Not Found if Oauth2ClientReader returns an error", func() {
-			tc := setup("/")
-			tc.spyOauth2ClientReader.err = errors.New("some-error")
-
-			tc.invokeAuthHandler()
-
-			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
-			Expect(tc.baseHandlerCalled).To(BeFalse())
-		})
-
-		It("temporarily returns 404 Not Found if user is not an admin", func() {
-			tc := setup("/api/v1/read/memory")
-			tc.spyOauth2ClientReader.isAdminResult = false
-
-			tc.invokeAuthHandler()
-
-			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
-			Expect(tc.baseHandlerCalled).To(BeFalse())
-		})
-
-		It("records the total time of the query as a metric", func() {
-			tc := setup("/api/v1/read/memory")
-			tc.spyOauth2ClientReader.isAdminResult = true
-
-			tc.invokeAuthHandler()
-
-			Expect(tc.spyMetrics.Get("cf_auth_proxy_total_read_time")).ToNot(Equal(testing.UNDEFINED_METRIC))
-			Expect(tc.spyMetrics.Get("cf_auth_proxy_total_read_time")).ToNot(BeZero())
-		})
-	})
-
 	Describe("/api/v1/query", func() {
 		It("forwards the request to the handler if user is an admin", func() {
 			tc := setup(`/api/v1/query?query=metric`)
