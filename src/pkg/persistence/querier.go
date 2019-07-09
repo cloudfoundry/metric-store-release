@@ -11,19 +11,13 @@ import (
 
 type Querier struct {
 	adapter *InfluxAdapter
-	metrics querierMetrics
+	metrics Metrics
 }
 
-type querierMetrics struct {
-	incNumGetErrors func(delta uint64)
-}
-
-func NewQuerier(adapter *InfluxAdapter, m MetricsInitializer) *Querier {
+func NewQuerier(adapter *InfluxAdapter, metrics Metrics) *Querier {
 	return &Querier{
 		adapter: adapter,
-		metrics: querierMetrics{
-			incNumGetErrors: m.NewCounter("metric_store_num_get_errors"),
-		},
+		metrics: metrics,
 	}
 }
 

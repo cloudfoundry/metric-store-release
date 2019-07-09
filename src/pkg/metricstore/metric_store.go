@@ -50,6 +50,7 @@ type PersistentStore interface {
 	DeleteOlderThan(cutoff time.Time)
 	DeleteOldest()
 	EmitStorageDurationMetric()
+	EmitStorageMetrics()
 }
 
 type diskFreeReporter func() float64

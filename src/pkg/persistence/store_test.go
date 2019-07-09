@@ -39,12 +39,8 @@ var _ = Describe("Persistent Store", func() {
 
 		metrics := testing.NewSpyMetrics()
 
-		influx, err := OpenTsStore(storagePath)
-		Expect(err).ToNot(HaveOccurred())
-
-		adapter := NewInfluxAdapter(influx, metrics)
 		store := NewStore(
-			adapter,
+			storagePath,
 			metrics,
 			WithAppenderLabelTruncationLength(64),
 		)

@@ -127,12 +127,8 @@ var _ = Describe("MetricStore", func() {
 			panic(err)
 		}
 
-		tsStore, err := persistence.OpenTsStore(storagePath)
-		Expect(err).ToNot(HaveOccurred())
-
 		spyPersistentStoreMetrics := testing.NewSpyMetrics()
-		adapter := persistence.NewInfluxAdapter(tsStore, spyPersistentStoreMetrics)
-		persistentStore := persistence.NewStore(adapter, spyPersistentStoreMetrics)
+		persistentStore := persistence.NewStore(storagePath, spyPersistentStoreMetrics)
 
 		tc, innerCleanup := setupWithPersistentStore(persistentStore, opts...)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
@@ -403,6 +399,9 @@ func (m *mockPersistentStore) DeleteOldest() {
 
 func (m *mockPersistentStore) EmitStorageDurationMetric() {
 	m.emitStorageDurationMetricCalls <- time.Now()
+}
+
+func (m *mockPersistentStore) EmitStorageMetrics() {
 }
 
 func (m *mockPersistentStore) StartTime() (int64, error) {

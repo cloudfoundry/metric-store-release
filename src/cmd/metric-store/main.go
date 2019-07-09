@@ -40,42 +40,15 @@ func main() {
 		log.Fatalf("invalid metric-store TCP server Mutual TLS configuration: %s", err)
 	}
 
-	tsStore, err := persistence.OpenTsStore(cfg.StoragePath)
-	if err != nil {
-		metricStoreLog.Fatalf("failed to open store: %v", err)
-	}
-
 	metrics := metrics.New("metric-store")
-	indexSizeGauge := metrics.NewGauge("metric_store_index_size", "byte")
-	numberOfSeriesGauge := metrics.NewGauge("metric_store_num_series", "series")
-	numberOfMeasurementsGauge := metrics.NewGauge("metric_store_num_measurements", "measurement")
-
-	go func() {
-		for {
-			time.Sleep(time.Minute)
-
-			statistics := tsStore.Statistics(map[string]string{})
-			indexSizeGauge(float64(tsStore.IndexBytes()))
-
-			for _, statistic := range statistics {
-				if statistic.Values["numSeries"] != nil {
-					numberOfSeriesGauge(float64(statistic.Values["numSeries"].(int64)))
-				}
-
-				if statistic.Values["numMeasurements"] != nil {
-					numberOfMeasurementsGauge(float64(statistic.Values["numMeasurements"].(int64)))
-				}
-			}
-		}
-	}()
-
-	adapter := persistence.NewInfluxAdapter(tsStore, metrics)
 
 	persistentStore := persistence.NewStore(
-		adapter,
+		cfg.StoragePath,
 		metrics,
 		persistence.WithAppenderLabelTruncationLength(cfg.LabelTruncationLength),
+		persistence.WithLogger(metricStoreLog),
 	)
+	go persistentStore.EmitStorageMetrics()
 	diskFreeReporter := newDiskFreeReporter(cfg.StoragePath, metricStoreLog, metrics)
 
 	store := metricstore.New(

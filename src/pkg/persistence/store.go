@@ -2,12 +2,15 @@ package persistence
 
 import (
 	"context"
-	"fmt"
+	"io/ioutil"
+	"log"
 	"time"
 
 	// You will need to make sure this import exists for side effects:
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
+
+	"github.com/influxdata/influxdb/tsdb"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -20,7 +23,8 @@ type MetricsInitializer interface {
 type Store struct {
 	adapter *InfluxAdapter
 	metrics Metrics
-	querier storage.Querier
+	tsStore *tsdb.Store
+	log     *log.Logger
 
 	labelTruncationLength uint
 }
@@ -33,24 +37,37 @@ type Metrics struct {
 	labelTagsQueryTime             func(time float64)
 	labelFieldsQueryTime           func(time float64)
 	labelMeasurementNamesQueryTime func(time float64)
+	indexSizeGauge                 func(float64)
+	numberOfSeriesGauge            func(float64)
+	numberOfMeasurementsGauge      func(float64)
 }
 
-func NewStore(adapter *InfluxAdapter, m MetricsInitializer, opts ...StoreOption) *Store {
+func NewStore(storagePath string, m MetricsInitializer, opts ...StoreOption) *Store {
 	store := &Store{
-		adapter: adapter,
-
 		metrics: Metrics{
-			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
-			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
-			storageDurationGauge: m.NewGauge("metric_store_storage_duration", "days"),
+			incNumShardsExpired:       m.NewCounter("metric_store_num_shards_expired"),
+			incNumShardsPruned:        m.NewCounter("metric_store_num_shards_pruned"),
+			storageDurationGauge:      m.NewGauge("metric_store_storage_duration", "days"),
+			indexSizeGauge:            m.NewGauge("metric_store_index_size", "byte"),
+			numberOfSeriesGauge:       m.NewGauge("metric_store_num_series", "series"),
+			numberOfMeasurementsGauge: m.NewGauge("metric_store_num_measurements", "measurement"),
+			incNumGetErrors:           m.NewCounter("metric_store_num_get_errors"),
 		},
-		querier:               NewQuerier(adapter, m),
+		log:                   log.New(ioutil.Discard, "", 0),
 		labelTruncationLength: 256,
 	}
 
 	for _, opt := range opts {
 		opt(store)
 	}
+
+	var err error
+	store.tsStore, err = OpenTsStore(storagePath)
+	if err != nil {
+		store.log.Fatalf("failed to open store: %v", err)
+	}
+
+	store.adapter = NewInfluxAdapter(store.tsStore, m)
 
 	return store
 }
@@ -63,8 +80,17 @@ func WithAppenderLabelTruncationLength(length uint) StoreOption {
 	}
 }
 
+func WithLogger(l *log.Logger) StoreOption {
+	return func(s *Store) {
+		s.log = l
+	}
+}
+
 func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
-	return store.querier, nil
+	return NewQuerier(
+		store.adapter,
+		store.metrics,
+	), nil
 }
 
 func (store *Store) Appender() (storage.Appender, error) {
@@ -77,7 +103,7 @@ func (store *Store) Appender() (storage.Appender, error) {
 func (store *Store) DeleteOlderThan(cutoff time.Time) {
 	numShardsExpired, err := store.adapter.DeleteOlderThan(cutoff.UnixNano())
 	if err != nil {
-		fmt.Println(err)
+		store.log.Println(err)
 	}
 	store.metrics.incNumShardsExpired(numShardsExpired)
 }
@@ -85,7 +111,7 @@ func (store *Store) DeleteOlderThan(cutoff time.Time) {
 func (store *Store) DeleteOldest() {
 	err := store.adapter.DeleteOldest()
 	if err != nil {
-		fmt.Println(err)
+		store.log.Println(err)
 	}
 	store.metrics.incNumShardsPruned(1)
 }
@@ -98,6 +124,25 @@ func (store *Store) EmitStorageDurationMetric() {
 
 	duration := time.Since(time.Unix(0, int64(oldestShardID)))
 	store.metrics.storageDurationGauge(float64(int(duration.Hours()) / 24))
+}
+
+func (store *Store) EmitStorageMetrics() {
+	for {
+		time.Sleep(time.Minute)
+
+		statistics := store.tsStore.Statistics(map[string]string{})
+		store.metrics.indexSizeGauge(float64(store.tsStore.IndexBytes()))
+
+		for _, statistic := range statistics {
+			if statistic.Values["numSeries"] != nil {
+				store.metrics.numberOfSeriesGauge(float64(statistic.Values["numSeries"].(int64)))
+			}
+
+			if statistic.Values["numMeasurements"] != nil {
+				store.metrics.numberOfMeasurementsGauge(float64(statistic.Values["numMeasurements"].(int64)))
+			}
+		}
+	}
 }
 
 func (s *Store) Close() error {
