@@ -478,15 +478,6 @@ var _ = Describe("Persistent Store", func() {
 	})
 
 	Describe("instrumentation", func() {
-		It("updates ingress metrics", func() {
-			tc := setup()
-			defer teardown(tc)
-
-			tc.storePoint(1, "any_counter", 1)
-
-			Expect(tc.metrics.Get("metric_store_ingress")).To(BeEquivalentTo(1))
-		})
-
 		It("updates storage duration metrics", func() {
 			tc := setup()
 			defer teardown(tc)

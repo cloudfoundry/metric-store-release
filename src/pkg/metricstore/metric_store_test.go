@@ -346,6 +346,27 @@ var _ = Describe("MetricStore", func() {
 			Eventually(mockPersistentStore.emitStorageDurationMetricCalls, 1.1).Should(HaveLen(2))
 		})
 	})
+
+	Describe("instrumentation", func() {
+		It("updates ingress metrics", func() {
+			mockPersistentStore := newMockPersistentStore()
+			tc, cleanup := setupWithPersistentStore(mockPersistentStore)
+			defer cleanup()
+
+			tc.writePoints([]*rpc.Point{
+				{
+					Timestamp: time.Now().UnixNano(),
+					Name:      MEASUREMENT_NAME,
+					Value:     99,
+					Labels:    map[string]string{"source_id": "source-id"},
+				},
+			})
+
+			Eventually(func() float64 {
+				return tc.spyMetrics.Get("metric_store_ingress")
+			}).Should(BeEquivalentTo(1))
+		})
+	})
 })
 
 type mockPersistentStore struct {
@@ -367,7 +388,9 @@ func (m *mockPersistentStore) Querier(ctx context.Context, mint, maxt int64) (st
 }
 
 func (m *mockPersistentStore) Appender() (storage.Appender, error) {
-	return nil, nil
+	return persistence.NewAppender(
+		testing.NewSpyAdapter(),
+	), nil
 }
 
 func (m *mockPersistentStore) DeleteOlderThan(cutoff time.Time) {

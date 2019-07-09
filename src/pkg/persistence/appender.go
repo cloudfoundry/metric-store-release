@@ -6,6 +6,7 @@ import (
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
 
+	"errors"
 	"sync"
 
 	_ "github.com/influxdata/influxdb/tsdb/engine"
@@ -15,18 +16,20 @@ import (
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 )
 
+type Adapter interface {
+	WritePoints(points []*rpc.Point) error
+}
+
 type StoreAppender struct {
 	mu                    sync.Mutex
 	points                []*rpc.Point
-	adapter               *InfluxAdapter
-	metrics               Metrics
+	adapter               Adapter
 	labelTruncationLength uint
 }
 
-func NewAppender(adapter *InfluxAdapter, metrics Metrics, opts ...AppenderOption) *StoreAppender {
+func NewAppender(adapter Adapter, opts ...AppenderOption) *StoreAppender {
 	appender := &StoreAppender{
 		adapter:               adapter,
-		metrics:               metrics,
 		labelTruncationLength: 256,
 		points:                []*rpc.Point{},
 	}
@@ -51,10 +54,8 @@ func (a *StoreAppender) Add(l labels.Labels, time int64, value float64) (uint64,
 	defer a.mu.Unlock()
 
 	if !transform.IsValidFloat(value) {
-		return 0, nil
+		return 0, errors.New("NaN float cannot be added")
 	}
-
-	a.metrics.incIngress(1)
 
 	point := &rpc.Point{
 		Name:      l.Get("__name__"),

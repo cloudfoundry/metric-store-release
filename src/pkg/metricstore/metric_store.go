@@ -76,6 +76,8 @@ type MetricStore struct {
 	queryTimeout        time.Duration
 	metricsEmitDuration time.Duration
 
+	incIngress func(uint64)
+
 	addr        string
 	ingressAddr string
 	extAddr     string
@@ -106,6 +108,8 @@ func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, ing
 	for _, o := range opts {
 		o(store)
 	}
+
+	store.incIngress = store.metrics.NewCounter("metric_store_ingress")
 
 	return store
 }
@@ -261,12 +265,12 @@ func (store *MetricStore) configureAlertManager() {
 	cfg := &config.Config{
 		AlertingConfig: config.AlertingConfig{
 			AlertmanagerConfigs: []*config.AlertmanagerConfig{
-				&config.AlertmanagerConfig{
+				{
 					ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
 						StaticConfigs: []*targetgroup.Group{
-							&targetgroup.Group{
+							{
 								Targets: []model.LabelSet{
-									model.LabelSet{
+									{
 										"__address__": model.LabelValue(store.alertmanagerAddr),
 									},
 								},
@@ -344,11 +348,8 @@ func (store *MetricStore) setupRouting(queryEngine *query.Engine) {
 		}
 
 		appender, _ := store.persistentStore.Appender()
+		var totalPointsWritten uint64
 		for _, point := range r.Batch.Points {
-			if !transform.IsValidFloat(point.Value) {
-				continue
-			}
-
 			sanitizedLabels := make(map[string]string)
 			sanitizedLabels["__name__"] = transform.SanitizeMetricName(point.GetName())
 
@@ -356,10 +357,18 @@ func (store *MetricStore) setupRouting(queryEngine *query.Engine) {
 				sanitizedLabels[transform.SanitizeLabelName(label)] = value
 			}
 
-			appender.Add(labels.FromMap(sanitizedLabels), point.GetTimestamp(), point.GetValue())
+			_, err := appender.Add(labels.FromMap(sanitizedLabels), point.GetTimestamp(), point.GetValue())
+			if err != nil {
+				continue
+			}
+			totalPointsWritten++
 		}
 
-		appender.Commit()
+		err = appender.Commit()
+		if err != nil {
+			return err
+		}
+		store.incIngress(totalPointsWritten)
 
 		return nil
 	}

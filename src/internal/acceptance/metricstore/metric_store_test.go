@@ -682,7 +682,7 @@ groups:
 			tc.tlsConfig,
 		)
 		points := []*rpc.Point{
-			&rpc.Point{
+			{
 				Name:      "metric_store_test_metric",
 				Timestamp: time.Now().UnixNano(),
 				Value:     1,
@@ -690,7 +690,7 @@ groups:
 					"node": "1",
 				},
 			},
-			&rpc.Point{
+			{
 				Name:      "metric_store_test_metric",
 				Timestamp: time.Now().UnixNano(),
 				Value:     2,
@@ -698,7 +698,7 @@ groups:
 					"node": "2",
 				},
 			},
-			&rpc.Point{
+			{
 				Name:      "metric_store_test_metric",
 				Timestamp: time.Now().UnixNano(),
 				Value:     3,

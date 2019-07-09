@@ -87,7 +87,7 @@ var _ = Describe("IngressClient", func() {
 
 		magicNumberOfPointsToSurpassMaxPayload := 50000
 		points := make([]*rpc.Point, magicNumberOfPointsToSurpassMaxPayload, magicNumberOfPointsToSurpassMaxPayload)
-		for n, _ := range points {
+		for n := range points {
 			points[n] = point
 		}
 

@@ -33,9 +33,6 @@ type Metrics struct {
 	labelTagsQueryTime             func(time float64)
 	labelFieldsQueryTime           func(time float64)
 	labelMeasurementNamesQueryTime func(time float64)
-
-	// appender
-	incIngress func(delta uint64)
 }
 
 func NewStore(adapter *InfluxAdapter, m MetricsInitializer, opts ...StoreOption) *Store {
@@ -46,7 +43,6 @@ func NewStore(adapter *InfluxAdapter, m MetricsInitializer, opts ...StoreOption)
 			incNumShardsExpired:  m.NewCounter("metric_store_num_shards_expired"),
 			incNumShardsPruned:   m.NewCounter("metric_store_num_shards_pruned"),
 			storageDurationGauge: m.NewGauge("metric_store_storage_duration", "days"),
-			incIngress:           m.NewCounter("metric_store_ingress"),
 		},
 		querier:               NewQuerier(adapter, m),
 		labelTruncationLength: 256,
@@ -74,7 +70,6 @@ func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Quer
 func (store *Store) Appender() (storage.Appender, error) {
 	return NewAppender(
 		store.adapter,
-		store.metrics,
 		WithLabelTruncationLength(store.labelTruncationLength),
 	), nil
 }
