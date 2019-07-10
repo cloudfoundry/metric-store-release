@@ -27,8 +27,8 @@ processes:
     METRIC_STORE_SERVER_KEY_PATH:  "<%= "#{cert_dir}/metric_store_server.key" %>"
 
     # Alertmanager and Recording Rules Configuration
-    ALERTMANAGER_ADDR: "<%= p('alertmanager.addr') %>"
-    RULES_PATH:        "<%= p('rules_path') %>"
+    ALERTMANAGER_ADDR: "<%= p('alertmanager.addr', '') %>"
+    RULES_PATH:        "<%= p('rules_path', '') %>"
 
   limits:
     open_files: 65536
