@@ -34,10 +34,9 @@ const (
 )
 
 type testContext struct {
-	tlsConfig        *tls.Config
-	peer             *testing.SpyMetricStore
-	store            *metricstore.MetricStore
-	diskFreeReporter *spyDiskFreeReporter
+	tlsConfig *tls.Config
+	peer      *testing.SpyMetricStore
+	store     *metricstore.MetricStore
 
 	spyMetrics                *testing.SpyMetrics
 	spyPersistentStoreMetrics *testing.SpyMetrics
@@ -64,24 +63,9 @@ func (tc *testContext) writePoints(testPoints []*rpc.Point) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-type testConfig struct {
-	RetentionPeriod time.Duration
-}
-type withSetupOption func(*testConfig)
-
-func withLongRetentionPolicy(config *testConfig) {
-	config.RetentionPeriod = time.Hour * 24
-}
-
 var _ = Describe("MetricStore", func() {
-	var setupWithPersistentStore = func(persistentStore metricstore.PersistentStore, opts ...withSetupOption) (tc *testContext, cleanup func()) {
+	var setupWithPersistentStore = func(persistentStore storage.Storage) (tc *testContext, cleanup func()) {
 		tc = &testContext{}
-		config := &testConfig{
-			RetentionPeriod: time.Hour,
-		}
-		for _, opt := range opts {
-			opt(config)
-		}
 
 		var err error
 		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(
@@ -94,11 +78,9 @@ var _ = Describe("MetricStore", func() {
 
 		tc.peer = testing.NewSpyMetricStore(tc.tlsConfig)
 		tc.spyMetrics = testing.NewSpyMetrics()
-		tc.diskFreeReporter = newSpyDiskFreeReporter()
 
 		tc.store = metricstore.New(
 			persistentStore,
-			tc.diskFreeReporter.Get,
 			tc.tlsConfig,
 			metricstore.WithAddr("127.0.0.1:0"),
 			metricstore.WithIngressAddr("127.0.0.1:0"),
@@ -106,12 +88,6 @@ var _ = Describe("MetricStore", func() {
 			metricstore.WithServerOpts(
 				grpc.Creds(credentials.NewTLS(tc.tlsConfig)),
 			),
-			metricstore.WithRetentionConfig(metricstore.RetentionConfig{
-				RetentionPeriod:       config.RetentionPeriod,
-				ExpiryFrequency:       250 * time.Millisecond,
-				DiskFreePercentTarget: 50,
-			}),
-			metricstore.WithMetricsEmitDuration(1*time.Second),
 			metricstore.WithLogger(log.New(GinkgoWriter, "", 0)),
 		)
 		tc.store.Start()
@@ -121,16 +97,20 @@ var _ = Describe("MetricStore", func() {
 		}
 	}
 
-	var setup = func(opts ...withSetupOption) (tc *testContext, cleanup func()) {
+	var setup = func() (tc *testContext, cleanup func()) {
 		storagePath, err := ioutil.TempDir("", storagePathPrefix)
 		if err != nil {
 			panic(err)
 		}
 
 		spyPersistentStoreMetrics := testing.NewSpyMetrics()
-		persistentStore := persistence.NewStore(storagePath, spyPersistentStoreMetrics)
 
-		tc, innerCleanup := setupWithPersistentStore(persistentStore, opts...)
+		persistentStore := persistence.NewStore(
+			storagePath,
+			spyPersistentStoreMetrics,
+		)
+
+		tc, innerCleanup := setupWithPersistentStore(persistentStore)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
 
 		return tc, func() {
@@ -305,44 +285,6 @@ var _ = Describe("MetricStore", func() {
 		)
 	})
 
-	Context("periodic expiry", func() {
-		It("expires old data on the configured schedule", func() {
-			mockPersistentStore := newMockPersistentStore()
-			_, cleanup := setupWithPersistentStore(mockPersistentStore)
-			defer cleanup()
-
-			Eventually(mockPersistentStore.deleteOlderThanCalls, .5).Should(
-				Receive(BeTemporally("~", time.Now().Add(-time.Hour), time.Minute)),
-			)
-
-			Eventually(mockPersistentStore.deleteOlderThanCalls, 1.1).Should(Receive())
-		})
-
-		It("expires old data while the disk free space target is unmet", func() {
-			mockPersistentStore := newMockPersistentStore()
-			tc, cleanup := setupWithPersistentStore(mockPersistentStore)
-			defer cleanup()
-
-			Consistently(mockPersistentStore.deleteOldestCalls, 1.1).ShouldNot(Receive())
-
-			tc.diskFreeReporter.Add(0)
-			tc.diskFreeReporter.Add(0)
-			Eventually(mockPersistentStore.deleteOldestCalls, 1.1).Should(HaveLen(2))
-			Consistently(mockPersistentStore.deleteOldestCalls, 1.1).Should(HaveLen(2))
-		})
-	})
-
-	Context("periodic metrics", func() {
-		It("periodicly emits metrics with storage duration", func() {
-			mockPersistentStore := newMockPersistentStore()
-			_, cleanup := setupWithPersistentStore(mockPersistentStore)
-			defer cleanup()
-
-			Eventually(mockPersistentStore.emitStorageDurationMetricCalls, 1.1).Should(HaveLen(1))
-			Eventually(mockPersistentStore.emitStorageDurationMetricCalls, 1.1).Should(HaveLen(2))
-		})
-	})
-
 	Describe("instrumentation", func() {
 		It("updates ingress metrics", func() {
 			mockPersistentStore := newMockPersistentStore()
@@ -366,17 +308,10 @@ var _ = Describe("MetricStore", func() {
 })
 
 type mockPersistentStore struct {
-	deleteOlderThanCalls           chan time.Time
-	deleteOldestCalls              chan struct{}
-	emitStorageDurationMetricCalls chan time.Time
 }
 
 func newMockPersistentStore() *mockPersistentStore {
-	return &mockPersistentStore{
-		deleteOlderThanCalls:           make(chan time.Time, 10),
-		deleteOldestCalls:              make(chan struct{}, 10),
-		emitStorageDurationMetricCalls: make(chan time.Time, 10),
-	}
+	return &mockPersistentStore{}
 }
 
 func (m *mockPersistentStore) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
@@ -389,48 +324,10 @@ func (m *mockPersistentStore) Appender() (storage.Appender, error) {
 	), nil
 }
 
-func (m *mockPersistentStore) DeleteOlderThan(cutoff time.Time) {
-	m.deleteOlderThanCalls <- cutoff
-}
-
-func (m *mockPersistentStore) DeleteOldest() {
-	m.deleteOldestCalls <- struct{}{}
-}
-
-func (m *mockPersistentStore) EmitStorageDurationMetric() {
-	m.emitStorageDurationMetricCalls <- time.Now()
-}
-
-func (m *mockPersistentStore) EmitStorageMetrics() {
-}
-
 func (m *mockPersistentStore) StartTime() (int64, error) {
 	panic("not implemented")
 }
 
 func (m *mockPersistentStore) Close() error {
 	panic("not implemented")
-}
-
-type spyDiskFreeReporter struct {
-	diskFreePercentages chan float64
-}
-
-func newSpyDiskFreeReporter() *spyDiskFreeReporter {
-	return &spyDiskFreeReporter{
-		diskFreePercentages: make(chan float64, 10),
-	}
-}
-
-func (s *spyDiskFreeReporter) Get() float64 {
-	select {
-	case v := <-s.diskFreePercentages:
-		return v
-	default:
-		return 100
-	}
-}
-
-func (s *spyDiskFreeReporter) Add(v float64) {
-	s.diskFreePercentages <- v
 }

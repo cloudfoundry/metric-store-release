@@ -38,23 +38,6 @@ import (
 
 const MAX_HASH = math.MaxUint64
 
-type RetentionConfig struct {
-	RetentionPeriod       time.Duration
-	ExpiryFrequency       time.Duration
-	DiskFreePercentTarget float64
-}
-
-type PersistentStore interface {
-	storage.Storage
-
-	DeleteOlderThan(cutoff time.Time)
-	DeleteOldest()
-	EmitStorageDurationMetric()
-	EmitStorageMetrics()
-}
-
-type diskFreeReporter func() float64
-
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
 // counters).
 type MetricStore struct {
@@ -69,13 +52,10 @@ type MetricStore struct {
 	metrics          metrics.Initializer
 	closing          int64
 
-	persistentStore     PersistentStore
-	ruleManager         *rules.Manager
-	notifierManager     *notifier.Manager
-	diskFreeReporter    diskFreeReporter
-	expiryConfig        RetentionConfig
-	queryTimeout        time.Duration
-	metricsEmitDuration time.Duration
+	persistentStore storage.Storage
+	ruleManager     *rules.Manager
+	notifierManager *notifier.Manager
+	queryTimeout    time.Duration
 
 	incIngress func(uint64)
 
@@ -87,23 +67,16 @@ type MetricStore struct {
 	rulesPath        string
 }
 
-func New(persistentStore PersistentStore, diskFreeReporter diskFreeReporter, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
+func New(persistentStore storage.Storage, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     log.New(ioutil.Discard, "", 0),
 		metrics: metrics.NullMetrics{},
 
 		persistentStore:  persistentStore,
-		diskFreeReporter: diskFreeReporter,
-		expiryConfig: RetentionConfig{
-			ExpiryFrequency:       time.Duration(math.MaxInt64),
-			RetentionPeriod:       time.Duration(math.MaxInt64),
-			DiskFreePercentTarget: 0,
-		},
-		queryTimeout:        10 * time.Second,
-		metricsEmitDuration: 10 * time.Minute,
-		addr:                ":8080",
-		ingressAddr:         ":8090",
-		ingressTLSConfig:    ingressTLSConfig,
+		queryTimeout:     10 * time.Second,
+		addr:             ":8080",
+		ingressAddr:      ":8090",
+		ingressTLSConfig: ingressTLSConfig,
 	}
 
 	for _, o := range opts {
@@ -167,14 +140,6 @@ func WithExternalAddr(addr string) MetricStoreOption {
 	}
 }
 
-// WithRetentionConfig sets the frequency of automated cleanup that expires old
-// data.
-func WithRetentionConfig(config RetentionConfig) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.expiryConfig = config
-	}
-}
-
 // WithMetrics returns a MetricStoreOption that configures the metrics for the
 // MetricStore. It will add metrics to the given map.
 func WithMetrics(m metrics.Initializer) MetricStoreOption {
@@ -190,14 +155,6 @@ func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	}
 }
 
-// WithMetricsEmitDuration sets the duration to which periodic metrics are
-// emitted
-func WithMetricsEmitDuration(metricsEmitDuration time.Duration) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.metricsEmitDuration = metricsEmitDuration
-	}
-}
-
 // WithRulesPath sets the path where configuration for alerting rules can be
 // found
 func WithRulesPath(rulesPath string) MetricStoreOption {
@@ -209,9 +166,6 @@ func WithRulesPath(rulesPath string) MetricStoreOption {
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
-	go store.periodicExpiry()
-	go store.periodicMetrics()
-
 	queryEngine := query.NewEngine(
 		store.metrics,
 		query.WithQueryTimeout(store.queryTimeout),
@@ -299,32 +253,6 @@ func (store *MetricStore) configureAlertManager() {
 		discoveredConfig[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
 	}
 	discoveryManagerNotify.ApplyConfig(discoveredConfig)
-}
-
-func (store *MetricStore) periodicExpiry() {
-	store.deleteExpiredData()
-	for range time.Tick(store.expiryConfig.ExpiryFrequency) {
-		store.deleteExpiredData()
-	}
-}
-
-func (store *MetricStore) periodicMetrics() {
-	store.persistentStore.EmitStorageDurationMetric()
-	for range time.Tick(store.metricsEmitDuration) {
-		store.persistentStore.EmitStorageDurationMetric()
-	}
-}
-
-func (store *MetricStore) deleteExpiredData() {
-	cutoff := time.Now().Add(-store.expiryConfig.RetentionPeriod)
-	store.log.Printf("expiring data older than %s", cutoff.Format(time.RFC3339))
-	store.persistentStore.DeleteOlderThan(cutoff)
-
-	diskFree := store.diskFreeReporter()
-	if diskFree < store.expiryConfig.DiskFreePercentTarget {
-		store.log.Printf("expiring data due to disk free space of %.0f%%", diskFree)
-		store.persistentStore.DeleteOldest()
-	}
 }
 
 func (store *MetricStore) setupRouting(queryEngine *query.Engine) {

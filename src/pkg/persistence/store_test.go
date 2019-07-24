@@ -28,13 +28,63 @@ type storeTestContext struct {
 	maxTimeInMilliseconds int64
 }
 
+type testConfig struct {
+	RetentionPeriod       time.Duration
+	ExpiryFrequency       time.Duration
+	DiskFreePercentTarget float64
+	DiskFreeReporter      func() float64
+	MetricsEmitDuration   time.Duration
+}
+type withSetupOption func(*testConfig)
+
+func withRetentionPeriod(retentionPeriod time.Duration) withSetupOption {
+	return func(c *testConfig) {
+		c.RetentionPeriod = retentionPeriod
+	}
+}
+
+func withExpiryFrequency(expiryFrequency time.Duration) withSetupOption {
+	return func(c *testConfig) {
+		c.ExpiryFrequency = expiryFrequency
+	}
+}
+
+func withDiskFreePercentTarget(diskFreePercentTarget float64) withSetupOption {
+	return func(c *testConfig) {
+		c.DiskFreePercentTarget = diskFreePercentTarget
+	}
+}
+
+func withDiskFreeReporter(diskFreeReporter func() float64) withSetupOption {
+	return func(c *testConfig) {
+		c.DiskFreeReporter = diskFreeReporter
+	}
+}
+
+func withMetricsEmitDuration(metricsEmitDuration time.Duration) withSetupOption {
+	return func(c *testConfig) {
+		c.MetricsEmitDuration = metricsEmitDuration
+	}
+}
+
 const NO_LIMIT int = 0
 
 var _ = Describe("Persistent Store", func() {
-	var setup = func() storeTestContext {
+	var setup = func(opts ...withSetupOption) storeTestContext {
 		storagePath, err := ioutil.TempDir("", "metric-store")
 		if err != nil {
 			panic(err)
+		}
+
+		config := &testConfig{
+			RetentionPeriod:       NULL_RETENTION_PERIOD,
+			ExpiryFrequency:       NULL_EXPIRY_FREQUENCY,
+			DiskFreePercentTarget: NULL_DISK_FREE_PERCENT_TARGET,
+			DiskFreeReporter:      func() float64 { return 0 },
+			MetricsEmitDuration:   NULL_METRICS_EMIT_DURATION,
+		}
+		for _, opt := range opts {
+			opt(config)
 		}
 
 		metrics := testing.NewSpyMetrics()
@@ -43,6 +93,15 @@ var _ = Describe("Persistent Store", func() {
 			storagePath,
 			metrics,
 			WithAppenderLabelTruncationLength(64),
+			WithRetentionConfig(
+				RetentionConfig{
+					RetentionPeriod:       config.RetentionPeriod,
+					ExpiryFrequency:       config.ExpiryFrequency,
+					DiskFreePercentTarget: config.DiskFreePercentTarget,
+				},
+			),
+			WithDiskFreeReporter(config.DiskFreeReporter),
+			WithMetricsEmitDuration(config.MetricsEmitDuration),
 		)
 		querier, _ := store.Querier(context.TODO(), 0, 0)
 
@@ -410,20 +469,24 @@ var _ = Describe("Persistent Store", func() {
 
 	Describe("automatic expiry", func() {
 		It("truncates points that are older than a pre-defined expiration time", func() {
-			tc := setup()
-			defer teardown(tc)
-
 			today := time.Now().Truncate(24 * time.Hour)
-
 			todayInMilliseconds := today.UnixNano() / int64(time.Millisecond)
 			oneHourBeforeTodayInMilliseconds := today.Add(-time.Hour).UnixNano() / int64(time.Millisecond)
-			oneDayAgo := today.Add(-24 * time.Hour)
+			oneDay := 24 * time.Hour
+
+			tc := setup(
+				withRetentionPeriod(oneDay),
+				withExpiryFrequency(time.Second),
+			)
+			defer teardown(tc)
 
 			tc.storePoint(1, "counter", 1)
 			tc.storePoint(todayInMilliseconds, "counter", 3)
 			tc.storePoint(oneHourBeforeTodayInMilliseconds, "counter", 2)
-			tc.store.DeleteOlderThan(oneDayAgo)
-			Expect(tc.metrics.Getter("metric_store_num_shards_expired")()).To(BeEquivalentTo(1))
+
+			Eventually(func() bool {
+				return tc.metrics.Getter("metric_store_num_shards_expired")() == 1
+			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
@@ -444,7 +507,9 @@ var _ = Describe("Persistent Store", func() {
 		})
 
 		It("truncates oldest points", func() {
-			tc := setup()
+			tc := setup(
+				withDiskFreePercentTarget(10),
+			)
 			defer teardown(tc)
 
 			now := time.Now()
@@ -452,8 +517,9 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storePoint(1, "counter", 1)
 			tc.storePoint(nowInMilliseconds, "counter", 2)
-			tc.store.DeleteOldest()
-			Expect(tc.metrics.Getter("metric_store_num_shards_pruned")()).To(BeEquivalentTo(1))
+			Eventually(func() bool {
+				return tc.metrics.Getter("metric_store_num_shards_pruned")() == 1
+			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
 				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
@@ -475,7 +541,9 @@ var _ = Describe("Persistent Store", func() {
 
 	Describe("instrumentation", func() {
 		It("updates storage duration metrics", func() {
-			tc := setup()
+			tc := setup(
+				withMetricsEmitDuration(10 * time.Millisecond),
+			)
 			defer teardown(tc)
 
 			today := time.Now().Truncate(24 * time.Hour)
@@ -486,19 +554,19 @@ var _ = Describe("Persistent Store", func() {
 			threeDaysAgoInMilliseconds := threeDaysAgo.UnixNano() / int64(time.Millisecond)
 
 			tc.storePoint(todayInMilliseconds, "counter", 1)
-
-			tc.store.EmitStorageDurationMetric()
-			Expect(tc.metrics.Getter("metric_store_storage_duration")()).To(BeEquivalentTo(0))
+			Eventually(func() bool {
+				return tc.metrics.Getter("metric_store_storage_duration")() == 0
+			}, 3).Should(BeTrue())
 
 			tc.storePoint(oneDayAgoInMilliseconds, "counter", 1)
-
-			tc.store.EmitStorageDurationMetric()
-			Expect(tc.metrics.Getter("metric_store_storage_duration")()).To(BeEquivalentTo(1))
+			Eventually(func() bool {
+				return tc.metrics.Getter("metric_store_storage_duration")() == 1
+			}, 3).Should(BeTrue())
 
 			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
-
-			tc.store.EmitStorageDurationMetric()
-			Expect(tc.metrics.Getter("metric_store_storage_duration")()).To(BeEquivalentTo(3))
+			Eventually(func() bool {
+				return tc.metrics.Getter("metric_store_storage_duration")() == 3
+			}, 3).Should(BeTrue())
 		})
 	})
 })
@@ -508,15 +576,6 @@ func (tc *storeTestContext) storePoint(ts int64, name string, value float64) {
 }
 
 func (tc *storeTestContext) storePointWithLabels(ts int64, name string, value float64, addLabels map[string]string) {
-	// point := &rpc.Point{
-	// 	Name:      name,
-	// 	Timestamp: ts * int64(time.Millisecond),
-	// 	Value:     value,
-	// 	Labels:    labels,
-	// }
-
-	// tc.store.Put([]*rpc.Point{point})
-
 	appender, _ := tc.store.Appender()
 	pointLabels := labels.FromMap(addLabels)
 	pointLabels = append(pointLabels, labels.Label{Name: "__name__", Value: name})

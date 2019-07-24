@@ -42,18 +42,22 @@ func main() {
 
 	metrics := metrics.New("metric-store")
 
+	diskFreeReporter := newDiskFreeReporter(cfg.StoragePath, metricStoreLog, metrics)
 	persistentStore := persistence.NewStore(
 		cfg.StoragePath,
 		metrics,
 		persistence.WithAppenderLabelTruncationLength(cfg.LabelTruncationLength),
 		persistence.WithLogger(metricStoreLog),
+		persistence.WithRetentionConfig(persistence.RetentionConfig{
+			ExpiryFrequency:       15 * time.Minute,
+			RetentionPeriod:       cfg.RetentionPeriod,
+			DiskFreePercentTarget: float64(cfg.DiskFreePercentTarget),
+		}),
+		persistence.WithDiskFreeReporter(diskFreeReporter),
 	)
-	go persistentStore.EmitStorageMetrics()
-	diskFreeReporter := newDiskFreeReporter(cfg.StoragePath, metricStoreLog, metrics)
 
 	store := metricstore.New(
 		persistentStore,
-		diskFreeReporter,
 		tlsServerConfig,
 		metricstore.WithMetrics(metrics),
 		metricstore.WithAddr(cfg.Addr),
@@ -61,11 +65,6 @@ func main() {
 		metricstore.WithAlertmanagerAddr(cfg.AlertmanagerAddr),
 		metricstore.WithRulesPath(cfg.RulesPath),
 		metricstore.WithServerOpts(grpc.Creds(cfg.TLS.Credentials("metric-store"))),
-		metricstore.WithRetentionConfig(metricstore.RetentionConfig{
-			ExpiryFrequency:       15 * time.Minute,
-			RetentionPeriod:       cfg.RetentionPeriod,
-			DiskFreePercentTarget: float64(cfg.DiskFreePercentTarget),
-		}),
 		metricstore.WithLogger(metricStoreLog),
 		metricstore.WithQueryTimeout(cfg.QueryTimeout),
 	)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"math"
 	"time"
 
 	// You will need to make sure this import exists for side effects:
@@ -15,10 +16,25 @@ import (
 	"github.com/prometheus/prometheus/storage"
 )
 
+const (
+	NULL_DISK_FREE_PERCENT_TARGET = -1
+	NULL_RETENTION_PERIOD         = -1
+	NULL_EXPIRY_FREQUENCY         = -1
+	NULL_METRICS_EMIT_DURATION    = -1
+)
+
 type MetricsInitializer interface {
 	NewCounter(name string) func(delta uint64)
 	NewGauge(name, unit string) func(value float64)
 }
+
+type RetentionConfig struct {
+	RetentionPeriod       time.Duration
+	ExpiryFrequency       time.Duration
+	DiskFreePercentTarget float64
+}
+
+type diskFreeReporter func() float64
 
 type Store struct {
 	adapter *InfluxAdapter
@@ -27,6 +43,9 @@ type Store struct {
 	log     *log.Logger
 
 	labelTruncationLength uint
+	metricsEmitDuration   time.Duration
+	expiryConfig          RetentionConfig
+	diskFreeReporter      diskFreeReporter
 }
 
 type Metrics struct {
@@ -55,6 +74,13 @@ func NewStore(storagePath string, m MetricsInitializer, opts ...StoreOption) *St
 		},
 		log:                   log.New(ioutil.Discard, "", 0),
 		labelTruncationLength: 256,
+		metricsEmitDuration:   10 * time.Minute,
+		expiryConfig: RetentionConfig{
+			ExpiryFrequency:       time.Duration(math.MaxInt64),
+			RetentionPeriod:       time.Duration(math.MaxInt64),
+			DiskFreePercentTarget: 0,
+		},
+		diskFreeReporter: func() float64 { return 0 },
 	}
 
 	for _, opt := range opts {
@@ -68,6 +94,8 @@ func NewStore(storagePath string, m MetricsInitializer, opts ...StoreOption) *St
 	}
 
 	store.adapter = NewInfluxAdapter(store.tsStore, m)
+
+	go store.start()
 
 	return store
 }
@@ -86,6 +114,28 @@ func WithLogger(l *log.Logger) StoreOption {
 	}
 }
 
+// WithMetricsEmitDuration sets the duration to which periodic metrics are
+// emitted
+func WithMetricsEmitDuration(metricsEmitDuration time.Duration) StoreOption {
+	return func(s *Store) {
+		s.metricsEmitDuration = metricsEmitDuration
+	}
+}
+
+// WithRetentionConfig sets the frequency of automated cleanup that expires old
+// data.
+func WithRetentionConfig(config RetentionConfig) StoreOption {
+	return func(s *Store) {
+		s.expiryConfig = config
+	}
+}
+
+func WithDiskFreeReporter(diskFreeReporter func() float64) StoreOption {
+	return func(s *Store) {
+		s.diskFreeReporter = diskFreeReporter
+	}
+}
+
 func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
 	return NewQuerier(
 		store.adapter,
@@ -100,7 +150,57 @@ func (store *Store) Appender() (storage.Appender, error) {
 	), nil
 }
 
-func (store *Store) DeleteOlderThan(cutoff time.Time) {
+func (s *Store) Close() error {
+	return s.adapter.Close()
+}
+
+func (s *Store) StartTime() (int64, error) {
+	panic("not implemented")
+}
+
+func (store *Store) start() {
+	go store.emitStorageMetrics()
+	go store.periodicExpiry()
+	go store.periodicMetrics()
+}
+
+func (store *Store) periodicExpiry() {
+	store.deleteExpiredData()
+
+	if store.expiryConfig.ExpiryFrequency > NULL_EXPIRY_FREQUENCY {
+		for range time.Tick(store.expiryConfig.ExpiryFrequency) {
+			store.deleteExpiredData()
+		}
+	}
+}
+
+func (store *Store) periodicMetrics() {
+	store.emitStorageDurationMetric()
+
+	if store.metricsEmitDuration > NULL_METRICS_EMIT_DURATION {
+		for range time.Tick(store.metricsEmitDuration) {
+			store.emitStorageDurationMetric()
+		}
+	}
+}
+
+func (store *Store) deleteExpiredData() {
+	if store.expiryConfig.RetentionPeriod > NULL_RETENTION_PERIOD {
+		cutoff := time.Now().Add(-store.expiryConfig.RetentionPeriod)
+		store.log.Printf("expiring data older than %s", cutoff.Format(time.RFC3339))
+		store.deleteOlderThan(cutoff)
+	}
+
+	if store.expiryConfig.DiskFreePercentTarget > NULL_DISK_FREE_PERCENT_TARGET {
+		diskFree := store.diskFreeReporter()
+		if diskFree < store.expiryConfig.DiskFreePercentTarget {
+			store.log.Printf("expiring data due to disk free space of %.0f%%", diskFree)
+			store.deleteOldest()
+		}
+	}
+}
+
+func (store *Store) deleteOlderThan(cutoff time.Time) {
 	numShardsExpired, err := store.adapter.DeleteOlderThan(cutoff.UnixNano())
 	if err != nil {
 		store.log.Println(err)
@@ -108,7 +208,7 @@ func (store *Store) DeleteOlderThan(cutoff time.Time) {
 	store.metrics.incNumShardsExpired(numShardsExpired)
 }
 
-func (store *Store) DeleteOldest() {
+func (store *Store) deleteOldest() {
 	err := store.adapter.DeleteOldest()
 	if err != nil {
 		store.log.Println(err)
@@ -116,7 +216,7 @@ func (store *Store) DeleteOldest() {
 	store.metrics.incNumShardsPruned(1)
 }
 
-func (store *Store) EmitStorageDurationMetric() {
+func (store *Store) emitStorageDurationMetric() {
 	oldestShardID, err := store.adapter.OldestShardID()
 	if err != nil {
 		return
@@ -126,7 +226,7 @@ func (store *Store) EmitStorageDurationMetric() {
 	store.metrics.storageDurationGauge(float64(int(duration.Hours()) / 24))
 }
 
-func (store *Store) EmitStorageMetrics() {
+func (store *Store) emitStorageMetrics() {
 	for {
 		time.Sleep(time.Minute)
 
@@ -143,12 +243,4 @@ func (store *Store) EmitStorageMetrics() {
 			}
 		}
 	}
-}
-
-func (s *Store) Close() error {
-	return s.adapter.Close()
-}
-
-func (s *Store) StartTime() (int64, error) {
-	panic("not implemented")
 }
