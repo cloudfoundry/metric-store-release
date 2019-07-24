@@ -11,21 +11,21 @@ import (
 )
 
 type EgressReverseProxy struct {
-	engine      QueryEngine
-	localReader storage.Querier
-	log         *log.Logger
+	engine  QueryEngine
+	storage storage.Storage
+	log     *log.Logger
 }
 
 type erpOption func(*EgressReverseProxy)
 
 func NewEgressReverseProxy(
-	localReader storage.Querier,
+	storage storage.Storage,
 	engine QueryEngine,
 	opts ...erpOption,
 ) *EgressReverseProxy {
 	erp := &EgressReverseProxy{
-		engine:      engine,
-		localReader: localReader,
+		engine:  engine,
+		storage: storage,
 	}
 
 	for _, o := range opts {
@@ -42,27 +42,32 @@ func WithLogger(l *log.Logger) erpOption {
 }
 
 type QueryEngine interface {
-	InstantQuery(context.Context, *rpc.PromQL_InstantQueryRequest, storage.Querier) (*rpc.PromQL_InstantQueryResult, error)
-	RangeQuery(context.Context, *rpc.PromQL_RangeQueryRequest, storage.Querier) (*rpc.PromQL_RangeQueryResult, error)
-	SeriesQuery(context.Context, *rpc.PromQL_SeriesQueryRequest, storage.Querier) (*rpc.PromQL_SeriesQueryResult, error)
+	InstantQuery(context.Context, *rpc.PromQL_InstantQueryRequest, storage.Storage) (*rpc.PromQL_InstantQueryResult, error)
+	RangeQuery(context.Context, *rpc.PromQL_RangeQueryRequest, storage.Storage) (*rpc.PromQL_RangeQueryResult, error)
+	SeriesQuery(context.Context, *rpc.PromQL_SeriesQueryRequest, storage.Storage) (*rpc.PromQL_SeriesQueryResult, error)
 }
 
 func (erp *EgressReverseProxy) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest) (*rpc.PromQL_InstantQueryResult, error) {
-	return erp.engine.InstantQuery(ctx, req, erp.localReader)
+	return erp.engine.InstantQuery(ctx, req, erp.storage)
 }
 
 func (erp *EgressReverseProxy) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest) (*rpc.PromQL_RangeQueryResult, error) {
-	return erp.engine.RangeQuery(ctx, req, erp.localReader)
+	return erp.engine.RangeQuery(ctx, req, erp.storage)
 }
 
 func (erp *EgressReverseProxy) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest) (*rpc.PromQL_SeriesQueryResult, error) {
-	return erp.engine.SeriesQuery(ctx, req, erp.localReader)
+	return erp.engine.SeriesQuery(ctx, req, erp.storage)
 }
 
 func (erp *EgressReverseProxy) LabelsQuery(ctx context.Context, req *rpc.PromQL_LabelsQueryRequest) (*rpc.PromQL_LabelsQueryResult, error) {
-	labels, err := erp.localReader.LabelNames()
-
 	result := &rpc.PromQL_LabelsQueryResult{}
+
+	querier, err := erp.storage.Querier(ctx, 0, 0)
+	if err != nil {
+		return result, err
+	}
+
+	labels, err := querier.LabelNames()
 
 	if labels != nil {
 		result.Labels = labelFormatter(labels)
@@ -79,7 +84,12 @@ func labelFormatter(labels []string) []string {
 }
 
 func (erp *EgressReverseProxy) LabelValuesQuery(ctx context.Context, req *rpc.PromQL_LabelValuesQueryRequest) (*rpc.PromQL_LabelValuesQueryResult, error) {
-	values, err := erp.localReader.LabelValues(req.GetName())
+	querier, err := erp.storage.Querier(ctx, 0, 0)
+	if err != nil {
+		return &rpc.PromQL_LabelValuesQueryResult{}, err
+	}
+
+	values, err := querier.LabelValues(req.GetName())
 
 	result := &rpc.PromQL_LabelValuesQueryResult{
 		Values: values,

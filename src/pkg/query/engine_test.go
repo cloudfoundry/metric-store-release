@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/prometheus/prometheus/promql"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
@@ -20,7 +21,7 @@ var _ = Describe("Engine", func() {
 			tc := engineSetup()
 			req := &rpc.PromQL_InstantQueryRequest{Query: `7*9`, Time: `2.001`}
 
-			r, err := tc.engine.InstantQuery(context.Background(), req, nil)
+			r, err := tc.engine.InstantQuery(context.Background(), req, tc.spyStorage)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(r.GetScalar().GetValue()).To(Equal(63.0))
@@ -45,7 +46,7 @@ var _ = Describe("Engine", func() {
 			r, err := tc.engine.InstantQuery(
 				context.Background(),
 				&rpc.PromQL_InstantQueryRequest{Query: `metric`, Time: `2.001`},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -96,7 +97,7 @@ var _ = Describe("Engine", func() {
 			result, err := tc.engine.InstantQuery(
 				context.Background(),
 				&rpc.PromQL_InstantQueryRequest{Query: `metric{source_id=~"some-id-1|some-id-2"}`, Time: "2"},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -156,7 +157,7 @@ var _ = Describe("Engine", func() {
 					Query: `metric{source_id="some-id-1"} + ignoring(source_id) metric{source_id="some-id-2"}`,
 					Time:  `2.001`,
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -201,7 +202,7 @@ var _ = Describe("Engine", func() {
 					Query: `metric{source_id="some-id-1"}[5m]`,
 					Time:  `2.001`,
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -228,7 +229,7 @@ var _ = Describe("Engine", func() {
 			tc := engineSetup()
 			req := &rpc.PromQL_InstantQueryRequest{Query: `7*9`, Time: ""}
 
-			r, err := tc.engine.InstantQuery(context.Background(), req, nil)
+			r, err := tc.engine.InstantQuery(context.Background(), req, tc.spyStorage)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(r.GetScalar().GetTime()).To(BeNumerically("~", time.Now().UnixNano()/int64(time.Millisecond), 10))
@@ -239,7 +240,7 @@ var _ = Describe("Engine", func() {
 			now := time.Now().Unix()
 			req := &rpc.PromQL_InstantQueryRequest{Query: `7*9`, Time: fmt.Sprintf("%d", now)}
 
-			r, err := tc.engine.InstantQuery(context.Background(), req, nil)
+			r, err := tc.engine.InstantQuery(context.Background(), req, tc.spyStorage)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(r.GetScalar().GetTime()).To(BeNumerically("~", now*int64(time.Second/time.Millisecond), 10))
@@ -250,7 +251,7 @@ var _ = Describe("Engine", func() {
 			ts := `2017-01-30T11:41:00-07:00`
 			req := &rpc.PromQL_InstantQueryRequest{Query: `7*9`, Time: ts}
 
-			r, err := tc.engine.InstantQuery(context.Background(), req, nil)
+			r, err := tc.engine.InstantQuery(context.Background(), req, tc.spyStorage)
 			Expect(err).ToNot(HaveOccurred())
 
 			t, _ := time.Parse(time.RFC3339, ts)
@@ -265,7 +266,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.InstantQuery(
 				context.Background(),
 				&rpc.PromQL_InstantQueryRequest{Query: `metric_name{}`},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -279,7 +280,7 @@ var _ = Describe("Engine", func() {
 			ts := `2017-01-30 11:41:00-07:00`
 			req := &rpc.PromQL_InstantQueryRequest{Query: `7*9`, Time: ts}
 
-			_, err := tc.engine.InstantQuery(context.Background(), req, nil)
+			_, err := tc.engine.InstantQuery(context.Background(), req, tc.spyStorage)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -291,7 +292,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.InstantQuery(
 				context.Background(),
 				&rpc.PromQL_InstantQueryRequest{Query: `metric{source_id="some-id-1"}[5m]`},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
@@ -303,7 +304,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.InstantQuery(
 				context.Background(),
 				&rpc.PromQL_InstantQueryRequest{Query: `invalid.query`},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -316,7 +317,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.InstantQuery(
 				ctx,
 				&rpc.PromQL_InstantQueryRequest{Query: `metric{source_id="some-id-1"}[5m]`},
-				nil,
+				tc.spyStorage,
 			)
 
 			Expect(err).To(HaveOccurred())
@@ -349,7 +350,7 @@ var _ = Describe("Engine", func() {
 					End:   `2.001`,
 					Step:  `1s`,
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -435,7 +436,7 @@ var _ = Describe("Engine", func() {
 					End:   testing.FormatTimeWithDecimalMillis(lastHour.Add(5 * time.Minute)),
 					Step:  "1m",
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -504,7 +505,7 @@ var _ = Describe("Engine", func() {
 					End:   testing.FormatTimeWithDecimalMillis(lastHour.Add(5 * time.Minute)),
 					Step:  "1m",
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -569,7 +570,7 @@ var _ = Describe("Engine", func() {
 					End:   testing.FormatTimeWithDecimalMillis(lastHour.Add(5 * time.Minute)),
 					Step:  "1m",
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -603,7 +604,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `invalid.query`, Start: "1", End: "2", Step: "1m"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -613,14 +614,14 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "potato", End: "2", Step: "1m"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
 			_, err = tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "", End: "2", Step: "1m"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -630,14 +631,14 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "lemons", Step: "1m"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
 			_, err = tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "", Step: "1m"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -647,14 +648,14 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "3", Step: "1mim"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
 			_, err = tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "3", Step: ""},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -672,7 +673,7 @@ var _ = Describe("Engine", func() {
 					End:   "2099-01-01T01:24:45.678Z",
 					Step:  "1m",
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -686,7 +687,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "1", Step: "1m"},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -704,7 +705,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				context.Background(),
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "2", Step: "1m"},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
@@ -722,7 +723,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.RangeQuery(
 				ctx,
 				&rpc.PromQL_RangeQueryRequest{Query: `metric{source_id="some-id-1"}`, Start: "1", End: "2", Step: "1m"},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 
 			Expect(err).To(HaveOccurred())
@@ -765,7 +766,7 @@ var _ = Describe("Engine", func() {
 					Start: "1",
 					End:   "2",
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -795,7 +796,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{}, Start: "1", End: "2"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -805,7 +806,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`invalid.query`}, Start: "1", End: "2"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -815,14 +816,14 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`metric{source_id="some-id-1"}`}, Start: "potato", End: "2"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
 			_, err = tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`metric{source_id="some-id-1"}`}, Start: "", End: "2"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -832,14 +833,14 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`metric{source_id="some-id-1"}`}, Start: "1", End: "lemons"},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 
 			_, err = tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`metric{source_id="some-id-1"}`}, Start: "1", End: ""},
-				nil,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -856,7 +857,7 @@ var _ = Describe("Engine", func() {
 					Start: "2099-01-01T01:23:45.678Z",
 					End:   "2099-01-01T01:24:45.678Z",
 				},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -870,7 +871,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.SeriesQuery(
 				context.Background(),
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`metric{source_id="some-id-1"}`}, Start: "1", End: "2"},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 			Expect(err).To(HaveOccurred())
 		})
@@ -886,7 +887,7 @@ var _ = Describe("Engine", func() {
 			_, err := tc.engine.SeriesQuery(
 				ctx,
 				&rpc.PromQL_SeriesQueryRequest{Match: []string{`metric{source_id="some-id-1"}`}, Start: "1", End: "2"},
-				tc.spyDataReader,
+				tc.spyStorage,
 			)
 
 			Expect(err).To(HaveOccurred())
@@ -898,13 +899,23 @@ type engineTestContext struct {
 	engine        *query.Engine
 	spyDataReader *testing.SpyDataReader
 	spyMetrics    *testing.SpyMetrics
+	spyStorage    *testing.SpyStorage
 }
 
 func engineSetup() *engineTestContext {
 	spyMetrics := testing.NewSpyMetrics()
 	spyDataReader := testing.NewSpyDataReader()
+	spyStorage := testing.NewSpyStorage(spyDataReader)
+
+	engineOpts := promql.EngineOpts{
+		MaxConcurrent: 1,
+		MaxSamples:    1e6,
+		Timeout:       time.Second,
+	}
+	queryEngine := promql.NewEngine(engineOpts)
 
 	engine := query.NewEngine(
+		queryEngine,
 		spyMetrics,
 		query.WithQueryTimeout(5*time.Second),
 	)
@@ -913,5 +924,6 @@ func engineSetup() *engineTestContext {
 		engine:        engine,
 		spyDataReader: spyDataReader,
 		spyMetrics:    spyMetrics,
+		spyStorage:    spyStorage,
 	}
 }

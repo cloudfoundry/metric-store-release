@@ -142,9 +142,10 @@ func egressReverseProxySetup() *egressReverseProxyTestContext {
 	spyEngine := testing.NewSpyQueryEngine()
 
 	localReader := testing.NewSpyDataReader()
+	spyStorage := testing.NewSpyStorage(localReader)
 
 	erp := local.NewEgressReverseProxy(
-		localReader,
+		spyStorage,
 		spyEngine,
 		local.WithLogger(log.New(ioutil.Discard, "", 0)),
 	)

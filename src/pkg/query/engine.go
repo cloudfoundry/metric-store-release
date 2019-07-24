@@ -9,12 +9,13 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
+	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
 type Engine struct {
+	promQLEngine *promql.Engine
 	log          *log.Logger
 	queryTimeout time.Duration
 
@@ -23,8 +24,9 @@ type Engine struct {
 	rangeQueryTimer   func(float64)
 }
 
-func NewEngine(m Metrics, opts ...EngineOption) *Engine {
+func NewEngine(promQLEngine *promql.Engine, m Metrics, opts ...EngineOption) *Engine {
 	engine := &Engine{
+		promQLEngine:      promQLEngine,
 		instantQueryTimer: m.NewGauge("metric_store_promql_instant_query_time", "milliseconds"),
 		rangeQueryTimer:   m.NewGauge("metric_store_promql_range_query_time", "milliseconds"),
 		failureCounter:    m.NewCounter("metric_store_promql_timeout"),
@@ -56,9 +58,7 @@ type Metrics interface {
 	NewGauge(name, unit string) func(value float64)
 }
 
-func (q *Engine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest, dataReader storage.Querier) (*rpc.PromQL_InstantQueryResult, error) {
-	queryable, engine := q.createPromQLEngine(dataReader)
-
+func (q *Engine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest, storage prom_storage.Storage) (*rpc.PromQL_InstantQueryResult, error) {
 	var err error
 
 	requestTimeInSeconds := time.Now()
@@ -70,7 +70,7 @@ func (q *Engine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryR
 	}
 
 	queryStartTime := time.Now()
-	qq, err := engine.NewInstantQuery(queryable, req.Query, requestTimeInSeconds)
+	qq, err := q.promQLEngine.NewInstantQuery(storage, req.Query, requestTimeInSeconds)
 	if err != nil {
 		return nil, err
 	}
@@ -79,12 +79,8 @@ func (q *Engine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryR
 
 	q.instantQueryTimer(float64(time.Since(queryStartTime) / time.Millisecond))
 
-	if queryable.err != nil {
-		q.failureCounter(1)
-		return nil, queryable.err
-	}
-
 	if r.Err != nil {
+		q.failureCounter(1)
 		return nil, r.Err
 	}
 
@@ -163,9 +159,7 @@ func (q *Engine) toInstantQueryResult(r *promql.Result) *rpc.PromQL_InstantQuery
 	}
 }
 
-func (q *Engine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest, dataReader storage.Querier) (*rpc.PromQL_RangeQueryResult, error) {
-	queryable, engine := q.createPromQLEngine(dataReader)
-
+func (q *Engine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest, storage prom_storage.Storage) (*rpc.PromQL_RangeQueryResult, error) {
 	var err error
 
 	requestStartInSeconds, err := ParseTime(req.Start)
@@ -184,7 +178,7 @@ func (q *Engine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryReque
 	}
 
 	queryStartTime := time.Now()
-	qq, err := engine.NewRangeQuery(queryable, req.Query, requestStartInSeconds, requestEndInSeconds, interval)
+	qq, err := q.promQLEngine.NewRangeQuery(storage, req.Query, requestStartInSeconds, requestEndInSeconds, interval)
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +187,8 @@ func (q *Engine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryReque
 
 	q.rangeQueryTimer(float64(time.Since(queryStartTime) / time.Millisecond))
 
-	if queryable.err != nil {
-		q.failureCounter(1)
-		return nil, queryable.err
-	}
-
 	if r.Err != nil {
+		q.failureCounter(1)
 		return nil, r.Err
 	}
 
@@ -242,23 +232,9 @@ func (q *Engine) toRangeQueryResult(r *promql.Result) *rpc.PromQL_RangeQueryResu
 	}
 }
 
-func (e *Engine) createPromQLEngine(dataReader storage.Querier) (*MetricStoreQueryable, *promql.Engine) {
-	msq := &MetricStoreQueryable{
-		DataReader: dataReader,
-	}
-
-	engineOpts := promql.EngineOpts{
-		MaxConcurrent: 10,
-		MaxSamples:    1e6,
-		Timeout:       e.queryTimeout,
-	}
-	engine := promql.NewEngine(engineOpts)
-
-	return msq, engine
-}
-
-func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest, dataReader storage.Querier) (*rpc.PromQL_SeriesQueryResult, error) {
+func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest, persistentStore prom_storage.Storage) (*rpc.PromQL_SeriesQueryResult, error) {
 	var err error
+	querier, _ := persistentStore.Querier(ctx, 0, 0)
 
 	requestStartInSeconds, err := ParseTime(req.Start)
 	if err != nil {
@@ -281,7 +257,7 @@ func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryReq
 		return nil, errors.New("requires at least one matcher")
 	}
 
-	params := &storage.SelectParams{
+	params := &prom_storage.SelectParams{
 		Start: transform.SecondsToMilliseconds(requestStartInSeconds.Unix()),
 		End:   transform.SecondsToMilliseconds(requestEndInSeconds.Unix()),
 	}
@@ -293,7 +269,7 @@ func (q *Engine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryReq
 			return nil, err
 		}
 
-		seriesSet, _, err := dataReader.Select(params, matchers...)
+		seriesSet, _, err := querier.Select(params, matchers...)
 		if err != nil {
 			return nil, err
 		}
@@ -315,56 +291,4 @@ func (q *Engine) toSeriesQueryResult(seriesSets []storage.SeriesSet) *rpc.PromQL
 	}
 
 	return &rpc.PromQL_SeriesQueryResult{Series: series}
-}
-
-type MetricStoreQueryable struct {
-	DataReader storage.Querier
-	err        error
-}
-
-func (q *MetricStoreQueryable) Querier(ctx context.Context, minTimeInMilliseconds int64, maxTimeInMilliseconds int64) (storage.Querier, error) {
-	return &MetricStoreQuerier{
-		ctx:        ctx,
-		start:      transform.MillisecondsToTime(minTimeInMilliseconds),
-		end:        transform.MillisecondsToTime(maxTimeInMilliseconds),
-		dataReader: q.DataReader,
-		queryable:  q,
-	}, nil
-}
-
-// Querier provides reading access to time series data.
-type MetricStoreQuerier struct {
-	ctx        context.Context
-	start      time.Time
-	end        time.Time
-	dataReader storage.Querier
-	queryable  *MetricStoreQueryable
-}
-
-// LabelNames returns all the unique label names present in the block in sorted order.
-func (querier *MetricStoreQuerier) LabelNames() ([]string, error) {
-	panic("not implemented")
-}
-
-// LabelValues returns all potential values for a label name.
-func (querier *MetricStoreQuerier) LabelValues(string) ([]string, error) {
-	panic("not implemented")
-}
-
-// Close releases the resources of the Querier.
-func (querier *MetricStoreQuerier) Close() error {
-	return nil
-}
-
-// TODO: this is essentially the Store interface
-//  - update Store to have same signature, then use it inplace of NullQuerier
-// Select returns a set of series that matches the given label matchers.
-func (querier *MetricStoreQuerier) Select(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
-	seriesSet, _, err := querier.dataReader.Select(params, labelMatchers...)
-	if err != nil {
-		querier.queryable.err = err
-		return nil, nil, err
-	}
-
-	return seriesSet, nil, nil
 }

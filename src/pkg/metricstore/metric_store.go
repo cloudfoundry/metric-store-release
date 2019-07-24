@@ -32,6 +32,7 @@ import (
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
 )
@@ -166,11 +167,12 @@ func WithRulesPath(rulesPath string) MetricStoreOption {
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
-	queryEngine := query.NewEngine(
-		store.metrics,
-		query.WithQueryTimeout(store.queryTimeout),
-		query.WithLogger(store.log),
-	)
+	engineOpts := promql.EngineOpts{
+		MaxConcurrent: 10,
+		MaxSamples:    1e6,
+		Timeout:       store.queryTimeout,
+	}
+	queryEngine := promql.NewEngine(engineOpts)
 
 	store.setupRouting(queryEngine)
 
@@ -183,17 +185,15 @@ func (store *MetricStore) Start() {
 	go store.processRules(queryEngine)
 }
 
-func (store *MetricStore) processRules(queryEngine *query.Engine) {
+func (store *MetricStore) processRules(queryEngine *promql.Engine) {
 	if store.rulesPath == "" {
 		return
 	}
 
-	querier, _ := store.persistentStore.Querier(context.Background(), 0, 0)
-
 	store.ruleManager = rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store.persistentStore,
 		TSDB:        store.persistentStore,
-		QueryFunc:   query.EngineQueryFunc(queryEngine, querier),
+		QueryFunc:   rules.EngineQueryFunc(queryEngine, store.persistentStore),
 		NotifyFunc:  sendAlerts(store.notifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
@@ -255,7 +255,14 @@ func (store *MetricStore) configureAlertManager() {
 	discoveryManagerNotify.ApplyConfig(discoveredConfig)
 }
 
-func (store *MetricStore) setupRouting(queryEngine *query.Engine) {
+func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
+	queryEngine := query.NewEngine(
+		promQLEngine,
+		store.metrics,
+		query.WithQueryTimeout(store.queryTimeout),
+		query.WithLogger(store.log),
+	)
+
 	// gRPC
 	lis, err := net.Listen("tcp", store.addr)
 	if err != nil {
@@ -319,9 +326,8 @@ func (store *MetricStore) setupRouting(queryEngine *query.Engine) {
 		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
 	}
 
-	querier, _ := store.persistentStore.Querier(context.Background(), 0, 0)
 	egressReverseProxy := local.NewEgressReverseProxy(
-		querier,
+		store.persistentStore,
 		queryEngine,
 		local.WithLogger(store.log),
 	)

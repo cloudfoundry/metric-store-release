@@ -15,24 +15,24 @@ type SpyQueryEngine struct {
 	RespondWithError       bool
 }
 
-func (q *SpyQueryEngine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest, dataReader storage.Querier) (*rpc.PromQL_InstantQueryResult, error) {
-	q.InstantQueryDataReader = dataReader
+func (q *SpyQueryEngine) InstantQuery(ctx context.Context, req *rpc.PromQL_InstantQueryRequest, storage storage.Storage) (*rpc.PromQL_InstantQueryResult, error) {
+	q.InstantQueryDataReader, _ = storage.Querier(ctx, 0, 0)
 	if q.RespondWithError {
 		return nil, errors.New("instant query engine error")
 	}
 	return nil, nil
 }
 
-func (q *SpyQueryEngine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest, dataReader storage.Querier) (*rpc.PromQL_RangeQueryResult, error) {
-	q.RangeQueryDataReader = dataReader
+func (q *SpyQueryEngine) RangeQuery(ctx context.Context, req *rpc.PromQL_RangeQueryRequest, storage storage.Storage) (*rpc.PromQL_RangeQueryResult, error) {
+	q.RangeQueryDataReader, _ = storage.Querier(ctx, 0, 0)
 	if q.RespondWithError {
 		return nil, errors.New("range query engine error")
 	}
 	return nil, nil
 }
 
-func (q *SpyQueryEngine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest, dataReader storage.Querier) (*rpc.PromQL_SeriesQueryResult, error) {
-	q.SeriesQueryDataReader = dataReader
+func (q *SpyQueryEngine) SeriesQuery(ctx context.Context, req *rpc.PromQL_SeriesQueryRequest, storage storage.Storage) (*rpc.PromQL_SeriesQueryResult, error) {
+	q.SeriesQueryDataReader, _ = storage.Querier(ctx, 0, 0)
 	if q.RespondWithError {
 		return nil, errors.New("series query engine error")
 	}
