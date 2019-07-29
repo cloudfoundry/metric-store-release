@@ -20,7 +20,7 @@ require (
 	github.com/gorilla/mux v1.7.2
 	github.com/grpc-ecosystem/grpc-gateway v1.8.5
 	github.com/influxdata/flux v0.21.3 // indirect
-	github.com/influxdata/influxdb v1.7.6
+	github.com/influxdata/influxdb v1.7.7
 	github.com/influxdata/influxql v1.0.0
 	github.com/influxdata/roaring v0.4.12-0.20180809181101-fc520f41fab6 // indirect
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
