@@ -17,7 +17,7 @@ require (
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.1
 	github.com/google/go-cmp v0.3.0 // indirect
-	github.com/gorilla/mux v1.7.2
+	github.com/gorilla/mux v1.7.3
 	github.com/grpc-ecosystem/grpc-gateway v1.8.5
 	github.com/influxdata/flux v0.21.3 // indirect
 	github.com/influxdata/influxdb v1.7.7
