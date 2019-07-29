@@ -450,7 +450,7 @@ func (h *{{$k.name}}SortedMergeHeap) Less(i, j int) bool {
 	} else if xTags, yTags := x.Tags.Subset(h.opt.Dimensions), y.Tags.Subset(h.opt.Dimensions); !xTags.Equals(&yTags) {
 		return xTags.ID() > yTags.ID()
 	}
-	
+
 	if x.Time != y.Time{
 		return x.Time > y.Time
 	}
@@ -1119,6 +1119,8 @@ func (itr *{{$k.name}}Reduce{{$v.Name}}Iterator) reduce() ([]{{$v.Name}}Point, e
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -1148,12 +1150,10 @@ func (itr *{{$k.name}}Reduce{{$v.Name}}Iterator) reduce() ([]{{$v.Name}}Point, e
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse({{$v.name}}PointsByTime(a)))
 	}
-
 	return a, nil
 }
 

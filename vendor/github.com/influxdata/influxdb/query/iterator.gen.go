@@ -1114,14 +1114,13 @@ func (itr *floatReduceFloatIterator) reduce() ([]FloatPoint, error) {
 		rp.Aggregator.AggregateFloat(curr)
 	}
 
-	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// Reverse sort points by name & tag.
+	// This ensures a consistent order of output.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}
-	if len(keys) > 1 && itr.opt.Ordered {
-		sort.Sort(reverseStringSlice(keys))
-	}
+	sort.Sort(reverseStringSlice(keys))
 
 	// Assume the points are already sorted until proven otherwise.
 	sortedByTime := true
@@ -1144,12 +1143,10 @@ func (itr *floatReduceFloatIterator) reduce() ([]FloatPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(floatPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -1395,6 +1392,8 @@ func (itr *floatReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -1424,12 +1423,10 @@ func (itr *floatReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(integerPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -1675,6 +1672,8 @@ func (itr *floatReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -1704,12 +1703,10 @@ func (itr *floatReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(unsignedPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -1955,6 +1952,8 @@ func (itr *floatReduceStringIterator) reduce() ([]StringPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -1984,12 +1983,10 @@ func (itr *floatReduceStringIterator) reduce() ([]StringPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(stringPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -2235,6 +2232,8 @@ func (itr *floatReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -2264,12 +2263,10 @@ func (itr *floatReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(booleanPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -3739,6 +3736,8 @@ func (itr *integerReduceFloatIterator) reduce() ([]FloatPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -3768,12 +3767,10 @@ func (itr *integerReduceFloatIterator) reduce() ([]FloatPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(floatPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -4019,6 +4016,8 @@ func (itr *integerReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -4048,12 +4047,10 @@ func (itr *integerReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(integerPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -4299,6 +4296,8 @@ func (itr *integerReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -4328,12 +4327,10 @@ func (itr *integerReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(unsignedPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -4579,6 +4576,8 @@ func (itr *integerReduceStringIterator) reduce() ([]StringPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -4608,12 +4607,10 @@ func (itr *integerReduceStringIterator) reduce() ([]StringPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(stringPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -4859,6 +4856,8 @@ func (itr *integerReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -4888,12 +4887,10 @@ func (itr *integerReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(booleanPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -6363,6 +6360,8 @@ func (itr *unsignedReduceFloatIterator) reduce() ([]FloatPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -6392,12 +6391,10 @@ func (itr *unsignedReduceFloatIterator) reduce() ([]FloatPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(floatPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -6643,6 +6640,8 @@ func (itr *unsignedReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -6672,12 +6671,10 @@ func (itr *unsignedReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(integerPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -6923,6 +6920,8 @@ func (itr *unsignedReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -6952,12 +6951,10 @@ func (itr *unsignedReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(unsignedPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -7203,6 +7200,8 @@ func (itr *unsignedReduceStringIterator) reduce() ([]StringPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -7232,12 +7231,10 @@ func (itr *unsignedReduceStringIterator) reduce() ([]StringPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(stringPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -7483,6 +7480,8 @@ func (itr *unsignedReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -7512,12 +7511,10 @@ func (itr *unsignedReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(booleanPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -8973,6 +8970,8 @@ func (itr *stringReduceFloatIterator) reduce() ([]FloatPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -9002,12 +9001,10 @@ func (itr *stringReduceFloatIterator) reduce() ([]FloatPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(floatPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -9253,6 +9250,8 @@ func (itr *stringReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -9282,12 +9281,10 @@ func (itr *stringReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(integerPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -9533,6 +9530,8 @@ func (itr *stringReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -9562,12 +9561,10 @@ func (itr *stringReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(unsignedPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -9813,6 +9810,8 @@ func (itr *stringReduceStringIterator) reduce() ([]StringPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -9842,12 +9841,10 @@ func (itr *stringReduceStringIterator) reduce() ([]StringPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(stringPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -10093,6 +10090,8 @@ func (itr *stringReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -10122,12 +10121,10 @@ func (itr *stringReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(booleanPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -11583,6 +11580,8 @@ func (itr *booleanReduceFloatIterator) reduce() ([]FloatPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -11612,12 +11611,10 @@ func (itr *booleanReduceFloatIterator) reduce() ([]FloatPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(floatPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -11863,6 +11860,8 @@ func (itr *booleanReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -11892,12 +11891,10 @@ func (itr *booleanReduceIntegerIterator) reduce() ([]IntegerPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(integerPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -12143,6 +12140,8 @@ func (itr *booleanReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -12172,12 +12171,10 @@ func (itr *booleanReduceUnsignedIterator) reduce() ([]UnsignedPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(unsignedPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -12423,6 +12420,8 @@ func (itr *booleanReduceStringIterator) reduce() ([]StringPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -12452,12 +12451,10 @@ func (itr *booleanReduceStringIterator) reduce() ([]StringPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(stringPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
@@ -12703,6 +12700,8 @@ func (itr *booleanReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 	}
 
 	// Reverse sort points by name & tag if our output is supposed to be ordered.
+	// This is because the final array needs to have the first
+	// point at the end since they are popped off of the end.
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -12732,12 +12731,10 @@ func (itr *booleanReduceBooleanIterator) reduce() ([]BooleanPoint, error) {
 			a = append(a, points[i])
 		}
 	}
-
 	// Points may be out of order. Perform a stable sort by time if requested.
 	if !sortedByTime && itr.opt.Ordered {
 		sort.Stable(sort.Reverse(booleanPointsByTime(a)))
 	}
-
 	return a, nil
 }
 
