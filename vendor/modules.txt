@@ -380,7 +380,7 @@ go.uber.org/zap/internal/exit
 golang.org/x/crypto/ed25519
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20190613194153-d28f0bde5980
+# golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/internal/timeseries
