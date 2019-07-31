@@ -18,15 +18,15 @@ type UAA struct {
 }
 
 type Config struct {
-	MetricStoreGatewayAddr string `env:"METRIC_STORE_GATEWAY_ADDR, required, report"`
-	Addr                   string `env:"ADDR, required, report"`
-	InternalIP             string `env:"INTERNAL_IP, report"`
-	HealthPort             int    `env:"HEALTH_PORT, report"`
-	CertPath               string `env:"EXTERNAL_CERT, required, report"`
-	KeyPath                string `env:"EXTERNAL_KEY, required, report"`
-	SkipCertVerify         bool   `env:"SKIP_CERT_VERIFY, report"`
-	ProxyCAPath            string `env:"PROXY_CA_PATH, required, report"`
-	SecurityEventLog       string `env:"SECURITY_EVENT_LOG, report"`
+	MetricStoreAddr  string `env:"METRIC_STORE_ADDR, required, report"`
+	Addr             string `env:"ADDR, required, report"`
+	InternalIP       string `env:"INTERNAL_IP, report"`
+	HealthPort       int    `env:"HEALTH_PORT, report"`
+	CertPath         string `env:"EXTERNAL_CERT, required, report"`
+	KeyPath          string `env:"EXTERNAL_KEY, required, report"`
+	SkipCertVerify   bool   `env:"SKIP_CERT_VERIFY, report"`
+	ProxyCAPath      string `env:"PROXY_CA_PATH, required, report"`
+	SecurityEventLog string `env:"SECURITY_EVENT_LOG, report"`
 
 	CAPI CAPI
 	UAA  UAA
@@ -34,11 +34,11 @@ type Config struct {
 
 func LoadConfig() (*Config, error) {
 	cfg := Config{
-		SkipCertVerify:         false,
-		Addr:                   ":8083",
-		InternalIP:             "0.0.0.0",
-		HealthPort:             6065,
-		MetricStoreGatewayAddr: "localhost:8081",
+		SkipCertVerify:  false,
+		Addr:            ":8083",
+		InternalIP:      "0.0.0.0",
+		HealthPort:      6065,
+		MetricStoreAddr: "localhost:8081",
 	}
 
 	err := envstruct.Load(&cfg)

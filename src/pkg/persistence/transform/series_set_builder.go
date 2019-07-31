@@ -3,7 +3,6 @@ package transform
 import (
 	"sort"
 
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	"github.com/influxdata/influxdb/query"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -29,18 +28,6 @@ type SeriesSetBuilder struct {
 func (b *SeriesSetBuilder) AddInfluxPoint(point *query.FloatPoint, fields []string) {
 	sample, labels := SeriesDataFromInfluxPoint(point, fields)
 	b.add(sample, labels)
-}
-
-func (b *SeriesSetBuilder) AddPromQLSample(sample *rpc.PromQL_Sample) {
-	seriesSample, labels := SeriesDataFromPromQLSample(sample)
-	b.add(seriesSample, labels)
-}
-
-func (b *SeriesSetBuilder) AddPromQLSeries(series *rpc.PromQL_Series) {
-	samples, labels := SeriesDataFromPromQLSeries(series)
-	for _, sample := range samples {
-		b.add(sample, labels)
-	}
 }
 
 func (builder *SeriesSetBuilder) Len() int {

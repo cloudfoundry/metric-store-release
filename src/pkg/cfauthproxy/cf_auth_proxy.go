@@ -18,7 +18,7 @@ type CFAuthProxy struct {
 	blockOnStart bool
 	ln           net.Listener
 
-	gatewayURL      *url.URL
+	metricStoreURL  *url.URL
 	addr            string
 	certPath        string
 	keyPath         string
@@ -29,18 +29,18 @@ type CFAuthProxy struct {
 	accessMiddleware func(http.Handler) *auth.AccessHandler
 }
 
-func NewCFAuthProxy(gatewayAddr, addr, certPath, keyPath string, proxyCACertPool *x509.CertPool, opts ...CFAuthProxyOption) *CFAuthProxy {
-	gatewayURL, err := url.Parse(gatewayAddr)
+func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath string, proxyCACertPool *x509.CertPool, opts ...CFAuthProxyOption) *CFAuthProxy {
+	metricStoreURL, err := url.Parse(metricStoreAddr)
 	if err != nil {
-		log.Fatalf("failed to parse gateway address: %s", err)
+		log.Fatalf("failed to parse metric-store address: %s", err)
 	}
 
 	// Force communication with the gateway to happen via HTTPS, regardless of
 	// the scheme provided in the config
-	gatewayURL.Scheme = "https"
+	metricStoreURL.Scheme = "https"
 
 	p := &CFAuthProxy{
-		gatewayURL:      gatewayURL,
+		metricStoreURL:  metricStoreURL,
 		addr:            addr,
 		certPath:        certPath,
 		keyPath:         keyPath,
@@ -127,7 +127,7 @@ func (p *CFAuthProxy) Addr() string {
 }
 
 func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
-	proxy := httputil.NewSingleHostReverseProxy(p.gatewayURL)
+	proxy := httputil.NewSingleHostReverseProxy(p.metricStoreURL)
 
 	// Aside from the Root CA for the gateway, these values are defaults
 	// from Golang's http.DefaultTransport

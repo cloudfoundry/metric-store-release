@@ -10,22 +10,21 @@ import (
 	"log"
 	"math"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"sync/atomic"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/local"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/query"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	promLog "github.com/go-kit/kit/log"
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/common/model"
+	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	sd_config "github.com/prometheus/prometheus/discovery/config"
@@ -35,9 +34,14 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
+	v1 "github.com/prometheus/prometheus/web/api/v1"
 )
 
-const MAX_HASH = math.MaxUint64
+const (
+	MAX_HASH                      = math.MaxUint64
+	REMOTE_READ_SAMPLE_LIMIT      = 1000000
+	REMOTE_READ_CONCURRENCY_LIMIT = 50
+)
 
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
 // counters).
@@ -45,10 +49,10 @@ type MetricStore struct {
 	log *log.Logger
 
 	lis             net.Listener
-	server          *grpc.Server
+	server          *http.Server
 	ingressListener *leanstreams.TCPListener
 
-	serverOpts       []grpc.ServerOption
+	egressTLSConfig  *tls.Config
 	ingressTLSConfig *tls.Config
 	metrics          metrics.Initializer
 	closing          int64
@@ -68,7 +72,7 @@ type MetricStore struct {
 	rulesPath        string
 }
 
-func New(persistentStore storage.Storage, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
+func New(persistentStore storage.Storage, egressTLSConfig, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     log.New(ioutil.Discard, "", 0),
 		metrics: metrics.NullMetrics{},
@@ -77,6 +81,7 @@ func New(persistentStore storage.Storage, ingressTLSConfig *tls.Config, opts ...
 		queryTimeout:     10 * time.Second,
 		addr:             ":8080",
 		ingressAddr:      ":8090",
+		egressTLSConfig:  egressTLSConfig,
 		ingressTLSConfig: ingressTLSConfig,
 	}
 
@@ -120,14 +125,6 @@ func WithIngressAddr(ingressAddr string) MetricStoreOption {
 func WithAlertmanagerAddr(alertmanagerAddr string) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.alertmanagerAddr = alertmanagerAddr
-	}
-}
-
-// WithServerOpts configures the gRPC server options. It defaults to an
-// empty list.
-func WithServerOpts(opts ...grpc.ServerOption) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.serverOpts = opts
 	}
 }
 
@@ -197,7 +194,7 @@ func (store *MetricStore) processRules(queryEngine *promql.Engine) {
 		NotifyFunc:  sendAlerts(store.notifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
-		Logger:      promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stdout)),
+		Logger:      promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stderr)),
 	})
 
 	store.ruleManager.Update(5*time.Second, []string{store.rulesPath}, nil)
@@ -256,25 +253,7 @@ func (store *MetricStore) configureAlertManager() {
 }
 
 func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
-	queryEngine := query.NewEngine(
-		promQLEngine,
-		store.metrics,
-		query.WithQueryTimeout(store.queryTimeout),
-		query.WithLogger(store.log),
-	)
-
-	// gRPC
-	lis, err := net.Listen("tcp", store.addr)
-	if err != nil {
-		store.log.Fatalf("failed to listen: %v", err)
-	}
-	store.lis = lis
-	store.log.Printf("listening on %s...", store.Addr())
-
-	if store.extAddr == "" {
-		store.extAddr = store.lis.Addr().String()
-	}
-
+	// Ingress Setup
 	writeBinary := func(payload []byte) error {
 		r := &rpc.SendRequest{}
 
@@ -326,16 +305,54 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
 	}
 
-	egressReverseProxy := local.NewEgressReverseProxy(
+	// Egress Setup
+	egressAddr, err := net.ResolveTCPAddr("tcp", store.addr)
+	if err != nil {
+		store.log.Fatalf("failed to resolve egress address: %v", err)
+	}
+
+	insecureConnection, err := net.ListenTCP("tcp", egressAddr)
+	if err != nil {
+		store.log.Fatalf("failed to listen: %v", err)
+	}
+
+	secureConnection := tls.NewListener(insecureConnection, store.egressTLSConfig)
+
+	store.lis = secureConnection
+	store.log.Printf("listening on %s...", store.Addr())
+
+	apiV1 := v1.NewAPI(
+		promQLEngine,
 		store.persistentStore,
-		queryEngine,
-		local.WithLogger(store.log),
+		&nullTargetRetriever{},
+		&nullAlertmanagerRetriever{},
+		func() config.Config { return config.Config{} }, // TODO: return prom config here + reference in alertmanager
+		nil,
+		func(h http.HandlerFunc) http.HandlerFunc { return h },
+		func() v1.TSDBAdmin { return &nullTSDBAdmin{} },
+		false,
+		promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stderr)),
+		&nullRulesRetriever{},
+		REMOTE_READ_SAMPLE_LIMIT,
+		REMOTE_READ_CONCURRENCY_LIMIT,
+		&regexp.Regexp{},
 	)
-	store.server = grpc.NewServer(store.serverOpts...)
+
+	router := route.New()
+	mux := http.NewServeMux()
+	mux.Handle("/", router)
+	av1 := route.New()
+	apiV1.Register(av1)
+	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", av1))
+
+	store.server = &http.Server{
+		Handler:     mux,
+		ErrorLog:    store.log,
+		ReadTimeout: store.queryTimeout,
+	}
 
 	go func() {
-		rpc.RegisterPromQLAPIServer(store.server, egressReverseProxy)
-		if err := store.server.Serve(lis); err != nil && atomic.LoadInt64(&store.closing) == 0 {
+		if err := store.server.Serve(secureConnection); err != nil && atomic.LoadInt64(&store.closing) == 0 {
 			store.log.Fatalf("failed to serve gRPC ingress server: %s %#v", err, err)
 		}
 	}()
@@ -356,7 +373,7 @@ func (store *MetricStore) IngressAddr() string {
 // Close will shutdown the gRPC server
 func (store *MetricStore) Close() error {
 	atomic.AddInt64(&store.closing, 1)
-	store.server.GracefulStop()
+	store.server.Shutdown(context.Background())
 	store.ingressListener.Close()
 	return nil
 }

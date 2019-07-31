@@ -425,7 +425,7 @@ var _ = Describe("Persistent Store", func() {
 
 			res, err := tc.querier.LabelNames()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(ConsistOf("source_id", "ip", "job"))
+			Expect(res).To(ConsistOf("__name__", "source_id", "ip", "job"))
 		})
 	})
 

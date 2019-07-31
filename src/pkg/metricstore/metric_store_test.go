@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"time"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
@@ -19,7 +18,10 @@ import (
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/gogo/protobuf/proto"
+	prom_http_client "github.com/prometheus/client_golang/api"
+	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
@@ -37,6 +39,7 @@ type testContext struct {
 	tlsConfig *tls.Config
 	peer      *testing.SpyMetricStore
 	store     *metricstore.MetricStore
+	apiClient prom_api_client.API
 
 	spyMetrics                *testing.SpyMetrics
 	spyPersistentStoreMetrics *testing.SpyMetrics
@@ -82,12 +85,10 @@ var _ = Describe("MetricStore", func() {
 		tc.store = metricstore.New(
 			persistentStore,
 			tc.tlsConfig,
+			tc.tlsConfig,
 			metricstore.WithAddr("127.0.0.1:0"),
 			metricstore.WithIngressAddr("127.0.0.1:0"),
 			metricstore.WithMetrics(tc.spyMetrics),
-			metricstore.WithServerOpts(
-				grpc.Creds(credentials.NewTLS(tc.tlsConfig)),
-			),
 			metricstore.WithLogger(log.New(GinkgoWriter, "", 0)),
 		)
 		tc.store.Start()
@@ -95,6 +96,18 @@ var _ = Describe("MetricStore", func() {
 		return tc, func() {
 			tc.store.Close()
 		}
+	}
+
+	var createAPIClient = func(addr string, tlsConfig *tls.Config) prom_api_client.API {
+		url := &url.URL{Scheme: "https", Host: addr}
+		client, err := prom_http_client.NewClient(
+			prom_http_client.Config{
+				Address:      url.String(),
+				RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
+			},
+		)
+		Expect(err).NotTo(HaveOccurred())
+		return prom_api_client.NewAPI(client)
 	}
 
 	var setup = func() (tc *testContext, cleanup func()) {
@@ -112,6 +125,8 @@ var _ = Describe("MetricStore", func() {
 
 		tc, innerCleanup := setupWithPersistentStore(persistentStore)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
+
+		tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsConfig)
 
 		return tc, func() {
 			innerCleanup()
@@ -133,24 +148,21 @@ var _ = Describe("MetricStore", func() {
 			},
 		})
 
-		conn, err := grpc.Dial(tc.store.Addr(),
-			grpc.WithTransportCredentials(credentials.NewTLS(tc.tlsConfig)),
-		)
-		Expect(err).ToNot(HaveOccurred())
-		defer conn.Close()
-		client := rpc.NewPromQLAPIClient(conn)
-
 		f := func() error {
-			resp, err := client.InstantQuery(context.Background(), &rpc.PromQL_InstantQueryRequest{
-				Query: fmt.Sprintf(`%s{source_id="%s"}`, MEASUREMENT_NAME, "source-id"),
-				Time:  testing.FormatTimeWithDecimalMillis(now),
-			})
-			if err != nil {
-				return err
-			}
+			value, err := tc.apiClient.Query(
+				context.Background(),
+				fmt.Sprintf(`%s{source_id="%s"}`, MEASUREMENT_NAME, "source-id"),
+				now,
+			)
+			Expect(err).NotTo(HaveOccurred())
 
-			if len(resp.GetVector().GetSamples()) != 1 {
-				return errors.New("expected 1 samples")
+			switch samples := value.(type) {
+			case model.Vector:
+				if len(samples) != 1 {
+					return fmt.Errorf("expected 1 point, got %d", len(samples))
+				}
+			default:
+				return errors.New("expected result to be a model.Vector")
 			}
 
 			return nil
@@ -172,26 +184,30 @@ var _ = Describe("MetricStore", func() {
 			},
 		})
 
-		conn, err := grpc.Dial(tc.store.Addr(),
-			grpc.WithTransportCredentials(credentials.NewTLS(tc.tlsConfig)),
-		)
-		Expect(err).ToNot(HaveOccurred())
-		defer conn.Close()
-		client := rpc.NewPromQLAPIClient(conn)
-
 		f := func() error {
-			resp, err := client.RangeQuery(context.Background(), &rpc.PromQL_RangeQueryRequest{
-				Query: fmt.Sprintf(`%s{source_id="%s"}`, MEASUREMENT_NAME, "source-id"),
-				Start: testing.FormatTimeWithDecimalMillis(now.Add(-time.Minute)),
-				End:   testing.FormatTimeWithDecimalMillis(now),
-				Step:  "1m",
-			})
-			if err != nil {
-				return err
-			}
+			value, err := tc.apiClient.QueryRange(
+				context.Background(),
+				fmt.Sprintf(`%s{source_id="%s"}`, MEASUREMENT_NAME, "source-id"),
+				prom_api_client.Range{
+					Start: now.Add(-time.Minute),
+					End:   now,
+					Step:  time.Minute,
+				},
+			)
+			Expect(err).NotTo(HaveOccurred())
 
-			Expect(len(resp.GetMatrix().GetSeries())).To(Equal(1))
-			Expect(len(resp.GetMatrix().GetSeries()[0].GetPoints())).To(Equal(1))
+			switch serieses := value.(type) {
+			case model.Matrix:
+				if len(serieses) != 1 {
+					return fmt.Errorf("expected 1 series, got %d", len(serieses))
+				}
+
+				if len(serieses[0].Values) != 1 {
+					return fmt.Errorf("expected 1 sample, got %d", len(serieses[0].Values))
+				}
+			default:
+				return errors.New("expected result to be a model.Vector")
+			}
 
 			return nil
 		}
@@ -207,17 +223,8 @@ var _ = Describe("MetricStore", func() {
 			clientTlsConfig.MaxVersion = uint16(clientTLSVersion)
 			clientTlsConfig.CipherSuites = []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384}
 
-			insecureConn, err := grpc.Dial(
-				tc.store.Addr(),
-				grpc.WithTransportCredentials(
-					credentials.NewTLS(clientTlsConfig),
-				),
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			insecureClient := rpc.NewPromQLAPIClient(insecureConn)
-			req := &rpc.PromQL_InstantQueryRequest{Query: "1+1"}
-			_, err = insecureClient.InstantQuery(context.Background(), req)
+			insecureApiClient := createAPIClient(tc.store.Addr(), clientTlsConfig)
+			_, err := insecureApiClient.Query(context.Background(), "1+1", time.Now())
 
 			if serverAllows {
 				Expect(err).NotTo(HaveOccurred())
@@ -240,17 +247,8 @@ var _ = Describe("MetricStore", func() {
 			clientTlsConfig.MaxVersion = tls.VersionTLS12
 			clientTlsConfig.CipherSuites = []uint16{clientCipherSuite}
 
-			insecureConn, err := grpc.Dial(
-				tc.store.Addr(),
-				grpc.WithTransportCredentials(
-					credentials.NewTLS(clientTlsConfig),
-				),
-			)
-			Expect(err).NotTo(HaveOccurred())
-
-			insecureClient := rpc.NewPromQLAPIClient(insecureConn)
-			req := &rpc.PromQL_InstantQueryRequest{Query: "1+1"}
-			_, err = insecureClient.InstantQuery(context.Background(), req)
+			insecureApiClient := createAPIClient(tc.store.Addr(), clientTlsConfig)
+			_, err := insecureApiClient.Query(context.Background(), "1+1", time.Now())
 
 			if serverAllows {
 				Expect(err).NotTo(HaveOccurred())

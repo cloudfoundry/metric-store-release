@@ -69,33 +69,6 @@ func SeriesDataFromInfluxPoint(influxPoint *query.FloatPoint, fields []string) (
 	return sample, labels
 }
 
-func SeriesDataFromPromQLSample(promQLSample *rpc.PromQL_Sample) (seriesSample, map[string]string) {
-	labels := promQLSample.GetMetric()
-
-	point := promQLSample.GetPoint()
-	sample := seriesSample{
-		TimeInMilliseconds: point.GetTime(),
-		Value:              point.GetValue(),
-	}
-
-	return sample, labels
-}
-
-func SeriesDataFromPromQLSeries(promQLSeries *rpc.PromQL_Series) ([]seriesSample, map[string]string) {
-	labels := promQLSeries.GetMetric()
-
-	var samples []seriesSample
-	points := promQLSeries.GetPoints()
-	for _, point := range points {
-		samples = append(samples, seriesSample{
-			TimeInMilliseconds: point.GetTime(),
-			Value:              point.GetValue(),
-		})
-	}
-
-	return samples, labels
-}
-
 // PromQL Metric Name Sanitization
 // https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
 // First character: Match if it's NOT A-z, underscore, or colon [^A-z_:]

@@ -66,7 +66,7 @@ func main() {
 	proxyCACertPool := loadCA(cfg.ProxyCAPath)
 
 	proxy := NewCFAuthProxy(
-		cfg.MetricStoreGatewayAddr,
+		cfg.MetricStoreAddr,
 		cfg.Addr,
 		cfg.CertPath,
 		cfg.KeyPath,

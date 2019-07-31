@@ -1,7 +1,7 @@
 <%
   cert_dir = "/var/vcap/jobs/metric-store-cf-auth-proxy/config/certs"
 
-  gw = link('metric-store-gateway')
+  ms = link('metric-store')
   cc = link('cloud_controller')
 %>
 ---
@@ -9,7 +9,7 @@ processes:
 - name: metric-store-cf-auth-proxy
   executable: /var/vcap/packages/metric-store-cf-auth-proxy/metric-store-cf-auth-proxy
   env:
-    METRIC_STORE_GATEWAY_ADDR: "<%= "https://#{gw.p('gateway_addr')}" %>"
+    METRIC_STORE_ADDR:         "<%= ":#{ms.p('port')}" %>"
     ADDR:                      "<%= ":#{p('proxy_port')}" %>"
     INTERNAL_IP:               "<%= spec.ip %>"
     EXTERNAL_CERT:             "<%= "#{cert_dir}/external.crt" %>"

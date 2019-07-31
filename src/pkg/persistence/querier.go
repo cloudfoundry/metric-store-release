@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -39,7 +40,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 
 	var name string
 	for index, labelMatcher := range labelMatchers {
-		if labelMatcher.Name == "__name__" {
+		if labelMatcher.Name == transform.MEASUREMENT_NAME {
 			name = labelMatcher.Value
 			labelMatchers = append(labelMatchers[:index], labelMatchers[index+1:]...)
 			break
@@ -67,9 +68,13 @@ func (q *Querier) LabelNames() ([]string, error) {
 	}
 
 	var labels []string
+
 	for k := range distinctKeys {
 		labels = append(labels, k)
 	}
+
+	labels = append(labels, transform.MEASUREMENT_NAME)
+	sort.StringSlice(labels).Sort()
 
 	return labels, nil
 }

@@ -21,8 +21,6 @@ provides:
 consumes:
 - name: metric-store
   type: metric-store
-- name: metric-store-gateway
-  type: metric-store-gateway
 - name: cloud_controller
   type: cloud_controller
 

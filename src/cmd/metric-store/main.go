@@ -14,7 +14,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"google.golang.org/grpc"
 )
 
 func main() {
@@ -30,14 +29,24 @@ func main() {
 
 	envstruct.WriteReport(cfg)
 
-	tlsServerConfig, err := sharedtls.NewMutualTLSConfig(
+	tlsEgressConfig, err := sharedtls.NewMutualTLSConfig(
+		cfg.TLS.CAPath,
+		cfg.TLS.CertPath,
+		cfg.TLS.KeyPath,
+		"metric-store",
+	)
+	if err != nil {
+		log.Fatalf("invalid mTLS configuration for API Egress: %s", err)
+	}
+
+	tlsIngressConfig, err := sharedtls.NewMutualTLSConfig(
 		cfg.MetricStoreServerTLS.CAPath,
 		cfg.MetricStoreServerTLS.CertPath,
 		cfg.MetricStoreServerTLS.KeyPath,
 		"metric-store",
 	)
 	if err != nil {
-		log.Fatalf("invalid metric-store TCP server Mutual TLS configuration: %s", err)
+		log.Fatalf("invalid mTLS configuration for Ingress: %s", err)
 	}
 
 	metrics := metrics.New("metric-store")
@@ -58,13 +67,13 @@ func main() {
 
 	store := metricstore.New(
 		persistentStore,
-		tlsServerConfig,
+		tlsEgressConfig,
+		tlsIngressConfig,
 		metricstore.WithMetrics(metrics),
 		metricstore.WithAddr(cfg.Addr),
 		metricstore.WithIngressAddr(cfg.IngressAddr),
 		metricstore.WithAlertmanagerAddr(cfg.AlertmanagerAddr),
 		metricstore.WithRulesPath(cfg.RulesPath),
-		metricstore.WithServerOpts(grpc.Creds(cfg.TLS.Credentials("metric-store"))),
 		metricstore.WithLogger(metricStoreLog),
 		metricstore.WithQueryTimeout(cfg.QueryTimeout),
 	)

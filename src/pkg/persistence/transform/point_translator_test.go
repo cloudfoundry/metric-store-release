@@ -179,49 +179,6 @@ var _ = Describe("Point Translator", func() {
 		})
 	})
 
-	Describe("SeriesDataFromPromQLSample()", func() {
-		It("converts a PromQL Sample to a sample and labels", func() {
-			promQLSample := &rpc.PromQL_Sample{
-				Metric: map[string]string{"__name__": "metric_name", "foo": "bar"},
-				Point: &rpc.PromQL_Point{
-					Time:  10,
-					Value: 99.0,
-				},
-			}
-
-			sample, labels := transform.SeriesDataFromPromQLSample(promQLSample)
-
-			Expect(sample.TimeInMilliseconds).To(Equal(int64(10)))
-			Expect(sample.Value).To(Equal(99.0))
-
-			Expect(labels).To(HaveKeyWithValue("__name__", "metric_name"))
-			Expect(labels).To(HaveKeyWithValue("foo", "bar"))
-		})
-	})
-
-	Describe("SeriesDataFromPromQLSeries()", func() {
-		It("converts a PromQL Series to a sample and labels", func() {
-			promQLSeries := &rpc.PromQL_Series{
-				Metric: map[string]string{"__name__": "metric_name", "foo": "bar"},
-				Points: []*rpc.PromQL_Point{
-					{
-						Time:  10,
-						Value: 99.0,
-					},
-				},
-			}
-
-			samples, labels := transform.SeriesDataFromPromQLSeries(promQLSeries)
-
-			sample := samples[0]
-			Expect(sample.TimeInMilliseconds).To(Equal(int64(10)))
-			Expect(sample.Value).To(Equal(99.0))
-
-			Expect(labels).To(HaveKeyWithValue("__name__", "metric_name"))
-			Expect(labels).To(HaveKeyWithValue("foo", "bar"))
-		})
-	})
-
 	Describe("IsValidFloat()", func() {
 		// According to IEEE 754, infinity values are defined as:
 		// Sign bit: EIther 0 (negative infinity) or 1 (positive infinity)
