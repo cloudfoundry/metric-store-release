@@ -8,24 +8,24 @@ import (
 	tsdbLabels "github.com/prometheus/tsdb/labels"
 )
 
-type nullTargetRetriever struct{}
+type NullTargetRetriever struct{}
 
-func (tr *nullTargetRetriever) TargetsActive() map[string][]*scrape.Target  { return nil }
-func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { return nil }
+func (tr *NullTargetRetriever) TargetsActive() map[string][]*scrape.Target  { return nil }
+func (tr *NullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { return nil }
 
-type nullAlertmanagerRetriever struct{}
+type NullAlertmanagerRetriever struct{}
 
-func (ar *nullAlertmanagerRetriever) Alertmanagers() []*url.URL        { return nil }
-func (ar *nullAlertmanagerRetriever) DroppedAlertmanagers() []*url.URL { return nil }
+func (ar *NullAlertmanagerRetriever) Alertmanagers() []*url.URL        { return nil }
+func (ar *NullAlertmanagerRetriever) DroppedAlertmanagers() []*url.URL { return nil }
 
-type nullRulesRetriever struct{}
+type NullRulesRetriever struct{}
 
-func (rr *nullRulesRetriever) RuleGroups() []*rules.Group           { return nil }
-func (rr *nullRulesRetriever) AlertingRules() []*rules.AlertingRule { return nil }
+func (rr *NullRulesRetriever) RuleGroups() []*rules.Group           { return nil }
+func (rr *NullRulesRetriever) AlertingRules() []*rules.AlertingRule { return nil }
 
-type nullTSDBAdmin struct{}
+type NullTSDBAdmin struct{}
 
-func (a *nullTSDBAdmin) CleanTombstones() error                           { return nil }
-func (a *nullTSDBAdmin) Delete(int64, int64, ...tsdbLabels.Matcher) error { return nil }
-func (a *nullTSDBAdmin) Dir() string                                      { return "" }
-func (a *nullTSDBAdmin) Snapshot(string, bool) error                      { return nil }
+func (a *NullTSDBAdmin) CleanTombstones() error                           { return nil }
+func (a *NullTSDBAdmin) Delete(int64, int64, ...tsdbLabels.Matcher) error { return nil }
+func (a *NullTSDBAdmin) Dir() string                                      { return "" }
+func (a *NullTSDBAdmin) Snapshot(string, bool) error                      { return nil }
