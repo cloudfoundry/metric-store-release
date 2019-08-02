@@ -74,7 +74,7 @@ func (q *Querier) LabelNames() ([]string, error) {
 	}
 
 	labels = append(labels, transform.MEASUREMENT_NAME)
-	sort.StringSlice(labels).Sort()
+	sort.Strings(labels)
 
 	return labels, nil
 }
@@ -96,6 +96,7 @@ func (q *Querier) LabelValues(name string) ([]string, error) {
 	for v := range distinctValues {
 		values = append(values, v)
 	}
+	sort.Strings(values)
 
 	return values, nil
 }

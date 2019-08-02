@@ -425,7 +425,7 @@ var _ = Describe("Persistent Store", func() {
 
 			res, err := tc.querier.LabelNames()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(ConsistOf("__name__", "source_id", "ip", "job"))
+			Expect(res).To(Equal([]string{"__name__", "ip", "job", "source_id"}))
 		})
 	})
 
@@ -435,15 +435,15 @@ var _ = Describe("Persistent Store", func() {
 			defer teardown(tc)
 
 			tc.storePointWithLabels(1, "metric-one", 1, map[string]string{
-				"source_id": "1",
+				"source_id": "10",
 			})
 			tc.storePointWithLabels(1, "metric-two", 1, map[string]string{
-				"source_id": "10",
+				"source_id": "1",
 			})
 
 			res, err := tc.querier.LabelValues("source_id")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(ConsistOf("1", "10"))
+			Expect(res).To(Equal([]string{"1", "10"}))
 		})
 
 		It("returns all measurement names for label __name__", func() {
