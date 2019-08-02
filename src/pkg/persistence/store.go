@@ -147,6 +147,7 @@ func (store *Store) Appender() (storage.Appender, error) {
 	return NewAppender(
 		store.adapter,
 		WithLabelTruncationLength(store.labelTruncationLength),
+		WithAppenderLogger(store.log),
 	), nil
 }
 

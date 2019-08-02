@@ -283,6 +283,7 @@ var _ = Describe("Persistent Store", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			series := testing.ExplodeSeriesSet(seriesSet)
+
 			Expect(series).To(ConsistOf(
 				testing.Series{
 					Labels: map[string]string{"__name__": "counter"},
@@ -506,7 +507,7 @@ var _ = Describe("Persistent Store", func() {
 			))
 		})
 
-		It("truncates oldest points", func() {
+		It("truncates oldest points when disk space is below the target", func() {
 			tc := setup(
 				withDiskFreePercentTarget(10),
 			)
@@ -517,8 +518,9 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storePoint(1, "counter", 1)
 			tc.storePoint(nowInMilliseconds, "counter", 2)
+
 			Eventually(func() bool {
-				return tc.metrics.Getter("metric_store_num_shards_pruned")() == 1
+				return tc.metrics.Getter("metric_store_num_shards_pruned")() >= 1
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
@@ -579,8 +581,8 @@ func (tc *storeTestContext) storePointWithLabels(ts int64, name string, value fl
 	appender, _ := tc.store.Appender()
 	pointLabels := labels.FromMap(addLabels)
 	pointLabels = append(pointLabels, labels.Label{Name: "__name__", Value: name})
-	appender.Add(pointLabels, ts*int64(time.Millisecond), value)
-	appender.Commit()
+
+	appender.AddFast(pointLabels, 0, ts*int64(time.Millisecond), value)
 }
 
 func (tc *storeTestContext) storeDefaultFilteringPoints() {
