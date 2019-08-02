@@ -104,6 +104,11 @@ own with the `.proto` files. This will require a bosh deployed component to
 receive `metric-store` bosh links for certificate sharing. The resulting
 client interaction has admin access.
 
+#### Using Grafana to visualize metrics
+
+See [Set up Metric Store with Grafana](/docs/setup-grafana.md) in the docs
+directory.
+
 ## Contributing
 
 We'd love to hear feedback about your experiences with Metric Store. Please feel free to open up an [issue][issues], send us a [pull request][prs], or come chat with us on [Cloud Foundry Slack][slack-channel].
