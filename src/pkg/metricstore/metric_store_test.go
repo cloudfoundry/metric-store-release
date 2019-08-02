@@ -140,7 +140,7 @@ var _ = Describe("MetricStore", func() {
 		})
 
 		f := func() error {
-			value, err := tc.apiClient.Query(
+			value, _, err := tc.apiClient.Query(
 				context.Background(),
 				fmt.Sprintf(`%s{source_id="%s"}`, MEASUREMENT_NAME, "source-id"),
 				now,
@@ -176,7 +176,7 @@ var _ = Describe("MetricStore", func() {
 		})
 
 		f := func() error {
-			value, err := tc.apiClient.QueryRange(
+			value, _, err := tc.apiClient.QueryRange(
 				context.Background(),
 				fmt.Sprintf(`%s{source_id="%s"}`, MEASUREMENT_NAME, "source-id"),
 				prom_api_client.Range{
@@ -215,7 +215,7 @@ var _ = Describe("MetricStore", func() {
 			clientTlsConfig.CipherSuites = []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384}
 
 			insecureApiClient := createAPIClient(tc.store.Addr(), clientTlsConfig)
-			_, err := insecureApiClient.Query(context.Background(), "1+1", time.Now())
+			_, _, err := insecureApiClient.Query(context.Background(), "1+1", time.Now())
 
 			if serverAllows {
 				Expect(err).NotTo(HaveOccurred())
@@ -239,7 +239,7 @@ var _ = Describe("MetricStore", func() {
 			clientTlsConfig.CipherSuites = []uint16{clientCipherSuite}
 
 			insecureApiClient := createAPIClient(tc.store.Addr(), clientTlsConfig)
-			_, err := insecureApiClient.Query(context.Background(), "1+1", time.Now())
+			_, _, err := insecureApiClient.Query(context.Background(), "1+1", time.Now())
 
 			if serverAllows {
 				Expect(err).NotTo(HaveOccurred())
