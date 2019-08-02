@@ -13,10 +13,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"sync/atomic"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/api"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -24,7 +24,6 @@ import (
 	promLog "github.com/go-kit/kit/log"
 	"github.com/gogo/protobuf/proto"
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
 	sd_config "github.com/prometheus/prometheus/discovery/config"
@@ -34,13 +33,10 @@ import (
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
-	v1 "github.com/prometheus/prometheus/web/api/v1"
 )
 
 const (
-	MAX_HASH                      = math.MaxUint64
-	REMOTE_READ_SAMPLE_LIMIT      = 1000000
-	REMOTE_READ_CONCURRENCY_LIMIT = 50
+	MAX_HASH = math.MaxUint64
 )
 
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
@@ -321,29 +317,11 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	store.lis = secureConnection
 	store.log.Printf("listening on %s...", store.Addr())
 
-	apiV1 := v1.NewAPI(
-		promQLEngine,
-		store.persistentStore,
-		&NullTargetRetriever{},
-		&NullAlertmanagerRetriever{},
-		func() config.Config { return config.Config{} }, // TODO: return prom config here + reference in alertmanager
-		nil,
-		func(h http.HandlerFunc) http.HandlerFunc { return h },
-		func() v1.TSDBAdmin { return &NullTSDBAdmin{} },
-		false,
-		promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stderr)),
-		&NullRulesRetriever{},
-		REMOTE_READ_SAMPLE_LIMIT,
-		REMOTE_READ_CONCURRENCY_LIMIT,
-		&regexp.Regexp{},
-	)
+	promAPI := api.NewPromAPI(promQLEngine)
+	apiV1 := promAPI.RouterForStorage(store.persistentStore)
 
-	router := route.New()
 	mux := http.NewServeMux()
-	mux.Handle("/", router)
-	av1 := route.New()
-	apiV1.Register(av1)
-	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", av1))
+	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", apiV1))
 
 	store.server = &http.Server{
 		Handler:     mux,

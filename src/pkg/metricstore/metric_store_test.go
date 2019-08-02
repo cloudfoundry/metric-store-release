@@ -7,18 +7,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/api"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/gogo/protobuf/proto"
-	prom_http_client "github.com/prometheus/client_golang/api"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
@@ -99,15 +97,8 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var createAPIClient = func(addr string, tlsConfig *tls.Config) prom_api_client.API {
-		url := &url.URL{Scheme: "https", Host: addr}
-		client, err := prom_http_client.NewClient(
-			prom_http_client.Config{
-				Address:      url.String(),
-				RoundTripper: &http.Transport{TLSClientConfig: tlsConfig},
-			},
-		)
-		Expect(err).NotTo(HaveOccurred())
-		return prom_api_client.NewAPI(client)
+		client, _ := api.NewPromHTTPClient(addr, "", tlsConfig)
+		return client
 	}
 
 	var setup = func() (tc *testContext, cleanup func()) {
