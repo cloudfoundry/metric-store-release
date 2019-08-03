@@ -59,7 +59,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 	return builder.SeriesSet(), nil, nil
 }
 
-func (q *Querier) LabelNames() ([]string, error) {
+func (q *Querier) LabelNames() ([]string, storage.Warnings, error) {
 	distinctKeys := make(map[string]struct{})
 
 	tagKeys := q.adapter.AllTagKeys()
@@ -76,15 +76,15 @@ func (q *Querier) LabelNames() ([]string, error) {
 	labels = append(labels, transform.MEASUREMENT_NAME)
 	sort.Strings(labels)
 
-	return labels, nil
+	return labels, nil, nil
 }
 
-func (q *Querier) LabelValues(name string) ([]string, error) {
+func (q *Querier) LabelValues(name string) ([]string, storage.Warnings, error) {
 	distinctValues := make(map[string]struct{})
 
 	if name == transform.MEASUREMENT_NAME {
 		values := q.adapter.AllMeasurementNames()
-		return values, nil
+		return values, nil, nil
 	}
 
 	tagValues := q.adapter.AllTagValues(name)
@@ -98,7 +98,7 @@ func (q *Querier) LabelValues(name string) ([]string, error) {
 	}
 	sort.Strings(values)
 
-	return values, nil
+	return values, nil, nil
 }
 
 func (q *Querier) Close() error {

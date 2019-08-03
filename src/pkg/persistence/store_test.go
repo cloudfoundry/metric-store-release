@@ -424,7 +424,7 @@ var _ = Describe("Persistent Store", func() {
 				"source_id": "1", "job": "1",
 			})
 
-			res, err := tc.querier.LabelNames()
+			res, _, err := tc.querier.LabelNames()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal([]string{"__name__", "ip", "job", "source_id"}))
 		})
@@ -442,7 +442,7 @@ var _ = Describe("Persistent Store", func() {
 				"source_id": "1",
 			})
 
-			res, err := tc.querier.LabelValues("source_id")
+			res, _, err := tc.querier.LabelValues("source_id")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal([]string{"1", "10"}))
 		})
@@ -462,7 +462,7 @@ var _ = Describe("Persistent Store", func() {
 				"user_agent": "10",
 			})
 
-			res, err := tc.querier.LabelValues("__name__")
+			res, _, err := tc.querier.LabelValues("__name__")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(ConsistOf("metric-one", "metric-two"))
 		})
