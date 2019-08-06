@@ -34,16 +34,6 @@
             ca_cert: ((metric_store_server.ca))
             cert: ((metric_store_server.certificate))
             key: ((metric_store_server.private_key))
-    - name: metric-store-gateway
-      release: metric-store
-      provides:
-        metric-store-gateway: {as: metric-store-gateway}
-      consumes:
-        metric-store: {from: metric-store}
-      properties:
-        gateway_addr: localhost:8081
-        proxy_cert: "((metric_store_proxy_tls.certificate))"
-        proxy_key: "((metric_store_proxy_tls.private_key))"
     - name: metric-store-nozzle
       release: metric-store
       provides:
@@ -77,12 +67,6 @@
             uris:
             - metric-store.((system_domain))
             - "*.metric-store.((system_domain))"
-    - name: prom_scraper
-      release: loggregator-agent
-      consumes:
-        loggregator: {from: loggregator, deployment: cf}
-      properties:
-        metrics_urls: "http://localhost:6060/metrics,http://localhost:6061/metrics,http://localhost:6065/metrics"
     - name: metric-store-cf-auth-proxy
       release: metric-store
       provides:
