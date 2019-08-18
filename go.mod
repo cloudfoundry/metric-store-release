@@ -34,7 +34,7 @@ require (
 	github.com/onsi/gomega v1.5.0
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.0.0
-	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
+	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.5.0
 	github.com/prometheus/procfs v0.0.3 // indirect
 	github.com/prometheus/prometheus v0.0.0-20190710134608-e5b22494857d
