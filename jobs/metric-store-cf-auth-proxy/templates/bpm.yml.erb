@@ -9,7 +9,7 @@ processes:
 - name: metric-store-cf-auth-proxy
   executable: /var/vcap/packages/metric-store-cf-auth-proxy/metric-store-cf-auth-proxy
   env:
-    METRIC_STORE_ADDR:         "<%= ":#{ms.p('port')}" %>"
+    METRIC_STORE_ADDR:         "<%= "localhost:#{ms.p('port')}" %>"
     ADDR:                      "<%= ":#{p('proxy_port')}" %>"
     INTERNAL_IP:               "<%= spec.ip %>"
     EXTERNAL_CERT:             "<%= "#{cert_dir}/external.crt" %>"
