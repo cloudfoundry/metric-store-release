@@ -31,36 +31,12 @@ var _ = Describe("CFAuthProxy", func() {
 		Expect(ok).To(BeTrue())
 	})
 
-	It("only proxies requests to a secure log cache gateway", func() {
-		gateway := startSecureGateway("Hello World!")
-		defer gateway.Close()
+	It("only proxies requests to metric-store", func() {
+		metricstore := startMetricStore("Hello World!")
+		defer metricstore.Close()
 
 		proxy := NewCFAuthProxy(
-			gateway.URL,
-			"127.0.0.1:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
-			proxyCACertPool,
-		)
-		proxy.Start()
-
-		resp, err := makeTLSReq("https", proxy.Addr())
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		body, _ := ioutil.ReadAll(resp.Body)
-		Expect(body).To(Equal([]byte("Hello World!")))
-	})
-
-	It("upgrades insecure gateway scheme to HTTPS", func() {
-		gateway := startSecureGateway("Hello World!")
-		defer gateway.Close()
-
-		insecureGatewayURL, err := url.Parse(gateway.URL)
-		insecureGatewayURL.Scheme = "http"
-
-		proxy := NewCFAuthProxy(
-			insecureGatewayURL.String(),
+			AddrFromURL(metricstore.URL),
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
@@ -77,11 +53,11 @@ var _ = Describe("CFAuthProxy", func() {
 	})
 
 	It("authenticates with mTLS", func() {
-		gateway := startMTLSSecureGateway("Hello World!")
-		defer gateway.Close()
+		metricstore := startMTLSMetricStore("Hello World!")
+		defer metricstore.Close()
 
 		proxy := NewCFAuthProxy(
-			gateway.URL,
+			AddrFromURL(metricstore.URL),
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
@@ -103,18 +79,18 @@ var _ = Describe("CFAuthProxy", func() {
 		Expect(body).To(Equal([]byte("Hello World!")))
 	})
 
-	It("returns an error when proxying requests to an insecure log cache gateway", func() {
+	It("returns an error when proxying requests to an insecure metric-store", func() {
 		// suppress tls error in test
 		log.SetOutput(ioutil.Discard)
 
 		testServer := httptest.NewServer(
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Write([]byte("Insecure Gateway not allowed, lol"))
+				w.Write([]byte("Insecure MetricStore not allowed, lol"))
 			}))
 		defer testServer.Close()
 
 		proxy := NewCFAuthProxy(
-			testServer.URL,
+			AddrFromURL(testServer.URL),
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
@@ -136,7 +112,7 @@ var _ = Describe("CFAuthProxy", func() {
 		})
 
 		proxy := NewCFAuthProxy(
-			"https://127.0.0.1",
+			"127.0.0.1",
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
@@ -162,7 +138,7 @@ var _ = Describe("CFAuthProxy", func() {
 		})
 
 		proxy := NewCFAuthProxy(
-			"https://127.0.0.1",
+			"127.0.0.1",
 			"127.0.0.1:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
@@ -185,7 +161,7 @@ var _ = Describe("CFAuthProxy", func() {
 			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {}),
 		)
 		proxy := NewCFAuthProxy(
-			testServer.URL,
+			AddrFromURL(testServer.URL),
 			"localhost:0",
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
@@ -200,17 +176,17 @@ var _ = Describe("CFAuthProxy", func() {
 	})
 })
 
-func startSecureGateway(responseBody string) *httptest.Server {
-	testGateway := httptest.NewTLSServer(
+func startMetricStore(responseBody string) *httptest.Server {
+	testMetricStore := httptest.NewTLSServer(
 		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(responseBody))
 		}),
 	)
-	return testGateway
+	return testMetricStore
 }
 
-func startMTLSSecureGateway(responseBody string) *httptest.Server {
-	testGateway := httptest.NewUnstartedServer(
+func startMTLSMetricStore(responseBody string) *httptest.Server {
+	testMetricStore := httptest.NewUnstartedServer(
 		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(responseBody))
 		}),
@@ -225,10 +201,10 @@ func startMTLSSecureGateway(responseBody string) *httptest.Server {
 	Expect(err).ToNot(HaveOccurred())
 
 	tlsConfig.ClientAuth = tls.RequireAnyClientCert
-	testGateway.TLS = tlsConfig
-	testGateway.StartTLS()
+	testMetricStore.TLS = tlsConfig
+	testMetricStore.StartTLS()
 
-	return testGateway
+	return testMetricStore
 }
 
 func makeTLSReq(scheme, addr string) (*http.Response, error) {
@@ -241,4 +217,9 @@ func makeTLSReq(scheme, addr string) (*http.Response, error) {
 	client := &http.Client{Transport: tr}
 
 	return client.Do(req)
+}
+
+func AddrFromURL(u string) string {
+	url, _ := url.Parse(u)
+	return fmt.Sprintf("%s:%s", url.Hostname(), url.Port())
 }

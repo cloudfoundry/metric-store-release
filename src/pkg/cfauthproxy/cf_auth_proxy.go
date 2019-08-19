@@ -3,6 +3,7 @@ package cfauthproxy
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -30,14 +31,11 @@ type CFAuthProxy struct {
 }
 
 func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath string, proxyCACertPool *x509.CertPool, opts ...CFAuthProxyOption) *CFAuthProxy {
-	metricStoreURL, err := url.Parse(metricStoreAddr)
+	// Force communication with Metric Store to happen via HTTPS
+	metricStoreURL, err := url.Parse(fmt.Sprintf("https://%s", metricStoreAddr))
 	if err != nil {
 		log.Fatalf("failed to parse metric-store address: %s", err)
 	}
-
-	// Force communication with the gateway to happen via HTTPS, regardless of
-	// the scheme provided in the config
-	metricStoreURL.Scheme = "https"
 
 	p := &CFAuthProxy{
 		metricStoreURL:  metricStoreURL,
