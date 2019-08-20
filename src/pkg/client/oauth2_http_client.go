@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -94,6 +95,9 @@ func (f oauth2HTTPClientOptionFunc) configure(c *Oauth2HTTPClient) {
 // Do modifies the given Request. It is invalid to use the same Request
 // instance on multiple go-routines.
 func (c *Oauth2HTTPClient) Do(ctx context.Context, req *http.Request) (*http.Response, []byte, promhttp.Warnings, error) {
+	var body []byte
+	done := make(chan struct{})
+
 	if ctx != nil {
 		req = req.WithContext(ctx)
 	}
@@ -102,7 +106,32 @@ func (c *Oauth2HTTPClient) Do(ctx context.Context, req *http.Request) (*http.Res
 		// Authorization Header is pre-populated, so just do the request.
 		res, err := c.c.Do(req)
 
-		return res, nil, nil, err
+		defer func() {
+			if res != nil {
+				res.Body.Close()
+			}
+		}()
+
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		go func() {
+			body, err = ioutil.ReadAll(res.Body)
+			close(done)
+		}()
+
+		select {
+		case <-ctx.Done():
+			<-done
+			err = res.Body.Close()
+			if err == nil {
+				err = ctx.Err()
+			}
+		case <-done:
+		}
+
+		return res, body, nil, err
 	}
 
 	token, err := c.getToken()
@@ -113,16 +142,38 @@ func (c *Oauth2HTTPClient) Do(ctx context.Context, req *http.Request) (*http.Res
 	req.Header.Set("Authorization", token)
 
 	res, err := c.c.Do(req)
+
+	defer func() {
+		if res != nil {
+			res.Body.Close()
+		}
+	}()
+
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
-		c.token = ""
-		return res, nil, nil, nil
+	go func() {
+		body, err = ioutil.ReadAll(res.Body)
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+		<-done
+		err = res.Body.Close()
+		if err == nil {
+			err = ctx.Err()
+		}
+	case <-done:
 	}
 
-	return res, nil, nil, nil
+	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
+		c.token = ""
+		return res, body, nil, nil
+	}
+
+	return res, body, nil, nil
 }
 
 func (c *Oauth2HTTPClient) URL(ep string, args map[string]string) *url.URL {
