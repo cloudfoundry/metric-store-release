@@ -14,8 +14,6 @@ import (
 //go:generate msgp -unexported
 
 type container interface {
-	addOffset(uint16) []container
-
 	clone() container
 	and(container) container
 	andCardinality(container) int
@@ -459,7 +457,8 @@ func (ra *roaringArray) serializedSizeInBytes() uint64 {
 //
 // spec: https://github.com/RoaringBitmap/RoaringFormatSpec
 //
-func (ra *roaringArray) writeTo(w io.Writer) (n int64, err error) {
+func (ra *roaringArray) toBytes() ([]byte, error) {
+	stream := &bytes.Buffer{}
 	hasRun := ra.hasRunCompression()
 	isRunSizeInBytes := 0
 	cookieSize := 8
@@ -524,29 +523,33 @@ func (ra *roaringArray) writeTo(w io.Writer) (n int64, err error) {
 		}
 	}
 
-	written, err := w.Write(buf[:nw])
+	_, err := stream.Write(buf[:nw])
 	if err != nil {
-		return n, err
+		return nil, err
 	}
-	n += int64(written)
-
-	for _, c := range ra.containers {
-		written, err := c.writeTo(w)
+	for i, c := range ra.containers {
+		_ = i
+		_, err := c.writeTo(stream)
 		if err != nil {
-			return n, err
+			return nil, err
 		}
-		n += int64(written)
 	}
-	return n, nil
+	return stream.Bytes(), nil
 }
 
 //
 // spec: https://github.com/RoaringBitmap/RoaringFormatSpec
 //
-func (ra *roaringArray) toBytes() ([]byte, error) {
-	var buf bytes.Buffer
-	_, err := ra.writeTo(&buf)
-	return buf.Bytes(), err
+func (ra *roaringArray) writeTo(out io.Writer) (int64, error) {
+	by, err := ra.toBytes()
+	if err != nil {
+		return 0, err
+	}
+	n, err := out.Write(by)
+	if err == nil && n < len(by) {
+		err = io.ErrShortWrite
+	}
+	return int64(n), err
 }
 
 func (ra *roaringArray) fromBuffer(buf []byte) (int64, error) {

@@ -12,6 +12,10 @@ func isComment(b []rune) bool {
 		return true
 	case '#':
 		return true
+	case '/':
+		if len(b) > 1 {
+			return b[1] == '/'
+		}
 	}
 
 	return false

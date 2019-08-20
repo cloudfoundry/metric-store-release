@@ -119,6 +119,7 @@ func (ac *arrayContainer) iremoveRange(firstOfRange, endx int) container {
 // flip the values in the range [firstOfRange,endx)
 func (ac *arrayContainer) not(firstOfRange, endx int) container {
 	if firstOfRange >= endx {
+		//p("arrayContainer.not(): exiting early with ac.clone()")
 		return ac.clone()
 	}
 	return ac.notClose(firstOfRange, endx-1) // remove everything in [firstOfRange,endx-1]
@@ -127,15 +128,18 @@ func (ac *arrayContainer) not(firstOfRange, endx int) container {
 // flip the values in the range [firstOfRange,lastOfRange]
 func (ac *arrayContainer) notClose(firstOfRange, lastOfRange int) container {
 	if firstOfRange > lastOfRange { // unlike add and remove, not uses an inclusive range [firstOfRange,lastOfRange]
+		//p("arrayContainer.notClose(): exiting early with ac.clone()")
 		return ac.clone()
 	}
 
 	// determine the span of array indices to be affected^M
 	startIndex := binarySearch(ac.content, uint16(firstOfRange))
+	//p("startIndex=%v", startIndex)
 	if startIndex < 0 {
 		startIndex = -startIndex - 1
 	}
 	lastIndex := binarySearch(ac.content, uint16(lastOfRange))
+	//p("lastIndex=%v", lastIndex)
 	if lastIndex < 0 {
 		lastIndex = -lastIndex - 2
 	}
@@ -144,7 +148,9 @@ func (ac *arrayContainer) notClose(firstOfRange, lastOfRange int) container {
 	newValuesInRange := spanToBeFlipped - currentValuesInRange
 	cardinalityChange := newValuesInRange - currentValuesInRange
 	newCardinality := len(ac.content) + cardinalityChange
+	//p("new card is %v", newCardinality)
 	if newCardinality > arrayDefaultMaxSize {
+		//p("new card over arrayDefaultMaxSize, so returning bitmap")
 		return ac.toBitmapContainer().not(firstOfRange, lastOfRange+1)
 	}
 	answer := newArrayContainer()
@@ -501,6 +507,7 @@ func (ac *arrayContainer) lazyorArray(value2 *arrayContainer) container {
 }
 
 func (ac *arrayContainer) and(a container) container {
+	//p("ac.and() called")
 	switch x := a.(type) {
 	case *arrayContainer:
 		return ac.andArray(x)
@@ -719,6 +726,7 @@ func (ac *arrayContainer) inot(firstOfRange, endx int) container {
 
 // flip the values in the range [firstOfRange,lastOfRange]
 func (ac *arrayContainer) inotClose(firstOfRange, lastOfRange int) container {
+	//p("ac.inotClose() starting")
 	if firstOfRange > lastOfRange { // unlike add and remove, not uses an inclusive range [firstOfRange,lastOfRange]
 		return ac
 	}
@@ -741,6 +749,7 @@ func (ac *arrayContainer) inotClose(firstOfRange, lastOfRange int) container {
 	if cardinalityChange > 0 {
 		if newCardinality > len(ac.content) {
 			if newCardinality > arrayDefaultMaxSize {
+				//p("ac.inotClose() converting to bitmap and doing inot there")
 				bcRet := ac.toBitmapContainer()
 				bcRet.inot(firstOfRange, lastOfRange+1)
 				*ac = *bcRet.toArrayContainer()
@@ -761,6 +770,7 @@ func (ac *arrayContainer) inotClose(firstOfRange, lastOfRange int) container {
 		}
 	}
 	ac.content = ac.content[:newCardinality]
+	//p("bottom of ac.inotClose(): returning ac")
 	return ac
 }
 
@@ -951,18 +961,4 @@ func (ac *arrayContainer) toEfficientContainer() container {
 
 func (ac *arrayContainer) containerType() contype {
 	return arrayContype
-}
-
-func (ac *arrayContainer) addOffset(x uint16) []container {
-	low := &arrayContainer{}
-	high := &arrayContainer{}
-	for _, val := range ac.content {
-		y := uint32(val) + uint32(x)
-		if highbits(y) > 0 {
-			high.content = append(high.content, lowbits(y))
-		} else {
-			low.content = append(low.content, lowbits(y))
-		}
-	}
-	return []container{low, high}
 }

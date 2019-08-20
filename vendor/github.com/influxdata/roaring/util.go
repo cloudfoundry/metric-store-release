@@ -17,7 +17,7 @@ const (
 	// MaxUint32 is the largest uint32 value.
 	MaxUint32 = 4294967295
 
-	// MaxRange is One more than the maximum allowed bitmap bit index. For use as an upper
+	// One more than the maximum allowed bitmap bit index. For use as an upper
 	// bound for ranges.
 	MaxRange uint64 = MaxUint32 + 1
 
@@ -125,6 +125,7 @@ func flipBitmapRange(bitmap []uint64, start int, end int) {
 	endword := (end - 1) / 64
 	bitmap[firstword] ^= ^(^uint64(0) << uint(start%64))
 	for i := firstword; i < endword; i++ {
+		//p("flipBitmapRange on i=%v", i)
 		bitmap[i] = ^bitmap[i]
 	}
 	bitmap[endword] ^= ^uint64(0) >> (uint(-end) % 64)
