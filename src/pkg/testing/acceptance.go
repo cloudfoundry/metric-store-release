@@ -1,47 +1,16 @@
 package testing
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 	"os/exec"
 	"sync"
 
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
-
-func NewIngressClient(addr string) (client rpc.IngressClient, cleanup func()) {
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(
-		GrpcTLSCredentials(),
-	))
-	if err != nil {
-		panic(err)
-	}
-
-	return rpc.NewIngressClient(conn), func() {
-		conn.Close()
-	}
-}
-
-func MakeTLSReq(addr, path string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s/%s", addr, path), nil)
-	Expect(err).ToNot(HaveOccurred())
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: tr}
-
-	return client.Do(req)
-}
 
 func WaitForHealthCheck(healthPort string) {
 	Eventually(func() error {
@@ -52,21 +21,6 @@ func WaitForHealthCheck(healthPort string) {
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("healthcheck returned non-OK status: %d", resp.StatusCode)
-		}
-
-		return nil
-	}, 5).Should(Succeed())
-}
-
-func WaitForServer(addr string) {
-	Eventually(func() error {
-		resp, err := MakeTLSReq(addr, "api/v1/labels")
-		if err != nil {
-			return err
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("api/v1/labels returned non-OK status: %d", resp.StatusCode)
 		}
 
 		return nil
@@ -99,18 +53,6 @@ func StartGoProcess(importPath string, env []string, args ...string) *gexec.Sess
 	}).Should(Succeed())
 
 	return session
-}
-
-func GrpcTLSCredentials() credentials.TransportCredentials {
-	credentials, err := sharedtls.NewTLSCredentials(
-		Cert("metric-store-ca.crt"),
-		Cert("metric-store.crt"),
-		Cert("metric-store.key"),
-		"metric-store",
-	)
-	Expect(err).ToNot(HaveOccurred())
-
-	return credentials
 }
 
 func GetFreePort() int {

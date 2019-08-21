@@ -23,7 +23,7 @@ var _ = Describe("CFAuthProxy", func() {
 	var proxyCACertPool *x509.CertPool
 
 	BeforeEach(func() {
-		proxyCACert, err := ioutil.ReadFile(testing.Cert("localhost.crt"))
+		proxyCACert, err := ioutil.ReadFile(testing.Cert("metric-store-ca.crt"))
 		Expect(err).To(BeNil())
 
 		proxyCACertPool = x509.NewCertPool()
@@ -31,7 +31,7 @@ var _ = Describe("CFAuthProxy", func() {
 		Expect(ok).To(BeTrue())
 	})
 
-	It("only proxies requests to metric-store", func() {
+	It("proxies requests to Metric Store", func() {
 		metricstore := startMetricStore("Hello World!")
 		defer metricstore.Close()
 
@@ -41,32 +41,11 @@ var _ = Describe("CFAuthProxy", func() {
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),
 			proxyCACertPool,
-		)
-		proxy.Start()
-
-		resp, err := makeTLSReq("https", proxy.Addr())
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		body, _ := ioutil.ReadAll(resp.Body)
-		Expect(body).To(Equal([]byte("Hello World!")))
-	})
-
-	It("authenticates with mTLS", func() {
-		metricstore := startMTLSMetricStore("Hello World!")
-		defer metricstore.Close()
-
-		proxy := NewCFAuthProxy(
-			AddrFromURL(metricstore.URL),
-			"127.0.0.1:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
-			proxyCACertPool,
 			WithClientTLS(
-				testing.Cert("localhost.crt"),
+				testing.Cert("metric-store-ca.crt"),
 				testing.Cert("localhost.crt"),
 				testing.Cert("localhost.key"),
-				"example.com",
+				"localhost",
 			),
 		)
 		proxy.Start()
@@ -177,15 +156,6 @@ var _ = Describe("CFAuthProxy", func() {
 })
 
 func startMetricStore(responseBody string) *httptest.Server {
-	testMetricStore := httptest.NewTLSServer(
-		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.Write([]byte(responseBody))
-		}),
-	)
-	return testMetricStore
-}
-
-func startMTLSMetricStore(responseBody string) *httptest.Server {
 	testMetricStore := httptest.NewUnstartedServer(
 		http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(responseBody))
@@ -193,10 +163,10 @@ func startMTLSMetricStore(responseBody string) *httptest.Server {
 	)
 
 	tlsConfig, err := sharedtls.NewMutualTLSConfig(
-		testing.Cert("localhost.crt"),
+		testing.Cert("metric-store-ca.crt"),
 		testing.Cert("localhost.crt"),
 		testing.Cert("localhost.key"),
-		"",
+		"localhost",
 	)
 	Expect(err).ToNot(HaveOccurred())
 

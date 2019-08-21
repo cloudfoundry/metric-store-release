@@ -1,6 +1,7 @@
 package metricstore_test
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -19,7 +20,10 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	prom_api_client "github.com/prometheus/client_golang/api"
+	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/notifier"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
@@ -34,6 +38,51 @@ var __ *metricstore.MetricStore
 
 var storagePath = "/tmp/metric-store-node"
 
+type testInstantQuery struct {
+	Query         string
+	TimeInSeconds string
+}
+
+func (q *testInstantQuery) Timestamp() time.Time {
+	timeInSeconds, _ := strconv.Atoi(q.TimeInSeconds)
+	return time.Unix(int64(timeInSeconds), 0)
+}
+
+type testRangeQuery struct {
+	Query          string
+	StartInSeconds string
+	EndInSeconds   string
+	StepDuration   string
+}
+
+func (q *testRangeQuery) Range() prom_versioned_api_client.Range {
+	startTimeInSeconds, _ := strconv.Atoi(q.StartInSeconds)
+	endTimeInSeconds, _ := strconv.Atoi(q.EndInSeconds)
+	stepDuration, _ := time.ParseDuration(q.StepDuration)
+
+	return prom_versioned_api_client.Range{
+		Start: time.Unix(int64(startTimeInSeconds), 0),
+		End:   time.Unix(int64(endTimeInSeconds), 0),
+		Step:  stepDuration,
+	}
+}
+
+type testSeriesQuery struct {
+	Match          []string
+	StartInSeconds string
+	EndInSeconds   string
+}
+
+func (q *testSeriesQuery) StartTimestamp() time.Time {
+	timeInSeconds, _ := strconv.Atoi(q.StartInSeconds)
+	return time.Unix(int64(timeInSeconds), 0)
+}
+
+func (q *testSeriesQuery) EndTimestamp() time.Time {
+	timeInSeconds, _ := strconv.Atoi(q.EndInSeconds)
+	return time.Unix(int64(timeInSeconds), 0)
+}
+
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
 		addr               string
@@ -41,9 +90,11 @@ var _ = Describe("MetricStore", func() {
 		healthPort         string
 		metricStoreProcess *gexec.Session
 		tlsConfig          *tls.Config
+		tlsConfigLocal     *tls.Config
 
 		rulesPath        string
 		alertmanagerAddr string
+		egressClient     prom_versioned_api_client.API
 	}
 
 	var start = func(tc *testContext) {
@@ -57,6 +108,15 @@ var _ = Describe("MetricStore", func() {
 		}
 		tc.tlsConfig = tlsConfig
 
+		localCert := testing.Cert("localhost.crt")
+		localKey := testing.Cert("localhost.key")
+
+		tlsConfigLocal, err := sharedtls.NewMutualTLSConfig(caCert, localCert, localKey, "localhost")
+		if err != nil {
+			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
+		}
+		tc.tlsConfigLocal = tlsConfigLocal
+
 		tc.metricStoreProcess = testing.StartGoProcess(
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
 			[]string{
@@ -66,8 +126,8 @@ var _ = Describe("MetricStore", func() {
 				"STORAGE_PATH=" + storagePath,
 				"RETENTION_PERIOD_IN_DAYS=1",
 				"CA_PATH=" + caCert,
-				"CERT_PATH=" + cert,
-				"KEY_PATH=" + key,
+				"CERT_PATH=" + localCert,
+				"KEY_PATH=" + localKey,
 				"METRIC_STORE_SERVER_CA_PATH=" + caCert,
 				"METRIC_STORE_SERVER_CERT_PATH=" + cert,
 				"METRIC_STORE_SERVER_KEY_PATH=" + key,
@@ -111,6 +171,14 @@ var _ = Describe("MetricStore", func() {
 
 		perform(tc, start)
 
+		promAPIClient, _ := prom_api_client.NewClient(prom_api_client.Config{
+			Address: fmt.Sprintf("https://%s", tc.addr),
+			RoundTripper: &http.Transport{
+				TLSClientConfig: tc.tlsConfigLocal,
+			},
+		})
+		tc.egressClient = prom_versioned_api_client.NewAPI(promAPIClient)
+
 		return tc, func() {
 			perform(tc, stop)
 			os.RemoveAll(storagePath)
@@ -129,63 +197,19 @@ var _ = Describe("MetricStore", func() {
 		}
 	}
 
-	type testInstantQuery struct {
-		Query         string
-		TimeInSeconds string
+	var makeInstantQuery = func(tc *testContext, query testInstantQuery) (model.Value, error) {
+		value, _, err := tc.egressClient.Query(context.Background(), query.Query, query.Timestamp())
+		return value, err
 	}
 
-	var makeInstantQuery = func(tc *testContext, query testInstantQuery) (*http.Response, error) {
-		queryUrl, err := url.Parse("api/v1/query")
-		Expect(err).ToNot(HaveOccurred())
-
-		queryString := queryUrl.Query()
-		queryString.Set("query", query.Query)
-		queryString.Set("time", query.TimeInSeconds)
-		queryUrl.RawQuery = queryString.Encode()
-
-		return testing.MakeTLSReq(tc.addr, queryUrl.String())
+	var makeRangeQuery = func(tc *testContext, query testRangeQuery) (model.Value, error) {
+		value, _, err := tc.egressClient.QueryRange(context.Background(), query.Query, query.Range())
+		return value, err
 	}
 
-	type testRangeQuery struct {
-		Query          string
-		StartInSeconds string
-		EndInSeconds   string
-		StepDuration   string
-	}
-
-	var makeRangeQuery = func(tc *testContext, query testRangeQuery) (*http.Response, error) {
-		queryUrl, err := url.Parse("api/v1/query_range")
-		Expect(err).ToNot(HaveOccurred())
-
-		queryString := queryUrl.Query()
-		queryString.Set("query", query.Query)
-		queryString.Set("start", query.StartInSeconds)
-		queryString.Set("end", query.EndInSeconds)
-		queryString.Set("step", query.StepDuration)
-		queryUrl.RawQuery = queryString.Encode()
-
-		return testing.MakeTLSReq(tc.addr, queryUrl.String())
-	}
-
-	type testSeriesQuery struct {
-		Match          []string
-		StartInSeconds string
-		EndInSeconds   string
-	}
-
-	var makeSeriesQuery = func(tc *testContext, query testSeriesQuery) (*http.Response, error) {
-		queryUrl, err := url.Parse("api/v1/series")
-		Expect(err).ToNot(HaveOccurred())
-
-		queryString := queryUrl.Query()
-		for _, match := range query.Match {
-			queryString.Add("match[]", match)
-		}
-		queryString.Set("start", query.StartInSeconds)
-		queryString.Set("end", query.EndInSeconds)
-		queryUrl.RawQuery = queryString.Encode()
-
-		return testing.MakeTLSReq(tc.addr, queryUrl.String())
+	var makeSeriesQuery = func(tc *testContext, query testSeriesQuery) ([]model.LabelSet, error) {
+		value, _, err := tc.egressClient.Series(context.Background(), query.Match, query.StartTimestamp(), query.EndTimestamp())
+		return value, err
 	}
 
 	type testPoint struct {
@@ -193,11 +217,6 @@ var _ = Describe("MetricStore", func() {
 		TimeInMilliseconds int64
 		Value              float64
 		Labels             map[string]string
-	}
-
-	type testLabelValuesResult struct {
-		Status string   `json:"status"`
-		Data   []string `json:"data"`
 	}
 
 	var writePoints = func(tc *testContext, points []testPoint) {
@@ -226,13 +245,8 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			resp, _ := testing.MakeTLSReq(tc.addr, "api/v1/label/__name__/values")
-			jsonBytes, _ := ioutil.ReadAll(resp.Body)
-
-			var result testLabelValuesResult
-			json.Unmarshal(jsonBytes, &result)
-
-			return len(result.Data) == len(metricNameCounts)
+			value, _ := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			return len(value) == len(metricNameCounts)
 		}, 3).Should(BeTrue())
 	}
 
@@ -241,7 +255,7 @@ var _ = Describe("MetricStore", func() {
 		defer cleanup()
 
 		now := time.Now()
-		Eventually(func() []string {
+		Eventually(func() model.LabelValues {
 			writePoints(
 				tc,
 				[]testPoint{
@@ -256,42 +270,32 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			resp, err := testing.MakeTLSReq(tc.addr, "api/v1/label/__name__/values")
+			value, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			if err != nil {
 				return nil
 			}
-			jsonBytes, _ := ioutil.ReadAll(resp.Body)
-
-			var result testLabelValuesResult
-			json.Unmarshal(jsonBytes, &result)
-
-			return result.Data
-		}, 5).Should(ConsistOf([]string{
-			"metric_name_old",
-			"metric_name_new",
-		}))
+			return value
+		}, 5).Should(
+			Or(
+				Equal(model.LabelValues{"metric_name_old", "metric_name_new"}),
+				Equal(model.LabelValues{"metric_name_new", "metric_name_old"}),
+			),
+		)
 
 		stop(tc)
 
 		start(tc)
 
 		Eventually(func() error {
-			_, err := testing.MakeTLSReq(tc.addr, "api/v1/label/__name__/values")
-
+			_, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			return err
 		}, 5).Should(Succeed())
 
-		Eventually(func() []string {
-			resp, err := testing.MakeTLSReq(tc.addr, "api/v1/label/__name__/values")
+		Eventually(func() model.LabelValues {
+			value, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			Expect(err).ToNot(HaveOccurred())
-
-			jsonBytes, _ := ioutil.ReadAll(resp.Body)
-
-			var result testLabelValuesResult
-			json.Unmarshal(jsonBytes, &result)
-
-			return result.Data
-		}, 1).Should(ConsistOf([]string{
+			return value
+		}, 1).Should(Equal(model.LabelValues{
 			"metric_name_new",
 		}))
 	})
@@ -316,30 +320,23 @@ var _ = Describe("MetricStore", func() {
 					},
 				)
 
-				resp, err := makeInstantQuery(tc, testInstantQuery{
+				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         "metric_name",
 					TimeInSeconds: "2",
 				})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				body, err := ioutil.ReadAll(resp.Body)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(body).To(MatchJSON(`{
-					"status":"success",
-					"data": {
-					  "resultType":"vector",
-					  "result": [
-						{
-						  "metric": {
-							"__name__": "metric_name",
-							"source_id": "1"
-						  },
-						  "value": [ 2.000, "99" ]
-						}
-					  ]
-					}
-				  }`))
+				Expect(value).To(Equal(
+					model.Vector{
+						&model.Sample{
+							Metric: model.Metric{
+								model.MetricNameLabel: "metric_name",
+								"source_id":           "1",
+							},
+							Value:     99.0,
+							Timestamp: 2000,
+						},
+					},
+				))
 			})
 		})
 
@@ -386,39 +383,36 @@ var _ = Describe("MetricStore", func() {
 					},
 				)
 
-				resp, err := makeRangeQuery(tc, testRangeQuery{
+				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name",
 					StartInSeconds: "1",
 					EndInSeconds:   "5",
-					StepDuration:   "2",
+					StepDuration:   "2s",
 				})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-				body, err := ioutil.ReadAll(resp.Body)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(body).To(MatchJSON(`{
-					"status":"success",
-					"data": {
-					  "resultType":"matrix",
-					  "result": [
-						{
-						  "metric": {
-							"__name__": "metric_name",
-							"source_id": "1"
-						  },
-						  "values": [[3,"93"], [5,"88"]]
+				Expect(value).To(Equal(
+					model.Matrix{
+						&model.SampleStream{
+							Metric: model.Metric{
+								model.MetricNameLabel: "metric_name",
+								"source_id":           "1",
+							},
+							Values: []model.SamplePair{
+								{Value: 93.0, Timestamp: 3000},
+								{Value: 88.0, Timestamp: 5000},
+							},
 						},
-						{
-						  "metric": {
-							"__name__": "metric_name",
-							"source_id": "2"
-						  },
-						  "values": [[5,"99"]]
-						}
-					  ]
-					}
-				  }`))
+						&model.SampleStream{
+							Metric: model.Metric{
+								model.MetricNameLabel: "metric_name",
+								"source_id":           "2",
+							},
+							Values: []model.SamplePair{
+								{Value: 99.0, Timestamp: 5000},
+							},
+						},
+					},
+				))
 			})
 		})
 	})
@@ -450,16 +444,11 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			resp, err := testing.MakeTLSReq(tc.addr, "api/v1/labels")
+			value, err := tc.egressClient.LabelNames(context.Background())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			body, err := ioutil.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(body).To(MatchJSON(`{
-				"status":"success",
-				"data":["__name__", "source_id"]
-			}`))
+			Expect(value).To(Equal(
+				[]string{model.MetricNameLabel, "source_id"},
+			))
 		})
 	})
 
@@ -498,44 +487,21 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			resp, err := testing.MakeTLSReq(tc.addr, "api/v1/label/source_id/values")
+			value, err := tc.egressClient.LabelValues(context.Background(), "source_id")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			body, err := ioutil.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(body).To(Or(
-				MatchJSON(`{
-					"status":"success",
-					"data":["1", "10"]
-				}`),
-				MatchJSON(`{
-					"status":"success",
-					"data":["10", "1"]
-				}`),
+			Expect(value).To(Equal(
+				model.LabelValues{"1", "10"},
 			))
 
-			resp, err = testing.MakeTLSReq(tc.addr, "api/v1/label/user_agent/values")
+			value, err = tc.egressClient.LabelValues(context.Background(), "user_agent")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			body, err = ioutil.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(BeNil())
 
-			Expect(body).To(MatchJSON(`{
-				"status":"success",
-				"data":null
-			}`))
-
-			resp, err = testing.MakeTLSReq(tc.addr, "api/v1/label/__name__/values")
+			value, err = tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			body, err = ioutil.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(body).To(MatchJSON(`{
-					"status":"success",
-					"data":["metric_name_0", "metric_name_1", "metric_name_2"]
-				}`))
+			Expect(value).To(Equal(
+				model.LabelValues{"metric_name_0", "metric_name_1", "metric_name_2"},
+			))
 		})
 	})
 
@@ -558,25 +524,20 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			resp, err := makeSeriesQuery(tc, testSeriesQuery{
+			value, err := makeSeriesQuery(tc, testSeriesQuery{
 				Match:          []string{"metric_name"},
 				StartInSeconds: "1",
 				EndInSeconds:   "2",
 			})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			body, err := ioutil.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(body).To(MatchJSON(`{
-		 		"status": "success",
-		 		"data": [
-		 		  {
-		 		    "__name__": "metric_name",
-		 		    "source_id": "1"
-		 		  }
-		 		]
-		    }`))
+			Expect(value).To(Equal(
+				[]model.LabelSet{
+					model.LabelSet{
+						model.MetricNameLabel: "metric_name",
+						"source_id":           "1",
+					},
+				},
+			))
 		})
 	})
 
