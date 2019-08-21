@@ -98,24 +98,23 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var start = func(tc *testContext) {
+		var err error
 		caCert := testing.Cert("metric-store-ca.crt")
 		cert := testing.Cert("metric-store.crt")
 		key := testing.Cert("metric-store.key")
 
-		tlsConfig, err := sharedtls.NewMutualTLSConfig(caCert, cert, key, "metric-store")
+		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(caCert, cert, key, "metric-store")
 		if err != nil {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
 		}
-		tc.tlsConfig = tlsConfig
 
 		localCert := testing.Cert("localhost.crt")
 		localKey := testing.Cert("localhost.key")
 
-		tlsConfigLocal, err := sharedtls.NewMutualTLSConfig(caCert, localCert, localKey, "localhost")
+		tc.tlsConfigLocal, err = sharedtls.NewMutualTLSConfig(caCert, localCert, localKey, "localhost")
 		if err != nil {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
 		}
-		tc.tlsConfigLocal = tlsConfigLocal
 
 		tc.metricStoreProcess = testing.StartGoProcess(
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
