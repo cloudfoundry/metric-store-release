@@ -33,7 +33,7 @@ func main() {
 		cfg.TLS.CAPath,
 		cfg.TLS.CertPath,
 		cfg.TLS.KeyPath,
-		"localhost",
+		"metric-store",
 	)
 	if err != nil {
 		log.Fatalf("invalid mTLS configuration for API Egress: %s", err)

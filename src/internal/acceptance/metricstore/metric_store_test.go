@@ -90,7 +90,6 @@ var _ = Describe("MetricStore", func() {
 		healthPort         string
 		metricStoreProcess *gexec.Session
 		tlsConfig          *tls.Config
-		tlsConfigLocal     *tls.Config
 
 		rulesPath        string
 		alertmanagerAddr string
@@ -108,14 +107,6 @@ var _ = Describe("MetricStore", func() {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
 		}
 
-		localCert := testing.Cert("localhost.crt")
-		localKey := testing.Cert("localhost.key")
-
-		tc.tlsConfigLocal, err = sharedtls.NewMutualTLSConfig(caCert, localCert, localKey, "localhost")
-		if err != nil {
-			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
-		}
-
 		tc.metricStoreProcess = testing.StartGoProcess(
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
 			[]string{
@@ -125,8 +116,8 @@ var _ = Describe("MetricStore", func() {
 				"STORAGE_PATH=" + storagePath,
 				"RETENTION_PERIOD_IN_DAYS=1",
 				"CA_PATH=" + caCert,
-				"CERT_PATH=" + localCert,
-				"KEY_PATH=" + localKey,
+				"CERT_PATH=" + cert,
+				"KEY_PATH=" + key,
 				"METRIC_STORE_SERVER_CA_PATH=" + caCert,
 				"METRIC_STORE_SERVER_CERT_PATH=" + cert,
 				"METRIC_STORE_SERVER_KEY_PATH=" + key,
@@ -173,7 +164,7 @@ var _ = Describe("MetricStore", func() {
 		promAPIClient, _ := prom_api_client.NewClient(prom_api_client.Config{
 			Address: fmt.Sprintf("https://%s", tc.addr),
 			RoundTripper: &http.Transport{
-				TLSClientConfig: tc.tlsConfigLocal,
+				TLSClientConfig: tc.tlsConfig,
 			},
 		})
 		tc.egressClient = prom_versioned_api_client.NewAPI(promAPIClient)

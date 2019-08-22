@@ -38,14 +38,14 @@ var _ = Describe("CFAuthProxy", func() {
 		proxy := NewCFAuthProxy(
 			AddrFromURL(metricstore.URL),
 			"127.0.0.1:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 			WithClientTLS(
 				testing.Cert("metric-store-ca.crt"),
-				testing.Cert("localhost.crt"),
-				testing.Cert("localhost.key"),
-				"localhost",
+				testing.Cert("metric-store.crt"),
+				testing.Cert("metric-store.key"),
+				"metric-store",
 			),
 		)
 		proxy.Start()
@@ -71,8 +71,8 @@ var _ = Describe("CFAuthProxy", func() {
 		proxy := NewCFAuthProxy(
 			AddrFromURL(testServer.URL),
 			"127.0.0.1:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 		)
 		proxy.Start()
@@ -93,8 +93,8 @@ var _ = Describe("CFAuthProxy", func() {
 		proxy := NewCFAuthProxy(
 			"127.0.0.1",
 			"127.0.0.1:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 			WithAuthMiddleware(func(http.Handler) http.Handler {
 				return middleware
@@ -119,8 +119,8 @@ var _ = Describe("CFAuthProxy", func() {
 		proxy := NewCFAuthProxy(
 			"127.0.0.1",
 			"127.0.0.1:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 			WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
 				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234")
@@ -142,8 +142,8 @@ var _ = Describe("CFAuthProxy", func() {
 		proxy := NewCFAuthProxy(
 			AddrFromURL(testServer.URL),
 			"localhost:0",
-			testing.Cert("localhost.crt"),
-			testing.Cert("localhost.key"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 		)
 		proxy.Start()
@@ -164,9 +164,9 @@ func startMetricStore(responseBody string) *httptest.Server {
 
 	tlsConfig, err := sharedtls.NewMutualTLSConfig(
 		testing.Cert("metric-store-ca.crt"),
-		testing.Cert("localhost.crt"),
-		testing.Cert("localhost.key"),
-		"localhost",
+		testing.Cert("metric-store.crt"),
+		testing.Cert("metric-store.key"),
+		"metric-store",
 	)
 	Expect(err).ToNot(HaveOccurred())
 
