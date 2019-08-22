@@ -18,7 +18,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -209,13 +209,13 @@ var _ = Describe("MetricStore", func() {
 		Labels             map[string]string
 	}
 
-	var writePoints = func(tc *testContext, points []testPoint) {
-		var rpcPoints []*rpc.Point
+	var writePoints = func(tc *testContext, testPoints []testPoint) {
+		var points []*rpc.Point
 		metricNameCounts := make(map[string]int)
-		for _, point := range points {
+		for _, point := range testPoints {
 			timestamp := transform.MillisecondsToNanoseconds(point.TimeInMilliseconds)
 
-			rpcPoints = append(rpcPoints, &rpc.Point{
+			points = append(points, &rpc.Point{
 				Name:      point.Name,
 				Value:     point.Value,
 				Timestamp: timestamp,
@@ -231,7 +231,7 @@ var _ = Describe("MetricStore", func() {
 		)
 		defer client.Close()
 
-		err = client.Write(rpcPoints)
+		err = client.Write(points)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
@@ -522,7 +522,7 @@ var _ = Describe("MetricStore", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				[]model.LabelSet{
-					model.LabelSet{
+					{
 						model.MetricNameLabel: "metric_name",
 						"source_id":           "1",
 					},

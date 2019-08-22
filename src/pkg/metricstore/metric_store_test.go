@@ -14,9 +14,9 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"github.com/gogo/protobuf/proto"
+	"github.com/niubaoshu/gotiny"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
@@ -44,7 +44,7 @@ type testContext struct {
 	registry                  *prometheus.Registry
 }
 
-func (tc *testContext) writePoints(testPoints []*rpc.Point) {
+func (tc *testContext) writePoints(points []*rpc.Point) {
 	cfg := &leanstreams.TCPClientConfig{
 		MaxMessageSize: 65536,
 		Address:        tc.store.IngressAddr(),
@@ -53,11 +53,7 @@ func (tc *testContext) writePoints(testPoints []*rpc.Point) {
 	remoteConnection, err := leanstreams.DialTCP(cfg)
 	Expect(err).ToNot(HaveOccurred())
 
-	payload, err := proto.Marshal(&rpc.SendRequest{
-		Batch: &rpc.Points{
-			Points: testPoints,
-		},
-	})
+	payload := gotiny.Marshal(&rpc.Batch{Points: points})
 	Expect(err).ToNot(HaveOccurred())
 
 	_, err = remoteConnection.Write(payload)

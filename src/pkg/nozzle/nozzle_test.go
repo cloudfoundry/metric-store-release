@@ -9,7 +9,7 @@ import (
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"golang.org/x/net/context"

@@ -5,7 +5,7 @@ import (
 	"log"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
@@ -46,11 +46,11 @@ var _ = Describe("IngressClient", func() {
 				"source_id": "source-id",
 			},
 		}
-		points := []*rpc.Point{point}
 
 		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(log.New(GinkgoWriter, "", 0)))
 		Expect(err).ToNot(HaveOccurred())
 
+		points := []*rpc.Point{point}
 		Expect(ingressClient.Write(points)).To(Succeed())
 		Eventually(metricStore.GetPoints).Should(ContainPoints(points))
 	})
@@ -65,12 +65,12 @@ var _ = Describe("IngressClient", func() {
 				"source_id": "source-id",
 			},
 		}
-		points := []*rpc.Point{point}
 
 		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(log.New(GinkgoWriter, "", 0)))
 		Expect(err).ToNot(HaveOccurred())
 		metricStore.Stop()
 
+		points := []*rpc.Point{point}
 		Expect(ingressClient.Write(points)).ToNot(Succeed())
 	})
 
@@ -85,7 +85,7 @@ var _ = Describe("IngressClient", func() {
 			},
 		}
 
-		magicNumberOfPointsToSurpassMaxPayload := 50000
+		magicNumberOfPointsToSurpassMaxPayload := 100000
 		points := make([]*rpc.Point, magicNumberOfPointsToSurpassMaxPayload, magicNumberOfPointsToSurpassMaxPayload)
 		for n := range points {
 			points[n] = point

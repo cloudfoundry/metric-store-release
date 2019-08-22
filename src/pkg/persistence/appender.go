@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
 
 type Adapter interface {

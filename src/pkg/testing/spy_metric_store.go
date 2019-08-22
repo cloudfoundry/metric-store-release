@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -10,8 +9,8 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	"github.com/gogo/protobuf/proto"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"github.com/niubaoshu/gotiny"
 	. "github.com/onsi/gomega"
 )
 
@@ -52,15 +51,12 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
-		r := &rpc.SendRequest{}
+		batch := &rpc.Batch{}
 
-		err := proto.Unmarshal(payload, r)
-		if err != nil {
-			return err
-		}
+		gotiny.Unmarshal(payload, batch)
 
-		for _, e := range r.Batch.Points {
-			s.sentPoints = append(s.sentPoints, e)
+		for _, point := range batch.Points {
+			s.sentPoints = append(s.sentPoints, point)
 		}
 
 		return nil
@@ -110,15 +106,4 @@ func (s *SpyMetricStore) GetPoints() []*rpc.Point {
 	r := make([]*rpc.Point, len(s.sentPoints))
 	copy(r, s.sentPoints)
 	return r
-}
-
-func (s *SpyMetricStore) Send(ctx context.Context, r *rpc.SendRequest) (*rpc.SendResponse, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, e := range r.Batch.Points {
-		s.sentPoints = append(s.sentPoints, e)
-	}
-
-	return &rpc.SendResponse{}, nil
 }

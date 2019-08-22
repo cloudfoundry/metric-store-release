@@ -1,6 +1,6 @@
 package testing
 
-import rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+import "github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 type SpyAdapter struct {
 	CommittedPoints []*rpc.Point

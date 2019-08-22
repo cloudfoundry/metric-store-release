@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
-	"github.com/gogo/protobuf/proto"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"github.com/niubaoshu/gotiny"
 )
 
 const (
@@ -62,16 +62,7 @@ func WithDialTimeout(timeout time.Duration) IngressClientOption {
 }
 
 func (c *IngressClient) Write(points []*rpc.Point) error {
-	payload, err := proto.Marshal(&rpc.SendRequest{
-		Batch: &rpc.Points{
-			Points: points,
-		},
-	})
-
-	if err != nil {
-		c.log.Printf("failed to marshal metric points: %s\n", err)
-		return err
-	}
+	payload := gotiny.Marshal(&rpc.Batch{Points: points})
 
 	// TODO: consider adding back in a timeout (i.e. 3 seconds)
 	bytesWritten, err := c.connection.Write(payload)

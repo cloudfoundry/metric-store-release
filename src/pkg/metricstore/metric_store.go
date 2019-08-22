@@ -20,9 +20,9 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	promLog "github.com/go-kit/kit/log"
-	"github.com/gogo/protobuf/proto"
+	"github.com/niubaoshu/gotiny"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
@@ -252,31 +252,28 @@ func (store *MetricStore) configureAlertManager() {
 func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	// Ingress Setup
 	writeBinary := func(payload []byte) error {
-		r := &rpc.SendRequest{}
+		batch := rpc.Batch{}
 
-		err := proto.Unmarshal(payload, r)
-		if err != nil {
-			return err
-		}
+		gotiny.Unmarshal(payload, &batch)
 
 		appender, _ := store.persistentStore.Appender()
 		var totalPointsWritten uint64
-		for _, point := range r.Batch.Points {
+		for _, point := range batch.Points {
 			sanitizedLabels := make(map[string]string)
-			sanitizedLabels["__name__"] = transform.SanitizeMetricName(point.GetName())
+			sanitizedLabels["__name__"] = transform.SanitizeMetricName(point.Name)
 
-			for label, value := range point.GetLabels() {
+			for label, value := range point.Labels {
 				sanitizedLabels[transform.SanitizeLabelName(label)] = value
 			}
 
-			_, err := appender.Add(labels.FromMap(sanitizedLabels), point.GetTimestamp(), point.GetValue())
+			_, err := appender.Add(labels.FromMap(sanitizedLabels), point.Timestamp, point.Value)
 			if err != nil {
 				continue
 			}
 			totalPointsWritten++
 		}
 
-		err = appender.Commit()
+		err := appender.Commit()
 		if err != nil {
 			return err
 		}

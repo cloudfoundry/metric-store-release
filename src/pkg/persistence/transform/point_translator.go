@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	rpc "github.com/cloudfoundry/metric-store-release/src/pkg/rpc/metricstore_v1"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/influxdata/influxdb/models"
 	"github.com/influxdata/influxdb/query"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -27,11 +27,11 @@ func ToInfluxPoints(points []*rpc.Point) []models.Point {
 	transformedPoints := make([]models.Point, len(points))
 
 	for i, point := range points {
-		timestamp := time.Unix(0, point.GetTimestamp())
+		timestamp := time.Unix(0, point.Timestamp)
 		tags := models.NewTags(map[string]string{})
 
 		fields := models.Fields{
-			"value": point.GetValue(),
+			"value": point.Value,
 		}
 
 		for labelName, labelValue := range point.Labels {
@@ -42,7 +42,7 @@ func ToInfluxPoints(points []*rpc.Point) []models.Point {
 			}
 		}
 
-		tsPoint := models.MustNewPoint(point.GetName(), tags, fields, timestamp)
+		tsPoint := models.MustNewPoint(point.Name, tags, fields, timestamp)
 		transformedPoints[i] = tsPoint
 	}
 
@@ -122,7 +122,7 @@ func IsValidFloat(value float64) bool {
 }
 
 func ConvertLabels(point *rpc.Point) labels.Labels {
-	originalLabels := point.GetLabels()
+	originalLabels := point.Labels
 	newLabels := labels.Labels{}
 
 	if originalLabels == nil {
@@ -132,7 +132,7 @@ func ConvertLabels(point *rpc.Point) labels.Labels {
 	for key, value := range originalLabels {
 		newLabels = append(newLabels, labels.Label{Name: key, Value: value})
 	}
-	newLabels = append(newLabels, labels.Label{Name: "__name__", Value: point.GetName()})
+	newLabels = append(newLabels, labels.Label{Name: "__name__", Value: point.Name})
 
 	return newLabels
 }
