@@ -141,7 +141,8 @@ func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
-			RootCAs: p.proxyCACertPool,
+			RootCAs:    p.proxyCACertPool,
+			ServerName: "metric-store",
 		},
 	}
 	if p.clientTLSConfig != nil {
