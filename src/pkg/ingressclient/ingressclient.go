@@ -2,11 +2,10 @@ package ingressclient
 
 import (
 	"crypto/tls"
-	"io/ioutil"
-	"log"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/niubaoshu/gotiny"
 )
@@ -18,13 +17,13 @@ const (
 
 type IngressClient struct {
 	connection  *leanstreams.TCPClient
-	log         *log.Logger
+	log         *logger.Logger
 	dialTimeout time.Duration
 }
 
 func NewIngressClient(ingressAddress string, tlsConfig *tls.Config, opts ...IngressClientOption) (*IngressClient, error) {
 	client := &IngressClient{
-		log:         log.New(ioutil.Discard, "", 0),
+		log:         logger.NewNop(),
 		dialTimeout: 10 * time.Second,
 	}
 
@@ -49,7 +48,7 @@ func NewIngressClient(ingressAddress string, tlsConfig *tls.Config, opts ...Ingr
 
 type IngressClientOption func(*IngressClient)
 
-func WithIngressClientLogger(log *log.Logger) IngressClientOption {
+func WithIngressClientLogger(log *logger.Logger) IngressClientOption {
 	return func(client *IngressClient) {
 		client.log = log
 	}
@@ -68,7 +67,7 @@ func (c *IngressClient) Write(points []*rpc.Point) error {
 	bytesWritten, err := c.connection.Write(payload)
 
 	if err == nil {
-		c.log.Printf("Wrote %d of %d bytes\n", bytesWritten, len(payload))
+		c.log.Info("wrote bytes", logger.Count(bytesWritten))
 	}
 
 	return err

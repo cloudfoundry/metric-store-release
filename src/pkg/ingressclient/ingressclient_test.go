@@ -2,9 +2,9 @@ package ingressclient_test
 
 import (
 	"crypto/tls"
-	"log"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
@@ -47,7 +47,7 @@ var _ = Describe("IngressClient", func() {
 			},
 		}
 
-		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(log.New(GinkgoWriter, "", 0)))
+		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger()))
 		Expect(err).ToNot(HaveOccurred())
 
 		points := []*rpc.Point{point}
@@ -66,7 +66,7 @@ var _ = Describe("IngressClient", func() {
 			},
 		}
 
-		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(log.New(GinkgoWriter, "", 0)))
+		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger()))
 		Expect(err).ToNot(HaveOccurred())
 		metricStore.Stop()
 
@@ -91,7 +91,7 @@ var _ = Describe("IngressClient", func() {
 			points[n] = point
 		}
 
-		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(log.New(GinkgoWriter, "", 0)))
+		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger()))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(ingressClient.Write(points)).ToNot(Succeed())

@@ -1,16 +1,16 @@
 package nozzle_test
 
 import (
-	"log"
 	"sync"
 	"time"
 
-	loggregator "code.cloudfoundry.org/go-loggregator"
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
+	loggregator "code.cloudfoundry.org/go-loggregator"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"golang.org/x/net/context"
 
@@ -25,7 +25,7 @@ var _ = Describe("Nozzle", func() {
 		n               *Nozzle
 		streamConnector *spyStreamConnector
 		metricStore     *testing.SpyMetricStore
-		metricMap       *testing.SpyMetrics
+		metricRegistrar *testing.SpyMetricRegistrar
 	)
 
 	BeforeEach(func() {
@@ -37,14 +37,14 @@ var _ = Describe("Nozzle", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 		streamConnector = newSpyStreamConnector()
-		metricMap = testing.NewSpyMetrics()
+		metricRegistrar = testing.NewSpyMetricRegistrar()
 		metricStore = testing.NewSpyMetricStore(tlsConfig)
 		addrs := metricStore.Start()
 
 		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsConfig, "metric-store", 0,
-			WithNozzleMetrics(metricMap),
+			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(100*time.Millisecond, "rolled_timer", []string{"tag1", "tag2"}),
-			WithNozzleLogger(log.New(GinkgoWriter, "", 0)),
+			WithNozzleLogger(logger.NewTestLogger()),
 		)
 		go n.Start()
 	})
@@ -401,11 +401,9 @@ var _ = Describe("Nozzle", func() {
 		addEnvelope(2, "memory", "some-source-id", streamConnector)
 		addEnvelope(3, "memory", "some-source-id", streamConnector)
 
-		Eventually(metricMap.Getter("nozzle_envelopes_ingress")).Should(Equal(float64(3)))
-		Eventually(metricMap.Getter("nozzle_points_egress")).Should(Equal(float64(3)))
-		Eventually(metricMap.Getter("nozzle_batches_egress")).Should(Equal(float64(1)))
-		Eventually(metricMap.Getter("nozzle_egress_write_duration")).Should(BeNumerically(">", 0))
-		Eventually(metricMap.Getter("nozzle_egress_write_errors")).Should(Equal(float64(0)))
+		Eventually(metricRegistrar.Fetch(debug.NozzleIngressEnvelopesTotal)).Should(Equal(float64(3)))
+		Eventually(metricRegistrar.Fetch(debug.NozzleEgressPointsTotal)).Should(Equal(float64(3)))
+		Eventually(metricRegistrar.Fetch(debug.NozzleEgressErrorsTotal)).Should(Equal(float64(0)))
 	})
 
 	It("forwards all tags", func() {

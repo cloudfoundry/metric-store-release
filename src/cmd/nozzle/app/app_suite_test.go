@@ -1,4 +1,4 @@
-package nozzle_test
+package app_test
 
 import (
 	"log"
@@ -8,9 +8,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestNozzle(t *testing.T) {
+func TestApp(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Nozzle Suite")
+	RunSpecs(t, "App Suite")
 }

@@ -3,9 +3,6 @@ package nozzle
 import (
 	"crypto/tls"
 	"encoding/csv"
-	"fmt"
-	"io/ioutil"
-	"log"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,9 +12,11 @@ import (
 	"code.cloudfoundry.org/go-diodes"
 	"code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
 
@@ -26,25 +25,25 @@ type timerValue struct {
 	value float64
 }
 
-// Metrics registers Counter and Gauge metrics.
-type MetricsInitializer interface {
-	NewCounter(name string) func(delta uint64)
-	NewGauge(name, unit string) func(value float64)
-	NewSummary(name, unit string) func(value float64)
+// MetricRegistrar is used to update values of metrics.
+type MetricRegistrar interface {
+	Set(name string, value float64)
+	Add(name string, delta float64)
+	Inc(name string)
 }
 
 // Nozzle reads envelopes and writes points to metric-store.
 type Nozzle struct {
-	log                   *log.Logger
+	log                   *logger.Logger
 	s                     StreamConnector
-	metrics               MetricsInitializer
+	metrics               MetricRegistrar
 	shardId               string
 	forwardedTags         []string
 	timerRollupBufferSize uint
 	nodeIndex             int
-	streamBuffer          *diodes.OneToOne
+	ingressBuffer         *diodes.OneToOne
 
-	buffer       *diodes.OneToOne
+	timerBuffer  *diodes.OneToOne
 	timerMetrics map[string]*timerValue
 	timerMutex   sync.Mutex
 
@@ -58,16 +57,6 @@ type Nozzle struct {
 	rollupInterval   time.Duration
 	rollupMetricName string
 	rollupTags       []string
-
-	numEnvelopesIngressInc           func(uint64)
-	numStreamDiodePointsDroppedInc   func(uint64)
-	numStreamChannelPointsDroppedInc func(uint64)
-	numTimerDiodePointsDroppedInc    func(uint64)
-	numTimerChannelPointsDroppedInc  func(uint64)
-	numBatchesEgressInc              func(uint64)
-	numPointsEgressInc               func(uint64)
-	egressWriteDuration              func(float64)
-	egressWriteErrorInc              func(uint64)
 }
 
 // StreamConnector reads envelopes from the the logs provider.
@@ -87,8 +76,8 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		addr:                  metricStoreAddr,
 		ingressAddr:           ingressAddr,
 		tlsConfig:             tlsConfig,
-		log:                   log.New(ioutil.Discard, "", 0),
-		metrics:               metrics.NullMetrics{},
+		log:                   logger.NewNop(),
+		metrics:               &debug.NullRegistrar{},
 		shardId:               shardId,
 		nodeIndex:             nodeIndex,
 		timerRollupBufferSize: 4096,
@@ -108,28 +97,21 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		ingressclient.WithDialTimeout(time.Minute),
 	)
 	if err != nil {
-		panic(fmt.Sprintf("Could not connect to ingress server at %s", ingressAddr))
+		n.log.Panic(
+			"Could not connect to ingress server",
+			zap.String("address", ingressAddr),
+		)
 	}
 	n.client = client
 
-	n.numEnvelopesIngressInc = n.metrics.NewCounter("nozzle_envelopes_ingress")
-	n.numStreamDiodePointsDroppedInc = n.metrics.NewCounter("nozzle_stream_diode_points_dropped")
-	n.numStreamChannelPointsDroppedInc = n.metrics.NewCounter("nozzle_stream_channel_points_dropped")
-	n.numTimerDiodePointsDroppedInc = n.metrics.NewCounter("nozzle_timer_diode_points_dropped")
-	n.numTimerChannelPointsDroppedInc = n.metrics.NewCounter("nozzle_timer_channel_points_dropped")
-	n.numBatchesEgressInc = n.metrics.NewCounter("nozzle_batches_egress")
-	n.numPointsEgressInc = n.metrics.NewCounter("nozzle_points_egress")
-	n.egressWriteDuration = n.metrics.NewSummary("nozzle_egress_write_duration", "ms")
-	n.egressWriteErrorInc = n.metrics.NewCounter("nozzle_egress_write_errors")
-
-	n.buffer = diodes.NewOneToOne(int(n.timerRollupBufferSize), diodes.AlertFunc(func(missed int) {
-		n.numTimerDiodePointsDroppedInc(uint64(missed))
-		n.log.Printf("Timer buffer dropped %d points", missed)
+	n.timerBuffer = diodes.NewOneToOne(int(n.timerRollupBufferSize), diodes.AlertFunc(func(missed int) {
+		n.metrics.Add(debug.NozzleDroppedEnvelopesTotal, float64(missed))
+		n.log.Info("timer buffer dropped points", logger.Count(missed))
 	}))
 
-	n.streamBuffer = diodes.NewOneToOne(100000, diodes.AlertFunc(func(missed int) {
-		n.numStreamDiodePointsDroppedInc(uint64(missed))
-		n.log.Printf("Stream buffer dropped %d points", missed)
+	n.ingressBuffer = diodes.NewOneToOne(100000, diodes.AlertFunc(func(missed int) {
+		n.metrics.Add(debug.NozzleDroppedEnvelopesTotal, float64(missed))
+		n.log.Info("ingress buffer dropped envelopes", logger.Count(missed))
 	}))
 
 	return n
@@ -139,15 +121,13 @@ type NozzleOption func(*Nozzle)
 
 // WithNozzleLogger returns a NozzleOption that configures a nozzle's logger.
 // It defaults to silent logging.
-func WithNozzleLogger(l *log.Logger) NozzleOption {
+func WithNozzleLogger(l *logger.Logger) NozzleOption {
 	return func(n *Nozzle) {
 		n.log = l
 	}
 }
 
-// WithNozzleMetrics returns a NozzleOption that configures the metrics for the
-// Nozzle. It will add metrics to the given map.
-func WithNozzleMetrics(m MetricsInitializer) NozzleOption {
+func WithNozzleDebugRegistrar(m MetricRegistrar) NozzleOption {
 	return func(n *Nozzle) {
 		n.metrics = m
 	}
@@ -178,7 +158,7 @@ func (n *Nozzle) Start() {
 	go n.timerEmitter(ch)
 	go n.envelopeReader(rx)
 
-	log.Printf("Starting %d nozzle workers...", 2*runtime.NumCPU())
+	n.log.Info("starting workers", logger.Count(2*runtime.NumCPU()))
 	for i := 0; i < 2*runtime.NumCPU(); i++ {
 		go n.pointWriter(ch)
 	}
@@ -190,7 +170,7 @@ func (n *Nozzle) Start() {
 func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 	var size int
 
-	poller := diodes.NewPoller(n.streamBuffer)
+	poller := diodes.NewPoller(n.ingressBuffer)
 	points := make([]*rpc.Point, 0)
 
 	t := time.NewTimer(BATCH_FLUSH_INTERVAL)
@@ -207,7 +187,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 		select {
 		case <-t.C:
 			if len(points) > 0 {
-				points = writeToChannelOrDiscard(ch, points, n.numStreamChannelPointsDroppedInc)
+				points = n.writeToChannelOrDiscard(ch, points)
 			}
 			t.Reset(BATCH_FLUSH_INTERVAL)
 			size = 0
@@ -217,7 +197,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 
 			// if len(points) >= BATCH_CHANNEL_SIZE {
 			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
-				points = writeToChannelOrDiscard(ch, points, n.numStreamChannelPointsDroppedInc)
+				points = n.writeToChannelOrDiscard(ch, points)
 				t.Reset(BATCH_FLUSH_INTERVAL)
 				size = 0
 			}
@@ -232,14 +212,14 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 	}
 }
 
-func writeToChannelOrDiscard(ch chan []*rpc.Point, points []*rpc.Point, dropped func(uint64)) []*rpc.Point {
+func (n *Nozzle) writeToChannelOrDiscard(ch chan []*rpc.Point, points []*rpc.Point) []*rpc.Point {
 	select {
 	case ch <- points:
 		return make([]*rpc.Point, 0)
 	default:
 		// if we can't write into the channel, it must be full, so
 		// we probably need to drop these envelopes on the floor
-		dropped(uint64(len(points)))
+		n.metrics.Add(debug.NozzleDroppedPointsTotal, float64(len(points)))
 		return points[:0]
 	}
 }
@@ -265,13 +245,13 @@ func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 
 		err := n.client.Write(points)
 		if err != nil {
-			n.log.Printf("Error writing: %v\n", err)
-			n.egressWriteErrorInc(1)
+			n.log.Error("Error writing to metric-store", err)
+			n.metrics.Inc(debug.NozzleEgressErrorsTotal)
+			continue
 		}
 
-		n.egressWriteDuration(float64(time.Since(start) / time.Millisecond))
-		n.numBatchesEgressInc(1)
-		n.numPointsEgressInc(uint64(len(points)))
+		n.metrics.Set(debug.NozzleEgressDurationSeconds, float64(time.Since(start)/time.Second))
+		n.metrics.Add(debug.NozzleEgressPointsTotal, float64(len(points)))
 	}
 }
 
@@ -279,18 +259,16 @@ func (n *Nozzle) envelopeReader(rx loggregator.EnvelopeStream) {
 	for {
 		envelopeBatch := rx()
 		for _, envelope := range envelopeBatch {
-			n.streamBuffer.Set(diodes.GenericDataType(envelope))
-			n.numEnvelopesIngressInc(1)
+			n.ingressBuffer.Set(diodes.GenericDataType(envelope))
+			n.metrics.Inc(debug.NozzleIngressEnvelopesTotal)
 		}
 	}
 }
 
 func (n *Nozzle) timerProcessor() {
-	poller := diodes.NewPoller(n.buffer)
+	poller := diodes.NewPoller(n.timerBuffer)
 
-	var count int
 	for {
-		count += 1
 		data := poller.Next()
 		envelope := *(*loggregator_v2.Envelope)(data)
 
@@ -339,14 +317,24 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			keyParts, err := csv.NewReader(strings.NewReader(k)).Read()
 
 			if err != nil {
-				n.log.Printf("Skipping metric because key \"%s\" failed to decode: %s", k, err.Error())
+				n.log.Error(
+					"skipping metric",
+					err,
+					zap.String("reason", "failed to decode"),
+					zap.String("key", k),
+				)
 				continue
 			}
 
 			// if we can't parse the key, there's probably some garbage in one
 			// of the tags, so let's skip it
 			if len(keyParts) != len(n.rollupTags)+1 {
-				n.log.Printf("Skipping metric because key has %d parts: %+v", len(keyParts), keyParts)
+				n.log.Info(
+					"skipping metric",
+					zap.String("reason", "wrong number of parts"),
+					zap.String("key", k),
+					logger.Count(len(keyParts)),
+				)
 				continue
 			}
 
@@ -381,13 +369,13 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			size += estimatePointSize(countPoint)
 
 			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
-				points = writeToChannelOrDiscard(ch, points, n.numTimerChannelPointsDroppedInc)
+				points = n.writeToChannelOrDiscard(ch, points)
 				size = 0
 			}
 		}
 
 		if len(points) > 0 {
-			points = writeToChannelOrDiscard(ch, points, n.numTimerChannelPointsDroppedInc)
+			points = n.writeToChannelOrDiscard(ch, points)
 		}
 
 		n.timerMetrics = make(map[string]*timerValue)
@@ -418,7 +406,7 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 			return []*rpc.Point{}
 		}
 
-		n.buffer.Set(diodes.GenericDataType(envelope))
+		n.timerBuffer.Set(diodes.GenericDataType(envelope))
 	case *loggregator_v2.Envelope_Counter:
 		return []*rpc.Point{n.createPointFromCounter(envelope)}
 	}

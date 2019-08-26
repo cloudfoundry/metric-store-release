@@ -1,6 +1,8 @@
-package main
+package app
 
 import (
+	"log"
+
 	envstruct "code.cloudfoundry.org/go-envstruct"
 )
 
@@ -17,6 +19,8 @@ type Config struct {
 	ShardId               string `env:"SHARD_ID, required, report"`
 	TimerRollupBufferSize uint   `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
 	NodeIndex             int    `env:"NODE_INDEX, report"`
+
+	LogLevel string `env:"LOG_LEVEL,                      report"`
 }
 
 type MetricStoreClientTLS struct {
@@ -33,8 +37,9 @@ type LogsProviderTLS struct {
 }
 
 // LoadConfig creates Config object from environment variables
-func LoadConfig() (*Config, error) {
-	c := Config{
+func LoadConfig() *Config {
+	cfg := &Config{
+		LogLevel:              "info",
 		MetricStoreAddr:       ":8080",
 		IngressAddr:           ":8090",
 		HealthPort:            6061,
@@ -42,9 +47,11 @@ func LoadConfig() (*Config, error) {
 		TimerRollupBufferSize: 16384,
 	}
 
-	if err := envstruct.Load(&c); err != nil {
-		return nil, err
+	if err := envstruct.Load(&cfg); err != nil {
+		log.Fatalf("failed to load config from environment: %s", err)
 	}
 
-	return &c, nil
+	_ = envstruct.WriteReport(&cfg)
+
+	return cfg
 }

@@ -36,7 +36,8 @@ import (
 )
 
 const (
-	MAX_HASH = math.MaxUint64
+	COMMON_NAME = "metric-store"
+	MAX_HASH    = math.MaxUint64
 )
 
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
