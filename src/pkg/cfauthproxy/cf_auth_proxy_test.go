@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
@@ -123,7 +124,7 @@ var _ = Describe("CFAuthProxy", func() {
 			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 			WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
-				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234")
+				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234", logger.NewTestLogger())
 			}),
 		)
 		proxy.Start()

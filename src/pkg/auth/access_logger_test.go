@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
@@ -12,20 +13,20 @@ import (
 
 var _ = Describe("DefaultAccessLogger", func() {
 	var (
-		writer *spyWriter
-		logger *auth.DefaultAccessLogger
+		writer       *spyWriter
+		accessLogger *auth.DefaultAccessLogger
 	)
 
 	BeforeEach(func() {
 		writer = &spyWriter{}
-		logger = auth.NewAccessLogger(writer)
+		accessLogger = auth.NewAccessLogger(writer, logger.NewTestLogger())
 	})
 
 	It("logs Access", func() {
 		req, err := testing.NewServerRequest("GET", "some.url.com/foo", nil)
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(logger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
+		Expect(accessLogger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
 		prefix := "CEF:0|cloud_foundry|metric_store|1.0|GET some.url.com/foo|GET some.url.com/foo|0|"
 		Expect(writer.message).To(HavePrefix(prefix))
 	})
@@ -35,7 +36,7 @@ var _ = Describe("DefaultAccessLogger", func() {
 		Expect(err).ToNot(HaveOccurred())
 		req.RemoteAddr = "127.0.0.1:4567"
 
-		Expect(logger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
+		Expect(accessLogger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
 		Expect(writer.message).To(ContainSubstring("src=127.0.0.1 spt=4567"))
 	})
 
@@ -45,7 +46,7 @@ var _ = Describe("DefaultAccessLogger", func() {
 		req.RemoteAddr = "127.0.0.1:4567"
 		req.Header.Set("X-Forwarded-For", "50.60.70.80:1234")
 
-		Expect(logger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
+		Expect(accessLogger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
 		Expect(writer.message).To(ContainSubstring("src=50.60.70.80 spt=1234"))
 	})
 
@@ -54,14 +55,14 @@ var _ = Describe("DefaultAccessLogger", func() {
 		Expect(err).ToNot(HaveOccurred())
 		req.RemoteAddr = "127.0.0.1:4567"
 
-		Expect(logger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
+		Expect(accessLogger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
 		expected := "src=127.0.0.1 spt=4567"
 		Expect(writer.message).To(ContainSubstring(expected))
 		Expect(writer.message).To(HaveSuffix("\n"))
 
 		req.Header.Set("X-Forwarded-For", "50.60.70.80:1234")
 
-		Expect(logger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
+		Expect(accessLogger.LogAccess(req, "1.1.1.1", "1")).To(Succeed())
 		expected = "src=50.60.70.80 spt=1234"
 		Expect(writer.message).To(ContainSubstring(expected))
 		Expect(writer.message).To(HaveSuffix("\n"))
@@ -70,12 +71,12 @@ var _ = Describe("DefaultAccessLogger", func() {
 	It("returns an error", func() {
 		writer = &spyWriter{}
 		writer.err = errors.New("boom")
-		logger = auth.NewAccessLogger(writer)
+		accessLogger = auth.NewAccessLogger(writer, logger.NewTestLogger())
 
 		req, err := testing.NewServerRequest("GET", "http://some.url.com/foo", nil)
 		Expect(err).ToNot(HaveOccurred())
 		req.RemoteAddr = "127.0.0.1:4567"
-		Expect(logger.LogAccess(req, "1.1.1.1", "1")).ToNot(Succeed())
+		Expect(accessLogger.LogAccess(req, "1.1.1.1", "1")).ToNot(Succeed())
 	})
 })
 

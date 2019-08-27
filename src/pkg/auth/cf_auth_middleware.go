@@ -5,18 +5,20 @@ import (
 	"net/http"
 	"time"
 
-	"log"
-
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/mux"
 )
 
 type CFAuthMiddlewareProvider struct {
+	log     *logger.Logger
+	metrics MetricRegistrar
+
 	oauth2Reader  Oauth2ClientReader
 	logAuthorizer LogAuthorizer
 	queryParser   QueryParser
 	marshaller    jsonpb.Marshaler
-	metrics       authMetrics
 }
 
 type Oauth2ClientContext struct {
@@ -25,36 +27,19 @@ type Oauth2ClientContext struct {
 	ExpiresAt time.Time
 }
 
-type Oauth2ClientReader interface {
-	Read(token string) (Oauth2ClientContext, error)
-}
-
-type QueryParser interface {
-	ExtractSourceIds(query string) ([]string, error)
-}
-
-type LogAuthorizer interface {
-	IsAuthorized(sourceId string, clientToken string) bool
-	AvailableSourceIDs(token string) []string
-}
-
-type authMetrics struct {
-	setTotalQueryTime func(float64)
-}
-
 func NewCFAuthMiddlewareProvider(
 	oauth2Reader Oauth2ClientReader,
 	logAuthorizer LogAuthorizer,
 	queryParser QueryParser,
-	metrics Metrics,
+	metrics MetricRegistrar,
+	log *logger.Logger,
 ) CFAuthMiddlewareProvider {
 	return CFAuthMiddlewareProvider{
 		oauth2Reader:  oauth2Reader,
 		logAuthorizer: logAuthorizer,
 		queryParser:   queryParser,
-		metrics: authMetrics{
-			setTotalQueryTime: metrics.NewGauge("cf_auth_proxy_total_query_time", "nanoseconds"),
-		},
+		metrics:       metrics,
+		log:           log,
 	}
 }
 
@@ -78,7 +63,7 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 
 		userContext, err := m.oauth2Reader.Read(authToken)
 		if err != nil {
-			log.Printf("failed to read from Oauth2 server: %s", err)
+			m.log.Error("failed to read from Oauth2 server", err)
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
@@ -98,8 +83,9 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 
 		h.ServeHTTP(w, r)
 
-		totalQueryTime := time.Since(start).Nanoseconds()
-		m.metrics.setTotalQueryTime(float64(totalQueryTime))
+		totalQueryTime := time.Since(start).Seconds()
+		m.metrics.Set(debug.AuthProxyRequestDurationSeconds, float64(totalQueryTime))
+
 	})
 
 	router.HandleFunc("/api/v1/labels", func(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +117,7 @@ func (m CFAuthMiddlewareProvider) handleOnlyAdmin(h http.Handler, w http.Respons
 	authToken := r.Header.Get("Authorization")
 	userContext, err := m.oauth2Reader.Read(authToken)
 	if err != nil {
-		log.Printf("failed to read from Oauth2 server: %s", err)
+		m.log.Error("failed to read from Oauth2 server", err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

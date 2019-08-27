@@ -2,12 +2,12 @@ package auth_test
 
 import (
 	"fmt"
-	"io/ioutil"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 
 	"errors"
@@ -21,17 +21,17 @@ var _ = Describe("CAPIClient", func() {
 	type testContext struct {
 		capiClient *spyHTTPClient
 		client     *auth.CAPIClient
-		metrics    *testing.SpyMetrics
+		metrics    *testing.SpyMetricRegistrar
 	}
 
 	var setup = func(capiOpts ...auth.CAPIOption) *testContext {
 		capiClient := newSpyHTTPClient()
-		metrics := testing.NewSpyMetrics()
+		metrics := testing.NewSpyMetricRegistrar()
 		client := auth.NewCAPIClient(
 			"http://external.capi.com",
 			capiClient,
 			metrics,
-			log.New(ioutil.Discard, "", 0),
+			logger.NewTestLogger(),
 			capiOpts...,
 		)
 
@@ -351,9 +351,7 @@ var _ = Describe("CAPIClient", func() {
 			}
 			tc.client.AvailableSourceIDs("my-token")
 
-			Expect(tc.metrics.Get("cf_auth_proxy_last_capiv3_apps_latency")).ToNot(BeZero())
-			Expect(tc.metrics.Get("cf_auth_proxy_last_capiv3_list_service_instances_latency")).ToNot(BeZero())
-			Expect(tc.metrics.GetUnit("cf_auth_proxy_last_capiv3_list_service_instances_latency")).To(Equal("nanoseconds"))
+			Expect(tc.metrics.Fetch(debug.AuthProxyCAPIRequestDurationSeconds)()).ToNot(BeZero())
 		})
 
 		It("is goroutine safe", func() {
@@ -483,8 +481,7 @@ var _ = Describe("CAPIClient", func() {
 			}
 			tc.client.GetRelatedSourceIds([]string{"app-name"}, "some-token")
 
-			Expect(tc.metrics.Get("cf_auth_proxy_last_capiv3_apps_by_name_latency")).ToNot(BeZero())
-			Expect(tc.metrics.GetUnit("cf_auth_proxy_last_capiv3_apps_by_name_latency")).To(Equal("nanoseconds"))
+			Expect(tc.metrics.Fetch(debug.AuthProxyCAPIRequestDurationSeconds)()).ToNot(BeZero())
 		})
 
 		It("returns no source IDs when the request fails", func() {

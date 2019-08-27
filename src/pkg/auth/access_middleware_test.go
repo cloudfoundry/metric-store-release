@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
@@ -25,7 +26,7 @@ var _ = Describe("AccessHandler", func() {
 	BeforeEach(func() {
 		handler = &spyHandler{}
 		spyLogger = &spyAccessLogger{}
-		accessMiddleware := auth.NewAccessMiddleware(spyLogger, host, port)
+		accessMiddleware := auth.NewAccessMiddleware(spyLogger, host, port, logger.NewTestLogger())
 		accessHandler = accessMiddleware(handler)
 
 		var _ http.Handler = accessHandler

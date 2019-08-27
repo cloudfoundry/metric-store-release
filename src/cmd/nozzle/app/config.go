@@ -47,11 +47,11 @@ func LoadConfig() *Config {
 		TimerRollupBufferSize: 16384,
 	}
 
-	if err := envstruct.Load(&cfg); err != nil {
+	if err := envstruct.Load(cfg); err != nil {
 		log.Fatalf("failed to load config from environment: %s", err)
 	}
 
-	_ = envstruct.WriteReport(&cfg)
+	_ = envstruct.WriteReport(cfg)
 
 	return cfg
 }

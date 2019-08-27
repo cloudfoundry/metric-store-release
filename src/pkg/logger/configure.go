@@ -3,7 +3,6 @@ package logger
 import (
 	"log"
 
-	"github.com/onsi/ginkgo"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -76,6 +75,10 @@ func String(key, value string) zap.Field {
 	return zap.String(key, value)
 }
 
+func Error(err error) zap.Field {
+	return zap.Error(err)
+}
+
 func (l *Logger) StdLog(name string) *log.Logger {
 	return zap.NewStdLog(l.log.Named(name))
 }
@@ -96,6 +99,10 @@ func (l *Logger) Fatal(msg string, err error) {
 
 func (l *Logger) Panic(msg string, fields ...zap.Field) {
 	l.log.Panic(msg, fields...)
+}
+
+func (l *Logger) Sync() {
+	l.log.Sync()
 }
 
 func (l *Logger) Log(keyvals ...interface{}) error {
@@ -127,20 +134,7 @@ func (l *Logger) Log(keyvals ...interface{}) error {
 }
 
 func NewTestLogger() *Logger {
-	encoder := zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
-		MessageKey:   "message",
-		LevelKey:     "level",
-		EncodeLevel:  zapcore.LowercaseLevelEncoder,
-		TimeKey:      "timestamp",
-		EncodeTime:   zapcore.ISO8601TimeEncoder,
-		CallerKey:    "caller",
-		EncodeCaller: zapcore.ShortCallerEncoder,
-	})
-	logger := zap.New(zapcore.NewCore(
-		encoder,
-		zapcore.AddSync(ginkgo.GinkgoWriter),
-		zapcore.DebugLevel,
-	))
+	logger, _ := zap.NewDevelopment()
 	logger.Sync()
 
 	return &Logger{

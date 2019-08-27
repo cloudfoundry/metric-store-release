@@ -1,6 +1,8 @@
 package testing
 
-import "sync"
+import (
+	"sync"
+)
 
 type SpyMetricRegistrar struct {
 	sync.Mutex

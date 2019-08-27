@@ -4,16 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 )
 
 const requestIDHeader = "X-Vcap-Request-ID"
-
-var logTemplate *template.Template
 
 type templateContext struct {
 	Timestamp       int64
@@ -31,14 +30,23 @@ type AccessLog struct {
 	timestamp time.Time
 	host      string
 	port      string
+	template  *template.Template
+	log       *logger.Logger
 }
 
-func NewAccessLog(req *http.Request, ts time.Time, host, port string) *AccessLog {
+func NewAccessLog(req *http.Request, ts time.Time, host, port string, log *logger.Logger) *AccessLog {
+	template, err := setupTemplate()
+	if err != nil {
+		log.Panic("error creating log access template", logger.Error(err))
+	}
+
 	return &AccessLog{
 		request:   req,
 		timestamp: ts,
 		host:      host,
 		port:      port,
+		template:  template,
+		log:       log,
 	}
 }
 
@@ -61,9 +69,9 @@ func (al *AccessLog) String() string {
 		al.port,
 	}
 	var buf bytes.Buffer
-	err := logTemplate.Execute(&buf, context)
+	err := al.template.Execute(&buf, context)
 	if err != nil {
-		log.Printf("Error executing security access log template: %s\n", err)
+		al.log.Error("Error executing security access log template", err)
 		return ""
 	}
 	return buf.String()
@@ -85,7 +93,7 @@ func (al *AccessLog) extractRemoteInfo() (string, string) {
 	}
 	host, port, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		log.Printf("Error splitting host and port for access log: %s\n", err)
+		al.log.Error("Error splitting host and port for access log", err)
 		return "", ""
 	}
 	return host, port
@@ -95,7 +103,7 @@ func toMillis(timestamp time.Time) int64 {
 	return timestamp.UnixNano() / int64(time.Millisecond)
 }
 
-func init() {
+func setupTemplate() (*template.Template, error) {
 	extensions := []string{
 		"rt={{ .Timestamp }}",
 		"cs1Label=userAuthenticationMechanism",
@@ -120,9 +128,5 @@ func init() {
 		strings.Join(extensions, " "),
 	}
 	templateSource := "CEF:" + strings.Join(fields, "|")
-	var err error
-	logTemplate, err = template.New("access_log").Parse(templateSource)
-	if err != nil {
-		log.Panic(err)
-	}
+	return template.New("access_log").Parse(templateSource)
 }

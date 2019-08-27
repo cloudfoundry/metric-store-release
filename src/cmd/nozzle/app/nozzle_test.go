@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Nozzle", func() {
+var _ = Describe("Nozzle App", func() {
 	var (
 		loggregator *stubLoggregator
 		nozzle      *app.NozzleApp

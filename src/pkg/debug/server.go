@@ -42,8 +42,8 @@ func StartServer(addr string, gatherer prometheus.Gatherer, log *logger.Logger) 
 
 	go func() {
 		log.Info("debug server listening", logger.String("addr", lis.Addr().String()))
-		log.Error("debug server closing", server.Serve(lis))
 		server.Serve(lis)
+		log.Info("debug server closing")
 	}()
 
 	return lis

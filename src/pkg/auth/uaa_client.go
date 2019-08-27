@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -17,21 +16,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	jose "github.com/dvsekhvalnov/jose2go"
 )
-
-type Metrics interface {
-	NewGauge(name, unit string) func(value float64)
-}
-
-type HTTPClient interface {
-	Do(r *http.Request) (*http.Response, error)
-}
 
 type UAAClient struct {
 	httpClient             HTTPClient
 	uaa                    *url.URL
-	log                    *log.Logger
+	log                    *logger.Logger
 	publicKeys             sync.Map
 	minimumRefreshInterval time.Duration
 	lastQueryTime          int64
@@ -40,13 +32,13 @@ type UAAClient struct {
 func NewUAAClient(
 	uaaAddr string,
 	httpClient HTTPClient,
-	m Metrics,
-	log *log.Logger,
+	m MetricRegistrar,
+	log *logger.Logger,
 	opts ...UAAOption,
 ) *UAAClient {
 	u, err := url.Parse(uaaAddr)
 	if err != nil {
-		log.Fatalf("failed to parse UAA addr: %s", err)
+		log.Fatal("failed to parse UAA addr", err)
 	}
 
 	u.Path = "token_keys"
@@ -78,10 +70,10 @@ func (c *UAAClient) RefreshTokenKeys() error {
 	lastQueryTime := atomic.LoadInt64(&c.lastQueryTime)
 	nextAllowedRefreshTime := time.Unix(0, lastQueryTime).Add(c.minimumRefreshInterval)
 	if time.Now().Before(nextAllowedRefreshTime) {
-		c.log.Printf(
-			"UAA TokenKey refresh throttled to every %s, try again in %s",
-			c.minimumRefreshInterval,
-			time.Until(nextAllowedRefreshTime).Round(time.Millisecond),
+		c.log.Info(
+			"UAA TokenKey refresh throttled",
+			logger.String("refresh interval", c.minimumRefreshInterval.String()),
+			logger.String("retry in", time.Until(nextAllowedRefreshTime).Round(time.Millisecond).String()),
 		)
 		return nil
 	}
@@ -89,7 +81,7 @@ func (c *UAAClient) RefreshTokenKeys() error {
 
 	req, err := http.NewRequest("GET", c.uaa.String(), nil)
 	if err != nil {
-		panic(fmt.Sprintf("failed to create request to UAA: %s", err))
+		c.log.Panic("failed to create request to UAA", logger.Error(err))
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -142,6 +134,7 @@ func (c *UAAClient) RefreshTokenKeys() error {
 		// generate a new key with the same (default) keyId, which is something
 		// along the lines of `key-1`
 		c.publicKeys.Store(tokenKey.KeyId, publicKey)
+
 
 		// update list of previously-known keys so that we can prune them
 		// if UAA no longer considers them valid

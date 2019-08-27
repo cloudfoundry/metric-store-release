@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
@@ -17,7 +19,7 @@ type testContext struct {
 	spyOauth2ClientReader *spyOauth2ClientReader
 	spyLogAuthorizer      *spyLogAuthorizer
 	spyQueryParser        *spyQueryParser
-	spyMetrics            *testing.SpyMetrics
+	spyMetricRegistrar    *testing.SpyMetricRegistrar
 
 	recorder *httptest.ResponseRecorder
 	request  *http.Request
@@ -32,13 +34,14 @@ func setup(requestPath string) *testContext {
 	spyOauth2ClientReader := newAdminChecker()
 	spyLogAuthorizer := newSpyLogAuthorizer()
 	spyQueryParser := newSpyQueryParser()
-	spyMetrics := testing.NewSpyMetrics()
+	spyMetricRegistrar := testing.NewSpyMetricRegistrar()
 
 	provider := auth.NewCFAuthMiddlewareProvider(
 		spyOauth2ClientReader,
 		spyLogAuthorizer,
 		spyQueryParser,
-		spyMetrics,
+		spyMetricRegistrar,
+		logger.NewTestLogger(),
 	)
 
 	request := httptest.NewRequest(http.MethodGet, requestPath, nil)
@@ -48,7 +51,7 @@ func setup(requestPath string) *testContext {
 		spyOauth2ClientReader: spyOauth2ClientReader,
 		spyLogAuthorizer:      spyLogAuthorizer,
 		spyQueryParser:        spyQueryParser,
-		spyMetrics:            spyMetrics,
+		spyMetricRegistrar:    spyMetricRegistrar,
 
 		recorder: httptest.NewRecorder(),
 		request:  request,
@@ -137,8 +140,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 			tc.invokeAuthHandler()
 
-			Expect(tc.spyMetrics.Get("cf_auth_proxy_total_query_time")).ToNot(Equal(testing.UNDEFINED_METRIC))
-			Expect(tc.spyMetrics.Get("cf_auth_proxy_total_query_time")).ToNot(BeZero())
+			Expect(tc.spyMetricRegistrar.Fetch(debug.AuthProxyRequestDurationSeconds)()).ToNot(BeZero())
 		})
 	})
 
@@ -162,8 +164,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 			tc.invokeAuthHandler()
 
-			Expect(tc.spyMetrics.Get("cf_auth_proxy_total_query_time")).ToNot(Equal(testing.UNDEFINED_METRIC))
-			Expect(tc.spyMetrics.Get("cf_auth_proxy_total_query_time")).ToNot(BeZero())
+			Expect(tc.spyMetricRegistrar.Fetch(debug.AuthProxyRequestDurationSeconds)()).ToNot(BeZero())
 		})
 	})
 

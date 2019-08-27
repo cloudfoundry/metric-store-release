@@ -1,6 +1,8 @@
-package main
+package app
 
 import (
+	"log"
+
 	envstruct "code.cloudfoundry.org/go-envstruct"
 )
 
@@ -30,10 +32,13 @@ type Config struct {
 
 	CAPI CAPI
 	UAA  UAA
+
+	LogLevel string `env:"LOG_LEVEL,                      report"`
 }
 
-func LoadConfig() (*Config, error) {
-	cfg := Config{
+func LoadConfig() *Config {
+	cfg := &Config{
+		LogLevel:        "info",
 		SkipCertVerify:  false,
 		Addr:            ":8083",
 		InternalIP:      "0.0.0.0",
@@ -41,10 +46,11 @@ func LoadConfig() (*Config, error) {
 		MetricStoreAddr: "localhost:8081",
 	}
 
-	err := envstruct.Load(&cfg)
-	if err != nil {
-		return nil, err
+	if err := envstruct.Load(cfg); err != nil {
+		log.Fatalf("failed to load config from environment: %s", err)
 	}
 
-	return &cfg, nil
+	_ = envstruct.WriteReport(cfg)
+
+	return cfg
 }

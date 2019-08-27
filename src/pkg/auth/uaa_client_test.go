@@ -6,12 +6,13 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 
 	"bytes"
 	"encoding/base64"
@@ -354,7 +355,6 @@ func generateLegitTokenKey(keyId string) mockTokenKey {
 
 func uaaSetup(opts ...auth.UAAOption) *UAATestContext {
 	httpClient := newSpyHTTPClient()
-	metrics := newSpyMetrics()
 	tokenKey := generateLegitTokenKey("testKey1")
 	// default the minimumRefreshInterval in tests to 0, but make sure we
 	// apply user-provided options afterwards
@@ -362,14 +362,13 @@ func uaaSetup(opts ...auth.UAAOption) *UAATestContext {
 	uaaClient := auth.NewUAAClient(
 		"https://uaa.com",
 		httpClient,
-		metrics,
-		log.New(ioutil.Discard, "", 0),
+		testing.NewSpyMetricRegistrar(),
+		logger.NewTestLogger(),
 		opts...,
 	)
 	return &UAATestContext{
 		uaaClient:   uaaClient,
 		httpClient:  httpClient,
-		metrics:     metrics,
 		privateKeys: []mockTokenKey{tokenKey},
 	}
 }
@@ -377,7 +376,6 @@ func uaaSetup(opts ...auth.UAAOption) *UAATestContext {
 type UAATestContext struct {
 	uaaClient   *auth.UAAClient
 	httpClient  *spyHTTPClient
-	metrics     *spyMetrics
 	privateKeys []mockTokenKey
 }
 
@@ -528,25 +526,6 @@ func (s *spyHTTPClient) Do(r *http.Request) (*http.Response, error) {
 		return nil, result.err
 	}
 	return &resp, nil
-}
-
-type spyMetrics struct {
-	mu sync.Mutex
-	m  map[string]float64
-}
-
-func newSpyMetrics() *spyMetrics {
-	return &spyMetrics{
-		m: make(map[string]float64),
-	}
-}
-
-func (s *spyMetrics) NewGauge(name, unit string) func(float64) {
-	return func(v float64) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		s.m[name] = v
-	}
 }
 
 func publicKeyExponentToString(privateKey *rsa.PrivateKey) string {
