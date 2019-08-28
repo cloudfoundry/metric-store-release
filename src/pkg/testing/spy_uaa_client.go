@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 )
 
 type SpyUAA struct {
@@ -45,8 +44,6 @@ func tokenKeys(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *SpyUAA) Url() string {
-	parts := strings.Split(s.secureConnection.Addr().String(), ":")
-	port := parts[3]
-
+	_, port, _ := net.SplitHostPort(s.secureConnection.Addr().String())
 	return fmt.Sprintf("https://localhost:%s", port)
 }
