@@ -2,8 +2,7 @@ package persistence
 
 import (
 	"context"
-	"io/ioutil"
-	"log"
+	"fmt"
 	"math"
 	"time"
 
@@ -11,6 +10,8 @@ import (
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/influxdata/influxdb/tsdb"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/storage"
@@ -23,11 +24,6 @@ const (
 	NULL_METRICS_EMIT_DURATION    = -1
 )
 
-type MetricsInitializer interface {
-	NewCounter(name string) func(delta uint64)
-	NewGauge(name, unit string) func(value float64)
-}
-
 type RetentionConfig struct {
 	RetentionPeriod       time.Duration
 	ExpiryFrequency       time.Duration
@@ -38,9 +34,9 @@ type diskFreeReporter func() float64
 
 type Store struct {
 	adapter *InfluxAdapter
-	metrics Metrics
+	metrics debug.MetricRegistrar
 	tsStore *tsdb.Store
-	log     *log.Logger
+	log     *logger.Logger
 
 	labelTruncationLength uint
 	metricsEmitDuration   time.Duration
@@ -48,31 +44,10 @@ type Store struct {
 	diskFreeReporter      diskFreeReporter
 }
 
-type Metrics struct {
-	incNumShardsExpired            func(delta uint64)
-	incNumShardsPruned             func(delta uint64)
-	incNumGetErrors                func(delta uint64)
-	storageDurationGauge           func(value float64)
-	labelTagsQueryTime             func(time float64)
-	labelFieldsQueryTime           func(time float64)
-	labelMeasurementNamesQueryTime func(time float64)
-	indexSizeGauge                 func(float64)
-	numberOfSeriesGauge            func(float64)
-	numberOfMeasurementsGauge      func(float64)
-}
-
-func NewStore(storagePath string, m MetricsInitializer, opts ...StoreOption) *Store {
+func NewStore(storagePath string, metrics debug.MetricRegistrar, opts ...StoreOption) *Store {
 	store := &Store{
-		metrics: Metrics{
-			incNumShardsExpired:       m.NewCounter("metric_store_num_shards_expired"),
-			incNumShardsPruned:        m.NewCounter("metric_store_num_shards_pruned"),
-			storageDurationGauge:      m.NewGauge("metric_store_storage_duration", "days"),
-			indexSizeGauge:            m.NewGauge("metric_store_index_size", "byte"),
-			numberOfSeriesGauge:       m.NewGauge("metric_store_num_series", "series"),
-			numberOfMeasurementsGauge: m.NewGauge("metric_store_num_measurements", "measurement"),
-			incNumGetErrors:           m.NewCounter("metric_store_num_get_errors"),
-		},
-		log:                   log.New(ioutil.Discard, "", 0),
+		metrics:               metrics,
+		log:                   logger.NewNop(),
 		labelTruncationLength: 256,
 		metricsEmitDuration:   10 * time.Minute,
 		expiryConfig: RetentionConfig{
@@ -90,10 +65,10 @@ func NewStore(storagePath string, m MetricsInitializer, opts ...StoreOption) *St
 	var err error
 	store.tsStore, err = OpenTsStore(storagePath)
 	if err != nil {
-		store.log.Fatalf("failed to open store: %v", err)
+		store.log.Fatal("failed to open store", err)
 	}
 
-	store.adapter = NewInfluxAdapter(store.tsStore, m)
+	store.adapter = NewInfluxAdapter(store.tsStore, metrics, store.log)
 
 	go store.start()
 
@@ -108,9 +83,9 @@ func WithAppenderLabelTruncationLength(length uint) StoreOption {
 	}
 }
 
-func WithLogger(l *log.Logger) StoreOption {
+func WithLogger(log *logger.Logger) StoreOption {
 	return func(s *Store) {
-		s.log = l
+		s.log = log
 	}
 }
 
@@ -188,14 +163,14 @@ func (store *Store) periodicMetrics() {
 func (store *Store) deleteExpiredData() {
 	if store.expiryConfig.RetentionPeriod > NULL_RETENTION_PERIOD {
 		cutoff := time.Now().Add(-store.expiryConfig.RetentionPeriod)
-		store.log.Printf("expiring data older than %s", cutoff.Format(time.RFC3339))
+		store.log.Info("expiring old data", logger.String("older than", cutoff.Format(time.RFC3339)))
 		store.deleteOlderThan(cutoff)
 	}
 
 	if store.expiryConfig.DiskFreePercentTarget > NULL_DISK_FREE_PERCENT_TARGET {
 		diskFree := store.diskFreeReporter()
 		if diskFree < store.expiryConfig.DiskFreePercentTarget {
-			store.log.Printf("expiring data due to disk free space of %.0f%%", diskFree)
+			store.log.Info("expiring data due to disk free space", logger.String("disk free", fmt.Sprintf("%.0f%%", diskFree)))
 			store.deleteOldest()
 		}
 	}
@@ -204,17 +179,18 @@ func (store *Store) deleteExpiredData() {
 func (store *Store) deleteOlderThan(cutoff time.Time) {
 	numShardsExpired, err := store.adapter.DeleteOlderThan(cutoff.UnixNano())
 	if err != nil {
-		store.log.Println(err)
+		store.log.Error("error deleting old shards", err)
 	}
-	store.metrics.incNumShardsExpired(numShardsExpired)
+
+	store.metrics.Add(debug.MetricStoreExpiredShardsTotal, float64(numShardsExpired))
 }
 
 func (store *Store) deleteOldest() {
 	err := store.adapter.DeleteOldest()
 	if err != nil {
-		store.log.Println(err)
+		store.log.Error("error deleting oldest shard", err)
 	}
-	store.metrics.incNumShardsPruned(1)
+	store.metrics.Inc(debug.MetricStorePrunedShardsTotal)
 }
 
 func (store *Store) emitStorageDurationMetric() {
@@ -224,7 +200,7 @@ func (store *Store) emitStorageDurationMetric() {
 	}
 
 	duration := time.Since(time.Unix(0, int64(oldestShardID)))
-	store.metrics.storageDurationGauge(float64(int(duration.Hours()) / 24))
+	store.metrics.Set(debug.MetricStoreStorageDays, math.Floor(duration.Hours()/24))
 }
 
 func (store *Store) emitStorageMetrics() {
@@ -232,15 +208,15 @@ func (store *Store) emitStorageMetrics() {
 		time.Sleep(time.Minute)
 
 		statistics := store.tsStore.Statistics(map[string]string{})
-		store.metrics.indexSizeGauge(float64(store.tsStore.IndexBytes()))
+		store.metrics.Set(debug.MetricStoreIndexSize, float64(store.tsStore.IndexBytes()))
 
 		for _, statistic := range statistics {
 			if statistic.Values["numSeries"] != nil {
-				store.metrics.numberOfSeriesGauge(float64(statistic.Values["numSeries"].(int64)))
+				store.metrics.Set(debug.MetricStoreSeriesCount, float64(statistic.Values["numSeries"].(int64)))
 			}
 
 			if statistic.Values["numMeasurements"] != nil {
-				store.metrics.numberOfMeasurementsGauge(float64(statistic.Values["numMeasurements"].(int64)))
+				store.metrics.Set(debug.MetricStoreMeasurementsCount, float64(statistic.Values["numMeasurements"].(int64)))
 			}
 		}
 	}

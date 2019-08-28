@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -23,7 +24,7 @@ type storeTestContext struct {
 	store                 *Store
 	querier               storage.Querier
 	storagePath           string
-	metrics               *testing.SpyMetrics
+	metrics               *testing.SpyMetricRegistrar
 	minTimeInMilliseconds int64
 	maxTimeInMilliseconds int64
 }
@@ -87,7 +88,7 @@ var _ = Describe("Persistent Store", func() {
 			opt(config)
 		}
 
-		metrics := testing.NewSpyMetrics()
+		metrics := testing.NewSpyMetricRegistrar()
 
 		store := NewStore(
 			storagePath,
@@ -486,7 +487,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(oneHourBeforeTodayInMilliseconds, "counter", 2)
 
 			Eventually(func() bool {
-				return tc.metrics.Getter("metric_store_num_shards_expired")() == 1
+				return tc.metrics.Fetch(debug.MetricStoreExpiredShardsTotal)() == 1
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
@@ -520,7 +521,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(nowInMilliseconds, "counter", 2)
 
 			Eventually(func() bool {
-				return tc.metrics.Getter("metric_store_num_shards_pruned")() >= 1
+				return tc.metrics.Fetch(debug.MetricStorePrunedShardsTotal)() >= 1
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
@@ -557,17 +558,17 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storePoint(todayInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Getter("metric_store_storage_duration")() == 0
+				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 0
 			}, 3).Should(BeTrue())
 
 			tc.storePoint(oneDayAgoInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Getter("metric_store_storage_duration")() == 1
+				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 1
 			}, 3).Should(BeTrue())
 
 			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Getter("metric_store_storage_duration")() == 3
+				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 3
 			}, 3).Should(BeTrue())
 		})
 	})

@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/influxdata/influxdb/models"
@@ -21,7 +23,7 @@ import (
 type influxAdapterTestContext struct {
 	adapter     *InfluxAdapter
 	influxStore *mockInfluxStore
-	metrics     *testing.SpyMetrics
+	metrics     *testing.SpyMetricRegistrar
 }
 
 var _ = Describe("Influx Adapter", func() {
@@ -33,10 +35,10 @@ var _ = Describe("Influx Adapter", func() {
 			getShardIdForDay(3),
 		})
 
-		metrics := testing.NewSpyMetrics()
+		metrics := testing.NewSpyMetricRegistrar()
 
 		return &influxAdapterTestContext{
-			adapter:     NewInfluxAdapter(influxStore, metrics),
+			adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
 			influxStore: influxStore,
 			metrics:     metrics,
 		}
@@ -134,9 +136,7 @@ var _ = Describe("Influx Adapter", func() {
 
 			tc.adapter.AllMeasurementNames()
 
-			Expect(tc.metrics.Get("metric_store_measurement_names_query_time")).ToNot(Equal(testing.UNDEFINED_METRIC))
-			Expect(tc.metrics.Get("metric_store_measurement_names_query_time")).ToNot(BeZero())
-			Expect(tc.metrics.GetUnit("metric_store_measurement_names_query_time")).To(Equal("milliseconds"))
+			Expect(tc.metrics.Fetch(debug.MetricStoreMeasurementNamesQueryDurationSeconds)()).ToNot(BeZero())
 		})
 	})
 
@@ -148,9 +148,7 @@ var _ = Describe("Influx Adapter", func() {
 
 			tc.adapter.AllTagValues("source_id")
 
-			Expect(tc.metrics.Get("metric_store_label_tags_query_time")).ToNot(Equal(testing.UNDEFINED_METRIC))
-			Expect(tc.metrics.Get("metric_store_label_tags_query_time")).ToNot(BeZero())
-			Expect(tc.metrics.GetUnit("metric_store_label_tags_query_time")).To(Equal("milliseconds"))
+			Expect(tc.metrics.Fetch(debug.MetricStoreTagValuesQueryDurationSeconds)()).ToNot(BeZero())
 		})
 	})
 

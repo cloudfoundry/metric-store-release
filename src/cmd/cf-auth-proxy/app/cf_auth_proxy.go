@@ -187,9 +187,6 @@ func buildCAPIClient(cfg *Config, log *logger.Logger) *http.Client {
 func loadCA(caCertPath string, log *logger.Logger) *x509.CertPool {
 	caCert, err := ioutil.ReadFile(caCertPath)
 	if err != nil {
-		fmt.Println("INTERMEDIATE LOADING CA")
-		fmt.Printf("log: %+v", log)
-		log.Info("HERE")
 		log.Fatal("failed to read CA certificate", err)
 	}
 

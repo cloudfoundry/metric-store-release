@@ -6,8 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"math"
 	"net"
 	"net/http"
@@ -17,8 +15,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/api"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	promLog "github.com/go-kit/kit/log"
@@ -43,7 +42,8 @@ const (
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
 // counters).
 type MetricStore struct {
-	log *log.Logger
+	log     *logger.Logger
+	metrics debug.MetricRegistrar
 
 	lis             net.Listener
 	server          *http.Server
@@ -51,7 +51,6 @@ type MetricStore struct {
 
 	egressTLSConfig  *tls.Config
 	ingressTLSConfig *tls.Config
-	metrics          metrics.Initializer
 	closing          int64
 
 	persistentStore storage.Storage
@@ -71,8 +70,8 @@ type MetricStore struct {
 
 func New(persistentStore storage.Storage, egressTLSConfig, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
-		log:     log.New(ioutil.Discard, "", 0),
-		metrics: metrics.NullMetrics{},
+		log:     logger.NewNop(),
+		metrics: &debug.NullRegistrar{},
 
 		persistentStore:  persistentStore,
 		queryTimeout:     10 * time.Second,
@@ -86,8 +85,6 @@ func New(persistentStore storage.Storage, egressTLSConfig, ingressTLSConfig *tls
 		o(store)
 	}
 
-	store.incIngress = store.metrics.NewCounter("metric_store_ingress")
-
 	return store
 }
 
@@ -96,9 +93,9 @@ type MetricStoreOption func(*MetricStore)
 
 // WithLogger returns a MetricStoreOption that configures the logger used for
 // the MetricStore. Defaults to silent logger.
-func WithLogger(l *log.Logger) MetricStoreOption {
+func WithLogger(log *logger.Logger) MetricStoreOption {
 	return func(store *MetricStore) {
-		store.log = l
+		store.log = log
 	}
 }
 
@@ -137,9 +134,9 @@ func WithExternalAddr(addr string) MetricStoreOption {
 
 // WithMetrics returns a MetricStoreOption that configures the metrics for the
 // MetricStore. It will add metrics to the given map.
-func WithMetrics(m metrics.Initializer) MetricStoreOption {
+func WithMetrics(metrics debug.MetricRegistrar) MetricStoreOption {
 	return func(store *MetricStore) {
-		store.metrics = m
+		store.metrics = metrics
 	}
 }
 
@@ -235,7 +232,7 @@ func (store *MetricStore) configureAlertManager() {
 	}
 
 	if err := store.notifierManager.ApplyConfig(cfg); err != nil {
-		store.log.Fatalf("Error Applying the config: %v", err)
+		store.log.Fatal("error Applying the config", err)
 	}
 
 	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
@@ -243,7 +240,7 @@ func (store *MetricStore) configureAlertManager() {
 		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
 		b, err := json.Marshal(v)
 		if err != nil {
-			store.log.Fatalf("Error parsing alertmanager config")
+			store.log.Fatal("error parsing alertmanager config", err)
 		}
 		discoveredConfig[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
 	}
@@ -278,7 +275,8 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		if err != nil {
 			return err
 		}
-		store.incIngress(totalPointsWritten)
+
+		store.metrics.Add(debug.MetricStoreWrittenPointsTotal, float64(totalPointsWritten))
 
 		return nil
 	}
@@ -292,29 +290,29 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	ingressConnection, err := leanstreams.ListenTCP(cfg)
 	store.ingressListener = ingressConnection
 	if err != nil {
-		store.log.Fatalf("failed to listen on ingress port: %v", err)
+		store.log.Fatal("failed to listen on ingress port", err)
 	}
 
 	err = ingressConnection.StartListeningAsync()
 	if err != nil {
-		store.log.Fatalf("failed to start async listening on ingress port: %v", err)
+		store.log.Fatal("failed to start async listening on ingress port", err)
 	}
 
 	// Egress Setup
 	egressAddr, err := net.ResolveTCPAddr("tcp", store.addr)
 	if err != nil {
-		store.log.Fatalf("failed to resolve egress address: %v", err)
+		store.log.Fatal("failed to resolve egress address", err)
 	}
 
 	insecureConnection, err := net.ListenTCP("tcp", egressAddr)
 	if err != nil {
-		store.log.Fatalf("failed to listen: %v", err)
+		store.log.Fatal("failed to listen", err)
 	}
 
 	secureConnection := tls.NewListener(insecureConnection, store.egressTLSConfig)
 
 	store.lis = secureConnection
-	store.log.Printf("listening on %s...", store.Addr())
+	store.log.Info("listening", logger.String("address", store.Addr()))
 
 	promAPI := api.NewPromAPI(promQLEngine)
 	apiV1 := promAPI.RouterForStorage(store.persistentStore)
@@ -324,13 +322,13 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 	store.server = &http.Server{
 		Handler:     mux,
-		ErrorLog:    store.log,
+		ErrorLog:    store.log.StdLog("egress"),
 		ReadTimeout: store.queryTimeout,
 	}
 
 	go func() {
 		if err := store.server.Serve(secureConnection); err != nil && atomic.LoadInt64(&store.closing) == 0 {
-			store.log.Fatalf("failed to serve gRPC ingress server: %s %#v", err, err)
+			store.log.Fatal("failed to serve ingress server:", err)
 		}
 	}()
 }

@@ -1,6 +1,7 @@
-package main
+package app
 
 import (
+	"log"
 	"time"
 
 	envstruct "code.cloudfoundry.org/go-envstruct"
@@ -23,6 +24,8 @@ type Config struct {
 
 	RulesPath        string `env:"RULES_PATH, report"`
 	AlertmanagerAddr string `env:"ALERTMANAGER_ADDR, report"`
+
+	LogLevel string `env:"LOG_LEVEL,                      report"`
 }
 
 type MetricStoreServerTLS struct {
@@ -32,8 +35,8 @@ type MetricStoreServerTLS struct {
 }
 
 // LoadConfig creates Config object from environment variables
-func LoadConfig() (*Config, error) {
-	c := Config{
+func LoadConfig() *Config {
+	cfg := &Config{
 		Addr:                  ":8080",
 		IngressAddr:           ":8090",
 		HealthPort:            6060,
@@ -44,13 +47,15 @@ func LoadConfig() (*Config, error) {
 		QueryTimeout:          10 * time.Second,
 	}
 
-	if err := envstruct.Load(&c); err != nil {
-		return nil, err
+	if cfg.RetentionPeriodInDays > 0 {
+		cfg.RetentionPeriod = time.Duration(cfg.RetentionPeriodInDays) * 24 * time.Hour
 	}
 
-	if c.RetentionPeriodInDays > 0 {
-		c.RetentionPeriod = time.Duration(c.RetentionPeriodInDays) * 24 * time.Hour
+	if err := envstruct.Load(cfg); err != nil {
+		log.Fatalf("failed to load config from environment: %s", err)
 	}
 
-	return &c, nil
+	_ = envstruct.WriteReport(cfg)
+
+	return cfg
 }

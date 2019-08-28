@@ -6,13 +6,12 @@ import (
 	// the go linter in some instances removes it
 
 	"errors"
-	"io/ioutil"
-	"log"
 	"sync"
 
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/pkg/labels"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
@@ -27,13 +26,13 @@ type Appender struct {
 	adapter               Adapter
 	labelTruncationLength uint
 
-	log *log.Logger
+	log *logger.Logger
 }
 
 func NewAppender(adapter Adapter, opts ...AppenderOption) *Appender {
 	appender := &Appender{
 		adapter:               adapter,
-		log:                   log.New(ioutil.Discard, "", 0),
+		log:                   logger.NewNop(),
 		labelTruncationLength: 256,
 		points:                []*rpc.Point{},
 	}
@@ -53,9 +52,9 @@ func WithLabelTruncationLength(length uint) AppenderOption {
 	}
 }
 
-func WithAppenderLogger(l *log.Logger) AppenderOption {
+func WithAppenderLogger(log *logger.Logger) AppenderOption {
 	return func(a *Appender) {
-		a.log = l
+		a.log = log
 	}
 }
 

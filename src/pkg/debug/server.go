@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"expvar"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -23,6 +24,7 @@ func StartServer(addr string, gatherer prometheus.Gatherer, log *logger.Logger) 
 	router.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
 	router.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
 	router.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+	router.Handle("/debug/vars", expvar.Handler())
 
 	server := http.Server{
 		Addr:         addr,

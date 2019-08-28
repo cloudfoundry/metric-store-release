@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/api"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -39,8 +40,8 @@ type testContext struct {
 	store     *metricstore.MetricStore
 	apiClient prom_api_client.API
 
-	spyMetrics                *testing.SpyMetrics
-	spyPersistentStoreMetrics *testing.SpyMetrics
+	spyMetrics                *testing.SpyMetricRegistrar
+	spyPersistentStoreMetrics *testing.SpyMetricRegistrar
 	registry                  *prometheus.Registry
 }
 
@@ -74,7 +75,7 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		tc.peer = testing.NewSpyMetricStore(tc.tlsConfig)
-		tc.spyMetrics = testing.NewSpyMetrics()
+		tc.spyMetrics = testing.NewSpyMetricRegistrar()
 
 		tc.store = metricstore.New(
 			persistentStore,
@@ -83,7 +84,7 @@ var _ = Describe("MetricStore", func() {
 			metricstore.WithAddr("127.0.0.1:0"),
 			metricstore.WithIngressAddr("127.0.0.1:0"),
 			metricstore.WithMetrics(tc.spyMetrics),
-			metricstore.WithLogger(log.New(GinkgoWriter, "", 0)),
+			metricstore.WithLogger(logger.NewTestLogger()),
 		)
 		tc.store.Start()
 
@@ -103,7 +104,7 @@ var _ = Describe("MetricStore", func() {
 			panic(err)
 		}
 
-		spyPersistentStoreMetrics := testing.NewSpyMetrics()
+		spyPersistentStoreMetrics := testing.NewSpyMetricRegistrar()
 
 		persistentStore := persistence.NewStore(
 			storagePath,
@@ -286,7 +287,7 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			Eventually(func() float64 {
-				return tc.spyMetrics.Get("metric_store_ingress")
+				return tc.spyMetrics.Fetch(debug.MetricStoreWrittenPointsTotal)()
 			}).Should(BeEquivalentTo(1))
 		})
 	})

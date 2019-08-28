@@ -22,11 +22,9 @@ import (
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/notifier"
 
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -529,31 +527,6 @@ var _ = Describe("MetricStore", func() {
 				},
 			))
 		})
-	})
-
-	It("exposes metrics in prometheus format", func() {
-		tc, cleanup := setup()
-		defer cleanup()
-
-		writePoints(
-			tc,
-			[]testPoint{
-				{
-					Name:               "metric_name",
-					TimeInMilliseconds: 1000,
-				},
-			},
-		)
-
-		resp, err := http.Get(fmt.Sprintf("http://localhost:%s/metrics", tc.healthPort))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-
-		var parser expfmt.TextParser
-		parsed, err := parser.TextToMetricFamilies(resp.Body)
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(parsed).To(ContainCounterMetric("metric_store_ingress", float64(1)))
 	})
 
 	It("processes alerting rules to trigger alerts", func() {

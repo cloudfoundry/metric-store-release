@@ -71,6 +71,10 @@ func Count(count int) zap.Field {
 	return zap.Int("count", count)
 }
 
+func Int(key string, value int64) zap.Field {
+	return zap.Int64(key, value)
+}
+
 func String(key, value string) zap.Field {
 	return zap.String(key, value)
 }

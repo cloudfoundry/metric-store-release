@@ -24,3 +24,7 @@ func MillisecondsToString(ms int64) string {
 func NanosecondsToMilliseconds(ns int64) int64 {
 	return ns / int64(time.Millisecond)
 }
+
+func DurationToSeconds(t time.Duration) float64 {
+	return float64(t) / float64(time.Second)
+}

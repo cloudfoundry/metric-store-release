@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -12,10 +13,10 @@ import (
 
 type Querier struct {
 	adapter *InfluxAdapter
-	metrics Metrics
+	metrics debug.MetricRegistrar
 }
 
-func NewQuerier(adapter *InfluxAdapter, metrics Metrics) *Querier {
+func NewQuerier(adapter *InfluxAdapter, metrics debug.MetricRegistrar) *Querier {
 	return &Querier{
 		adapter: adapter,
 		metrics: metrics,
@@ -52,7 +53,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 
 	builder, err := q.adapter.GetPoints(name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
 	if err != nil {
-		q.metrics.incNumGetErrors(1)
+		q.metrics.Inc(debug.MetricStoreReadErrorsTotal)
 		return nil, nil, err
 	}
 

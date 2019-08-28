@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/influxdata/influxdb/models"
@@ -29,24 +31,23 @@ type InfluxStore interface {
 }
 
 type InfluxAdapter struct {
-	influx  InfluxStore
-	shards  sync.Map
-	metrics Metrics
+	log     *logger.Logger
+	metrics debug.MetricRegistrar
+
+	influx InfluxStore
+	shards sync.Map
 	sync.RWMutex
 }
 
-func NewInfluxAdapter(influx InfluxStore, m MetricsInitializer) *InfluxAdapter {
+func NewInfluxAdapter(influx InfluxStore, metrics debug.MetricRegistrar, log *logger.Logger) *InfluxAdapter {
 	t := &InfluxAdapter{
-		influx: influx,
-		metrics: Metrics{
-			labelFieldsQueryTime:           m.NewGauge("metric_store_label_fields_query_time", "milliseconds"),
-			labelTagsQueryTime:             m.NewGauge("metric_store_label_tags_query_time", "milliseconds"),
-			labelMeasurementNamesQueryTime: m.NewGauge("metric_store_measurement_names_query_time", "milliseconds"),
-		},
+		influx:  influx,
+		metrics: metrics,
+		log:     log,
 	}
 
 	for _, shardId := range influx.ShardIDs() {
-		checkShardId(shardId)
+		t.checkShardId(shardId)
 		t.shards.Store(shardId, struct{}{})
 	}
 
@@ -183,7 +184,7 @@ func (t *InfluxAdapter) AllTagValues(tagKey string) []string {
 		}
 	}
 
-	t.metrics.labelTagsQueryTime(float64(time.Since(start) / time.Millisecond))
+	t.metrics.Set(debug.MetricStoreTagValuesQueryDurationSeconds, transform.DurationToSeconds(time.Since(start)))
 	return values
 }
 
@@ -259,7 +260,7 @@ func (t *InfluxAdapter) Close() error {
 func (t *InfluxAdapter) AllMeasurementNames() []string {
 	start := time.Now()
 	measurementNames := t.allShards().MeasurementsByRegex(regexp.MustCompile(".*"))
-	t.metrics.labelMeasurementNamesQueryTime(float64(time.Since(start) / time.Millisecond))
+	t.metrics.Set(debug.MetricStoreMeasurementNamesQueryDurationSeconds, transform.DurationToSeconds(time.Since(start)))
 	return measurementNames
 }
 
@@ -270,7 +271,7 @@ func (t *InfluxAdapter) findOrCreateShardForTimestamp(ts int64) uint64 {
 	if !existed {
 		err := t.influx.CreateShard("db", "rp", shardId, true)
 		if err != nil {
-			panic(err)
+			t.log.Panic("error creating shard", logger.Error(err))
 		}
 	}
 
@@ -282,11 +283,15 @@ func (t *InfluxAdapter) allShards() tsdb.ShardGroup {
 	return t.influx.ShardGroup(shardIds)
 }
 
-func checkShardId(shardId uint64) {
+func (t *InfluxAdapter) checkShardId(shardId uint64) {
 	shardStart := int64(shardId)
 
 	if shardStart != getShardStartForTimestamp(shardStart) {
-		panic(fmt.Sprintf("misaligned shard ID: derived start time %d, expected %d", shardStart, getShardStartForTimestamp(shardStart)))
+		t.log.Panic(
+			"misaligned shard ID",
+			logger.Int("derived start time", shardStart),
+			logger.Int("expected start time", getShardStartForTimestamp(shardStart)),
+		)
 	}
 }
 
