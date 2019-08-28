@@ -90,7 +90,7 @@ func (n *NozzleApp) Run() {
 		WithNozzleTimerRollupBufferSize(n.cfg.TimerRollupBufferSize),
 	)
 
-	go nozzle.Start()
+	nozzle.Start()
 }
 
 // Stop stops all the subprocesses for the application.
