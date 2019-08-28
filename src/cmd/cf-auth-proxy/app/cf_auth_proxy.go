@@ -90,6 +90,7 @@ func (c *CFAuthProxyApp) Run() {
 		c.cfg.KeyPath,
 		proxyCACertPool,
 		WithAuthMiddleware(middlewareProvider.Middleware),
+		WithCFAuthProxyBlock(),
 	)
 
 	if c.cfg.SecurityEventLog != "" {
