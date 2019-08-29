@@ -7,10 +7,12 @@ import (
 
 	"errors"
 	"sync"
+	"time"
 
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/pkg/labels"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -26,12 +28,14 @@ type Appender struct {
 	adapter               Adapter
 	labelTruncationLength uint
 
-	log *logger.Logger
+	log     *logger.Logger
+	metrics debug.MetricRegistrar
 }
 
-func NewAppender(adapter Adapter, opts ...AppenderOption) *Appender {
+func NewAppender(adapter Adapter, metrics debug.MetricRegistrar, opts ...AppenderOption) *Appender {
 	appender := &Appender{
 		adapter:               adapter,
+		metrics:               metrics,
 		log:                   logger.NewNop(),
 		labelTruncationLength: 256,
 		points:                []*rpc.Point{},
@@ -77,7 +81,7 @@ func (a *Appender) Add(l labels.Labels, time int64, value float64) (uint64, erro
 	return 0, nil
 }
 
-func (a *Appender) AddFast(l labels.Labels, _ uint64, time int64, value float64) error {
+func (a *Appender) AddFast(l labels.Labels, _ uint64, timestamp int64, value float64) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -87,11 +91,19 @@ func (a *Appender) AddFast(l labels.Labels, _ uint64, time int64, value float64)
 
 	point := &rpc.Point{
 		Name:      l.Get("__name__"),
-		Timestamp: time,
+		Timestamp: timestamp,
 		Value:     value,
 		Labels:    a.cleanLabels(l),
 	}
+
+	start := time.Now()
+
 	a.adapter.WritePoints([]*rpc.Point{point})
+
+	duration := transform.DurationToSeconds(time.Since(start))
+	a.metrics.Set(debug.MetricStoreWriteDurationSeconds, duration)
+	a.metrics.Inc(debug.MetricStoreWrittenPointsTotal)
+
 	return nil
 }
 
@@ -99,7 +111,16 @@ func (a *Appender) Commit() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	start := time.Now()
+
 	err := a.adapter.WritePoints(a.points)
+
+	if err == nil {
+		duration := transform.DurationToSeconds(time.Since(start))
+		a.metrics.Set(debug.MetricStoreWriteDurationSeconds, duration)
+		a.metrics.Add(debug.MetricStoreWrittenPointsTotal, float64(len(a.points)))
+	}
+
 	a.points = a.points[:0]
 
 	return err

@@ -3,6 +3,7 @@ package persistence_test
 import (
 	"math"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	"github.com/prometheus/prometheus/storage"
@@ -12,21 +13,25 @@ import (
 )
 
 type appenderTestContext struct {
-	appender storage.Appender
-	adapter  *testing.SpyAdapter
+	appender   storage.Appender
+	adapter    *testing.SpyAdapter
+	spyMetrics *testing.SpyMetricRegistrar
 }
 
 var _ = Describe("Appender", func() {
 	var setup = func() appenderTestContext {
 		spyAdapter := testing.NewSpyAdapter()
+		spyMetrics := testing.NewSpyMetricRegistrar()
 
 		appender := NewAppender(
 			spyAdapter,
+			spyMetrics,
 		)
 
 		return appenderTestContext{
-			appender: appender,
-			adapter:  spyAdapter,
+			appender:   appender,
+			adapter:    spyAdapter,
+			spyMetrics: spyMetrics,
 		}
 	}
 
@@ -43,6 +48,20 @@ var _ = Describe("Appender", func() {
 
 				Expect(len(tc.adapter.CommittedPoints)).To(Equal(0))
 			})
+		})
+	})
+
+	Describe("instrumentation", func() {
+		It("updates ingress metrics", func() {
+			tc := setup()
+
+			_, err := tc.appender.Add(nil, 1, 1.0)
+			Expect(err).ToNot(HaveOccurred())
+			tc.appender.Commit()
+
+			Eventually(
+				tc.spyMetrics.Fetch(debug.MetricStoreWrittenPointsTotal),
+			).Should(BeEquivalentTo(1))
 		})
 	})
 })

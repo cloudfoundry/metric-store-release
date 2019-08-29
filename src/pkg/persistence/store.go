@@ -121,6 +121,7 @@ func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Quer
 func (store *Store) Appender() (storage.Appender, error) {
 	return NewAppender(
 		store.adapter,
+		store.metrics,
 		WithLabelTruncationLength(store.labelTruncationLength),
 		WithAppenderLogger(store.log),
 	), nil

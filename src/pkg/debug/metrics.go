@@ -18,8 +18,10 @@ const (
 	AuthProxyRequestDurationSeconds     = "metric_store_auth_proxy_request_duration_seconds"
 	AuthProxyCAPIRequestDurationSeconds = "metric_store_auth_proxy_capi_request_duration_seconds"
 
-	MetricStoreDiskFreeRatio                        = "metric_store_disk_free_ratio"
+	MetricStoreIngressPointsTotal                   = "metric_store_ingress_points_total"
 	MetricStoreWrittenPointsTotal                   = "metric_store_written_points_total"
+	MetricStoreWriteDurationSeconds                 = "metric_store_write_duration_seconds"
+	MetricStoreDiskFreeRatio                        = "metric_store_disk_free_ratio"
 	MetricStoreExpiredShardsTotal                   = "metric_store_expired_shards_total"
 	MetricStorePrunedShardsTotal                    = "metric_store_pruned_shards_total"
 	MetricStoreStorageDays                          = "metric_store_storage_days"

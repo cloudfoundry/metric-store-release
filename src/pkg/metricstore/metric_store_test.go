@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/api"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
@@ -270,27 +269,6 @@ var _ = Describe("MetricStore", func() {
 			Entry("supported cipher ECDHE_RSA_WITH_AES_256_GCM_SHA384", tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, true),
 		)
 	})
-
-	Describe("instrumentation", func() {
-		It("updates ingress metrics", func() {
-			mockPersistentStore := newMockPersistentStore()
-			tc, cleanup := setupWithPersistentStore(mockPersistentStore)
-			defer cleanup()
-
-			tc.writePoints([]*rpc.Point{
-				{
-					Timestamp: time.Now().UnixNano(),
-					Name:      MEASUREMENT_NAME,
-					Value:     99,
-					Labels:    map[string]string{"source_id": "source-id"},
-				},
-			})
-
-			Eventually(func() float64 {
-				return tc.spyMetrics.Fetch(debug.MetricStoreWrittenPointsTotal)()
-			}).Should(BeEquivalentTo(1))
-		})
-	})
 })
 
 type mockPersistentStore struct {
@@ -307,6 +285,7 @@ func (m *mockPersistentStore) Querier(ctx context.Context, mint, maxt int64) (st
 func (m *mockPersistentStore) Appender() (storage.Appender, error) {
 	return persistence.NewAppender(
 		testing.NewSpyAdapter(),
+		testing.NewSpyMetricRegistrar(),
 	), nil
 }
 

@@ -130,11 +130,17 @@ func (m *MetricStoreApp) startDebugServer() {
 	m.debugRegistrar = debug.NewRegistrar(
 		m.log,
 		"metric_store",
-		debug.WithGauge(debug.MetricStoreDiskFreeRatio, prometheus.GaugeOpts{
-			Help: "Percentage of free space on persistent disk",
+		debug.WithCounter(debug.MetricStoreIngressPointsTotal, prometheus.CounterOpts{
+			Help: "Number of points ingressed by metric-store",
 		}),
 		debug.WithCounter(debug.MetricStoreWrittenPointsTotal, prometheus.CounterOpts{
-			Help: "Number of points successfully written to storage engine",
+			Help: "Number of points successfully written to the storage engine",
+		}),
+		debug.WithGauge(debug.MetricStoreWriteDurationSeconds, prometheus.GaugeOpts{
+			Help: "Time spent writing points to the storage engine",
+		}),
+		debug.WithGauge(debug.MetricStoreDiskFreeRatio, prometheus.GaugeOpts{
+			Help: "Percentage of free space on persistent disk",
 		}),
 		debug.WithCounter(debug.MetricStoreExpiredShardsTotal, prometheus.CounterOpts{
 			Help: "Number of shards removed due to time-based expiration",

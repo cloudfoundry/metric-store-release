@@ -255,7 +255,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		gotiny.Unmarshal(payload, &batch)
 
 		appender, _ := store.persistentStore.Appender()
-		var totalPointsWritten uint64
+		var ingressPointsTotal uint64
 		for _, point := range batch.Points {
 			sanitizedLabels := make(map[string]string)
 			sanitizedLabels["__name__"] = transform.SanitizeMetricName(point.Name)
@@ -268,7 +268,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 			if err != nil {
 				continue
 			}
-			totalPointsWritten++
+			ingressPointsTotal++
 		}
 
 		err := appender.Commit()
@@ -276,7 +276,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 			return err
 		}
 
-		store.metrics.Add(debug.MetricStoreWrittenPointsTotal, float64(totalPointsWritten))
+		store.metrics.Add(debug.MetricStoreIngressPointsTotal, float64(ingressPointsTotal))
 
 		return nil
 	}
