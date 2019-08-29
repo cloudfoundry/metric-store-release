@@ -91,6 +91,10 @@ func (l *Logger) Info(msg string, fields ...zap.Field) {
 	l.log.Info(msg, fields...)
 }
 
+func (l *Logger) Debug(msg string, fields ...zap.Field) {
+	l.log.Debug(msg, fields...)
+}
+
 func (l *Logger) Error(msg string, err error, extraFields ...zap.Field) {
 	fields := []zap.Field{zap.Error(err)}
 	fields = append(fields, extraFields...)
