@@ -16,14 +16,14 @@ func NewSpyMetricRegistrar() *SpyMetricRegistrar {
 	}
 }
 
-func (r *SpyMetricRegistrar) Set(name string, value float64) {
+func (r *SpyMetricRegistrar) Set(name string, value float64, labels ...string) {
 	r.Lock()
 	defer r.Unlock()
 
 	r.metrics[name] = value
 }
 
-func (r *SpyMetricRegistrar) Add(name string, delta float64) {
+func (r *SpyMetricRegistrar) Add(name string, delta float64, labels ...string) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -36,7 +36,7 @@ func (r *SpyMetricRegistrar) Add(name string, delta float64) {
 	r.metrics[name] = delta
 }
 
-func (r *SpyMetricRegistrar) Inc(name string) {
+func (r *SpyMetricRegistrar) Inc(name string, labels ...string) {
 	r.Add(name, 1)
 }
 

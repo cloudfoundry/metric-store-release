@@ -15,10 +15,12 @@ type Registrar struct {
 
 	sourceID string
 
-	counters   map[string]prometheus.Counter
-	gauges     map[string]prometheus.Gauge
-	summaries  map[string]*prometheus.SummaryVec
-	histograms map[string]prometheus.Histogram
+	counters    map[string]prometheus.Counter
+	counterVecs map[string]*prometheus.CounterVec
+	gauges      map[string]prometheus.Gauge
+	gaugeVecs   map[string]*prometheus.GaugeVec
+	summaries   map[string]*prometheus.SummaryVec
+	histograms  map[string]prometheus.Histogram
 }
 
 // NewRegistrar returns an initialized health endpoint registrar configured
@@ -29,13 +31,15 @@ func NewRegistrar(
 	opts ...RegistrarOption,
 ) *Registrar {
 	r := &Registrar{
-		log:        log,
-		registry:   prometheus.NewRegistry(),
-		sourceID:   sourceID,
-		counters:   make(map[string]prometheus.Counter),
-		gauges:     make(map[string]prometheus.Gauge),
-		summaries:  make(map[string]*prometheus.SummaryVec),
-		histograms: make(map[string]prometheus.Histogram),
+		log:         log,
+		registry:    prometheus.NewRegistry(),
+		sourceID:    sourceID,
+		counters:    make(map[string]prometheus.Counter),
+		counterVecs: make(map[string]*prometheus.CounterVec),
+		gauges:      make(map[string]prometheus.Gauge),
+		gaugeVecs:   make(map[string]*prometheus.GaugeVec),
+		summaries:   make(map[string]*prometheus.SummaryVec),
+		histograms:  make(map[string]prometheus.Histogram),
 	}
 
 	for _, o := range opts {
@@ -53,35 +57,57 @@ func (h *Registrar) Registry() *prometheus.Registry {
 // Set will set the given value on the gauge metric with the given name. If
 // the gauge metric is not found the process will exit with a status code of
 // 1.
-func (h *Registrar) Set(name string, value float64) {
+func (h *Registrar) Set(name string, value float64, labels ...string) {
 	g, ok := h.gauges[name]
-	if !ok {
-		h.log.Panic("Set called for unknown health metric", logger.String("name", name))
+	if ok {
+		g.Set(value)
+		return
 	}
 
-	g.Set(value)
+	gv, ok := h.gaugeVecs[name]
+	if ok {
+		gv.WithLabelValues(labels...).Set(value)
+		return
+	}
+
+	h.log.Panic("Set called for unknown health metric", logger.String("name", name))
 }
 
 // Inc will increment the counter metric with the given name by 1. If the
 // counter metric is not found the process will exit with a status code of 1.
-func (h *Registrar) Inc(name string) {
-	g, ok := h.counters[name]
-	if !ok {
-		h.log.Panic("Inc called for unknown health metric", logger.String("name", name))
+func (h *Registrar) Inc(name string, labels ...string) {
+	c, ok := h.counters[name]
+	if ok {
+		c.Inc()
+		return
 	}
 
-	g.Inc()
+	cv, ok := h.counterVecs[name]
+	if ok {
+		cv.WithLabelValues(labels...).Inc()
+		return
+	}
+
+	h.log.Panic("Inc called for unknown health metric", logger.String("name", name))
+
 }
 
 // Add will add the given value to the counter metric. If the counter
 // metric is not found the process will exit with a status code of 1.
-func (h *Registrar) Add(name string, delta float64) {
-	g, ok := h.counters[name]
-	if !ok {
-		h.log.Panic("Inc called for unknown health metric", logger.String("name", name))
+func (h *Registrar) Add(name string, delta float64, labels ...string) {
+	c, ok := h.counters[name]
+	if ok {
+		c.Add(delta)
+		return
 	}
 
-	g.Add(delta)
+	cv, ok := h.counterVecs[name]
+	if ok {
+		cv.WithLabelValues(labels...).Add(delta)
+		return
+	}
+
+	h.log.Panic("Add called for unknown health metric", logger.String("name", name))
 }
 
 // Summary will return the observer that matches the name and label value
@@ -112,15 +138,20 @@ type RegistrarOption func(*Registrar)
 func WithCounter(name string, opts prometheus.CounterOpts) RegistrarOption {
 	return func(r *Registrar) {
 		opts.Name = name
-
-		if opts.ConstLabels == nil {
-			opts.ConstLabels = make(prometheus.Labels)
-		}
-		opts.ConstLabels["source_id"] = r.sourceID
+		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.counters[name] = prometheus.NewCounter(opts)
-
 		r.registry.MustRegister(r.counters[name])
+	}
+}
+
+func WithLabelledCounter(name string, opts prometheus.CounterOpts, labelsNames []string) RegistrarOption {
+	return func(r *Registrar) {
+		opts.Name = name
+		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
+
+		r.counterVecs[name] = prometheus.NewCounterVec(opts, labelsNames)
+		r.registry.MustRegister(r.counterVecs[name])
 	}
 }
 
@@ -128,15 +159,20 @@ func WithCounter(name string, opts prometheus.CounterOpts) RegistrarOption {
 func WithGauge(name string, opts prometheus.GaugeOpts) RegistrarOption {
 	return func(r *Registrar) {
 		opts.Name = name
-
-		if opts.ConstLabels == nil {
-			opts.ConstLabels = make(prometheus.Labels)
-		}
-		opts.ConstLabels["source_id"] = r.sourceID
+		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.gauges[name] = prometheus.NewGauge(opts)
-
 		r.registry.MustRegister(r.gauges[name])
+	}
+}
+
+func WithLabelledGauge(name string, opts prometheus.GaugeOpts, labelsNames []string) RegistrarOption {
+	return func(r *Registrar) {
+		opts.Name = name
+		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
+
+		r.gaugeVecs[name] = prometheus.NewGaugeVec(opts, labelsNames)
+		r.registry.MustRegister(r.gaugeVecs[name])
 	}
 }
 
@@ -144,14 +180,9 @@ func WithGauge(name string, opts prometheus.GaugeOpts) RegistrarOption {
 func WithSummary(name, label string, opts prometheus.SummaryOpts) RegistrarOption {
 	return func(r *Registrar) {
 		opts.Name = name
-
-		if opts.ConstLabels == nil {
-			opts.ConstLabels = make(prometheus.Labels)
-		}
-		opts.ConstLabels["source_id"] = r.sourceID
+		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.summaries[name] = prometheus.NewSummaryVec(opts, []string{label})
-
 		r.registry.MustRegister(r.summaries[name])
 	}
 }
@@ -160,14 +191,18 @@ func WithSummary(name, label string, opts prometheus.SummaryOpts) RegistrarOptio
 func WithHistogram(name string, opts prometheus.HistogramOpts) RegistrarOption {
 	return func(r *Registrar) {
 		opts.Name = name
-
-		if opts.ConstLabels == nil {
-			opts.ConstLabels = make(prometheus.Labels)
-		}
-		opts.ConstLabels["source_id"] = r.sourceID
+		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.histograms[name] = prometheus.NewHistogram(opts)
-
 		r.registry.MustRegister(r.histograms[name])
 	}
+}
+
+func (r *Registrar) addCommonConstLabels(constLabels prometheus.Labels) prometheus.Labels {
+	if constLabels == nil {
+		constLabels = make(prometheus.Labels)
+	}
+	constLabels["source_id"] = r.sourceID
+
+	return constLabels
 }

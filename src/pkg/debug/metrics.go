@@ -2,9 +2,9 @@ package debug
 
 // MetricRegistrar is used to update values of metrics.
 type MetricRegistrar interface {
-	Set(name string, value float64)
-	Add(name string, delta float64)
-	Inc(name string)
+	Set(name string, value float64, labels ...string)
+	Add(name string, delta float64, labels ...string)
+	Inc(name string, labels ...string)
 }
 
 const (

@@ -13,7 +13,7 @@ import (
 
 type CFAuthMiddlewareProvider struct {
 	log     *logger.Logger
-	metrics MetricRegistrar
+	metrics debug.MetricRegistrar
 
 	oauth2Reader  Oauth2ClientReader
 	logAuthorizer LogAuthorizer
@@ -31,7 +31,7 @@ func NewCFAuthMiddlewareProvider(
 	oauth2Reader Oauth2ClientReader,
 	logAuthorizer LogAuthorizer,
 	queryParser QueryParser,
-	metrics MetricRegistrar,
+	metrics debug.MetricRegistrar,
 	log *logger.Logger,
 ) CFAuthMiddlewareProvider {
 	return CFAuthMiddlewareProvider{

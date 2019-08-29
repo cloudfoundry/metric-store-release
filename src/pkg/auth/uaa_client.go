@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	jose "github.com/dvsekhvalnov/jose2go"
 )
@@ -32,7 +33,7 @@ type UAAClient struct {
 func NewUAAClient(
 	uaaAddr string,
 	httpClient HTTPClient,
-	m MetricRegistrar,
+	m debug.MetricRegistrar,
 	log *logger.Logger,
 	opts ...UAAOption,
 ) *UAAClient {
@@ -134,7 +135,6 @@ func (c *UAAClient) RefreshTokenKeys() error {
 		// generate a new key with the same (default) keyId, which is something
 		// along the lines of `key-1`
 		c.publicKeys.Store(tokenKey.KeyId, publicKey)
-
 
 		// update list of previously-known keys so that we can prune them
 		// if UAA no longer considers them valid

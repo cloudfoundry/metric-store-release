@@ -25,18 +25,11 @@ type timerValue struct {
 	value float64
 }
 
-// MetricRegistrar is used to update values of metrics.
-type MetricRegistrar interface {
-	Set(name string, value float64)
-	Add(name string, delta float64)
-	Inc(name string)
-}
-
 // Nozzle reads envelopes and writes points to metric-store.
 type Nozzle struct {
 	log                   *logger.Logger
 	s                     StreamConnector
-	metrics               MetricRegistrar
+	metrics               debug.MetricRegistrar
 	shardId               string
 	forwardedTags         []string
 	timerRollupBufferSize uint
@@ -127,7 +120,7 @@ func WithNozzleLogger(l *logger.Logger) NozzleOption {
 	}
 }
 
-func WithNozzleDebugRegistrar(m MetricRegistrar) NozzleOption {
+func WithNozzleDebugRegistrar(m debug.MetricRegistrar) NozzleOption {
 	return func(n *Nozzle) {
 		n.metrics = m
 	}

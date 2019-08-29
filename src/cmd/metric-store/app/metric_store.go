@@ -131,37 +131,37 @@ func (m *MetricStoreApp) startDebugServer() {
 		m.log,
 		"metric_store",
 		debug.WithGauge(debug.MetricStoreDiskFreeRatio, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Percentage of free space on persistent disk",
 		}),
 		debug.WithCounter(debug.MetricStoreWrittenPointsTotal, prometheus.CounterOpts{
-			Help: "",
+			Help: "Number of points successfully written to storage engine",
 		}),
 		debug.WithCounter(debug.MetricStoreExpiredShardsTotal, prometheus.CounterOpts{
-			Help: "",
+			Help: "Number of shards removed due to time-based expiration",
 		}),
 		debug.WithCounter(debug.MetricStorePrunedShardsTotal, prometheus.CounterOpts{
-			Help: "",
+			Help: "Number of shards removed due to disk space threshold",
 		}),
 		debug.WithGauge(debug.MetricStoreStorageDays, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Days of data stored on disk",
 		}),
 		debug.WithGauge(debug.MetricStoreIndexSize, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Size of the index",
 		}),
 		debug.WithGauge(debug.MetricStoreSeriesCount, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Number of unique series stored in the index",
 		}),
 		debug.WithGauge(debug.MetricStoreMeasurementsCount, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Number of unique measurements stored in the index",
 		}),
 		debug.WithCounter(debug.MetricStoreReadErrorsTotal, prometheus.CounterOpts{
-			Help: "",
+			Help: "Number of errors encountered reading from the storage engine",
 		}),
 		debug.WithGauge(debug.MetricStoreTagValuesQueryDurationSeconds, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Time spent retrieving tag values from the storage engine",
 		}),
 		debug.WithGauge(debug.MetricStoreMeasurementNamesQueryDurationSeconds, prometheus.GaugeOpts{
-			Help: "",
+			Help: "Time spent retrieving measurement names from the storage engine",
 		}),
 	)
 

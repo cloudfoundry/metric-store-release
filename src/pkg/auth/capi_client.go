@@ -27,13 +27,13 @@ type CAPIClient struct {
 	tokenPruningInterval    time.Duration
 	cacheExpirationInterval time.Duration
 	log                     *logger.Logger
-	metrics                 MetricRegistrar
+	metrics                 debug.MetricRegistrar
 }
 
 func NewCAPIClient(
 	externalCapiAddr string,
 	client HTTPClient,
-	metrics MetricRegistrar,
+	metrics debug.MetricRegistrar,
 	log *logger.Logger,
 	opts ...CAPIOption,
 ) *CAPIClient {

@@ -2,11 +2,6 @@ package auth
 
 import "net/http"
 
-// MetricRegistrar is used to update values of metrics.
-type MetricRegistrar interface {
-	Set(name string, value float64)
-}
-
 type Oauth2ClientReader interface {
 	Read(token string) (Oauth2ClientContext, error)
 }
