@@ -19,11 +19,11 @@ func StartServer(addr string, gatherer prometheus.Gatherer, log *logger.Logger) 
 	router := http.NewServeMux()
 
 	router.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
-	router.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
-	router.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
-	router.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
-	router.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
-	router.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+	router.HandleFunc("/debug/pprof/", pprof.Index)
+	router.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	router.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	router.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	router.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	router.Handle("/debug/vars", expvar.Handler())
 
 	server := http.Server{
