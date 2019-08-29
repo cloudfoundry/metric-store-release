@@ -43,7 +43,7 @@ func LoadConfig() *Config {
 		Addr:            ":8083",
 		InternalIP:      "0.0.0.0",
 		HealthPort:      6065,
-		MetricStoreAddr: "localhost:8081",
+		MetricStoreAddr: "localhost:8080",
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

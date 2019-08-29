@@ -37,6 +37,7 @@ type MetricStoreServerTLS struct {
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
 	cfg := &Config{
+		LogLevel:              "info",
 		Addr:                  ":8080",
 		IngressAddr:           ":8090",
 		HealthPort:            6060,
