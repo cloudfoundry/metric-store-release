@@ -27,6 +27,7 @@ var _ = Describe("Registrar", func() {
 		h = debug.NewRegistrar(
 			testLogger,
 			"source_id",
+			debug.WithConstLabels(map[string]string{"fuz": "baz"}),
 			debug.WithCounter("count", prometheus.CounterOpts{
 				Name: "count",
 				Help: "Basic counter metric",
@@ -80,13 +81,31 @@ var _ = Describe("Registrar", func() {
 			}).Should(Equal(1.0))
 		})
 
-		It("sets the labels on a labelled counter", func() {
+		It("sets the constant labels on a counter", func() {
+			h.Inc("count")
+
+			Eventually(func() []*goprom.LabelPair {
+				_, labels := mf.fetch("count")
+				return labels
+			}).Should(ContainElement(&goprom.LabelPair{Name: str("fuz"), Value: str("baz")}))
+		})
+
+		It("sets the dynamic labels on a labelled counter", func() {
 			h.Inc("labelled_count", "bar")
 
 			Eventually(func() []*goprom.LabelPair {
 				_, labels := mf.fetch("labelled_count")
 				return labels
 			}).Should(ContainElement(&goprom.LabelPair{Name: str("foo"), Value: str("bar")}))
+		})
+
+		It("sets the constant labels on a labelled counter", func() {
+			h.Inc("labelled_count", "bar")
+
+			Eventually(func() []*goprom.LabelPair {
+				_, labels := mf.fetch("labelled_count")
+				return labels
+			}).Should(ContainElement(&goprom.LabelPair{Name: str("fuz"), Value: str("baz")}))
 		})
 
 		It("panics when incrementing a labelled counter without labels", func() {
@@ -121,13 +140,31 @@ var _ = Describe("Registrar", func() {
 			}).Should(Equal(10.0))
 		})
 
-		It("sets the labels on a labelled counter", func() {
+		It("sets the constant labels on a counter", func() {
+			h.Add("count", 30.0)
+
+			Eventually(func() []*goprom.LabelPair {
+				_, labels := mf.fetch("count")
+				return labels
+			}).Should(ContainElement(&goprom.LabelPair{Name: str("fuz"), Value: str("baz")}))
+		})
+
+		It("sets the dynamic labels on a labelled counter", func() {
 			h.Add("labelled_count", 30.0, "bar")
 
 			Eventually(func() []*goprom.LabelPair {
 				_, labels := mf.fetch("labelled_count")
 				return labels
 			}).Should(ContainElement(&goprom.LabelPair{Name: str("foo"), Value: str("bar")}))
+		})
+
+		It("sets the constant labels on a labelled counter", func() {
+			h.Add("labelled_count", 30.0, "bar")
+
+			Eventually(func() []*goprom.LabelPair {
+				_, labels := mf.fetch("labelled_count")
+				return labels
+			}).Should(ContainElement(&goprom.LabelPair{Name: str("fuz"), Value: str("baz")}))
 		})
 
 		It("panics when adding to a labelled counter without labels", func() {
@@ -162,13 +199,31 @@ var _ = Describe("Registrar", func() {
 			}).Should(Equal(30.0))
 		})
 
-		It("sets the labels on a labelled gauge", func() {
+		It("sets the constant labels on a gauge", func() {
+			h.Set("gauge", 30.0)
+
+			Eventually(func() []*goprom.LabelPair {
+				_, labels := mf.fetch("gauge")
+				return labels
+			}).Should(ContainElement(&goprom.LabelPair{Name: str("fuz"), Value: str("baz")}))
+		})
+
+		It("sets the dynamic labels on a labelled gauge", func() {
 			h.Set("labelled_gauge", 30.0, "bar")
 
 			Eventually(func() []*goprom.LabelPair {
 				_, labels := mf.fetch("labelled_gauge")
 				return labels
 			}).Should(ContainElement(&goprom.LabelPair{Name: str("foo"), Value: str("bar")}))
+		})
+
+		It("sets the constant labels on a labelled gauge", func() {
+			h.Set("labelled_gauge", 30.0, "bar")
+
+			Eventually(func() []*goprom.LabelPair {
+				_, labels := mf.fetch("labelled_gauge")
+				return labels
+			}).Should(ContainElement(&goprom.LabelPair{Name: str("fuz"), Value: str("baz")}))
 		})
 
 		It("panics when setting the value on a labelled gauge without labels", func() {

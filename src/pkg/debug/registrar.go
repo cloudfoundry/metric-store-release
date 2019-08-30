@@ -13,7 +13,8 @@ type Registrar struct {
 	registry *prometheus.Registry
 	log      *logger.Logger
 
-	sourceID string
+	sourceID    string
+	constLabels map[string]string
 
 	counters    map[string]prometheus.Counter
 	counterVecs map[string]*prometheus.CounterVec
@@ -34,6 +35,7 @@ func NewRegistrar(
 		log:         log,
 		registry:    prometheus.NewRegistry(),
 		sourceID:    sourceID,
+		constLabels: make(map[string]string),
 		counters:    make(map[string]prometheus.Counter),
 		counterVecs: make(map[string]*prometheus.CounterVec),
 		gauges:      make(map[string]prometheus.Gauge),
@@ -134,6 +136,12 @@ func (h *Registrar) Histogram(name string) prometheus.Observer {
 // when initializing a new Registrar.
 type RegistrarOption func(*Registrar)
 
+func WithConstLabels(labels map[string]string) RegistrarOption {
+	return func(r *Registrar) {
+		r.constLabels = labels
+	}
+}
+
 // WithCounter will create and register a new counter metric.
 func WithCounter(name string, opts prometheus.CounterOpts) RegistrarOption {
 	return func(r *Registrar) {
@@ -203,6 +211,10 @@ func (r *Registrar) addCommonConstLabels(constLabels prometheus.Labels) promethe
 		constLabels = make(prometheus.Labels)
 	}
 	constLabels["source_id"] = r.sourceID
+
+	for key, value := range r.constLabels {
+		constLabels[key] = value
+	}
 
 	return constLabels
 }
