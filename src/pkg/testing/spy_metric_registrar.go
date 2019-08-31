@@ -2,6 +2,8 @@ package testing
 
 import (
 	"sync"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type SpyMetricRegistrar struct {
@@ -14,6 +16,10 @@ func NewSpyMetricRegistrar() *SpyMetricRegistrar {
 	return &SpyMetricRegistrar{
 		metrics: make(map[string]float64),
 	}
+}
+
+func (r *SpyMetricRegistrar) Registry() *prometheus.Registry {
+	return prometheus.NewRegistry()
 }
 
 func (r *SpyMetricRegistrar) Set(name string, value float64, labels ...string) {

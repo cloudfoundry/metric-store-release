@@ -29,27 +29,21 @@ var _ = Describe("Registrar", func() {
 			"source_id",
 			debug.WithConstLabels(map[string]string{"fuz": "baz"}),
 			debug.WithCounter("count", prometheus.CounterOpts{
-				Name: "count",
 				Help: "Basic counter metric",
 			}),
 			debug.WithLabelledCounter("labelled_count", prometheus.CounterOpts{
-				Name: "count",
 				Help: "Basic counter metric",
 			}, []string{"foo"}),
 			debug.WithGauge("gauge", prometheus.GaugeOpts{
-				Name: "gauge",
 				Help: "Basic gauge metric",
 			}),
 			debug.WithLabelledGauge("labelled_gauge", prometheus.GaugeOpts{
-				Name: "gauge",
 				Help: "Basic gauge metric",
 			}, []string{"foo"}),
 			debug.WithSummary("summary", "label_name", prometheus.SummaryOpts{
-				Name: "summary",
 				Help: "Basic summary vec",
 			}),
 			debug.WithHistogram("histogram", prometheus.HistogramOpts{
-				Name: "histogram",
 				Help: "Basic histogram",
 			}),
 		)

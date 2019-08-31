@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	promLog "github.com/go-kit/kit/log"
 	"github.com/niubaoshu/gotiny"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
@@ -169,8 +167,9 @@ func (store *MetricStore) Start() {
 
 	options := &notifier.Options{
 		QueueCapacity: 10,
+		Registerer:    store.metrics.Registry(),
 	}
-	store.notifierManager = notifier.NewManager(options, promLog.NewNopLogger())
+	store.notifierManager = notifier.NewManager(options, store.log)
 
 	go store.configureAlertManager()
 	go store.processRules(queryEngine)
@@ -188,7 +187,8 @@ func (store *MetricStore) processRules(queryEngine *promql.Engine) {
 		NotifyFunc:  sendAlerts(store.notifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
-		Logger:      promLog.NewLogfmtLogger(promLog.NewSyncWriter(os.Stderr)),
+		Logger:      store.log,
+		Registerer:  store.metrics.Registry(),
 	})
 
 	store.ruleManager.Update(5*time.Second, []string{store.rulesPath}, nil)
@@ -202,7 +202,7 @@ func (store *MetricStore) configureAlertManager() {
 
 	discoveryManagerNotify := discovery.NewManager(
 		context.Background(),
-		promLog.NewNopLogger(),
+		store.log,
 		discovery.Name("notify"),
 	)
 	go discoveryManagerNotify.Run()

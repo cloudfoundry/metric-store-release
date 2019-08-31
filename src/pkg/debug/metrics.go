@@ -1,10 +1,13 @@
 package debug
 
+import "github.com/prometheus/client_golang/prometheus"
+
 // MetricRegistrar is used to update values of metrics.
 type MetricRegistrar interface {
 	Set(name string, value float64, labels ...string)
 	Add(name string, delta float64, labels ...string)
 	Inc(name string, labels ...string)
+	Registry() *prometheus.Registry
 }
 
 const (
