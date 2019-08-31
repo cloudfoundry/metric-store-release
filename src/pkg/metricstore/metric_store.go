@@ -160,25 +160,16 @@ func (store *MetricStore) Start() {
 		MaxConcurrent: 10,
 		MaxSamples:    1e6,
 		Timeout:       store.queryTimeout,
+		Logger:        store.log,
+		Reg:           store.metrics.Registry(),
 	}
 	queryEngine := promql.NewEngine(engineOpts)
-
-	store.setupRouting(queryEngine)
 
 	options := &notifier.Options{
 		QueueCapacity: 10,
 		Registerer:    store.metrics.Registry(),
 	}
 	store.notifierManager = notifier.NewManager(options, store.log)
-
-	go store.configureAlertManager()
-	go store.processRules(queryEngine)
-}
-
-func (store *MetricStore) processRules(queryEngine *promql.Engine) {
-	if store.rulesPath == "" {
-		return
-	}
 
 	store.ruleManager = rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store.persistentStore,
@@ -191,7 +182,20 @@ func (store *MetricStore) processRules(queryEngine *promql.Engine) {
 		Registerer:  store.metrics.Registry(),
 	})
 
-	store.ruleManager.Update(5*time.Second, []string{store.rulesPath}, nil)
+	store.setupRouting(queryEngine)
+
+	go store.configureAlertManager()
+	go store.processRules(queryEngine)
+}
+
+func (store *MetricStore) processRules(queryEngine *promql.Engine) {
+	var rules []string
+
+	if store.rulesPath != "" {
+		rules = append(rules, store.rulesPath)
+	}
+
+	store.ruleManager.Update(5*time.Second, rules, nil)
 	store.ruleManager.Run()
 }
 
@@ -314,7 +318,12 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	store.lis = secureConnection
 	store.log.Info("listening", logger.String("address", store.Addr()))
 
-	promAPI := api.NewPromAPI(promQLEngine)
+	promAPI := api.NewPromAPI(
+		promQLEngine,
+		store.notifierManager,
+		store.ruleManager,
+		store.log,
+	)
 	apiV1 := promAPI.RouterForStorage(store.persistentStore)
 
 	mux := http.NewServeMux()

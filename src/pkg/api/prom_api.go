@@ -2,13 +2,14 @@ package api
 
 import (
 	"net/http"
-	"os"
 	"regexp"
 
-	prom_log "github.com/go-kit/kit/log"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
 	prom_api "github.com/prometheus/prometheus/web/api/v1"
 )
@@ -20,11 +21,17 @@ const (
 
 type PromAPI struct {
 	promQLEngine *promql.Engine
+	notifier     *notifier.Manager
+	ruleManager  *rules.Manager
+	log          *logger.Logger
 }
 
-func NewPromAPI(promQLEngine *promql.Engine) *PromAPI {
+func NewPromAPI(promQLEngine *promql.Engine, notifier *notifier.Manager, ruleManager *rules.Manager, log *logger.Logger) *PromAPI {
 	return &PromAPI{
 		promQLEngine: promQLEngine,
+		notifier:     notifier,
+		ruleManager:  ruleManager,
+		log:          log,
 	}
 }
 
@@ -33,14 +40,14 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage) *route.Router {
 		api.promQLEngine,
 		storage,
 		&nullTargetRetriever{},
-		&nullAlertmanagerRetriever{},
+		api.notifier,
 		func() config.Config { return config.Config{} },
 		nil,
 		func(h http.HandlerFunc) http.HandlerFunc { return h },
 		func() prom_api.TSDBAdmin { return &nullTSDBAdmin{} },
 		false,
-		prom_log.NewLogfmtLogger(prom_log.NewSyncWriter(os.Stderr)),
-		&nullRulesRetriever{},
+		api.log,
+		api.ruleManager,
 		REMOTE_READ_SAMPLE_LIMIT,
 		REMOTE_READ_CONCURRENCY_LIMIT,
 		&regexp.Regexp{},

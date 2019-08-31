@@ -1,9 +1,6 @@
 package api
 
 import (
-	"net/url"
-
-	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/scrape"
 	tsdbLabels "github.com/prometheus/tsdb/labels"
 )
@@ -12,16 +9,6 @@ type nullTargetRetriever struct{}
 
 func (tr *nullTargetRetriever) TargetsActive() map[string][]*scrape.Target  { return nil }
 func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { return nil }
-
-type nullAlertmanagerRetriever struct{}
-
-func (ar *nullAlertmanagerRetriever) Alertmanagers() []*url.URL        { return nil }
-func (ar *nullAlertmanagerRetriever) DroppedAlertmanagers() []*url.URL { return nil }
-
-type nullRulesRetriever struct{}
-
-func (rr *nullRulesRetriever) RuleGroups() []*rules.Group           { return nil }
-func (rr *nullRulesRetriever) AlertingRules() []*rules.AlertingRule { return nil }
 
 type nullTSDBAdmin struct{}
 
