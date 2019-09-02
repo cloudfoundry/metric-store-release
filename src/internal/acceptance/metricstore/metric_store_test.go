@@ -529,6 +529,106 @@ var _ = Describe("MetricStore", func() {
 		})
 	})
 
+	It("processes recording rules to record metrics", func() {
+		rules_yml := []byte(`
+---
+groups:
+- name: example
+  rules:
+  - record: testRecordingRule
+    expr: avg(metric_store_test_metric)
+    labels:
+      foo: bar
+`)
+
+		tmpfile, err := ioutil.TempFile("", "rules_yml")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.Remove(tmpfile.Name())
+		if _, err := tmpfile.Write(rules_yml); err != nil {
+			log.Fatal(err)
+		}
+		if err := tmpfile.Close(); err != nil {
+			log.Fatal(err)
+		}
+
+		tc, cleanup := setup(
+			WithOptionRulesPath(tmpfile.Name()),
+		)
+		defer cleanup()
+
+		client, err := ingressclient.NewIngressClient(
+			tc.ingressAddr,
+			tc.tlsConfig,
+		)
+		pointTimestamp := time.Now().UnixNano()
+		points := []*rpc.Point{
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     1,
+				Labels: map[string]string{
+					"node": "1",
+				},
+			},
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     2,
+				Labels: map[string]string{
+					"node": "2",
+				},
+			},
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     3,
+				Labels: map[string]string{
+					"node": "3",
+				},
+			},
+		}
+		err = client.Write(points)
+
+		checkForRecordedMetric := func() bool {
+			queryTimestamp := time.Now().UnixNano()
+			value, err := makeInstantQuery(tc, testInstantQuery{
+				Query:         "testRecordingRule",
+				TimeInSeconds: strconv.Itoa(int(queryTimestamp / int64(time.Second))),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			samples := value.(model.Vector)
+			if len(samples) == 0 {
+				return false
+			}
+
+			sample := samples[0]
+
+			if int64(sample.Timestamp) < transform.NanosecondsToMilliseconds(pointTimestamp) {
+				return false
+			}
+
+			if int64(sample.Timestamp) > transform.NanosecondsToMilliseconds(queryTimestamp) {
+				return false
+			}
+
+			if sample.Value != 2 {
+				return false
+			}
+
+			expectedMetric := model.Metric{
+				model.MetricNameLabel: "testRecordingRule",
+				"foo":                 "bar",
+			}
+			if !sample.Metric.Equal(expectedMetric) {
+				return false
+			}
+
+			return true
+		}
+		Eventually(checkForRecordedMetric, 5).Should(BeTrue())
+	})
+
 	It("processes alerting rules to trigger alerts", func() {
 		rules_yml := []byte(`
 ---

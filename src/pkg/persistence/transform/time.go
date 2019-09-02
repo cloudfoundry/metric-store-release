@@ -6,11 +6,11 @@ import (
 )
 
 func SecondsToMilliseconds(s int64) int64 {
-	return s * int64(time.Second/time.Millisecond)
+	return (s * int64(time.Second)) / int64(time.Millisecond)
 }
 
 func MillisecondsToNanoseconds(ms int64) int64 {
-	return ms * int64(time.Millisecond)
+	return (ms * int64(time.Millisecond)) / int64(time.Nanosecond)
 }
 
 func MillisecondsToTime(ms int64) time.Time {
@@ -22,7 +22,7 @@ func MillisecondsToString(ms int64) string {
 }
 
 func NanosecondsToMilliseconds(ns int64) int64 {
-	return ns / int64(time.Millisecond)
+	return (ns * int64(time.Nanosecond)) / int64(time.Millisecond)
 }
 
 func DurationToSeconds(t time.Duration) float64 {

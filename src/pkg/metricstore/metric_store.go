@@ -153,6 +153,28 @@ func WithRulesPath(rulesPath string) MetricStoreOption {
 	}
 }
 
+func EngineQueryFunc(engine *promql.Engine, q storage.Queryable) rules.QueryFunc {
+	return func(ctx context.Context, qs string, t time.Time) (promql.Vector, error) {
+		vector, err := rules.EngineQueryFunc(engine, q)(ctx, qs, t)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(vector) > 0 {
+			sample := vector[0]
+			return promql.Vector{promql.Sample{
+				Point: promql.Point{
+					T: transform.MillisecondsToNanoseconds(sample.T),
+					V: sample.V,
+				},
+				Metric: labels.Labels{},
+			}}, nil
+		}
+
+		return nil, nil
+	}
+}
+
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
@@ -174,7 +196,7 @@ func (store *MetricStore) Start() {
 	store.ruleManager = rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store.persistentStore,
 		TSDB:        store.persistentStore,
-		QueryFunc:   rules.EngineQueryFunc(queryEngine, store.persistentStore),
+		QueryFunc:   EngineQueryFunc(queryEngine, store.persistentStore),
 		NotifyFunc:  sendAlerts(store.notifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
