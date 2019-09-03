@@ -4,7 +4,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 // Registrar maintains a list of metrics to be served by the health endpoint
@@ -126,7 +125,7 @@ func (h *Registrar) Summary(name, label string) prometheus.Observer {
 func (h *Registrar) Histogram(name string) prometheus.Observer {
 	histogram, ok := h.histograms[name]
 	if !ok {
-		zap.L().Panic("Histogram called for unknown histogram", logger.String("name", name))
+		h.log.Panic("Histogram called for unknown histogram", logger.String("name", name))
 	}
 
 	return histogram
