@@ -22,6 +22,7 @@ const (
 	NULL_RETENTION_PERIOD         = -1
 	NULL_EXPIRY_FREQUENCY         = -1
 	NULL_METRICS_EMIT_DURATION    = -1
+	UNKNOWN_DISK_FREE_PERCENT     = 100
 )
 
 type RetentionConfig struct {
@@ -30,7 +31,7 @@ type RetentionConfig struct {
 	DiskFreePercentTarget float64
 }
 
-type diskFreeReporter func() float64
+type diskFreeReporter func() (float64, error)
 
 type Store struct {
 	adapter *InfluxAdapter
@@ -55,7 +56,7 @@ func NewStore(storagePath string, metrics debug.MetricRegistrar, opts ...StoreOp
 			RetentionPeriod:       time.Duration(math.MaxInt64),
 			DiskFreePercentTarget: 0,
 		},
-		diskFreeReporter: func() float64 { return 0 },
+		diskFreeReporter: func() (float64, error) { return 0, nil },
 	}
 
 	for _, opt := range opts {
@@ -105,7 +106,7 @@ func WithRetentionConfig(config RetentionConfig) StoreOption {
 	}
 }
 
-func WithDiskFreeReporter(diskFreeReporter func() float64) StoreOption {
+func WithDiskFreeReporter(diskFreeReporter func() (float64, error)) StoreOption {
 	return func(s *Store) {
 		s.diskFreeReporter = diskFreeReporter
 	}
@@ -169,7 +170,12 @@ func (store *Store) deleteExpiredData() {
 	}
 
 	if store.expiryConfig.DiskFreePercentTarget > NULL_DISK_FREE_PERCENT_TARGET {
-		diskFree := store.diskFreeReporter()
+		diskFree, err := store.diskFreeReporter()
+		if err != nil {
+			store.log.Error("error reporting disk free", err)
+			return
+		}
+
 		if diskFree < store.expiryConfig.DiskFreePercentTarget {
 			store.log.Info("expiring data due to disk free space", logger.String("disk free", fmt.Sprintf("%.0f%%", diskFree)))
 			store.deleteOldest()

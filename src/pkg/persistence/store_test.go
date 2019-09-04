@@ -2,6 +2,7 @@ package persistence_test
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -33,7 +34,7 @@ type testConfig struct {
 	RetentionPeriod       time.Duration
 	ExpiryFrequency       time.Duration
 	DiskFreePercentTarget float64
-	DiskFreeReporter      func() float64
+	DiskFreeReporter      func() (float64, error)
 	MetricsEmitDuration   time.Duration
 }
 type withSetupOption func(*testConfig)
@@ -56,7 +57,7 @@ func withDiskFreePercentTarget(diskFreePercentTarget float64) withSetupOption {
 	}
 }
 
-func withDiskFreeReporter(diskFreeReporter func() float64) withSetupOption {
+func withDiskFreeReporter(diskFreeReporter func() (float64, error)) withSetupOption {
 	return func(c *testConfig) {
 		c.DiskFreeReporter = diskFreeReporter
 	}
@@ -81,7 +82,7 @@ var _ = Describe("Persistent Store", func() {
 			RetentionPeriod:       NULL_RETENTION_PERIOD,
 			ExpiryFrequency:       NULL_EXPIRY_FREQUENCY,
 			DiskFreePercentTarget: NULL_DISK_FREE_PERCENT_TARGET,
-			DiskFreeReporter:      func() float64 { return 0 },
+			DiskFreeReporter:      func() (float64, error) { return 0, nil },
 			MetricsEmitDuration:   NULL_METRICS_EMIT_DURATION,
 		}
 		for _, opt := range opts {
@@ -539,6 +540,20 @@ var _ = Describe("Persistent Store", func() {
 					},
 				},
 			))
+		})
+
+		It("does not truncate on failure getting disk space status", func() {
+			tc := setup(
+				withDiskFreeReporter(func() (float64, error) {
+					return 0, errors.New("error")
+				}),
+				withDiskFreePercentTarget(10),
+			)
+			defer teardown(tc)
+
+			time.Sleep(50 * time.Millisecond)
+
+			Expect(tc.metrics.Fetch(debug.MetricStorePrunedShardsTotal)()).To(Equal(float64(0)))
 		})
 	})
 

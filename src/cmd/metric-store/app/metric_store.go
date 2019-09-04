@@ -179,16 +179,16 @@ func (m *MetricStoreApp) startDebugServer() {
 	)
 }
 
-func newDiskFreeReporter(storagePath string, log *logger.Logger, metrics debug.MetricRegistrar) func() float64 {
-	return func() float64 {
+func newDiskFreeReporter(storagePath string, log *logger.Logger, metrics debug.MetricRegistrar) func() (float64, error) {
+	return func() (float64, error) {
 		diskFree, err := system_stats.DiskFree(storagePath)
 
 		if err != nil {
 			log.Error("failed to get disk free space", err, logger.String("path", storagePath))
-			return 0
+			return persistence.UNKNOWN_DISK_FREE_PERCENT, err
 		}
 
 		metrics.Set(debug.MetricStoreDiskFreeRatio, diskFree/100)
-		return diskFree
+		return diskFree, nil
 	}
 }
