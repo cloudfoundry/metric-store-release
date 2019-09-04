@@ -71,7 +71,7 @@ func (m *MetricStoreApp) Run() {
 		m.log.Fatal("invalid mTLS configuration for ingress", err)
 	}
 
-	diskFreeReporter := newDiskFreeReporter(m.cfg.StoragePath, m.log, m.debugRegistrar)
+	diskFreeReporter := system_stats.NewDiskFreeReporter(m.cfg.StoragePath, m.log, m.debugRegistrar)
 	persistentStore := persistence.NewStore(
 		m.cfg.StoragePath,
 		m.debugRegistrar,
@@ -177,18 +177,4 @@ func (m *MetricStoreApp) startDebugServer() {
 		m.debugRegistrar.Registry(),
 		m.log,
 	)
-}
-
-func newDiskFreeReporter(storagePath string, log *logger.Logger, metrics debug.MetricRegistrar) func() (float64, error) {
-	return func() (float64, error) {
-		diskFree, err := system_stats.DiskFree(storagePath)
-
-		if err != nil {
-			log.Error("failed to get disk free space", err, logger.String("path", storagePath))
-			return persistence.UNKNOWN_DISK_FREE_PERCENT, err
-		}
-
-		metrics.Set(debug.MetricStoreDiskFreeRatio, diskFree/100)
-		return diskFree, nil
-	}
 }
