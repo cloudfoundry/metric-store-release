@@ -534,6 +534,7 @@ var _ = Describe("MetricStore", func() {
 ---
 groups:
 - name: example
+  interval: 1s
   rules:
   - record: testRecordingRule
     expr: avg(metric_store_test_metric)
