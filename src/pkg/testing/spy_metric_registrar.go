@@ -9,17 +9,27 @@ import (
 type SpyMetricRegistrar struct {
 	sync.Mutex
 
-	metrics map[string]float64
+	metrics    map[string]float64
+	registerer prometheus.Registerer
+	gatherer   prometheus.Gatherer
 }
 
 func NewSpyMetricRegistrar() *SpyMetricRegistrar {
+	defaultRegistry := prometheus.NewRegistry()
+
 	return &SpyMetricRegistrar{
-		metrics: make(map[string]float64),
+		metrics:    make(map[string]float64),
+		registerer: defaultRegistry,
+		gatherer:   defaultRegistry,
 	}
 }
 
-func (r *SpyMetricRegistrar) Registry() *prometheus.Registry {
-	return prometheus.NewRegistry()
+func (r *SpyMetricRegistrar) Registerer() prometheus.Registerer {
+	return r.registerer
+}
+
+func (r *SpyMetricRegistrar) Gatherer() prometheus.Gatherer {
+	return r.gatherer
 }
 
 func (r *SpyMetricRegistrar) Set(name string, value float64, labels ...string) {

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -527,6 +528,36 @@ var _ = Describe("MetricStore", func() {
 				},
 			))
 		})
+	})
+
+	It("exposes internal metrics", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
+		writePoints(
+			tc,
+			[]testPoint{
+				{
+					Name:               "metric_store_test_metric",
+					Value:              99,
+					TimeInMilliseconds: 1000,
+					Labels: map[string]string{
+						"source_id": "1",
+					},
+				},
+			},
+		)
+
+		resp, err := http.Get("http://localhost:" + tc.healthPort + "/metrics")
+		Expect(err).NotTo(HaveOccurred())
+		defer resp.Body.Close()
+
+		bytes, err := ioutil.ReadAll(resp.Body)
+		Expect(err).NotTo(HaveOccurred())
+		body := string(bytes)
+
+		Expect(body).To(ContainSubstring(debug.MetricStoreWrittenPointsTotal))
+		Expect(body).To(ContainSubstring("go_threads"))
 	})
 
 	It("processes recording rules to record metrics", func() {

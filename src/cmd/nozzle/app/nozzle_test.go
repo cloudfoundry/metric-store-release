@@ -70,6 +70,7 @@ var _ = Describe("Nozzle App", func() {
 		}
 		Eventually(fn).ShouldNot(BeEmpty())
 		Expect(body).To(ContainSubstring(debug.NozzleIngressEnvelopesTotal))
+		Expect(body).To(ContainSubstring("go_threads"))
 	})
 })
 

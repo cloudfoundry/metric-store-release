@@ -76,5 +76,6 @@ var _ = Describe("CF Auth Proxy App", func() {
 		}
 		Eventually(fn).ShouldNot(BeEmpty())
 		Expect(body).To(ContainSubstring(debug.AuthProxyRequestDurationSeconds))
+		Expect(body).To(ContainSubstring("go_threads"))
 	})
 })

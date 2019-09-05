@@ -62,5 +62,6 @@ var _ = Describe("Metric Store App", func() {
 		}
 		Eventually(fn).ShouldNot(BeEmpty())
 		Expect(body).To(ContainSubstring(debug.MetricStoreWrittenPointsTotal))
+		Expect(body).To(ContainSubstring("go_threads"))
 	})
 })

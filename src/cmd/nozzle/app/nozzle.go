@@ -109,6 +109,7 @@ func (n *NozzleApp) startDebugServer() {
 	n.debugRegistrar = debug.NewRegistrar(
 		n.log,
 		"metric_store_nozzle",
+		debug.WithDefaultRegistry(),
 		debug.WithCounter(debug.NozzleIngressEnvelopesTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes ingressed by the nozzle",
 		}),
@@ -132,7 +133,7 @@ func (n *NozzleApp) startDebugServer() {
 	debugAddr := fmt.Sprintf("localhost:%d", n.cfg.HealthPort)
 	n.debugLis = debug.StartServer(
 		debugAddr,
-		n.debugRegistrar.Registry(),
+		n.debugRegistrar.Gatherer(),
 		n.log,
 	)
 }

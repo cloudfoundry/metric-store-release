@@ -9,8 +9,9 @@ import (
 // Registrar maintains a list of metrics to be served by the health endpoint
 // server.
 type Registrar struct {
-	registry *prometheus.Registry
-	log      *logger.Logger
+	registerer prometheus.Registerer
+	gatherer   prometheus.Gatherer
+	log        *logger.Logger
 
 	sourceID    string
 	constLabels map[string]string
@@ -30,9 +31,12 @@ func NewRegistrar(
 	sourceID string,
 	opts ...RegistrarOption,
 ) *Registrar {
+	defaultRegistry := prometheus.NewRegistry()
+
 	r := &Registrar{
 		log:         log,
-		registry:    prometheus.NewRegistry(),
+		registerer:  defaultRegistry,
+		gatherer:    defaultRegistry,
 		sourceID:    sourceID,
 		constLabels: make(map[string]string),
 		counters:    make(map[string]prometheus.Counter),
@@ -50,9 +54,12 @@ func NewRegistrar(
 	return r
 }
 
-// Registry returns the Prometheus registry used by the registrar.
-func (h *Registrar) Registry() *prometheus.Registry {
-	return h.registry
+func (h *Registrar) Registerer() prometheus.Registerer {
+	return h.registerer
+}
+
+func (h *Registrar) Gatherer() prometheus.Gatherer {
+	return h.gatherer
 }
 
 // Set will set the given value on the gauge metric with the given name. If
@@ -135,6 +142,13 @@ func (h *Registrar) Histogram(name string) prometheus.Observer {
 // when initializing a new Registrar.
 type RegistrarOption func(*Registrar)
 
+func WithDefaultRegistry() RegistrarOption {
+	return func(r *Registrar) {
+		r.registerer = prometheus.DefaultRegisterer
+		r.gatherer = prometheus.DefaultGatherer
+	}
+}
+
 func WithConstLabels(labels map[string]string) RegistrarOption {
 	return func(r *Registrar) {
 		r.constLabels = labels
@@ -148,7 +162,7 @@ func WithCounter(name string, opts prometheus.CounterOpts) RegistrarOption {
 		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.counters[name] = prometheus.NewCounter(opts)
-		r.registry.MustRegister(r.counters[name])
+		r.registerer.MustRegister(r.counters[name])
 	}
 }
 
@@ -158,7 +172,7 @@ func WithLabelledCounter(name string, opts prometheus.CounterOpts, labelsNames [
 		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.counterVecs[name] = prometheus.NewCounterVec(opts, labelsNames)
-		r.registry.MustRegister(r.counterVecs[name])
+		r.registerer.MustRegister(r.counterVecs[name])
 	}
 }
 
@@ -169,7 +183,7 @@ func WithGauge(name string, opts prometheus.GaugeOpts) RegistrarOption {
 		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.gauges[name] = prometheus.NewGauge(opts)
-		r.registry.MustRegister(r.gauges[name])
+		r.registerer.MustRegister(r.gauges[name])
 	}
 }
 
@@ -179,7 +193,7 @@ func WithLabelledGauge(name string, opts prometheus.GaugeOpts, labelsNames []str
 		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.gaugeVecs[name] = prometheus.NewGaugeVec(opts, labelsNames)
-		r.registry.MustRegister(r.gaugeVecs[name])
+		r.registerer.MustRegister(r.gaugeVecs[name])
 	}
 }
 
@@ -190,7 +204,7 @@ func WithSummary(name, label string, opts prometheus.SummaryOpts) RegistrarOptio
 		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.summaries[name] = prometheus.NewSummaryVec(opts, []string{label})
-		r.registry.MustRegister(r.summaries[name])
+		r.registerer.MustRegister(r.summaries[name])
 	}
 }
 
@@ -201,7 +215,7 @@ func WithHistogram(name string, opts prometheus.HistogramOpts) RegistrarOption {
 		opts.ConstLabels = r.addCommonConstLabels(opts.ConstLabels)
 
 		r.histograms[name] = prometheus.NewHistogram(opts)
-		r.registry.MustRegister(r.histograms[name])
+		r.registerer.MustRegister(r.histograms[name])
 	}
 }
 

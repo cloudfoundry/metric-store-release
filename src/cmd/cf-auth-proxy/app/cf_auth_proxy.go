@@ -132,6 +132,7 @@ func (c *CFAuthProxyApp) startDebugServer() {
 	c.debugRegistrar = debug.NewRegistrar(
 		c.log,
 		"metric_store_cf_auth_proxy",
+		debug.WithDefaultRegistry(),
 		debug.WithGauge(debug.AuthProxyRequestDurationSeconds, prometheus.GaugeOpts{
 			Help: "Duration in seconds of requests made to the auth proxy",
 		}),
@@ -143,7 +144,7 @@ func (c *CFAuthProxyApp) startDebugServer() {
 	debugAddr := fmt.Sprintf("localhost:%d", c.cfg.HealthPort)
 	c.debugLis = debug.StartServer(
 		debugAddr,
-		c.debugRegistrar.Registry(),
+		c.debugRegistrar.Gatherer(),
 		c.log,
 	)
 }

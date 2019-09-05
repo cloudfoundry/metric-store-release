@@ -48,7 +48,7 @@ var _ = Describe("Registrar", func() {
 			}),
 		)
 
-		lis = debug.StartServer("127.0.0.1:0", h.Registry(), testLogger)
+		lis = debug.StartServer("127.0.0.1:0", h.Gatherer(), testLogger)
 		mf = newMetricFetcher(lis.Addr().String())
 	})
 

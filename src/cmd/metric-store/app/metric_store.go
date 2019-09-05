@@ -130,6 +130,7 @@ func (m *MetricStoreApp) startDebugServer() {
 	m.debugRegistrar = debug.NewRegistrar(
 		m.log,
 		"metric_store",
+		debug.WithDefaultRegistry(),
 		debug.WithCounter(debug.MetricStoreIngressPointsTotal, prometheus.CounterOpts{
 			Help: "Number of points ingressed by metric-store",
 		}),
@@ -174,7 +175,7 @@ func (m *MetricStoreApp) startDebugServer() {
 	debugAddr := fmt.Sprintf("localhost:%d", m.cfg.HealthPort)
 	m.debugLis = debug.StartServer(
 		debugAddr,
-		m.debugRegistrar.Registry(),
+		m.debugRegistrar.Gatherer(),
 		m.log,
 	)
 }

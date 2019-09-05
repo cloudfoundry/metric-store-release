@@ -7,7 +7,8 @@ type MetricRegistrar interface {
 	Set(name string, value float64, labels ...string)
 	Add(name string, delta float64, labels ...string)
 	Inc(name string, labels ...string)
-	Registry() *prometheus.Registry
+	Registerer() prometheus.Registerer
+	Gatherer() prometheus.Gatherer
 }
 
 const (

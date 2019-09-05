@@ -183,13 +183,13 @@ func (store *MetricStore) Start() {
 		MaxSamples:    1e6,
 		Timeout:       store.queryTimeout,
 		Logger:        store.log,
-		Reg:           store.metrics.Registry(),
+		Reg:           store.metrics.Registerer(),
 	}
 	queryEngine := promql.NewEngine(engineOpts)
 
 	options := &notifier.Options{
 		QueueCapacity: 10,
-		Registerer:    store.metrics.Registry(),
+		Registerer:    store.metrics.Registerer(),
 	}
 	store.notifierManager = notifier.NewManager(options, store.log)
 
@@ -201,7 +201,7 @@ func (store *MetricStore) Start() {
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
 		Logger:      store.log,
-		Registerer:  store.metrics.Registry(),
+		Registerer:  store.metrics.Registerer(),
 	})
 
 	store.setupRouting(queryEngine)
