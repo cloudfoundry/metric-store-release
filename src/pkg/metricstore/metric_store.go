@@ -251,7 +251,7 @@ func (store *MetricStore) configureAlertManager() {
 					},
 					Scheme:     "http",
 					Timeout:    10000000000,
-					APIVersion: config.AlertmanagerAPIVersionV1,
+					APIVersion: config.AlertmanagerAPIVersionV2,
 				},
 			},
 		},
