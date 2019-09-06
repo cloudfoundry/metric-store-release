@@ -51,5 +51,16 @@ var _ = Describe("Query Parser", func() {
 			Expect(err).To(MatchError("one or more terms lack a sourceId"))
 			Expect(ids).To(BeEmpty())
 		})
+
+		It("returns an error if a query term has a regex match on source id", func() {
+			qp := &cfauthproxy.QueryParser{}
+			query := `cpu{source_id=~"platform"}`
+
+			ids, err := qp.ExtractSourceIds(query)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("regular expressions are unavailable on source ids"))
+			Expect(ids).To(BeEmpty())
+		})
 	})
 })

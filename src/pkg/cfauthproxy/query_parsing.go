@@ -70,7 +70,10 @@ func (s *sourceIdVisitor) addSourceIdsFromMatchers(labelMatchers []*labels.Match
 	for _, labelMatcher := range labelMatchers {
 		if labelMatcher.Name == "source_id" && labelMatcher.Value != "" {
 			containsValidSourceId = true
-			addSourceIdsFromLabelMatcher(s.sourceIds, labelMatcher)
+			err := addSourceIdsFromLabelMatcher(s.sourceIds, labelMatcher)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -81,15 +84,12 @@ func (s *sourceIdVisitor) addSourceIdsFromMatchers(labelMatchers []*labels.Match
 	return nil
 }
 
-func addSourceIdsFromLabelMatcher(sourceIds map[string]struct{}, labelMatcher *labels.Matcher) {
+func addSourceIdsFromLabelMatcher(sourceIds map[string]struct{}, labelMatcher *labels.Matcher) error {
 	switch labelMatcher.Type {
 	case labels.MatchRegexp:
-		panic("how did we get here?")
-		// matchedSourceIds := strings.Split(labelMatcher.Value, "|")
-		// for _, matchedSourceId := range matchedSourceIds {
-		// 	sourceIds[matchedSourceId] = struct{}{}
-		// }
+		return errors.New("regular expressions are unavailable on source ids")
 	case labels.MatchEqual:
 		sourceIds[labelMatcher.Value] = struct{}{}
 	}
+	return nil
 }
