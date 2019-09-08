@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.3
 	github.com/influxdata/flux v0.40.0 // indirect
-	github.com/influxdata/influxdb v1.7.7
+	github.com/influxdata/influxdb v1.7.8
 	github.com/influxdata/influxql v1.0.0
 	github.com/influxdata/roaring v0.4.12 // indirect
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
