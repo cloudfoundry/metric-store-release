@@ -12,7 +12,7 @@ require (
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 	github.com/glycerine/go-unsnap-stream v0.0.0-20190730064659-98d31706395a // indirect
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
-	github.com/go-kit/kit v0.9.0
+	github.com/go-kit/kit v0.9.0 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.3
 	github.com/influxdata/flux v0.40.0 // indirect
