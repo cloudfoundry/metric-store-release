@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,15 @@ type testContext struct {
 	baseHandlerRequest *http.Request
 	authHandler        http.Handler
 }
+
+const jsonError = `{
+  "status": "error",
+  "data": null,
+
+  "errorType": "%s",
+  "error": "%s",
+  "warnings": []
+}`
 
 func setup(requestPath string) *testContext {
 	spyOauth2ClientReader := newAdminChecker()
@@ -108,7 +118,10 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 				body, _ := ioutil.ReadAll(tc.recorder.Result().Body)
 				Expect(tc.recorder.Code).To(Equal(http.StatusUnauthorized))
-				Expect(string(body)).To(ContainSubstring("there are no matching source IDs for your query"))
+
+				errorBody := buildErrorJson(http.StatusUnauthorized, "there are no matching source IDs for your query")
+				Expect(body).To(MatchJSON(errorBody))
+
 				Expect(tc.baseHandlerCalled).To(BeFalse())
 			})
 
@@ -119,7 +132,11 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 				body, _ := ioutil.ReadAll(tc.recorder.Result().Body)
 				Expect(tc.recorder.Code).To(Equal(http.StatusUnprocessableEntity))
-				Expect(string(body)).To(ContainSubstring("query parse error"))
+
+				errorBody := buildErrorJson(http.StatusUnprocessableEntity,
+					"query parse error: query parser rejection")
+				Expect(body).To(MatchJSON(errorBody))
+
 				Expect(tc.baseHandlerCalled).To(BeFalse())
 			})
 		})
@@ -335,4 +352,8 @@ func newSpyQueryParser() *spyQueryParser {
 
 func (s *spyQueryParser) ExtractSourceIds(query string) ([]string, error) {
 	return s.sourceIds, s.err
+}
+
+func buildErrorJson(statusCode int, message string) string {
+	return fmt.Sprintf(jsonError, http.StatusText(statusCode), message)
 }

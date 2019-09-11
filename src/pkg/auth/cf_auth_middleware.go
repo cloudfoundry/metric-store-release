@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -49,6 +50,12 @@ type promqlErrorBody struct {
 	Error     string `json:"error"`
 }
 
+type queryError struct {
+	promqlErrorBody
+	Data     interface{} `json:"data"`
+	Warnings []string    `json:"warnings"`
+}
+
 func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 	router := mux.NewRouter()
 
@@ -57,14 +64,14 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 
 		authToken := r.Header.Get("Authorization")
 		if authToken == "" {
-			w.WriteHeader(http.StatusNotFound)
+			m.writeQueryError(w, http.StatusNotFound, "missing auth token")
 			return
 		}
 
 		userContext, err := m.oauth2Reader.Read(authToken)
 		if err != nil {
 			m.log.Error("failed to read from Oauth2 server", err)
-			w.WriteHeader(http.StatusNotFound)
+			m.writeQueryError(w, http.StatusNotFound, "failed to read from Oauth2 server")
 			return
 		}
 
@@ -72,11 +79,11 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 			query := r.URL.Query().Get("query")
 			relevantSourceIds, err := m.queryParser.ExtractSourceIds(query)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("query parse error: %s", err), http.StatusUnprocessableEntity)
+				m.writeQueryError(w, http.StatusUnprocessableEntity, "query parse error: %s", err)
 				return
 			}
 			if !m.authorized(relevantSourceIds, userContext) {
-				http.Error(w, fmt.Sprintf("there are no matching source IDs for your query"), http.StatusUnauthorized)
+				m.writeQueryError(w, http.StatusUnauthorized, "there are no matching source IDs for your query")
 				return
 			}
 		}
@@ -118,7 +125,7 @@ func (m CFAuthMiddlewareProvider) handleOnlyAdmin(h http.Handler, w http.Respons
 	userContext, err := m.oauth2Reader.Read(authToken)
 	if err != nil {
 		m.log.Error("failed to read from Oauth2 server", err)
-		w.WriteHeader(http.StatusNotFound)
+		m.writeQueryError(w, http.StatusNotFound, "failed to read from Oauth2 server")
 		return
 	}
 
@@ -127,5 +134,23 @@ func (m CFAuthMiddlewareProvider) handleOnlyAdmin(h http.Handler, w http.Respons
 		h.ServeHTTP(w, r)
 	}
 
-	w.WriteHeader(http.StatusNotFound)
+	m.writeQueryError(w, http.StatusNotFound, "")
+}
+
+func (m CFAuthMiddlewareProvider) writeQueryError(w http.ResponseWriter, statusCode int, errFmt string, a ...interface{}) {
+	e := queryError{
+		promqlErrorBody: promqlErrorBody{
+			Status:    "error",
+			ErrorType: http.StatusText(statusCode),
+			Error:     fmt.Sprintf(errFmt, a...),
+		},
+		Warnings: []string{},
+	}
+
+	result, err := json.Marshal(e)
+	if err != nil {
+		m.log.Error("query error message marshalling failure", err)
+		result = []byte(e.Error)
+	}
+	http.Error(w, string(result), statusCode)
 }

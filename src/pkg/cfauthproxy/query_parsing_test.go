@@ -54,7 +54,7 @@ var _ = Describe("Query Parser", func() {
 
 		It("returns an error if a query term has a regex match on source id", func() {
 			qp := &cfauthproxy.QueryParser{}
-			query := `cpu{source_id=~"platform"}`
+			query := `metric{source_id=~"platform"}`
 
 			ids, err := qp.ExtractSourceIds(query)
 
