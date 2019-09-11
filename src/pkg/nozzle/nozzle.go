@@ -15,6 +15,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -243,7 +244,7 @@ func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 			continue
 		}
 
-		n.metrics.Set(debug.NozzleEgressDurationSeconds, float64(time.Since(start)/time.Second))
+		n.metrics.Set(debug.NozzleEgressDurationSeconds, transform.DurationToSeconds(time.Since(start)))
 		n.metrics.Add(debug.NozzleEgressPointsTotal, float64(len(points)))
 	}
 }
