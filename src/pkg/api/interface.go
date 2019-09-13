@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/prometheus/prometheus/scrape"
-	tsdbLabels "github.com/prometheus/tsdb/labels"
+	tsdbLabels "github.com/prometheus/prometheus/tsdb/labels"
 )
 
 type nullTargetRetriever struct{}

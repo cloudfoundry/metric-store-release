@@ -234,7 +234,7 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() bool {
-			value, _ := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			value, _, _ := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			return len(value) == len(metricNameCounts)
 		}, 3).Should(BeTrue())
 	}
@@ -259,7 +259,7 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			value, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			value, _, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			if err != nil {
 				return nil
 			}
@@ -276,12 +276,12 @@ var _ = Describe("MetricStore", func() {
 		start(tc)
 
 		Eventually(func() error {
-			_, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			_, _, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			return err
 		}, 5).Should(Succeed())
 
 		Eventually(func() model.LabelValues {
-			value, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			value, _, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			Expect(err).ToNot(HaveOccurred())
 			return value
 		}, 1).Should(Equal(model.LabelValues{
@@ -433,7 +433,7 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			value, err := tc.egressClient.LabelNames(context.Background())
+			value, _, err := tc.egressClient.LabelNames(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				[]string{model.MetricNameLabel, "source_id"},
@@ -476,17 +476,17 @@ var _ = Describe("MetricStore", func() {
 				},
 			)
 
-			value, err := tc.egressClient.LabelValues(context.Background(), "source_id")
+			value, _, err := tc.egressClient.LabelValues(context.Background(), "source_id")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				model.LabelValues{"1", "10"},
 			))
 
-			value, err = tc.egressClient.LabelValues(context.Background(), "user_agent")
+			value, _, err = tc.egressClient.LabelValues(context.Background(), "user_agent")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(BeNil())
 
-			value, err = tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			value, _, err = tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				model.LabelValues{"metric_name_0", "metric_name_1", "metric_name_2"},
