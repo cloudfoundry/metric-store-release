@@ -342,7 +342,7 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 				},
 			}
 			countPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_count",
+				Name:      n.rollupMetricName + "_total",
 				Timestamp: timestamp.UnixNano(),
 				Value:     float64(tv.count),
 				Labels: map[string]string{

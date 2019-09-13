@@ -194,7 +194,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_count",
+					Name:  "rolled_timer_total",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -212,7 +212,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_count",
+					Name:  "rolled_timer_total",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
