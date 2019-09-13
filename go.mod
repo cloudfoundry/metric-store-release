@@ -28,7 +28,7 @@ require (
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.1.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/common v0.6.0
+	github.com/prometheus/common v0.7.0
 	github.com/prometheus/prometheus v0.0.0-20190818123050-43acd0e2e93f
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
