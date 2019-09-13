@@ -103,6 +103,14 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 		m.handleOnlyAdmin(h, w, r)
 	})
 
+	router.HandleFunc("/api/v1/rules", func(w http.ResponseWriter, r *http.Request) {
+		m.handleOnlyAdmin(h, w, r)
+	})
+
+	router.HandleFunc("/api/v1/alerts", func(w http.ResponseWriter, r *http.Request) {
+		m.handleOnlyAdmin(h, w, r)
+	})
+
 	router.HandleFunc(`/api/v1/label/{metric_name:[^/]*}/values`, func(w http.ResponseWriter, r *http.Request) {
 		m.handleOnlyAdmin(h, w, r)
 	})

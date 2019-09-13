@@ -289,6 +289,70 @@ var _ = Describe("CfAuthMiddleware", func() {
 			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
 		})
 	})
+
+	Describe("/api/v1/rules", func() {
+		It("forwards the request to the handler if user is an admin", func() {
+			tc := setup(`/api/v1/rules`)
+
+			tc.spyOauth2ClientReader.isAdminResult = true
+
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusOK))
+			Expect(tc.baseHandlerCalled).To(BeTrue())
+
+			Expect(tc.spyOauth2ClientReader.token).To(Equal("bearer valid-token"))
+		})
+
+		It("404s if the user is not an admin", func() {
+			tc := setup(`/api/v1/rules`)
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("404s if the oauth2reader returns an error", func() {
+			tc := setup(`/api/v1/rules`)
+			tc.spyOauth2ClientReader.isAdminResult = true
+			tc.spyOauth2ClientReader.err = errors.New("some-error")
+
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
+		})
+	})
+
+	Describe("/api/v1/alerts", func() {
+		It("forwards the request to the handler if user is an admin", func() {
+			tc := setup(`/api/v1/alerts`)
+
+			tc.spyOauth2ClientReader.isAdminResult = true
+
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusOK))
+			Expect(tc.baseHandlerCalled).To(BeTrue())
+
+			Expect(tc.spyOauth2ClientReader.token).To(Equal("bearer valid-token"))
+		})
+
+		It("404s if the user is not an admin", func() {
+			tc := setup(`/api/v1/alerts`)
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
+		})
+
+		It("404s if the oauth2reader returns an error", func() {
+			tc := setup(`/api/v1/alerts`)
+			tc.spyOauth2ClientReader.isAdminResult = true
+			tc.spyOauth2ClientReader.err = errors.New("some-error")
+
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
+		})
+	})
 })
 
 type spyOauth2ClientReader struct {
