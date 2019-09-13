@@ -140,6 +140,7 @@ func (m CFAuthMiddlewareProvider) handleOnlyAdmin(h http.Handler, w http.Respons
 	if userContext.IsAdmin {
 		w.WriteHeader(http.StatusOK)
 		h.ServeHTTP(w, r)
+		return
 	}
 
 	m.writeQueryError(w, http.StatusNotFound, "")
