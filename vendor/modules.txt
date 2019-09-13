@@ -315,9 +315,9 @@ github.com/pkg/errors
 # github.com/prometheus/alertmanager v0.17.0
 github.com/prometheus/alertmanager/api/v2/models
 # github.com/prometheus/client_golang v1.0.0
+github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/api
 github.com/prometheus/client_golang/api/prometheus/v1
-github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promauto
@@ -333,8 +333,9 @@ github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 # github.com/prometheus/procfs v0.0.2
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
-# github.com/prometheus/prometheus v0.0.0-20190710134608-e5b22494857d
+# github.com/prometheus/prometheus v0.0.0-20190814100549-343d8d75fd76
 github.com/prometheus/prometheus/config
+github.com/prometheus/prometheus/notifier
 github.com/prometheus/prometheus/promql
 github.com/prometheus/prometheus/rules
 github.com/prometheus/prometheus/scrape
@@ -344,7 +345,6 @@ github.com/prometheus/prometheus/pkg/labels
 github.com/prometheus/prometheus/discovery
 github.com/prometheus/prometheus/discovery/config
 github.com/prometheus/prometheus/discovery/targetgroup
-github.com/prometheus/prometheus/notifier
 github.com/prometheus/prometheus/pkg/relabel
 github.com/prometheus/prometheus/pkg/gate
 github.com/prometheus/prometheus/pkg/textparse

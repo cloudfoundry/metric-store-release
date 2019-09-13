@@ -12,7 +12,7 @@ require (
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 	github.com/glycerine/go-unsnap-stream v0.0.0-20190730064659-98d31706395a // indirect
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
-	github.com/go-kit/kit v0.9.0
+	github.com/go-kit/kit v0.9.0 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.3
 	github.com/influxdata/flux v0.40.0 // indirect
@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/client_golang v1.0.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.5.0
-	github.com/prometheus/prometheus v0.0.0-20190710134608-e5b22494857d
+	github.com/prometheus/prometheus v0.0.0-20190814100549-343d8d75fd76
 	github.com/prometheus/tsdb v0.9.1
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
