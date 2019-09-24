@@ -55,6 +55,8 @@ func NewEgressClient(httpAddr, uaaAddr, uaaClientId, uaaClientSecret string) (pr
 // Do modifies the given Request. It is invalid to use the same Request
 // instance on multiple go-routines.
 func (c *EgressClient) Do(ctx context.Context, req *http.Request) (*http.Response, []byte, prom_api_client.Warnings, error) {
+	req.Header.Add("Accept-Encoding", "text/plain")
+
 	if _, ok := req.Header["Authorization"]; ok {
 		// Authorization Header is pre-populated, so just do the request.
 		return c.client.Do(ctx, req)
