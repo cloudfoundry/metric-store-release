@@ -108,7 +108,7 @@ func (n *NozzleApp) startDebugServer() {
 
 	n.debugRegistrar = debug.NewRegistrar(
 		n.log,
-		"metric_store_nozzle",
+		"metric-store-nozzle",
 		debug.WithDefaultRegistry(),
 		debug.WithCounter(debug.NozzleIngressEnvelopesTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes ingressed by the nozzle",
