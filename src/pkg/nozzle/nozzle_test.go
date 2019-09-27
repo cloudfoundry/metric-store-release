@@ -271,6 +271,71 @@ var _ = Describe("Nozzle", func() {
 				},
 			))
 		})
+
+		It("keeps a total across rollupIntervals", func() {
+			baseTimer := loggregator_v2.Envelope{
+				SourceId: "source-id",
+				Message: &loggregator_v2.Envelope_Timer{
+					Timer: &loggregator_v2.Timer{
+						Name:  "rolled_timer",
+						Start: 0,
+						Stop:  0,
+					},
+				},
+				Tags: map[string]string{
+					"tag1": "t1",
+					"tag2": "t2",
+				},
+			}
+
+			firstTimer := baseTimer
+			firstTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 5 * int64(time.Second)
+
+			streamConnector.envelopes <- []*loggregator_v2.Envelope{&firstTimer}
+
+			// wait for interval to elapse
+			Eventually(metricStore.GetPoints).Should(HaveLen(2))
+
+			secondTimer := baseTimer
+			thirdTimer := baseTimer
+
+			secondTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 2 * int64(time.Second)
+			thirdTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 4 * int64(time.Second)
+
+			streamConnector.envelopes <- []*loggregator_v2.Envelope{&secondTimer, &thirdTimer}
+
+			Eventually(metricStore.GetPoints).Should(HaveLen(4))
+
+			point := rpc.Point{
+				Labels: map[string]string{
+					"node_index": "0",
+					"source_id":  "source-id",
+					"tag1":       "t1",
+					"tag2":       "t2",
+				},
+			}
+
+			firstIntervalMean := point
+			firstIntervalMean.Name = "rolled_timer_mean_ms"
+			firstIntervalMean.Value = 5 * float64(time.Second/time.Millisecond)
+			firstIntervalTotal := point
+			firstIntervalTotal.Name = "rolled_timer_total"
+			firstIntervalTotal.Value = 1
+
+			secondIntervalMean := point
+			secondIntervalMean.Name = "rolled_timer_mean_ms"
+			secondIntervalMean.Value = 4 * float64(time.Second/time.Millisecond)
+			secondIntervalTotal := point
+			secondIntervalTotal.Name = "rolled_timer_total"
+			secondIntervalTotal.Value = 3
+
+			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
+				&firstIntervalMean,
+				&firstIntervalTotal,
+				&secondIntervalMean,
+				&secondIntervalTotal,
+			}))
+		})
 	})
 
 	Describe("when the envelope is a Counter", func() {

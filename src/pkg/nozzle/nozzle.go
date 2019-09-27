@@ -39,6 +39,7 @@ type Nozzle struct {
 
 	timerBuffer  *diodes.OneToOne
 	timerMetrics map[string]*timerValue
+	timerTotals  map[string]uint64
 	timerMutex   sync.Mutex
 
 	addr        string
@@ -77,6 +78,7 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		timerRollupBufferSize: 4096,
 		forwardedTags:         []string{},
 		timerMetrics:          make(map[string]*timerValue),
+		timerTotals:           make(map[string]uint64),
 		tagInfo:               &sync.Map{},
 	}
 
@@ -286,12 +288,15 @@ func (n *Nozzle) timerProcessor() {
 		tv, found := n.timerMetrics[key]
 		if !found {
 			n.timerMetrics[key] = &timerValue{count: 1, value: value}
+			n.timerTotals[key] = n.timerTotals[key] + 1
 			n.timerMutex.Unlock()
 			continue
 		}
 
 		tv.value = (float64(tv.count)*tv.value + value) / float64(tv.count+1)
 		tv.count += 1
+		n.timerTotals[key] = n.timerTotals[key] + 1
+
 		n.timerMutex.Unlock()
 	}
 }
@@ -344,7 +349,7 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			countPoint := &rpc.Point{
 				Name:      n.rollupMetricName + "_total",
 				Timestamp: timestamp.UnixNano(),
-				Value:     float64(tv.count),
+				Value:     float64(n.timerTotals[k]),
 				Labels: map[string]string{
 					"source_id":  keyParts[0],
 					"node_index": nodeIndex,
