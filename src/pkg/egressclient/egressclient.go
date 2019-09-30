@@ -71,6 +71,11 @@ func (c *EgressClient) Do(ctx context.Context, req *http.Request) (*http.Respons
 
 	res, body, _, err := c.client.Do(ctx, req)
 
+	if err != nil {
+		c.token = ""
+		return res, body, nil, err
+	}
+
 	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
 		c.token = ""
 		return res, body, nil, nil
