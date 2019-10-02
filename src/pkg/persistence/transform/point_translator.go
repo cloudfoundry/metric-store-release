@@ -49,24 +49,25 @@ func ToInfluxPoints(points []*rpc.Point) []models.Point {
 	return transformedPoints
 }
 
-func SeriesDataFromInfluxPoint(influxPoint *query.FloatPoint, fields []string) (seriesSample, map[string]string) {
-	labels := make(map[string]string)
+func SeriesDataFromInfluxPoint(influxPoint *query.FloatPoint, fields []string) (seriesSample, labels.Labels) {
+	labelBuilder := labels.NewBuilder(nil)
+
 	for key, value := range influxPoint.Tags.KeyValues() {
-		labels[key] = value
+		labelBuilder.Set(key, value)
 	}
 	for i, field := range fields {
 		fieldValue, ok := influxPoint.Aux[i].(string)
 		if ok {
-			labels[field] = fieldValue
+			labelBuilder.Set(field, fieldValue)
 		}
 	}
-	labels[MEASUREMENT_NAME] = influxPoint.Name
+	labelBuilder.Set(MEASUREMENT_NAME, influxPoint.Name)
 
 	sample := seriesSample{
 		TimeInMilliseconds: NanosecondsToMilliseconds(influxPoint.Time),
 		Value:              influxPoint.Value,
 	}
-	return sample, labels
+	return sample, labelBuilder.Labels()
 }
 
 // PromQL Metric Name Sanitization

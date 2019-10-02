@@ -173,9 +173,9 @@ var _ = Describe("Point Translator", func() {
 			Expect(sample.TimeInMilliseconds).To(Equal(int64(10)))
 			Expect(sample.Value).To(Equal(99.0))
 
-			Expect(labels).To(HaveKeyWithValue("__name__", "metric_name"))
-			Expect(labels).To(HaveKeyWithValue("foo", "bar"))
-			Expect(labels).To(HaveKeyWithValue("fuz", "bax"))
+			Expect(labels.Get("__name__")).To(Equal("metric_name"))
+			Expect(labels.Get("foo")).To(Equal("bar"))
+			Expect(labels.Get("fuz")).To(Equal("bax"))
 		})
 	})
 
