@@ -87,8 +87,11 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 	}
 
 	var fields, dimensions []string
+	var auxFields []influxql.VarRef
+
 	for field := range fieldSet {
 		fields = append(fields, field)
+		auxFields = append(auxFields, influxql.VarRef{Val: field})
 	}
 
 	for dimension := range dimensionSet {
@@ -100,31 +103,23 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		return nil, err
 	}
 
-	var auxFields []influxql.VarRef
-	for _, field := range fields {
-		auxFields = append(auxFields, influxql.VarRef{Val: field})
+	var iterators []query.Iterator
+	for _, shardId := range shardIds {
+		iterator, err := t.createIterator(shardId, measurementName, start, end, filterCondition, auxFields, dimensions)
+		if err != nil {
+			return nil, err
+		}
+		iterators = append(iterators, iterator)
 	}
 
 	queryOpts := query.IteratorOptions{
-		Expr:       influxql.MustParseExpr("value"),
-		Aux:        auxFields,
-		Dimensions: dimensions,
-		StartTime:  start,
-		EndTime:    end,
-		Condition:  filterCondition,
-		Ascending:  true,
-		Ordered:    true,
-		Limit:      0,
+		StartTime: start,
+		EndTime:   end,
+		Ascending: true,
+		Ordered:   true,
 	}
 
-	iterator, err := shards.CreateIterator(
-		context.Background(),
-		&influxql.Measurement{Name: measurementName},
-		queryOpts,
-	)
-	if err != nil {
-		return nil, err
-	}
+	iterator := query.NewParallelMergeIterator(iterators, queryOpts, len(iterators))
 
 	builder := transform.NewSeriesBuilder()
 
@@ -134,7 +129,12 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		return builder, nil
 	}
 
-	defer iterator.Close()
+	defer func() {
+		iterator.Close()
+		for _, i := range iterators {
+			i.Close()
+		}
+	}()
 
 	switch typedIterator := iterator.(type) {
 	case query.FloatIterator:
@@ -152,6 +152,28 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		// fall through
 	}
 	return builder, nil
+}
+
+func (t *InfluxAdapter) createIterator(shardId uint64, measurementName string, start, end int64, filterCondition influxql.Expr, auxFields []influxql.VarRef, dimensions []string) (query.Iterator, error) {
+	shards := t.influx.ShardGroup([]uint64{shardId})
+
+	queryOpts := query.IteratorOptions{
+		Expr:       influxql.MustParseExpr("value"),
+		Aux:        auxFields,
+		Dimensions: dimensions,
+		StartTime:  start,
+		EndTime:    end,
+		Condition:  filterCondition,
+		Ascending:  true,
+		Ordered:    true,
+		Limit:      0,
+	}
+
+	return shards.CreateIterator(
+		context.Background(),
+		&influxql.Measurement{Name: measurementName},
+		queryOpts,
+	)
 }
 
 func (t *InfluxAdapter) AllTagKeys() []string {
