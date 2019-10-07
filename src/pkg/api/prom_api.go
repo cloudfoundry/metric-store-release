@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	REMOTE_READ_SAMPLE_LIMIT      = 1000000
-	REMOTE_READ_CONCURRENCY_LIMIT = 50
+	REMOTE_READ_SAMPLE_LIMIT       = 1000000
+	REMOTE_READ_CONCURRENCY_LIMIT  = 50
+	REMOTE_READ_MAX_BYTES_IN_FRAME = 1048576 // 1MB recommended by protobuf
 )
 
 type PromAPI struct {
@@ -50,6 +51,7 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage) *route.Router {
 		api.ruleManager,
 		REMOTE_READ_SAMPLE_LIMIT,
 		REMOTE_READ_CONCURRENCY_LIMIT,
+		REMOTE_READ_MAX_BYTES_IN_FRAME,
 		&regexp.Regexp{},
 	)
 
