@@ -388,28 +388,15 @@ var _ = Describe("Persistent Store", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			series := testing.ExplodeSeriesSet(seriesSet)
-			Expect(series).To(
-				Or(
-					ConsistOf(
-						testing.Series{
-							Labels: map[string]string{"__name__": "point-to-test-end-default"},
-							Points: []testing.Point{
-								{Time: 1, Value: 1},
-								{Time: now, Value: 2},
-							},
-						},
-					),
-					ConsistOf(
-						testing.Series{
-							Labels: map[string]string{"__name__": "point-to-test-end-default"},
-							Points: []testing.Point{
-								{Time: now, Value: 2},
-								{Time: 1, Value: 1},
-							},
-						},
-					),
-				),
-			)
+			Expect(series).To(ConsistOf(
+				testing.Series{
+					Labels: map[string]string{"__name__": "point-to-test-end-default"},
+					Points: []testing.Point{
+						{Time: 1, Value: 1},
+						{Time: now, Value: 2},
+					},
+				},
+			))
 		})
 
 		It("returns an empty set when an invalid query is provided", func() {
@@ -511,28 +498,15 @@ var _ = Describe("Persistent Store", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			series := testing.ExplodeSeriesSet(seriesSet)
-			Expect(series).To(
-				Or(
-					ConsistOf(
-						testing.Series{
-							Labels: map[string]string{"__name__": "counter"},
-							Points: []testing.Point{
-								{Time: oneHourBeforeTodayInMilliseconds, Value: 2},
-								{Time: todayInMilliseconds, Value: 3},
-							},
-						},
-					),
-					ConsistOf(
-						testing.Series{
-							Labels: map[string]string{"__name__": "counter"},
-							Points: []testing.Point{
-								{Time: todayInMilliseconds, Value: 3},
-								{Time: oneHourBeforeTodayInMilliseconds, Value: 2},
-							},
-						},
-					),
-				),
-			)
+			Expect(series).To(ConsistOf(
+				testing.Series{
+					Labels: map[string]string{"__name__": "counter"},
+					Points: []testing.Point{
+						{Time: oneHourBeforeTodayInMilliseconds, Value: 2},
+						{Time: todayInMilliseconds, Value: 3},
+					},
+				},
+			))
 		})
 
 		It("truncates oldest points when disk space is below the target", func() {

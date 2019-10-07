@@ -119,7 +119,7 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		Ordered:   true,
 	}
 
-	iterator := query.NewParallelMergeIterator(iterators, queryOpts, len(iterators))
+	iterator := NewParallelSortedMergeIterator(iterators, queryOpts, len(iterators))
 
 	builder := transform.NewSeriesBuilder()
 
