@@ -1,0 +1,12 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+echo "-- PERFORMANCE prepare directories"
+
+rm -rf ${DIR}/../src/performance/data
+mkdir -p ${DIR}/../src/performance/data
+
+echo "-- PERFORMANCE generate data"
+
+go run ${DIR}/../src/cmd/generate_performance_data.go ${DIR}/../src/performance/data

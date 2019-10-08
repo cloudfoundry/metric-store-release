@@ -112,6 +112,13 @@ func WithDiskFreeReporter(diskFreeReporter func() (float64, error)) StoreOption 
 	}
 }
 
+func (store *Store) Compact() {
+	for _, shardId := range store.tsStore.ShardIDs() {
+		shard := store.tsStore.Shard(shardId)
+		shard.ScheduleFullCompaction()
+	}
+}
+
 func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
 	return NewQuerier(
 		store.adapter,
