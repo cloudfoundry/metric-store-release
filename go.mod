@@ -40,3 +40,5 @@ require (
 	golang.org/x/sys v0.0.0-20191007154456-ef33b2fb2c41
 	google.golang.org/grpc v1.24.0
 )
+
+go 1.13
