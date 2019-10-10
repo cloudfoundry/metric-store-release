@@ -136,9 +136,7 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 
 		seriesPointsIterator := NewParallelSortedMergeIterator(shardIterators, start, end)
 		if seriesPointsIterator == nil {
-			if err != nil {
-				return nil, err
-			}
+			return nil, err
 		}
 
 		seriesPointsIterators[seriesLabels.Hash()] = seriesPointsIterator
