@@ -28,6 +28,25 @@ func (b *SeriesSetBuilder) AddInfluxPoint(point *query.FloatPoint, fields []stri
 	b.add(sample, labels)
 }
 
+func (b *SeriesSetBuilder) AddPointsForSeries(labels labels.Labels, points []*query.FloatPoint) {
+	seriesID := labels.Hash()
+
+	samples := make([]seriesSample, len(points))
+	for i, point := range points {
+		samples[i] = seriesSample{
+			TimeInMilliseconds: NanosecondsToMilliseconds(point.Time),
+			Value:              point.Value,
+		}
+	}
+
+	b.data[seriesID] = seriesData{
+		labels:  labels,
+		samples: samples,
+	}
+
+	b.count += len(points)
+}
+
 func (builder *SeriesSetBuilder) Len() int {
 	return builder.count
 }

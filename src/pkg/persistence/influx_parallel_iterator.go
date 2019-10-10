@@ -202,7 +202,16 @@ func (a Iterators) Merge(opt query.IteratorOptions) (query.Iterator, error) {
 	return query.NewCallIterator(itr, opt)
 }
 
-func NewParallelSortedMergeIterator(inputs []query.Iterator, opt query.IteratorOptions, parallelism int) query.Iterator {
+func NewParallelSortedMergeIterator(inputs []query.Iterator, start, end int64) query.Iterator {
+	// merge iterators do require start, end times for performance reasons,
+	// they do not respect the options of composed sub-iterators
+	parallelOptions := query.IteratorOptions{
+		StartTime: start,
+		EndTime:   end,
+		Ascending: true,
+		Ordered:   true,
+	}
+
 	inputs = Iterators(inputs).filterNonNil()
 	if len(inputs) == 0 {
 		return nil
@@ -210,27 +219,12 @@ func NewParallelSortedMergeIterator(inputs []query.Iterator, opt query.IteratorO
 		return inputs[0]
 	}
 
-	// Limit parallelism to the number of inputs.
-	if len(inputs) < parallelism {
-		parallelism = len(inputs)
-	}
-
-	// Determine the number of inputs per output iterator.
-	n := len(inputs) / parallelism
-
 	// Group iterators together.
-	outputs := make([]query.Iterator, parallelism)
-	for i := range outputs {
-		var slice []query.Iterator
-		if i < len(outputs)-1 {
-			slice = inputs[i*n : (i+1)*n]
-		} else {
-			slice = inputs[i*n:]
-		}
-
-		outputs[i] = newParallelIterator(query.NewSortedMergeIterator(slice, opt))
+	outputs := make([]query.Iterator, len(inputs))
+	for i, input := range inputs {
+		outputs[i] = newParallelIterator(query.NewSortedMergeIterator([]query.Iterator{input}, parallelOptions))
 	}
 
 	// Merge all groups together.
-	return query.NewSortedMergeIterator(outputs, opt)
+	return query.NewSortedMergeIterator(outputs, parallelOptions)
 }
