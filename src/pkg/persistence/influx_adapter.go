@@ -2,7 +2,6 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 	"sync"
@@ -118,42 +117,40 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 	errorChan := make(chan error)
 	wg := &sync.WaitGroup{}
 
+	seriesPointsIterators := make(map[uint64]query.Iterator)
+	for _, seriesLabels := range seriesSet {
+		seriesFilter, err := SeriesFilter(matchers, seriesLabels)
+		if err != nil {
+			// TODO - better
+			panic(err)
+		}
+
+		var shardIterators []query.Iterator
+		for _, shardID := range shardIDs {
+			iterator, err := t.createIterator(shardID, measurementName, start, end, seriesFilter, auxFields, dimensions)
+			if err != nil {
+				return nil, err
+			}
+			shardIterators = append(shardIterators, iterator)
+		}
+
+		seriesPointsIterator := NewParallelSortedMergeIterator(shardIterators, start, end)
+		if seriesPointsIterator == nil {
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		seriesPointsIterators[seriesLabels.Hash()] = seriesPointsIterator
+		defer seriesPointsIterator.Close()
+	}
+
 	for _, seriesLabels := range seriesSet {
 		wg.Add(1)
-		go func(seriesLabels labels.Labels) {
-			seriesFilter, err := SeriesFilter(matchers, seriesLabels)
-			if err != nil {
-				// TODO - better
-				panic(err)
-			}
-
-			var iterators []query.Iterator
-			for _, shardID := range shardIDs {
-				iterator, err := t.createIterator(shardID, measurementName, start, end, seriesFilter, auxFields, dimensions)
-				if err != nil {
-					errorChan <- err
-					wg.Done()
-					return
-				}
-				iterators = append(iterators, iterator)
-			}
-
-			seriesPointsIterator := NewParallelSortedMergeIterator(iterators, start, end)
-			if seriesPointsIterator == nil {
-				errorChan <- errors.New("Error creating parallel sorted merge iterator")
-				wg.Done()
-				return
-			}
-
-			defer func() {
-				seriesPointsIterator.Close()
-				for _, i := range iterators {
-					i.Close()
-				}
-			}()
+		go func(iterator query.Iterator, seriesLabels labels.Labels) {
 
 			points := []*query.FloatPoint{}
-			switch typedIterator := seriesPointsIterator.(type) {
+			switch typedIterator := iterator.(type) {
 			case query.FloatIterator:
 				for {
 					floatPoint, err := typedIterator.Next()
@@ -182,7 +179,7 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 				points: points,
 			}
 			wg.Done()
-		}(seriesLabels)
+		}(seriesPointsIterators[seriesLabels.Hash()], seriesLabels)
 	}
 
 	wg.Wait()
