@@ -134,8 +134,6 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 		}
 
 		parallelOptions := query.IteratorOptions{
-			StartTime: start,
-			EndTime:   end,
 			Ascending: true,
 			Ordered:   true,
 		}
