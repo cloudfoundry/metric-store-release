@@ -29,12 +29,7 @@ func (t *InfluxAdapter) GetSeriesSet(shardIDs []uint64, measurementName string, 
 		return nil, nil
 	}
 
-	defer func() {
-		seriesIterator.Close()
-		for _, i := range seriesIterators {
-			i.Close()
-		}
-	}()
+	defer seriesIterator.Close()
 
 	seriesSet := make(map[uint64]labels.Labels)
 	// TODO - switch statement necessary? why is the series iterator a float
