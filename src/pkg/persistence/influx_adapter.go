@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"sync"
 	"time"
 
@@ -134,7 +135,13 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 			shardIterators = append(shardIterators, iterator)
 		}
 
-		seriesPointsIterator := NewParallelSortedMergeIterator(shardIterators, start, end)
+		parallelOptions := query.IteratorOptions{
+			StartTime: start,
+			EndTime:   end,
+			Ascending: true,
+			Ordered:   true,
+		}
+		seriesPointsIterator := query.NewParallelMergeIterator(shardIterators, parallelOptions, len(shardIterators))
 		if seriesPointsIterator == nil {
 			return nil, err
 		}
@@ -409,6 +416,8 @@ func (t *InfluxAdapter) forTimestampRange(start, end int64) []uint64 {
 
 		return true
 	})
+
+	sort.Sort(ShardIDs(shards))
 
 	return shards
 }
