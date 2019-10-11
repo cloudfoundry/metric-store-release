@@ -78,14 +78,18 @@ func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 	return nil
 }
 
+type seriesEntry struct {
+	labels labels.Labels
+	points []*query.FloatPoint
+}
+
 func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matchers []*labels.Matcher) (*transform.SeriesSetBuilder, error) {
 	shardIDs := t.forTimestampRange(start, end)
 	shards := t.influx.ShardGroup(shardIDs)
 
 	fieldSet, dimensionSet, err := shards.FieldDimensions([]string{measurementName})
 	if err != nil {
-		// TODO - better
-		panic(err)
+		return nil, err
 	}
 
 	var fields, dimensions []string
@@ -106,24 +110,18 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 
 	seriesSet, err := t.GetSeriesSet(shardIDs, measurementName, filterCondition)
 	if err != nil {
-		// TODO - better
 		return nil, err
 	}
 
-	type seriesEntry struct {
-		labels labels.Labels
-		points []*query.FloatPoint
-	}
 	seriesChan := make(chan seriesEntry, len(seriesSet))
 	errorChan := make(chan error)
 	wg := &sync.WaitGroup{}
-
 	seriesPointsIterators := make(map[uint64]query.Iterator)
+
 	for _, seriesLabels := range seriesSet {
 		seriesFilter, err := SeriesFilter(matchers, seriesLabels)
 		if err != nil {
-			// TODO - better
-			panic(err)
+			return nil, err
 		}
 
 		var shardIterators []query.Iterator
@@ -152,8 +150,8 @@ func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matc
 
 	for _, seriesLabels := range seriesSet {
 		wg.Add(1)
-		go func(iterator query.Iterator, seriesLabels labels.Labels) {
 
+		go func(iterator query.Iterator, seriesLabels labels.Labels) {
 			points := []*query.FloatPoint{}
 			switch typedIterator := iterator.(type) {
 			case query.FloatIterator:
