@@ -101,18 +101,6 @@ var _ = Describe("Influx Adapter", func() {
 			Expect(points.Len()).To(BeZero())
 		})
 
-		It("returns an error when CreateIterator errors", func() {
-			tc := setup()
-
-			tc.influxStore.shardGroup = &mockShardGroup{
-				createIteratorResult: nil,
-				createIteratorError:  errors.New("iterator-error"),
-			}
-
-			_, err := tc.adapter.GetPoints("measurement-name", 0, 2, nil)
-			Expect(err).To(MatchError("iterator-error"))
-		})
-
 		It("returns an error when iterator.Next() returns an error", func() {
 			tc := setup()
 

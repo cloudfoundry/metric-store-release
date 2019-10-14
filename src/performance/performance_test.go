@@ -33,25 +33,26 @@ var _ = Describe("Performance", func() {
 			spyPersistentStoreMetrics,
 		)
 
+		var seriesSet storage.SeriesSet
+		var err error
+
 		query := b.Time("query", func() {
 			querier, _ := persistentStore.Querier(context.Background(), 0, 0)
-
-			seriesSet, _, err := querier.Select(
+			seriesSet, _, err = querier.Select(
 				&storage.SelectParams{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "bigmetric", Type: labels.MatchEqual},
 			)
-			Expect(err).ToNot(HaveOccurred())
-
-			var totalPoints, totalSeries int
-			series := shared.ExplodeSeriesSet(seriesSet)
-			for _, s := range series {
-				totalSeries++
-				totalPoints += len(s.Points)
-			}
-			Expect(totalSeries).To(Equal(2))
-			Expect(totalPoints).To(Equal(1000000))
 		})
-		Expect(query.Seconds()).To(BeNumerically("<", 5))
+		Expect(err).ToNot(HaveOccurred())
 
+		var totalPoints, totalSeries int
+		series := shared.ExplodeSeriesSet(seriesSet)
+		for _, s := range series {
+			totalSeries++
+			totalPoints += len(s.Points)
+		}
+		Expect(totalSeries).To(Equal(2))
+		Expect(totalPoints).To(Equal(1000000))
+		Expect(query.Seconds()).To(BeNumerically("<", 1))
 	}, 3)
 })

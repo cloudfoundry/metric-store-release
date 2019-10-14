@@ -60,7 +60,7 @@ var _ = Describe("Influx Series", func() {
 			))
 		})
 
-		It("returns a SeriesSet only containing entries for the given measurementName", func() {
+		It("returns a SeriesSet for a given measurementName without a filterCondition", func() {
 			tc := setup()
 			tc.storePointWithLabels(10, "cpu", 1, map[string]string{"same-label": "same-value"})
 			tc.storePointWithLabels(20, "memory", 2, map[string]string{"different-label": "different-value"})
@@ -75,7 +75,7 @@ var _ = Describe("Influx Series", func() {
 			))
 		})
 
-		It("returns a SeriesSet only containing entries for the given measurementName and filterConditions", func() {
+		It("returns a SeriesSet for a given measurementName and filterCondition", func() {
 			tc := setup()
 			tc.storePointWithLabels(10, "cpu", 1, map[string]string{"same-label": "same-value", "filter-label": "accept"})
 			tc.storePointWithLabels(10, "cpu", 1, map[string]string{"same-label": "same-value", "filter-label": "reject"})
