@@ -47,11 +47,11 @@ func (t *InfluxAdapter) GetSeriesSet(shardIDs []uint64, measurementName string, 
 
 			// TODO - use Influx provided package to parse this string
 			seriesLabels := labels.NewBuilder(nil)
-			for i, label := range strings.Split(series.Aux[0].(string), ",") {
-				if i == 0 {
+			for _, label := range strings.Split(series.Aux[0].(string), ",") {
+				labelTuple := strings.Split(label, "=")
+				if len(labelTuple) != 2 {
 					continue
 				}
-				labelTuple := strings.Split(label, "=")
 				seriesLabels.Set(labelTuple[0], labelTuple[1])
 			}
 

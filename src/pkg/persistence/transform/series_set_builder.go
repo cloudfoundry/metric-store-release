@@ -11,21 +11,15 @@ type seriesData struct {
 	samples []seriesSample
 }
 
+type SeriesSetBuilder struct {
+	data  map[uint64]seriesData
+	count int
+}
+
 func NewSeriesBuilder() *SeriesSetBuilder {
 	return &SeriesSetBuilder{
 		data: make(map[uint64]seriesData),
 	}
-}
-
-type SeriesSetBuilder struct {
-	data map[uint64]seriesData
-	// TODO - maybe a better way to implement the 'source of truth'
-	count int
-}
-
-func (b *SeriesSetBuilder) AddInfluxPoint(point *query.FloatPoint, fields []string) {
-	sample, labels := SeriesDataFromInfluxPoint(point, fields)
-	b.add(sample, labels)
 }
 
 func (b *SeriesSetBuilder) AddPointsForSeries(labels labels.Labels, points []*query.FloatPoint) {
@@ -64,21 +58,4 @@ func (b *SeriesSetBuilder) SeriesSet() storage.SeriesSet {
 	}
 
 	return set
-}
-
-func (b *SeriesSetBuilder) add(sample seriesSample, labels labels.Labels) {
-	seriesID := labels.Hash()
-	d, ok := b.data[seriesID]
-
-	if !ok {
-		b.data[seriesID] = seriesData{
-			labels:  labels,
-			samples: make([]seriesSample, 0),
-		}
-
-		d = b.data[seriesID]
-	}
-	d.samples = append(d.samples, sample)
-	b.data[seriesID] = d
-	b.count++
 }
