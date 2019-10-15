@@ -568,7 +568,7 @@ groups:
   interval: 1s
   rules:
   - record: testRecordingRule
-    expr: avg(metric_store_test_metric)
+    expr: avg(metric_store_test_metric) by (node)
     labels:
       foo: bar
 `)
@@ -599,7 +599,17 @@ groups:
 				Timestamp: pointTimestamp,
 				Value:     1,
 				Labels: map[string]string{
-					"node": "1",
+					"node":  "1",
+					"other": "foo",
+				},
+			},
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     11,
+				Labels: map[string]string{
+					"node":  "1",
+					"other": "bar",
 				},
 			},
 			{
@@ -607,7 +617,17 @@ groups:
 				Timestamp: pointTimestamp,
 				Value:     2,
 				Labels: map[string]string{
-					"node": "2",
+					"node":  "2",
+					"other": "foo",
+				},
+			},
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     12,
+				Labels: map[string]string{
+					"node":  "2",
+					"other": "bar",
 				},
 			},
 			{
@@ -615,7 +635,17 @@ groups:
 				Timestamp: pointTimestamp,
 				Value:     3,
 				Labels: map[string]string{
-					"node": "3",
+					"node":  "3",
+					"other": "foo",
+				},
+			},
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     13,
+				Labels: map[string]string{
+					"node":  "3",
+					"other": "bar",
 				},
 			},
 		}
@@ -634,7 +664,15 @@ groups:
 				return false
 			}
 
-			sample := samples[0]
+			sample := &model.Sample{}
+			for _, s := range samples {
+				if s.Metric["node"] != "1" {
+					continue
+				}
+
+				sample = s
+				break
+			}
 
 			if int64(sample.Timestamp) < transform.NanosecondsToMilliseconds(pointTimestamp) {
 				return false
@@ -644,13 +682,14 @@ groups:
 				return false
 			}
 
-			if sample.Value != 2 {
+			if sample.Value != 6 {
 				return false
 			}
 
 			expectedMetric := model.Metric{
 				model.MetricNameLabel: "testRecordingRule",
 				"foo":                 "bar",
+				"node":                "1",
 			}
 			if !sample.Metric.Equal(expectedMetric) {
 				return false

@@ -160,18 +160,18 @@ func EngineQueryFunc(engine *promql.Engine, q storage.Queryable) rules.QueryFunc
 			return nil, err
 		}
 
-		if len(vector) > 0 {
-			sample := vector[0]
-			return promql.Vector{promql.Sample{
+		samples := []promql.Sample{}
+		for _, sample := range vector {
+			samples = append(samples, promql.Sample{
 				Point: promql.Point{
 					T: transform.MillisecondsToNanoseconds(sample.T),
 					V: sample.V,
 				},
-				Metric: labels.Labels{},
-			}}, nil
+				Metric: sample.Metric,
+			})
 		}
 
-		return nil, nil
+		return promql.Vector(samples), nil
 	}
 }
 
