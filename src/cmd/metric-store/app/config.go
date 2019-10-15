@@ -48,12 +48,12 @@ func LoadConfig() *Config {
 		QueryTimeout:          10 * time.Second,
 	}
 
-	if cfg.RetentionPeriodInDays > 0 {
-		cfg.RetentionPeriod = time.Duration(cfg.RetentionPeriodInDays) * 24 * time.Hour
-	}
-
 	if err := envstruct.Load(cfg); err != nil {
 		log.Fatalf("failed to load config from environment: %s", err)
+	}
+
+	if cfg.RetentionPeriodInDays > 0 {
+		cfg.RetentionPeriod = time.Duration(cfg.RetentionPeriodInDays) * 24 * time.Hour
 	}
 
 	_ = envstruct.WriteReport(cfg)
