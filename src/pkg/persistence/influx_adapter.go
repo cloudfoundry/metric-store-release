@@ -17,6 +17,7 @@ import (
 	"github.com/influxdata/influxdb/tsdb"
 	"github.com/influxdata/influxql"
 	"github.com/prometheus/prometheus/pkg/labels"
+	"go.uber.org/zap"
 )
 
 type InfluxStore interface {
@@ -49,6 +50,7 @@ func NewInfluxAdapter(influx InfluxStore, metrics debug.MetricRegistrar, log *lo
 
 	for _, shardId := range influx.ShardIDs() {
 		t.checkShardId(shardId)
+		t.log.Info("loading shard", zap.Int("shardId", int(shardId)))
 		t.shards.Store(shardId, struct{}{})
 	}
 
@@ -192,6 +194,9 @@ func (t *InfluxAdapter) ShardwiseParallelIterator(shardIDs []uint64, measurement
 			pointIteratorOptions,
 		)
 		if err != nil {
+			for _, danglingIterator := range shardIterators {
+				danglingIterator.Close()
+			}
 			return nil, err
 		}
 		shardIterators = append(shardIterators, iterator)
