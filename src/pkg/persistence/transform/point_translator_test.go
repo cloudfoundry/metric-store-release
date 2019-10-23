@@ -157,7 +157,7 @@ var _ = Describe("Point Translator", func() {
 		})
 	})
 
-	Describe("SeriesDataFromInfluxPoint()", func() {
+	Describe("LabelsFromInfluxPoint()", func() {
 		It("converts an influxPoint and slice of field names to a sample and labels", func() {
 			influxPoint := &query.FloatPoint{
 				Name:  "metric_name",
@@ -168,10 +168,7 @@ var _ = Describe("Point Translator", func() {
 			}
 			fields := []string{"fuz"}
 
-			sample, labels := transform.SeriesDataFromInfluxPoint(influxPoint, fields)
-
-			Expect(sample.TimeInMilliseconds).To(Equal(int64(10)))
-			Expect(sample.Value).To(Equal(99.0))
+			labels := transform.LabelsFromInfluxPoint(influxPoint, fields)
 
 			Expect(labels.Get("__name__")).To(Equal("metric_name"))
 			Expect(labels.Get("foo")).To(Equal("bar"))

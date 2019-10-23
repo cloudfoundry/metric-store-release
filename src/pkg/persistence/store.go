@@ -121,6 +121,7 @@ func (store *Store) Compact() {
 
 func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
 	return NewQuerier(
+		ctx,
 		store.adapter,
 		store.metrics,
 	), nil

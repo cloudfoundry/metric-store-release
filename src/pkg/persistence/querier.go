@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -12,12 +13,14 @@ import (
 )
 
 type Querier struct {
+	ctx     context.Context
 	adapter *InfluxAdapter
 	metrics debug.MetricRegistrar
 }
 
-func NewQuerier(adapter *InfluxAdapter, metrics debug.MetricRegistrar) *Querier {
+func NewQuerier(ctx context.Context, adapter *InfluxAdapter, metrics debug.MetricRegistrar) *Querier {
 	return &Querier{
+		ctx:     ctx,
 		adapter: adapter,
 		metrics: metrics,
 	}
@@ -51,7 +54,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 	startTimeInNanoseconds := transform.MillisecondsToNanoseconds(params.Start)
 	endTimeInNanoseconds := transform.MillisecondsToNanoseconds(params.End) - 1
 
-	builder, err := q.adapter.GetPoints(name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
+	builder, err := q.adapter.GetPoints(q.ctx, name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
 	if err != nil {
 		q.metrics.Inc(debug.MetricStoreReadErrorsTotal)
 		return nil, nil, err

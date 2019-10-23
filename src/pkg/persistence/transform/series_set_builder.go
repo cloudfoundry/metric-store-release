@@ -12,17 +12,24 @@ type seriesData struct {
 }
 
 type SeriesSetBuilder struct {
-	data  map[uint64]seriesData
-	count int
+	data   map[uint64]seriesData
+	count  int
+	fields []string
 }
 
-func NewSeriesBuilder() *SeriesSetBuilder {
+func NewSeriesBuilder(fields []string) *SeriesSetBuilder {
 	return &SeriesSetBuilder{
 		data: make(map[uint64]seriesData),
 	}
 }
 
-func (b *SeriesSetBuilder) AddPointsForSeries(labels labels.Labels, points []*query.FloatPoint) {
+func (b *SeriesSetBuilder) AddSeriesPoints(points []*query.FloatPoint) {
+	if len(points) == 0 {
+		return
+	}
+
+	influxPoint := points[0]
+	labels := LabelsFromInfluxPoint(influxPoint, b.fields)
 	seriesID := labels.Hash()
 
 	samples := make([]seriesSample, len(points))
@@ -33,9 +40,15 @@ func (b *SeriesSetBuilder) AddPointsForSeries(labels labels.Labels, points []*qu
 		}
 	}
 
-	b.data[seriesID] = seriesData{
-		labels:  labels,
-		samples: samples,
+	sd, ok := b.data[seriesID]
+	if ok {
+		sd.samples = append(sd.samples, samples...)
+		b.data[seriesID] = sd
+	} else {
+		b.data[seriesID] = seriesData{
+			labels:  labels,
+			samples: samples,
+		}
 	}
 
 	b.count += len(points)

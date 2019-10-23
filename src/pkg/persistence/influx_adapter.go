@@ -25,6 +25,7 @@ type InfluxStore interface {
 	DeleteShard(shardId uint64) error
 	ShardGroup(shardIds []uint64) tsdb.ShardGroup
 	ShardIDs() []uint64
+	Shards(ids []uint64) []*tsdb.Shard
 	Statistics(database map[string]string) []models.Statistic
 	TagKeys(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error)
 	TagValues(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error)
@@ -78,168 +79,18 @@ func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 	return nil
 }
 
-func (t *InfluxAdapter) GetPoints(measurementName string, start, end int64, matchers []*labels.Matcher) (*transform.SeriesSetBuilder, error) {
+func (t *InfluxAdapter) GetPoints(ctx context.Context, measurementName string, start, end int64, matchers []*labels.Matcher) (*transform.SeriesSetBuilder, error) {
 	shardIDs := t.forTimestampRange(start, end)
+	shards := t.influx.ShardGroup(shardIDs)
 
-	filterCondition, err := transform.ToInfluxFilters(matchers)
+	fieldSet, dimensionSet, err := shards.FieldDimensions([]string{measurementName})
 	if err != nil {
 		return nil, err
-	}
-
-	seriesSet, err := t.GetSeriesSet(shardIDs, measurementName, filterCondition)
-	if err != nil {
-		return nil, err
-	}
-
-	pointIteratorOptions, err := t.pointIteratorOptions(shardIDs, measurementName, start, end)
-	if err != nil {
-		return nil, err
-	}
-	parallelIteratorOptions := query.IteratorOptions{
-		Ascending: true,
-		Ordered:   true,
-	}
-
-	serieswiseIterators := make(map[uint64]query.Iterator)
-	for _, seriesLabels := range seriesSet {
-		seriesFilter, err := seriesFilter(matchers, seriesLabels)
-		if err != nil {
-			return nil, err
-		}
-		pointIteratorOptions.Condition = seriesFilter
-
-		seriesPointsIterator, err := t.ShardwiseParallelIterator(
-			shardIDs,
-			&influxql.Measurement{Name: measurementName},
-			pointIteratorOptions,
-			parallelIteratorOptions,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create shardwise parallel iterator: %s", err.Error())
-		}
-		if seriesPointsIterator == nil {
-			// TODO - validate that a nil here corresponds with a lack of
-			//   points to iterate over
-			continue
-		}
-
-		serieswiseIterators[seriesLabels.Hash()] = seriesPointsIterator
-		defer seriesPointsIterator.Close()
-	}
-
-	type seriesEntry struct {
-		labels labels.Labels
-		points []*query.FloatPoint
-	}
-	seriesChan := make(chan seriesEntry, len(seriesSet))
-	errorChan := make(chan error)
-	wg := &sync.WaitGroup{}
-	for _, seriesLabels := range seriesSet {
-		wg.Add(1)
-
-		go func(iterator query.Iterator, seriesLabels labels.Labels) {
-			points := []*query.FloatPoint{}
-			for {
-				floatPoint, err := iterator.(query.FloatIterator).Next()
-				if err != nil {
-					errorChan <- err
-					wg.Done()
-					return
-				}
-				if floatPoint == nil {
-					break
-				}
-
-				points = append(points, &query.FloatPoint{
-					Name:  floatPoint.Name,
-					Time:  floatPoint.Time,
-					Value: floatPoint.Value,
-				})
-			}
-
-			seriesLabels = append(seriesLabels, labels.Label{Name: "__name__", Value: measurementName})
-			seriesChan <- seriesEntry{
-				labels: seriesLabels,
-				points: points,
-			}
-			wg.Done()
-		}(serieswiseIterators[seriesLabels.Hash()], seriesLabels)
-	}
-
-	wg.Wait()
-
-	close(seriesChan)
-	close(errorChan)
-
-	err = <-errorChan
-	if err != nil {
-		return nil, err
-	}
-
-	builder := transform.NewSeriesBuilder()
-	for series := range seriesChan {
-		builder.AddPointsForSeries(series.labels, series.points)
-	}
-	return builder, nil
-}
-
-func (t *InfluxAdapter) ShardwiseParallelIterator(shardIDs []uint64, measurement *influxql.Measurement, pointIteratorOptions, parallelIteratorOptions query.IteratorOptions) (query.Iterator, error) {
-	var shardIterators []query.Iterator
-	for _, shardID := range shardIDs {
-		iterator, err := t.influx.ShardGroup([]uint64{shardID}).CreateIterator(
-			context.Background(),
-			measurement,
-			pointIteratorOptions,
-		)
-		if err != nil {
-			return nil, err
-		}
-		shardIterators = append(shardIterators, iterator)
-	}
-
-	return query.NewParallelMergeIterator(
-		shardIterators,
-		parallelIteratorOptions,
-		len(shardIterators),
-	), nil
-}
-
-func seriesFilter(originalMatchers []*labels.Matcher, seriesLabels labels.Labels) (influxql.Expr, error) {
-	existingMatchers := make([]string, len(originalMatchers))
-	for i, matcher := range originalMatchers {
-		existingMatchers[i] = matcher.Name
-	}
-
-	seriesMatchers := make([]*labels.Matcher, len(originalMatchers))
-	copy(seriesMatchers, originalMatchers)
-
-	novelLabels := seriesLabels.MatchLabels(false, existingMatchers...)
-	for _, seriesLabel := range novelLabels {
-		matcher, err := labels.NewMatcher(
-			labels.MatchEqual,
-			seriesLabel.Name,
-			seriesLabel.Value,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("can not combine series labels to matchers: %s", err.Error())
-		}
-		seriesMatchers = append(seriesMatchers, matcher)
-	}
-	seriesFilter, err := transform.ToInfluxFilters(seriesMatchers)
-	if err != nil {
-		return nil, err
-	}
-	return seriesFilter, err
-}
-
-func (t *InfluxAdapter) pointIteratorOptions(shardIDs []uint64, measurementName string, start, end int64) (query.IteratorOptions, error) {
-	fieldSet, dimensionSet, err := t.influx.ShardGroup(shardIDs).FieldDimensions([]string{measurementName})
-	if err != nil {
-		return query.IteratorOptions{}, err
 	}
 
 	var fields, dimensions []string
 	var auxFields []influxql.VarRef
+
 	for field := range fieldSet {
 		fields = append(fields, field)
 		auxFields = append(auxFields, influxql.VarRef{Val: field})
@@ -248,16 +99,57 @@ func (t *InfluxAdapter) pointIteratorOptions(shardIDs []uint64, measurementName 
 		dimensions = append(dimensions, dimension)
 	}
 
-	return query.IteratorOptions{
+	filterCondition, err := transform.ToInfluxFilters(matchers)
+	if err != nil {
+		return nil, err
+	}
+
+	iteratorOptions := query.IteratorOptions{
 		Expr:       influxql.MustParseExpr("value"),
 		Aux:        auxFields,
 		Dimensions: dimensions,
+		Condition:  filterCondition,
 		StartTime:  start,
 		EndTime:    end,
 		Ascending:  true,
 		Ordered:    true,
 		Limit:      0,
-	}, nil
+	}
+
+	builder := transform.NewSeriesBuilder(fields)
+
+	for _, shard := range t.influx.Shards(shardIDs) {
+		iterators, err := shard.CreateIterators(
+			ctx,
+			&influxql.Measurement{Name: measurementName},
+			iteratorOptions,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer query.Iterators(iterators).Close()
+
+		for _, iterator := range iterators {
+			typedIterator := iterator.(query.FloatIterator)
+			defer typedIterator.Close()
+
+			points := []*query.FloatPoint{}
+			for {
+				floatPoint, err := typedIterator.Next()
+				if err != nil {
+					return nil, err
+				}
+				if floatPoint == nil {
+					break
+				}
+
+				points = append(points, floatPoint.Clone())
+			}
+			builder.AddSeriesPoints(points)
+		}
+	}
+
+	return builder, nil
 }
 
 func (t *InfluxAdapter) AllTagKeys() []string {
