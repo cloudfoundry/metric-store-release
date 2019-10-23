@@ -200,7 +200,7 @@ github.com/hpcloud/tail/ratelimiter
 github.com/hpcloud/tail/util
 github.com/hpcloud/tail/watch
 github.com/hpcloud/tail/winfile
-# github.com/influxdata/influxdb v1.7.8
+# github.com/influxdata/influxdb v1.7.8 => github.com/attack/influxdb v1.7.8-additions
 github.com/influxdata/influxdb/logger
 github.com/influxdata/influxdb/models
 github.com/influxdata/influxdb/monitor/diagnostics
