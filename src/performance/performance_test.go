@@ -53,6 +53,6 @@ var _ = Describe("Performance", func() {
 		}
 		Expect(totalSeries).To(BeNumerically(">", 100))
 		Expect(totalPoints).To(Equal(1000000))
-		Expect(query.Seconds()).To(BeNumerically("<", 5))
+		Expect(query.Seconds()).To(BeNumerically("<", 10))
 	}, 3)
 })
