@@ -25,10 +25,10 @@ require (
 	github.com/onsi/ginkgo v1.10.2
 	github.com/onsi/gomega v1.7.0
 	github.com/philhofer/fwd v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.1.0
+	github.com/prometheus/client_golang v1.2.0
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.7.0
-	github.com/prometheus/prometheus v0.0.0-20191004103224-6ea4252299f5
+	github.com/prometheus/prometheus v1.8.2-0.20191017095924-6f92ce560538
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
@@ -37,7 +37,7 @@ require (
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191003171128-d98b1b443823
-	golang.org/x/sys v0.0.0-20191007154456-ef33b2fb2c41
+	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 	google.golang.org/grpc v1.24.0
 )
 
