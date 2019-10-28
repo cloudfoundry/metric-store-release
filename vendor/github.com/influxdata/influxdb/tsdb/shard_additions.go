@@ -7,7 +7,7 @@ import (
 	"github.com/influxdata/influxql"
 )
 
-func (s *Shard) CreateIterators(ctx context.Context, m *influxql.Measurement, opt query.IteratorOptions) ([]query.Iterator, error) {
+func (s *Shard) CreateIterators(ctx context.Context, m *influxql.Measurement, opt query.IteratorOptions) ([]query.LabeledIterator, error) {
 	engine, err := s.Engine()
 	if err != nil {
 		return nil, err

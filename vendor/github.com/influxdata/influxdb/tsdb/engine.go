@@ -49,7 +49,7 @@ type Engine interface {
 	Digest() (io.ReadCloser, int64, error)
 
 	CreateIterator(ctx context.Context, measurement string, opt query.IteratorOptions) (query.Iterator, error)
-	CreateIterators(ctx context.Context, measurement string, opt query.IteratorOptions) ([]query.Iterator, error)
+	CreateIterators(ctx context.Context, measurement string, opt query.IteratorOptions) ([]query.LabeledIterator, error)
 	CreateCursorIterator(ctx context.Context) (CursorIterator, error)
 	IteratorCost(measurement string, opt query.IteratorOptions) (query.IteratorCost, error)
 	WritePoints(points []models.Point) error

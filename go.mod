@@ -41,6 +41,6 @@ require (
 	google.golang.org/grpc v1.24.0
 )
 
-replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.7.8-additions
+replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.7.9-0.20191028174456-5a9bae067c2e
 
 go 1.13
