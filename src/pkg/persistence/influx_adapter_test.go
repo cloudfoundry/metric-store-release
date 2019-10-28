@@ -89,30 +89,17 @@ var _ = Describe("Influx Adapter", func() {
 
 	Describe("GetPoints()", func() {
 		// Happy path covered layer up in store
-		It("returns an empty set for a nil iterator", func() {
+		It("returns an error when CreateIterators returns an error", func() {
 			tc := setup()
 
-			tc.influxStore.shardGroup = &mockShardGroup{
-				createIteratorResult: nil,
-			}
-
-			points, err := tc.adapter.GetPoints(context.Background(), "measurement-name", 0, 2, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(points.Len()).To(BeZero())
-		})
-
-		XIt("returns an error when iterator.Next() returns an error", func() {
-			tc := setup()
-
-			tc.influxStore.shardGroup = &mockShardGroup{
-				createIteratorResult: &mockFloatIterator{
-					nextError: errors.New("iterator-next-error"),
-				},
-				createIteratorError: nil,
+			// The empty Shard will error when CreateIterators is called,
+			// it is not an interface so this is the best we can do.
+			tc.influxStore.shards = []*tsdb.Shard{
+				{},
 			}
 
 			_, err := tc.adapter.GetPoints(context.Background(), "measurement-name", 0, 2, nil)
-			Expect(err).To(MatchError("iterator-next-error"))
+			Expect(err).To(MatchError("engine is closed"))
 		})
 	})
 
@@ -262,6 +249,7 @@ type mockInfluxStore struct {
 	timestampsWrittenToShards map[uint64][]time.Time
 	writeToShardError         error
 	shardGroup                tsdb.ShardGroup
+	shards                    []*tsdb.Shard
 	delay                     time.Duration
 }
 
@@ -271,6 +259,7 @@ func newMockInfluxStore(shardIds []uint64) *mockInfluxStore {
 		timestampsWrittenToShards: make(map[uint64][]time.Time),
 		writeToShardError:         nil,
 		shardGroup:                newMockShardGroup(),
+		shards:                    []*tsdb.Shard{},
 		delay:                     0 * time.Millisecond,
 	}
 }
@@ -287,7 +276,7 @@ func (m *mockInfluxStore) ShardIDs() []uint64 {
 }
 
 func (m *mockInfluxStore) Shards(ids []uint64) []*tsdb.Shard {
-	return []*tsdb.Shard{}
+	return m.shards
 }
 
 func (m *mockInfluxStore) WriteToShard(shardId uint64, points []models.Point) error {

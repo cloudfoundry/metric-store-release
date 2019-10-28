@@ -118,35 +118,52 @@ func (t *InfluxAdapter) GetPoints(ctx context.Context, measurementName string, s
 
 	builder := transform.NewSeriesBuilder(fields)
 
+	wg := &sync.WaitGroup{}
+	errChannel := make(chan error, len(shardIDs))
 	for _, shard := range t.influx.Shards(shardIDs) {
-		iterators, err := shard.CreateIterators(
-			ctx,
-			&influxql.Measurement{Name: measurementName},
-			iteratorOptions,
-		)
-		if err != nil {
-			return nil, err
-		}
-		defer query.Iterators(iterators).Close()
-
-		for _, iterator := range iterators {
-			typedIterator := iterator.(query.FloatIterator)
-			defer typedIterator.Close()
-
-			points := []*query.FloatPoint{}
-			for {
-				floatPoint, err := typedIterator.Next()
-				if err != nil {
-					return nil, err
-				}
-				if floatPoint == nil {
-					break
-				}
-
-				points = append(points, floatPoint.Clone())
+		wg.Add(1)
+		go func(builder *transform.SeriesSetBuilder, shard *tsdb.Shard) {
+			labeledIterators, err := shard.CreateIterators(
+				ctx,
+				&influxql.Measurement{Name: measurementName},
+				iteratorOptions,
+			)
+			if err != nil {
+				errChannel <- err
+				wg.Done()
+				return
 			}
-			builder.AddSeriesPoints(points)
-		}
+
+			for _, labeledIterator := range labeledIterators {
+				defer labeledIterator.Iterator.Close()
+
+				typedIterator := labeledIterator.Iterator.(query.FloatIterator)
+				defer typedIterator.Close()
+
+				points := []*query.FloatPoint{}
+				for {
+					floatPoint, err := typedIterator.Next()
+					if err != nil {
+						errChannel <- err
+						wg.Done()
+						return
+					}
+					if floatPoint == nil {
+						break
+					}
+
+					points = append(points, floatPoint.Clone())
+				}
+				builder.AddSeriesPoints(labeledIterator.Labels, points)
+			}
+			wg.Done()
+		}(builder, shard)
+	}
+
+	wg.Wait()
+	close(errChannel)
+	if err := <-errChannel; err != nil {
+		return nil, err
 	}
 
 	return builder, nil

@@ -55,5 +55,91 @@ var _ = Describe("SeriesSetBuilder", func() {
 				},
 			))
 		})
+
+		It("adds influx point(s) concurrency safe", func() {
+			builder := transform.NewSeriesBuilder([]string{})
+
+			blahBlah := func(builder *transform.SeriesSetBuilder, source_id string) {
+				builder.AddSeriesPoints(
+					[]*query.FloatPoint{
+						&query.FloatPoint{
+							Name:  "metric_name",
+							Time:  10000000,
+							Value: 99.0,
+							Tags: query.NewTags(map[string]string{
+								"__name__":  "metric_name",
+								"source_id": source_id,
+							}),
+						},
+					},
+				)
+			}
+
+			go blahBlah(builder, "foo")
+			go blahBlah(builder, "bar")
+
+			Eventually(builder.Len).Should(Equal(2))
+		})
+
+		It("re-orders slices of influx point(s) that were added out of order", func() {
+			builder := transform.NewSeriesBuilder([]string{})
+			builder.AddSeriesPoints(
+				[]*query.FloatPoint{
+					&query.FloatPoint{
+						Name:  "metric_name",
+						Time:  20000000,
+						Value: 99.0,
+						Tags: query.NewTags(map[string]string{
+							"__name__":  "metric_name",
+							"source_id": "source_id",
+						}),
+					},
+				},
+			)
+			builder.AddSeriesPoints(
+				[]*query.FloatPoint{
+					&query.FloatPoint{
+						Name:  "metric_name",
+						Time:  30000000,
+						Value: 99.0,
+						Tags: query.NewTags(map[string]string{
+							"__name__":  "metric_name",
+							"source_id": "source_id",
+						}),
+					},
+				},
+			)
+			builder.AddSeriesPoints(
+				[]*query.FloatPoint{
+					&query.FloatPoint{
+						Name:  "metric_name",
+						Time:  10000000,
+						Value: 99.0,
+						Tags: query.NewTags(map[string]string{
+							"__name__":  "metric_name",
+							"source_id": "source_id",
+						}),
+					},
+				},
+			)
+			Expect(builder.Len()).To(Equal(3))
+
+			seriesSet := builder.SeriesSet()
+			series := testing.ExplodeSeriesSet(seriesSet)
+
+			Expect(series).To(ConsistOf(
+				testing.Series{
+					Labels: map[string]string{
+						"__name__":  "metric_name",
+						"source_id": "source_id",
+					},
+					Points: []testing.Point{
+						{Time: 10, Value: 99.0},
+						{Time: 20, Value: 99.0},
+						{Time: 30, Value: 99.0},
+					},
+				},
+			))
+		})
 	})
 })
