@@ -1,6 +1,9 @@
 package transform
 
 import (
+	"sort"
+	"sync"
+
 	"github.com/influxdata/influxdb/query"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -8,29 +11,45 @@ import (
 
 type seriesData struct {
 	labels  labels.Labels
-	samples []seriesSample
+	samples shardSeriesSamples
+}
+
+type shardSeriesSamples [][]seriesSample
+
+func (s shardSeriesSamples) Len() int {
+	return len(s)
+}
+
+func (s shardSeriesSamples) Less(i int, j int) bool {
+	return s[i][0].TimeInMilliseconds < s[j][0].TimeInMilliseconds
+}
+
+func (s shardSeriesSamples) Swap(i int, j int) {
+	s[i], s[j] = s[j], s[i]
 }
 
 type SeriesSetBuilder struct {
-	data   map[uint64]seriesData
-	count  int
-	fields []string
+	data  map[uint64]seriesData
+	count int
+
+	sync.Mutex
 }
 
-func NewSeriesBuilder(fields []string) *SeriesSetBuilder {
+func NewSeriesBuilder() *SeriesSetBuilder {
 	return &SeriesSetBuilder{
 		data: make(map[uint64]seriesData),
 	}
 }
 
-func (b *SeriesSetBuilder) AddSeriesPoints(points []*query.FloatPoint) {
+func (b *SeriesSetBuilder) AddSeriesPoints(seriesLabels labels.Labels, points []*query.FloatPoint) {
+	b.Lock()
+	defer b.Unlock()
+
 	if len(points) == 0 {
 		return
 	}
 
-	influxPoint := points[0]
-	labels := LabelsFromInfluxPoint(influxPoint, b.fields)
-	seriesID := labels.Hash()
+	seriesID := seriesLabels.Hash()
 
 	samples := make([]seriesSample, len(points))
 	for i, point := range points {
@@ -42,20 +61,23 @@ func (b *SeriesSetBuilder) AddSeriesPoints(points []*query.FloatPoint) {
 
 	sd, ok := b.data[seriesID]
 	if ok {
-		sd.samples = append(sd.samples, samples...)
+		sd.samples = append(sd.samples, samples)
 		b.data[seriesID] = sd
 	} else {
 		b.data[seriesID] = seriesData{
-			labels:  labels,
-			samples: samples,
+			labels:  seriesLabels,
+			samples: [][]seriesSample{samples},
 		}
 	}
 
 	b.count += len(points)
 }
 
-func (builder *SeriesSetBuilder) Len() int {
-	return builder.count
+func (b *SeriesSetBuilder) Len() int {
+	b.Lock()
+	defer b.Unlock()
+
+	return b.count
 }
 
 func (b *SeriesSetBuilder) SeriesSet() storage.SeriesSet {
@@ -63,11 +85,16 @@ func (b *SeriesSetBuilder) SeriesSet() storage.SeriesSet {
 		series: []storage.Series{},
 	}
 
-	for _, data := range b.data {
-		set.series = append(set.series, &concreteSeries{
-			labels:  data.labels,
-			samples: data.samples,
-		})
+	for _, datum := range b.data {
+		series := concreteSeries{
+			labels: datum.labels,
+		}
+		sort.Sort(datum.samples)
+		for _, shardSamples := range datum.samples {
+			series.samples = append(series.samples, shardSamples...)
+		}
+
+		set.series = append(set.series, &series)
 	}
 
 	return set
