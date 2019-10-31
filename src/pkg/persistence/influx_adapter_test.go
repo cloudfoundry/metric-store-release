@@ -160,7 +160,7 @@ var _ = Describe("Influx Adapter", func() {
 		It("deletes old shards when requested", func() {
 			tc := setup()
 
-			numDeleted, err := tc.adapter.DeleteOlderThan(daysSinceEpoch(1.5))
+			numDeleted, err := tc.adapter.DeleteOlderThan(daysSinceEpoch(0.5))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numDeleted).To(BeEquivalentTo(1))
 
@@ -170,7 +170,7 @@ var _ = Describe("Influx Adapter", func() {
 				getShardIdForDay(3),
 			))
 
-			tc.adapter.DeleteOlderThan(daysSinceEpoch(1.5))
+			tc.adapter.DeleteOlderThan(daysSinceEpoch(0.5))
 			Expect(tc.adapter.ShardIDs()).To(HaveLen(3))
 		})
 
@@ -179,14 +179,13 @@ var _ = Describe("Influx Adapter", func() {
 
 			numDeleted, err := tc.adapter.DeleteOlderThan(daysSinceEpoch(1))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(numDeleted).To(BeEquivalentTo(0))
-			Expect(tc.adapter.ShardIDs()).To(HaveLen(4))
+			Expect(numDeleted).To(BeEquivalentTo(1))
+			Expect(tc.adapter.ShardIDs()).To(HaveLen(3))
 
 			numDeleted, err = tc.adapter.DeleteOlderThan(daysSinceEpoch(1) + int64(30*time.Minute))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numDeleted).To(BeEquivalentTo(1))
 			Expect(tc.adapter.ShardIDs()).To(ConsistOf(
-				getShardIdForDay(1),
 				getShardIdForDay(2),
 				getShardIdForDay(3),
 			))
@@ -200,15 +199,15 @@ var _ = Describe("Influx Adapter", func() {
 			tc.adapter.DeleteOldest()
 
 			Expect(tc.adapter.ShardIDs()).To(ConsistOf(
-				getShardIdForDay(1),
-				getShardIdForDay(2),
 				getShardIdForDay(3),
+				getShardIdForDay(2),
+				getShardIdForDay(1),
 			))
 		})
 	})
 
 	Describe("OldestShardID()", func() {
-		It("deletes the oldest shard", func() {
+		It("returns the id the oldest shard", func() {
 			tc := setup()
 
 			oldestShardID, err := tc.adapter.OldestShardID()
@@ -231,6 +230,63 @@ var _ = Describe("Influx Adapter", func() {
 			tc.adapter.DeleteOldest()
 
 			_, err := tc.adapter.OldestShardID()
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("OldestContiguousShardID()", func() {
+		It("returns the id the oldest contiguous shard", func() {
+			influxStore := newMockInfluxStore([]uint64{
+				getShardIdForDay(0),
+				getShardIdForDay(2),
+				getShardIdForDay(3),
+				getShardIdForDay(4),
+				getShardIdForDay(9),
+			})
+
+			metrics := testing.NewSpyMetricRegistrar()
+
+			tc := &influxAdapterTestContext{
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				influxStore: influxStore,
+				metrics:     metrics,
+			}
+
+			oldestShardID, err := tc.adapter.OldestContiguousShardID()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldestShardID).To(Equal(getShardIdForDay(9)))
+		})
+
+		It("returns the id the oldest contiguous shard", func() {
+			influxStore := newMockInfluxStore([]uint64{
+				getShardIdForDay(9),
+			})
+
+			metrics := testing.NewSpyMetricRegistrar()
+
+			tc := &influxAdapterTestContext{
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				influxStore: influxStore,
+				metrics:     metrics,
+			}
+
+			oldestShardID, err := tc.adapter.OldestContiguousShardID()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldestShardID).To(Equal(getShardIdForDay(9)))
+		})
+
+		It("returns an error when there are no shards", func() {
+			influxStore := newMockInfluxStore([]uint64{})
+
+			metrics := testing.NewSpyMetricRegistrar()
+
+			tc := &influxAdapterTestContext{
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				influxStore: influxStore,
+				metrics:     metrics,
+			}
+
+			_, err := tc.adapter.OldestContiguousShardID()
 			Expect(err).To(HaveOccurred())
 		})
 	})

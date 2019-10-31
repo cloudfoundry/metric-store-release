@@ -38,7 +38,6 @@ type InfluxAdapter struct {
 
 	influx InfluxStore
 	shards sync.Map
-	sync.RWMutex
 }
 
 func NewInfluxAdapter(influx InfluxStore, metrics debug.MetricRegistrar, log *logger.Logger) *InfluxAdapter {
@@ -56,6 +55,10 @@ func NewInfluxAdapter(influx InfluxStore, metrics debug.MetricRegistrar, log *lo
 	return t
 }
 
+func (t *InfluxAdapter) Close() error {
+	return t.influx.Close()
+}
+
 func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 	pointBuckets := make(map[int64][]models.Point)
 	influxPoints := transform.ToInfluxPoints(points)
@@ -66,10 +69,8 @@ func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 	}
 
 	for bucketIndex, points := range pointBuckets {
-		t.Lock()
 		shardId := t.findOrCreateShardForTimestamp(bucketIndex)
 		err := t.influx.WriteToShard(shardId, points)
-		t.Unlock()
 
 		if err != nil {
 			return err
@@ -203,78 +204,105 @@ func (t *InfluxAdapter) AllTagValues(tagKey string) []string {
 	return values
 }
 
-func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (numDeleted uint64, err error) {
-	t.Lock()
-	defer t.Unlock()
-
-	adjustedCutoff := time.Unix(0, cutoff).Add(-time.Minute).Truncate(24 * time.Hour)
-	for _, shardId := range t.forTimestampRange(
-		influxql.MinTime,
-		adjustedCutoff.UnixNano(),
-	) {
-		t.Delete(shardId)
-		err = t.influx.DeleteShard(shardId)
-		if err != nil {
-			return
-		}
-
-		numDeleted++
-	}
-
-	return
-}
-
 func (t *InfluxAdapter) DeleteOldest() error {
-	t.Lock()
-	defer t.Unlock()
-
-	shardId := t.getOldest()
+	shardId, err := t.OldestShardID()
+	if err != nil {
+		return err
+	}
 	t.Delete(shardId)
 	return t.influx.DeleteShard(shardId)
 }
 
-func (t *InfluxAdapter) Delete(shardId uint64) {
-	t.shards.Delete(shardId)
+func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
+	adjustedCutoff := uint64(time.Unix(0, cutoff).
+		Add(-time.Minute).Truncate(24 * time.Hour).UnixNano())
+
+	var deleted uint64
+	for _, shardID := range t.ShardIDsOldestSort() {
+		if shardID > adjustedCutoff {
+			break
+		}
+		err := t.Delete(shardID)
+		if err != nil {
+			return deleted, err
+		}
+
+		deleted++
+	}
+	return deleted, nil
 }
 
+func (t *InfluxAdapter) Delete(shardID uint64) error {
+	t.shards.Delete(shardID)
+	return t.influx.DeleteShard(shardID)
+}
+
+type UintSlice []uint64
+
+func (u UintSlice) Len() int           { return len(u) }
+func (u UintSlice) Less(i, j int) bool { return u[i] < u[j] }
+func (u UintSlice) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
+
+// ShardIDs returns all shardIDs known to the adapter, sorted newest to oldest
 func (t *InfluxAdapter) ShardIDs() []uint64 {
-	t.RLock()
-	defer t.RUnlock()
-
 	var shards []uint64
-
 	t.shards.Range(func(shardIdKey interface{}, _ interface{}) bool {
 		shardId := shardIdKey.(uint64)
 		shards = append(shards, shardId)
 		return true
 	})
 
+	sort.Sort(sort.Reverse(UintSlice(shards)))
 	return shards
 }
 
+func (t *InfluxAdapter) ShardIDsOldestSort() []uint64 {
+	var shards []uint64
+	t.shards.Range(func(shardIdKey interface{}, _ interface{}) bool {
+		shardId := shardIdKey.(uint64)
+		shards = append(shards, shardId)
+		return true
+	})
+
+	sort.Sort(UintSlice(shards))
+	return shards
+}
+
+// OldestShardID returns the absolute oldest shardID known to the adapter,
+// regardless of potential time gaps between shards
 func (t *InfluxAdapter) OldestShardID() (uint64, error) {
 	shardIDs := t.ShardIDs()
 	if len(shardIDs) == 0 {
 		return 0, fmt.Errorf("Cannot determine oldest shardID when there are no shardIDs")
 	}
 
-	oldestShardID := shardIDs[0]
-	for _, shardID := range shardIDs {
-		if shardID < oldestShardID {
-			oldestShardID = shardID
-		}
-	}
-
-	return oldestShardID, nil
+	return shardIDs[len(shardIDs)-1], nil
 }
 
-func (t *InfluxAdapter) Close() error {
-	return t.influx.Close()
+// OldestContiguousShardID returns the oldest shardID known to the adapter,
+// that is part of the unbroken series closest to the newest shardID
+func (t *InfluxAdapter) OldestContiguousShardID() (uint64, error) {
+	shardIDs := t.ShardIDs()
+	if len(shardIDs) == 0 {
+		return 0, fmt.Errorf("Cannot determine oldest shardID when there are no shardIDs")
+	}
+
+	lastContiguousShardId := shardIDs[0]
+	for i := 1; i < len(shardIDs); i++ {
+		if (lastContiguousShardId - shardIDs[i]) == uint64(time.Hour*24) {
+			lastContiguousShardId = shardIDs[i]
+			continue
+		}
+		return lastContiguousShardId, nil
+	}
+
+	return lastContiguousShardId, nil
 }
 
 func (t *InfluxAdapter) AllMeasurementNames() []string {
 	start := time.Now()
-	measurementNames := t.allShards().MeasurementsByRegex(regexp.MustCompile(".*"))
+	allShards := t.influx.ShardGroup(t.ShardIDs())
+	measurementNames := allShards.MeasurementsByRegex(regexp.MustCompile(".*"))
 	t.metrics.Set(debug.MetricStoreMeasurementNamesQueryDurationSeconds, transform.DurationToSeconds(time.Since(start)))
 	return measurementNames
 }
@@ -291,11 +319,6 @@ func (t *InfluxAdapter) findOrCreateShardForTimestamp(ts int64) uint64 {
 	}
 
 	return shardId
-}
-
-func (t *InfluxAdapter) allShards() tsdb.ShardGroup {
-	shardIds := t.ShardIDs()
-	return t.influx.ShardGroup(shardIds)
 }
 
 func (t *InfluxAdapter) checkShardId(shardId uint64) {
@@ -335,22 +358,4 @@ func (t *InfluxAdapter) forTimestampRange(start, end int64) []uint64 {
 	sort.Sort(ShardIDs(shards))
 
 	return shards
-}
-
-func (t *InfluxAdapter) getOldest() uint64 {
-	shards := t.forTimestampRange(0, time.Now().UnixNano())
-	if len(shards) == 0 {
-		// Attempting to delete a shard that doesn't exist is fine.
-		return 0
-	}
-
-	min := shards[0]
-
-	for _, shard := range shards {
-		if shard < min {
-			min = shard
-		}
-	}
-
-	return min
 }
