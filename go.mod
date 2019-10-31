@@ -5,7 +5,7 @@ require (
 	code.cloudfoundry.org/go-envstruct v1.5.0
 	code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a
 	collectd.org v0.3.0 // indirect
-	github.com/apache/arrow/go/arrow v0.0.0-20191007174522-793c60a27617 // indirect
+	github.com/apache/arrow/go/arrow v0.0.0-20191031071000-627c72987925 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
 	github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
@@ -13,7 +13,7 @@ require (
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.3
-	github.com/influxdata/flux v0.49.0 // indirect
+	github.com/influxdata/flux v0.52.0 // indirect
 	github.com/influxdata/influxdb v1.7.8
 	github.com/influxdata/influxql v1.0.1
 	github.com/influxdata/roaring v0.4.12 // indirect
@@ -29,12 +29,11 @@ require (
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common v0.7.0
 	github.com/prometheus/prometheus v1.8.2-0.20191017095924-6f92ce560538
-	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
+	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
-	go.uber.org/atomic v1.4.0 // indirect
-	go.uber.org/multierr v1.2.0 // indirect
+	go.uber.org/multierr v1.3.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20191003171128-d98b1b443823
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
