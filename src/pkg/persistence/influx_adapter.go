@@ -214,12 +214,11 @@ func (t *InfluxAdapter) DeleteOldest() error {
 }
 
 func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
-	adjustedCutoff := uint64(time.Unix(0, cutoff).
-		Add(-time.Minute).Truncate(24 * time.Hour).UnixNano())
+	adjustedCutoff := time.Unix(0, cutoff).Add(-time.Minute).Truncate(24 * time.Hour).UnixNano()
 
 	var deleted uint64
 	for _, shardID := range t.ShardIDsOldestSort() {
-		if shardID > adjustedCutoff {
+		if int64(shardID) > adjustedCutoff {
 			break
 		}
 		err := t.Delete(shardID)
