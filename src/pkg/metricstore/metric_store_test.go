@@ -201,6 +201,52 @@ var _ = Describe("MetricStore", func() {
 		Eventually(f).Should(BeNil())
 	})
 
+	It("provides a default resolution for sub-queries", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
+		now := time.Now()
+		tc.writePoints([]*rpc.Point{
+			{
+				Timestamp: now.Add(-2 * time.Minute).UnixNano(),
+				Name:      MEASUREMENT_NAME,
+				Value:     250,
+				Labels:    map[string]string{"source_id": "source-id"},
+			},
+			{
+				Timestamp: now.Add(-6 * time.Minute).UnixNano(),
+				Name:      MEASUREMENT_NAME,
+				Value:     99,
+				Labels:    map[string]string{"source_id": "source-id"},
+			},
+		})
+
+		f := func() error {
+			value, _, err := tc.apiClient.Query(
+				context.Background(),
+				fmt.Sprintf(`%s[5m:]`, MEASUREMENT_NAME),
+				now,
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			switch serieses := value.(type) {
+			case model.Matrix:
+				if len(serieses) != 1 {
+					return fmt.Errorf("expected 1 series, got %d", len(serieses))
+				}
+
+				if len(serieses[0].Values) != 5 {
+					return fmt.Errorf("expected 5 samples, got %d", len(serieses[0].Values))
+				}
+			default:
+				return errors.New("expected result to be a model.Matrix")
+			}
+
+			return nil
+		}
+		Eventually(f).Should(BeNil())
+	})
+
 	Describe("TLS security", func() {
 		DescribeTable("allows only supported TLS versions", func(clientTLSVersion int, serverAllows bool) {
 			tc, cleanup := setup()

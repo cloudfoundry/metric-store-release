@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	COMMON_NAME = "metric-store"
-	MAX_HASH    = math.MaxUint64
+	COMMON_NAME                 = "metric-store"
+	MAX_HASH                    = math.MaxUint64
+	DEFAULT_EVALUATION_INTERVAL = (1 * time.Minute)
 )
 
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
@@ -178,6 +179,8 @@ func EngineQueryFunc(engine *promql.Engine, q storage.Queryable) rules.QueryFunc
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
+	promql.SetDefaultEvaluationInterval(DEFAULT_EVALUATION_INTERVAL)
+
 	engineOpts := promql.EngineOpts{
 		MaxConcurrent: 10,
 		MaxSamples:    1e6,
