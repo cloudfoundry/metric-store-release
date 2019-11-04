@@ -461,7 +461,7 @@ golang.org/x/crypto/ssh/terminal
 # golang.org/x/lint v0.0.0-20190930215403-16217165b5de
 golang.org/x/lint
 golang.org/x/lint/golint
-# golang.org/x/net v0.0.0-20191003171128-d98b1b443823
+# golang.org/x/net v0.0.0-20191101175033-0deb6923b6d9
 golang.org/x/net/bpf
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
