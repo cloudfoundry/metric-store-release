@@ -76,7 +76,7 @@ func (h *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 			for key, value := range labels {
 				bucketLabels[key] = value
 			}
-			bucketLabels["le"] = strconv.FormatFloat(*bucket.UpperBound, 'f', 3, 64)
+			bucketLabels["le"] = strconv.FormatFloat(*bucket.UpperBound, 'f', -1, 64)
 
 			bucketPoint := &rpc.Point{
 				Name:      h.metricName + "_duration_seconds_bucket",

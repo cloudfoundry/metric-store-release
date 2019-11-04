@@ -282,7 +282,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "0.010",
+						"le":         "0.01",
 					},
 				},
 				{
@@ -304,7 +304,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "0.050",
+						"le":         "0.05",
 					},
 				},
 				{
@@ -315,7 +315,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "0.100",
+						"le":         "0.1",
 					},
 				},
 				{
@@ -326,7 +326,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "0.250",
+						"le":         "0.25",
 					},
 				},
 				{
@@ -337,7 +337,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "0.500",
+						"le":         "0.5",
 					},
 				},
 				{
@@ -348,7 +348,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "1.000",
+						"le":         "1",
 					},
 				},
 				{
@@ -359,7 +359,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "2.500",
+						"le":         "2.5",
 					},
 				},
 				{
@@ -370,7 +370,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "5.000",
+						"le":         "5",
 					},
 				},
 				{
@@ -381,7 +381,7 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
-						"le":         "10.000",
+						"le":         "10",
 					},
 				},
 				{
