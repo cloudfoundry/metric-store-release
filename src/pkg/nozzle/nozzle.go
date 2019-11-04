@@ -2,11 +2,9 @@ package nozzle
 
 import (
 	"crypto/tls"
-	"encoding/csv"
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"code.cloudfoundry.org/go-diodes"
@@ -15,43 +13,34 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/nozzle/rollup"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
 
-type timerValue struct {
-	count uint64
-	value float64
-}
-
 // Nozzle reads envelopes and writes points to metric-store.
 type Nozzle struct {
-	log                   *logger.Logger
-	s                     StreamConnector
-	metrics               debug.MetricRegistrar
-	shardId               string
-	forwardedTags         []string
-	timerRollupBufferSize uint
-	nodeIndex             int
-	ingressBuffer         *diodes.OneToOne
+	log     *logger.Logger
+	metrics debug.MetricRegistrar
 
-	timerBuffer  *diodes.OneToOne
-	timerMetrics map[string]*timerValue
-	timerTotals  map[string]uint64
-	timerMutex   sync.Mutex
+	s             StreamConnector
+	shardId       string
+	nodeIndex     int
+	ingressBuffer *diodes.OneToOne
+
+	timerBuffer           *diodes.OneToOne
+	timerRollupBufferSize uint
+	rollupInterval        time.Duration
+	rollupMetricName      string
+	totalRollup           rollup.Rollup
+	durationRollup        rollup.Rollup
 
 	addr        string
 	ingressAddr string
 	client      *ingressclient.IngressClient
 	tlsConfig   *tls.Config
-
-	tagInfo *sync.Map
-
-	rollupInterval   time.Duration
-	rollupMetricName string
-	rollupTags       []string
 }
 
 // StreamConnector reads envelopes from the the logs provider.
@@ -67,19 +56,17 @@ const (
 
 func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...NozzleOption) *Nozzle {
 	n := &Nozzle{
-		s:                     c,
-		addr:                  metricStoreAddr,
-		ingressAddr:           ingressAddr,
-		tlsConfig:             tlsConfig,
 		log:                   logger.NewNop(),
 		metrics:               &debug.NullRegistrar{},
+		s:                     c,
 		shardId:               shardId,
 		nodeIndex:             nodeIndex,
 		timerRollupBufferSize: 4096,
-		forwardedTags:         []string{},
-		timerMetrics:          make(map[string]*timerValue),
-		timerTotals:           make(map[string]uint64),
-		tagInfo:               &sync.Map{},
+		totalRollup:           rollup.NewNullRollup(),
+		durationRollup:        rollup.NewNullRollup(),
+		addr:                  metricStoreAddr,
+		ingressAddr:           ingressAddr,
+		tlsConfig:             tlsConfig,
 	}
 
 	for _, o := range opts {
@@ -135,11 +122,14 @@ func WithNozzleTimerRollupBufferSize(size uint) NozzleOption {
 	}
 }
 
-func WithNozzleTimerRollup(interval time.Duration, metricName string, tags []string) NozzleOption {
+func WithNozzleTimerRollup(interval time.Duration, metricName string, totalRollupTags, durationRollupTags []string) NozzleOption {
 	return func(n *Nozzle) {
 		n.rollupInterval = interval
 		n.rollupMetricName = metricName
-		n.rollupTags = tags
+
+		nodeIndex := strconv.Itoa(n.nodeIndex)
+		n.totalRollup = rollup.NewCounterRollup(n.log, nodeIndex, metricName, totalRollupTags)
+		n.durationRollup = rollup.NewHistogramRollup(n.log, nodeIndex, metricName, durationRollupTags)
 	}
 }
 
@@ -175,7 +165,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 
 		if found {
 			for _, point := range n.convertEnvelopeToPoints((*loggregator_v2.Envelope)(data)) {
-				size += estimatePointSize(point)
+				size += point.EstimatePointSize()
 				points = append(points, point)
 			}
 		}
@@ -220,20 +210,6 @@ func (n *Nozzle) writeToChannelOrDiscard(ch chan []*rpc.Point, points []*rpc.Poi
 	}
 }
 
-func estimatePointSize(point *rpc.Point) (size int) {
-	size += len(point.Name)
-
-	// 8 bytes for timestamp (int64), 8 bytes for value (float64)
-	size += 16
-
-	// add the size of all label keys and values
-	for k, v := range point.Labels {
-		size += (len(k) + len(v))
-	}
-
-	return size
-}
-
 func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 	for {
 		points := <-ch
@@ -267,105 +243,35 @@ func (n *Nozzle) timerProcessor() {
 	for {
 		data := poller.Next()
 		envelope := *(*loggregator_v2.Envelope)(data)
-
 		timer := envelope.GetTimer()
-		value := float64(timer.GetStop()-timer.GetStart()) / float64(time.Millisecond)
 
-		tags := []string{envelope.SourceId}
-
-		for _, tagName := range n.rollupTags {
-			tags = append(tags, envelope.Tags[tagName])
-		}
-
-		csvOutput := &strings.Builder{}
-		csvWriter := csv.NewWriter(csvOutput)
-		csvWriter.Write(tags)
-		csvWriter.Flush()
-
-		key := csvOutput.String()
-
-		n.timerMutex.Lock()
-		tv, found := n.timerMetrics[key]
-		if !found {
-			n.timerMetrics[key] = &timerValue{count: 1, value: value}
-			n.timerTotals[key] = n.timerTotals[key] + 1
-			n.timerMutex.Unlock()
-			continue
-		}
-
-		tv.value = (float64(tv.count)*tv.value + value) / float64(tv.count+1)
-		tv.count += 1
-		n.timerTotals[key] = n.timerTotals[key] + 1
-
-		n.timerMutex.Unlock()
+		n.totalRollup.Record(envelope.SourceId, envelope.Tags, 1)
+		n.durationRollup.Record(envelope.SourceId, envelope.Tags, timer.GetStop()-timer.GetStart())
 	}
 }
 
 func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 	ticker := time.NewTicker(n.rollupInterval)
-	nodeIndex := strconv.Itoa(n.nodeIndex)
 
 	for t := range ticker.C {
-		timestamp := t.Truncate(n.rollupInterval)
+		timestampNano := t.Truncate(n.rollupInterval).UnixNano()
 
 		var size int
 		var points []*rpc.Point
 
-		n.timerMutex.Lock()
-		for k, tv := range n.timerMetrics {
-			keyParts, err := csv.NewReader(strings.NewReader(k)).Read()
+		for _, pointsBatch := range n.totalRollup.Rollup(timestampNano) {
+			points = append(points, pointsBatch.Points...)
+			size += pointsBatch.Size
 
-			if err != nil {
-				n.log.Error(
-					"skipping metric",
-					err,
-					zap.String("reason", "failed to decode"),
-					zap.String("key", k),
-				)
-				continue
+			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
+				points = n.writeToChannelOrDiscard(ch, points)
+				size = 0
 			}
+		}
 
-			// if we can't parse the key, there's probably some garbage in one
-			// of the tags, so let's skip it
-			if len(keyParts) != len(n.rollupTags)+1 {
-				n.log.Info(
-					"skipping metric",
-					zap.String("reason", "wrong number of parts"),
-					zap.String("key", k),
-					logger.Count(len(keyParts)),
-				)
-				continue
-			}
-
-			meanPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_mean_ms",
-				Timestamp: timestamp.UnixNano(),
-				Value:     tv.value,
-				Labels: map[string]string{
-					"source_id":  keyParts[0],
-					"node_index": nodeIndex,
-				},
-			}
-			countPoint := &rpc.Point{
-				Name:      n.rollupMetricName + "_total",
-				Timestamp: timestamp.UnixNano(),
-				Value:     float64(n.timerTotals[k]),
-				Labels: map[string]string{
-					"source_id":  keyParts[0],
-					"node_index": nodeIndex,
-				},
-			}
-
-			for index, tagName := range n.rollupTags {
-				if value := keyParts[index+1]; value != "" {
-					meanPoint.Labels[tagName] = value
-					countPoint.Labels[tagName] = value
-				}
-			}
-
-			points = append(points, meanPoint, countPoint)
-			size += estimatePointSize(meanPoint)
-			size += estimatePointSize(countPoint)
+		for _, pointsBatch := range n.durationRollup.Rollup(timestampNano) {
+			points = append(points, pointsBatch.Points...)
+			size += pointsBatch.Size
 
 			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
 				points = n.writeToChannelOrDiscard(ch, points)
@@ -376,9 +282,6 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 		if len(points) > 0 {
 			points = n.writeToChannelOrDiscard(ch, points)
 		}
-
-		n.timerMetrics = make(map[string]*timerValue)
-		n.timerMutex.Unlock()
 	}
 }
 

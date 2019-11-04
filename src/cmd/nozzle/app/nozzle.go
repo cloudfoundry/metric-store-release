@@ -86,10 +86,20 @@ func (n *NozzleApp) Run() {
 		n.cfg.NodeIndex,
 		WithNozzleLogger(n.log),
 		WithNozzleDebugRegistrar(n.debugRegistrar),
-		WithNozzleTimerRollup(10*time.Second, "http", []string{"index",
-			"status_code", "app_name", "app_id", "space_name", "space_id",
-			"organization_name", "organization_id", "process_id",
-			"process_instance_id", "process_type"}),
+		WithNozzleTimerRollup(
+			10*time.Second,
+			"http",
+			[]string{
+				"index", "status_code", "app_name", "app_id", "space_name",
+				"space_id", "organization_name", "organization_id",
+				"process_id", "process_instance_id", "process_type",
+			},
+			[]string{
+				"index", "app_name", "app_id", "space_name", "space_id",
+				"organization_name", "organization_id", "process_id",
+				"process_instance_id", "process_type",
+			},
+		),
 		WithNozzleTimerRollupBufferSize(n.cfg.TimerRollupBufferSize),
 	)
 

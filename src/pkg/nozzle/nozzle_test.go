@@ -43,7 +43,12 @@ var _ = Describe("Nozzle", func() {
 
 		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsConfig, "metric-store", 0,
 			WithNozzleDebugRegistrar(metricRegistrar),
-			WithNozzleTimerRollup(100*time.Millisecond, "rolled_timer", []string{"tag1", "tag2"}),
+			WithNozzleTimerRollup(
+				100*time.Millisecond,
+				"rolled_timer",
+				[]string{"tag1", "tag2", "status_code"},
+				[]string{"tag1", "tag2"},
+			),
 			WithNozzleLogger(logger.NewTestLogger()),
 		)
 		go n.Start()
@@ -132,12 +137,13 @@ var _ = Describe("Nozzle", func() {
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
 							Start: 0,
-							Stop:  5 * int64(time.Second),
+							Stop:  5 * int64(time.Millisecond),
 						},
 					},
 					Tags: map[string]string{
-						"tag1": "t1",
-						"tag2": "t2",
+						"tag1":        "t1",
+						"tag2":        "t2",
+						"status_code": "500",
 					},
 				},
 				{
@@ -146,13 +152,14 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 5 * int64(time.Second),
-							Stop:  9 * int64(time.Second),
+							Start: 5 * int64(time.Millisecond),
+							Stop:  100 * int64(time.Millisecond),
 						},
 					},
 					Tags: map[string]string{
-						"tag1": "t1",
-						"tag2": "t2",
+						"tag1":        "t1",
+						"tag2":        "t2",
+						"status_code": "200",
 					},
 				},
 				{
@@ -161,11 +168,14 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 3 * int64(time.Second),
-							Stop:  6 * int64(time.Second),
+							Start: 100 * int64(time.Millisecond),
+							Stop:  106 * int64(time.Millisecond),
 						},
 					},
-					Tags: map[string]string{"peer_type": "client"},
+					Tags: map[string]string{
+						"peer_type":   "Server",
+						"status_code": "200",
+					},
 				},
 				{
 					Timestamp: intervalStart + 4,
@@ -173,28 +183,220 @@ var _ = Describe("Nozzle", func() {
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
 							Name:  "rolled_timer",
-							Start: 8 * int64(time.Second),
-							Stop:  9 * int64(time.Second),
+							Start: 96 * int64(time.Millisecond),
+							Stop:  100 * int64(time.Millisecond),
 						},
 					},
-					Tags: map[string]string{"peer_type": "Server"},
+					Tags: map[string]string{
+						"peer_type":   "Server",
+						"status_code": "200",
+					},
+				},
+				{
+					Timestamp: intervalStart + 5,
+					SourceId:  "source-id-2",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 500 * int64(time.Millisecond),
+							Stop:  1000 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Server",
+						"status_code": "400",
+					},
 				},
 			}
 
-			Eventually(metricStore.GetPoints).Should(HaveLen(4))
-			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
+			numberOfExpectedSeriesIncludingStatusCode := 4
+			numberOfExpectedSeriesExcludingStatusCode := 2
+			numberOfExpectedPoints := numberOfExpectedSeriesIncludingStatusCode + (14 * numberOfExpectedSeriesExcludingStatusCode)
+			Eventually(metricStore.GetPoints).Should(HaveLen(numberOfExpectedPoints))
+
+			points := metricStore.GetPoints()
+
+			// _count points, per series including status_code
+			Expect(points).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_mean_ms",
-					Value: 4.5 * float64(time.Second/time.Millisecond),
+					Name:  "rolled_timer_total",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index":  "0",
+						"source_id":   "source-id",
+						"tag1":        "t1",
+						"tag2":        "t2",
+						"status_code": "500",
+					},
+				},
+				{
+					Name:  "rolled_timer_total",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index":  "0",
+						"source_id":   "source-id",
+						"tag1":        "t1",
+						"tag2":        "t2",
+						"status_code": "200",
+					},
+				},
+				{
+					Name:  "rolled_timer_total",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index":  "0",
+						"source_id":   "source-id-2",
+						"status_code": "200",
+					},
+				},
+				{
+					Name:  "rolled_timer_total",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index":  "0",
+						"source_id":   "source-id-2",
+						"status_code": "400",
+					},
+				},
+			}))
+
+			// _duration_seconds histogram points, per series excluding status_code
+			// only testing one series
+			Expect(points).To(ContainPoints([]*rpc.Point{
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
+						"le":         "0.005",
 					},
 				},
 				{
-					Name:  "rolled_timer_total",
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "0.010",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "0.025",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "0.050",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "0.100",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "0.250",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "0.500",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "1.000",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "2.500",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "5.000",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "10.000",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
+						"le":         "+Inf",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_count",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -204,30 +406,24 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_mean_ms",
-					Value: 1 * float64(time.Second/time.Millisecond),
+					Name:  "rolled_timer_duration_seconds_sum",
+					Value: 0.100,
 					Labels: map[string]string{
 						"node_index": "0",
-						"source_id":  "source-id-2",
-					},
-				},
-				{
-					Name:  "rolled_timer_total",
-					Value: 1,
-					Labels: map[string]string{
-						"node_index": "0",
-						"source_id":  "source-id-2",
+						"source_id":  "source-id",
+						"tag1":       "t1",
+						"tag2":       "t2",
 					},
 				},
 			}))
 
-			firstPointTimestamp := metricStore.GetPoints()[0].Timestamp
+			firstPointTimestamp := points[0].Timestamp
 			firstPointTime := time.Unix(0, firstPointTimestamp)
 
 			Expect(firstPointTime).To(BeTemporally("~", time.Unix(0, intervalStart), time.Second))
 			Expect(firstPointTime).To(Equal(firstPointTime.Truncate(100 * time.Millisecond)))
 
-			for _, point := range metricStore.GetPoints() {
+			for _, point := range points {
 				Expect(point.Timestamp).To(Equal(firstPointTimestamp))
 			}
 		})
@@ -291,20 +487,21 @@ var _ = Describe("Nozzle", func() {
 			firstTimer := baseTimer
 			firstTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 5 * int64(time.Second)
 
+			secondTimer := baseTimer
+			secondTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 2 * int64(time.Second)
+
+			thirdTimer := baseTimer
+			thirdTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 4 * int64(time.Second)
+
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{&firstTimer}
 
-			// wait for interval to elapse
-			Eventually(metricStore.GetPoints).Should(HaveLen(2))
-
-			secondTimer := baseTimer
-			thirdTimer := baseTimer
-
-			secondTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 2 * int64(time.Second)
-			thirdTimer.Message.(*loggregator_v2.Envelope_Timer).Timer.Stop = 4 * int64(time.Second)
+			// wait for emit interval to elapse, adding 15 per series`
+			Eventually(metricStore.GetPoints).Should(HaveLen(15))
 
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{&secondTimer, &thirdTimer}
 
-			Eventually(metricStore.GetPoints).Should(HaveLen(4))
+			// wait for emit interval to elapse, adding 15 more per series
+			Eventually(metricStore.GetPoints).Should(HaveLen(30))
 
 			point := rpc.Point{
 				Labels: map[string]string{
@@ -315,24 +512,24 @@ var _ = Describe("Nozzle", func() {
 				},
 			}
 
-			firstIntervalMean := point
-			firstIntervalMean.Name = "rolled_timer_mean_ms"
-			firstIntervalMean.Value = 5 * float64(time.Second/time.Millisecond)
+			firstIntervalHistogram := point
+			firstIntervalHistogram.Name = "rolled_timer_duration_seconds_count"
+			firstIntervalHistogram.Value = 1
 			firstIntervalTotal := point
 			firstIntervalTotal.Name = "rolled_timer_total"
 			firstIntervalTotal.Value = 1
 
-			secondIntervalMean := point
-			secondIntervalMean.Name = "rolled_timer_mean_ms"
-			secondIntervalMean.Value = 4 * float64(time.Second/time.Millisecond)
+			secondIntervalHistogram := point
+			secondIntervalHistogram.Name = "rolled_timer_duration_seconds_count"
+			secondIntervalHistogram.Value = 3
 			secondIntervalTotal := point
 			secondIntervalTotal.Name = "rolled_timer_total"
 			secondIntervalTotal.Value = 3
 
 			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
-				&firstIntervalMean,
+				&firstIntervalHistogram,
 				&firstIntervalTotal,
-				&secondIntervalMean,
+				&secondIntervalHistogram,
 				&secondIntervalTotal,
 			}))
 		})
