@@ -33,8 +33,7 @@ require (
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
-	go.uber.org/multierr v1.3.0 // indirect
-	go.uber.org/zap v1.10.0
+	go.uber.org/zap v1.12.0
 	golang.org/x/net v0.0.0-20191003171128-d98b1b443823
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 	google.golang.org/grpc v1.24.0
