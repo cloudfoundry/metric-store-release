@@ -287,7 +287,7 @@ github.com/mwitkow/go-conntrack
 github.com/niubaoshu/gotiny
 # github.com/oklog/ulid v1.3.1
 github.com/oklog/ulid
-# github.com/onsi/ginkgo v1.10.2
+# github.com/onsi/ginkgo v1.10.3
 github.com/onsi/ginkgo
 github.com/onsi/ginkgo/config
 github.com/onsi/ginkgo/extensions/table
