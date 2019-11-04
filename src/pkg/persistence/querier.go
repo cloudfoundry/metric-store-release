@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -45,6 +46,10 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 	var name string
 	for index, labelMatcher := range labelMatchers {
 		if labelMatcher.Name == transform.MEASUREMENT_NAME {
+			if labelMatcher.Type != labels.MatchEqual {
+				return nil, nil, errors.New("only strict equality is supported for metric names")
+			}
+
 			name = labelMatcher.Value
 			labelMatchers = append(labelMatchers[:index], labelMatchers[index+1:]...)
 			break
