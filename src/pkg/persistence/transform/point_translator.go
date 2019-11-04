@@ -10,10 +10,6 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 
-const (
-	MEASUREMENT_NAME = "__name__"
-)
-
 var UNINDEXED_LABELS = map[string]bool{
 	"uri":            true,
 	"content_length": true,
@@ -61,7 +57,7 @@ func LabelsFromInfluxPoint(influxPoint *query.FloatPoint, fields []string) label
 			labelBuilder.Set(field, fieldValue)
 		}
 	}
-	labelBuilder.Set(MEASUREMENT_NAME, influxPoint.Name)
+	labelBuilder.Set(labels.MetricName, influxPoint.Name)
 
 	return labelBuilder.Labels()
 }
@@ -129,7 +125,7 @@ func ConvertLabels(point *rpc.Point) labels.Labels {
 	for key, value := range originalLabels {
 		newLabels = append(newLabels, labels.Label{Name: key, Value: value})
 	}
-	newLabels = append(newLabels, labels.Label{Name: "__name__", Value: point.Name})
+	newLabels = append(newLabels, labels.Label{Name: labels.MetricName, Value: point.Name})
 
 	return newLabels
 }

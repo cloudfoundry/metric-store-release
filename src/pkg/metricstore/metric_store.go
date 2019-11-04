@@ -287,7 +287,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		var ingressPointsTotal uint64
 		for _, point := range batch.Points {
 			sanitizedLabels := make(map[string]string)
-			sanitizedLabels["__name__"] = transform.SanitizeMetricName(point.Name)
+			sanitizedLabels[model.MetricNameLabel] = transform.SanitizeMetricName(point.Name)
 
 			for label, value := range point.Labels {
 				sanitizedLabels[transform.SanitizeLabelName(label)] = value

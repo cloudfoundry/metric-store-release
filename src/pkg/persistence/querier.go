@@ -45,7 +45,7 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 
 	var name string
 	for index, labelMatcher := range labelMatchers {
-		if labelMatcher.Name == transform.MEASUREMENT_NAME {
+		if labelMatcher.Name == labels.MetricName {
 			if labelMatcher.Type != labels.MatchEqual {
 				return nil, nil, errors.New("only strict equality is supported for metric names")
 			}
@@ -76,22 +76,22 @@ func (q *Querier) LabelNames() ([]string, storage.Warnings, error) {
 		distinctKeys[tagKey] = struct{}{}
 	}
 
-	var labels []string
+	var labelNames []string
 
 	for k := range distinctKeys {
-		labels = append(labels, k)
+		labelNames = append(labelNames, k)
 	}
 
-	labels = append(labels, transform.MEASUREMENT_NAME)
-	sort.Strings(labels)
+	labelNames = append(labelNames, labels.MetricName)
+	sort.Strings(labelNames)
 
-	return labels, nil, nil
+	return labelNames, nil, nil
 }
 
 func (q *Querier) LabelValues(name string) ([]string, storage.Warnings, error) {
 	distinctValues := make(map[string]struct{})
 
-	if name == transform.MEASUREMENT_NAME {
+	if name == labels.MetricName {
 		values := q.adapter.AllMeasurementNames()
 		return values, nil, nil
 	}

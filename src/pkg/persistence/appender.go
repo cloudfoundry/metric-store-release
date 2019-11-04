@@ -71,7 +71,7 @@ func (a *Appender) Add(l labels.Labels, time int64, value float64) (uint64, erro
 	}
 
 	point := &rpc.Point{
-		Name:      l.Get("__name__"),
+		Name:      l.Get(labels.MetricName),
 		Timestamp: time,
 		Value:     value,
 		Labels:    a.cleanLabels(l),
@@ -90,7 +90,7 @@ func (a *Appender) AddFast(l labels.Labels, _ uint64, timestamp int64, value flo
 	}
 
 	point := &rpc.Point{
-		Name:      l.Get("__name__"),
+		Name:      l.Get(labels.MetricName),
 		Timestamp: timestamp,
 		Value:     value,
 		Labels:    a.cleanLabels(l),
@@ -139,7 +139,7 @@ func (a *Appender) cleanLabels(l labels.Labels) map[string]string {
 		}
 	}
 
-	delete(newLabels, "__name__")
+	delete(newLabels, labels.MetricName)
 
 	return newLabels
 }
