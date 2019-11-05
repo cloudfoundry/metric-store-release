@@ -21,6 +21,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/version"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -404,129 +405,156 @@ var _ = Describe("MetricStore", func() {
 				))
 			})
 		})
-	})
 
-	Context("when a labels query is made", func() {
-		It("returns labels from Metric Store", func() {
-			tc, cleanup := setup()
-			defer cleanup()
+		Context("when a labels query is made", func() {
+			It("returns labels from Metric Store", func() {
+				tc, cleanup := setup()
+				defer cleanup()
 
-			writePoints(
-				tc,
-				[]testPoint{
-					{
-						Name:               "metric_name_0",
-						TimeInMilliseconds: 1,
-						Labels: map[string]string{
-							"source_id":  "1",
-							"user_agent": "phil",
+				writePoints(
+					tc,
+					[]testPoint{
+						{
+							Name:               "metric_name_0",
+							TimeInMilliseconds: 1,
+							Labels: map[string]string{
+								"source_id":  "1",
+								"user_agent": "phil",
+							},
+						},
+						{
+							Name:               "metric_name_1",
+							TimeInMilliseconds: 2,
+							Labels: map[string]string{
+								"source_id":      "2",
+								"content_length": "42",
+							},
 						},
 					},
-					{
-						Name:               "metric_name_1",
-						TimeInMilliseconds: 2,
-						Labels: map[string]string{
-							"source_id":      "2",
-							"content_length": "42",
-						},
-					},
-				},
-			)
+				)
 
-			value, _, err := tc.egressClient.LabelNames(context.Background())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(Equal(
-				[]string{model.MetricNameLabel, "source_id"},
-			))
-		})
-	})
-
-	Context("when a label values query is made", func() {
-		It("returns values for a label name", func() {
-			tc, cleanup := setup()
-			defer cleanup()
-
-			writePoints(
-				tc,
-				[]testPoint{
-					{
-						Name:               "metric_name_0",
-						TimeInMilliseconds: 1,
-						Labels: map[string]string{
-							"source_id":  "1",
-							"user_agent": "100",
-						},
-					},
-					{
-						Name:               "metric_name_1",
-						TimeInMilliseconds: 2,
-						Labels: map[string]string{
-							"source_id":  "10",
-							"user_agent": "200",
-						},
-					},
-					{
-						Name:               "metric_name_2",
-						TimeInMilliseconds: 3,
-						Labels: map[string]string{
-							"source_id":  "10",
-							"user_agent": "100",
-						},
-					},
-				},
-			)
-
-			value, _, err := tc.egressClient.LabelValues(context.Background(), "source_id")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(Equal(
-				model.LabelValues{"1", "10"},
-			))
-
-			value, _, err = tc.egressClient.LabelValues(context.Background(), "user_agent")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(BeNil())
-
-			value, _, err = tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(Equal(
-				model.LabelValues{"metric_name_0", "metric_name_1", "metric_name_2"},
-			))
-		})
-	})
-
-	Context("when a series query is made", func() {
-		It("returns metrics from a simple query", func() {
-			tc, cleanup := setup()
-			defer cleanup()
-
-			writePoints(
-				tc,
-				[]testPoint{
-					{
-						Name:               "metric_name",
-						Value:              99,
-						TimeInMilliseconds: 1500,
-						Labels: map[string]string{
-							"source_id": "1",
-						},
-					},
-				},
-			)
-
-			value, err := makeSeriesQuery(tc, testSeriesQuery{
-				Match:          []string{"metric_name"},
-				StartInSeconds: "1",
-				EndInSeconds:   "2",
+				value, _, err := tc.egressClient.LabelNames(context.Background())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(Equal(
+					[]string{model.MetricNameLabel, "source_id"},
+				))
 			})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(value).To(Equal(
-				[]model.LabelSet{
-					{
-						model.MetricNameLabel: "metric_name",
-						"source_id":           "1",
+		})
+
+		Context("when a label values query is made", func() {
+			It("returns values for a label name", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+
+				writePoints(
+					tc,
+					[]testPoint{
+						{
+							Name:               "metric_name_0",
+							TimeInMilliseconds: 1,
+							Labels: map[string]string{
+								"source_id":  "1",
+								"user_agent": "100",
+							},
+						},
+						{
+							Name:               "metric_name_1",
+							TimeInMilliseconds: 2,
+							Labels: map[string]string{
+								"source_id":  "10",
+								"user_agent": "200",
+							},
+						},
+						{
+							Name:               "metric_name_2",
+							TimeInMilliseconds: 3,
+							Labels: map[string]string{
+								"source_id":  "10",
+								"user_agent": "100",
+							},
+						},
 					},
-				},
-			))
+				)
+
+				value, _, err := tc.egressClient.LabelValues(context.Background(), "source_id")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(Equal(
+					model.LabelValues{"1", "10"},
+				))
+
+				value, _, err = tc.egressClient.LabelValues(context.Background(), "user_agent")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(BeNil())
+
+				value, _, err = tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(Equal(
+					model.LabelValues{"metric_name_0", "metric_name_1", "metric_name_2"},
+				))
+			})
+		})
+
+		Context("when a series query is made", func() {
+			It("returns metrics from a simple query", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+
+				writePoints(
+					tc,
+					[]testPoint{
+						{
+							Name:               "metric_name",
+							Value:              99,
+							TimeInMilliseconds: 1500,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+					},
+				)
+
+				value, err := makeSeriesQuery(tc, testSeriesQuery{
+					Match:          []string{"metric_name"},
+					StartInSeconds: "1",
+					EndInSeconds:   "2",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(Equal(
+					[]model.LabelSet{
+						{
+							model.MetricNameLabel: "metric_name",
+							"source_id":           "1",
+						},
+					},
+				))
+			})
+		})
+
+		Context("when the health check endpoint is called", func() {
+			It("returns information about metrics store", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+
+				client := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+
+				var resp *http.Response
+				Eventually(func() error {
+					var err error
+					resp, err = client.Get("https://" + tc.addr + "/health")
+					return err
+				}).Should(BeNil())
+
+				Expect(resp.StatusCode).To(Equal(200))
+				defer resp.Body.Close()
+
+				value, err := ioutil.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(value)).To(MatchJSON(
+					fmt.Sprintf("{ \"version\":\"%s\" }", version.VERSION),
+				))
+			})
 		})
 	})
 

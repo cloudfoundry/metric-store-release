@@ -353,6 +353,19 @@ var _ = Describe("CfAuthMiddleware", func() {
 			Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
 		})
 	})
+
+	Describe("/health", func() {
+		It("forwards the request to the handler health endpoint", func() {
+			tc := setup("/health")
+
+			tc.invokeAuthHandler()
+
+			Expect(tc.recorder.Code).To(Equal(http.StatusOK))
+			Expect(tc.baseHandlerCalled).To(BeTrue())
+
+			Expect(tc.spyOauth2ClientReader.token).To(Equal(""))
+		})
+	})
 })
 
 type spyOauth2ClientReader struct {

@@ -19,6 +19,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/version"
 	"github.com/niubaoshu/gotiny"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
@@ -353,6 +354,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", apiV1))
+	mux.HandleFunc("/health", store.apiHealth)
 
 	store.server = &http.Server{
 		Handler:     mux,
@@ -385,6 +387,24 @@ func (store *MetricStore) Close() error {
 	store.server.Shutdown(context.Background())
 	store.ingressListener.Close()
 	return nil
+}
+
+func (store *MetricStore) apiHealth(w http.ResponseWriter, req *http.Request) {
+	type healthInfo struct {
+		Version string `json:"version"`
+	}
+
+	responseData := healthInfo{
+		Version: version.VERSION,
+	}
+
+	responseBytes, err := json.Marshal(responseData)
+	if err != nil {
+		store.log.Error("failed to marshal health response", err)
+	}
+
+	w.Write(responseBytes)
+	return
 }
 
 func sendAlerts(s *notifier.Manager) rules.NotifyFunc {

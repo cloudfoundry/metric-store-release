@@ -115,6 +115,8 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 		m.handleOnlyAdmin(h, w, r)
 	})
 
+	router.HandleFunc("/health", h.ServeHTTP)
+
 	return router
 }
 
