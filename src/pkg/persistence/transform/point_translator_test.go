@@ -6,7 +6,6 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"github.com/influxdata/influxdb/query"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -154,25 +153,6 @@ var _ = Describe("Point Translator", func() {
 			for n, label := range labels {
 				Expect(transform.SanitizeLabelName(label)).To(Equal(converted[n]))
 			}
-		})
-	})
-
-	Describe("LabelsFromInfluxPoint()", func() {
-		It("converts an influxPoint and slice of field names to a sample and labels", func() {
-			influxPoint := &query.FloatPoint{
-				Name:  "metric_name",
-				Time:  10 * int64(time.Millisecond),
-				Value: 99.0,
-				Tags:  query.NewTags(map[string]string{"foo": "bar"}),
-				Aux:   []interface{}{"bax"},
-			}
-			fields := []string{"fuz"}
-
-			labels := transform.LabelsFromInfluxPoint(influxPoint, fields)
-
-			Expect(labels.Get("__name__")).To(Equal("metric_name"))
-			Expect(labels.Get("foo")).To(Equal("bar"))
-			Expect(labels.Get("fuz")).To(Equal("bax"))
 		})
 	})
 

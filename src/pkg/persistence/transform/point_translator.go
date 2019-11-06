@@ -6,7 +6,6 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/influxdata/influxdb/models"
-	"github.com/influxdata/influxdb/query"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 
@@ -43,23 +42,6 @@ func ToInfluxPoints(points []*rpc.Point) []models.Point {
 	}
 
 	return transformedPoints
-}
-
-func LabelsFromInfluxPoint(influxPoint *query.FloatPoint, fields []string) labels.Labels {
-	labelBuilder := labels.NewBuilder(nil)
-
-	for key, value := range influxPoint.Tags.KeyValues() {
-		labelBuilder.Set(key, value)
-	}
-	for i, field := range fields {
-		fieldValue, ok := influxPoint.Aux[i].(string)
-		if ok {
-			labelBuilder.Set(field, fieldValue)
-		}
-	}
-	labelBuilder.Set(labels.MetricName, influxPoint.Name)
-
-	return labelBuilder.Labels()
 }
 
 // PromQL Metric Name Sanitization
