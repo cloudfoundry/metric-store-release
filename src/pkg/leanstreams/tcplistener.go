@@ -25,9 +25,11 @@ type TCPListener struct {
 	ConnConfig      *TCPServerConfig
 	tlsConfig       *tls.Config
 	Address         string
+	connectionCount int
 
 	groupMu sync.Mutex
 	blockMu sync.Mutex
+	countMu sync.Mutex
 }
 
 // TCPListenerConfig representss the information needed to begin listening for
@@ -72,6 +74,7 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 		ConnConfig:      &connCfg,
 		tlsConfig:       cfg.TLSConfig,
 		Address:         "",
+		connectionCount: 0,
 	}
 
 	if err := btl.openSocket(); err != nil {
@@ -114,6 +117,10 @@ func (t *TCPListener) blockListen() error {
 		t.shutdownGroup.Add(1)
 		t.groupMu.Unlock()
 
+		t.countMu.Lock()
+		t.connectionCount += 1
+		t.countMu.Unlock()
+
 		// Hand this off and immediately listen for more
 		go t.readLoop(conn)
 	}
@@ -146,6 +153,10 @@ func (t *TCPListener) reopenSocket() error {
 	t.shutdownGroup.Wait()
 	t.groupMu.Unlock()
 
+	t.countMu.Lock()
+	t.connectionCount = 0
+	t.countMu.Unlock()
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", t.Address)
 	if err != nil {
 		return err
@@ -171,6 +182,10 @@ func (t *TCPListener) Close() {
 	t.groupMu.Lock()
 	t.shutdownGroup.Wait()
 	t.groupMu.Unlock()
+
+	t.countMu.Lock()
+	t.connectionCount = 0
+	t.countMu.Unlock()
 }
 
 // StartListeningAsync represents a way to start accepting TCP connections, which are
@@ -222,6 +237,9 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				log.Printf("Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
 			}
 			conn.Close()
+			t.countMu.Lock()
+			t.connectionCount -= 1
+			t.countMu.Unlock()
 			return
 		}
 		// We take action on the actual message data - but only up to the amount of bytes read,
@@ -237,4 +255,11 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 			// At this point, there isn't a reliable recovery mechanic for the server
 		}
 	}
+}
+
+func (t *TCPListener) OpenConnections() int {
+	t.countMu.Lock()
+	defer t.countMu.Unlock()
+
+	return t.connectionCount
 }
