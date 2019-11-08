@@ -1,7 +1,7 @@
 # Metric Store: A Cloud-Native Time Series Database
 [![slack.cloudfoundry.org][slack-badge]][slack-channel] [![Build Status](https://travis-ci.org/cloudfoundry/metric-store-release.svg?branch=develop)](https://travis-ci.org/cloudfoundry/metric-store-release)
 
-Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a persistent storage layer for metrics sent through the Loggregator subsystem. It is multi-tenant aware (the auth proxy ensures that you only have access to metrics from your apps), easy to query (it is 100% compatible with the Prometheus API), and has a powerful storage engine (the InfluxDB storage engine has built-in compression and a memory-efficient series index).
+Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a persistent storage layer for metrics sent through the Loggregator subsystem. It is multi-tenant aware (the auth proxy ensures that you only have access to metrics from your apps), easy to query (it is 100% compatible with the Prometheus Query API, with some exceptions listed below), and has a powerful storage engine (the InfluxDB storage engine has built-in compression and a memory-efficient series index).
 
 ## Deploying
 
@@ -97,12 +97,19 @@ A valid PromQL metric name consists of the characters [a-Z][0-9], underscore, an
 As a measure to work with existing metrics that do not comply with the above format a conversion process takes place when matching on metric names.
 As noted above, any character that is not in the set of valid characters is converted to an underscore before it is written to disk. For example, to match on a metric name `http.latency` use the name `http_latency` in your query.
 
-#### Golang gRPC Client For BOSH-Deployed Components
+##### Prometheus API Compatability
+- `/api/v1/query` & `/api/v1/query_range`, fully supported except for regex
+  matchers on `__name__` (for everyone) or `source_id` (for non-admins)
+- `/api/v1/series`, `/api/v1/labels`, `/api/v1/rules`, `/api/v1/alerts` &
+  /api/v1/alertmanagers, fully supported for admins
+- the remaining endpoints are not currently supported
+
+#### Golang Clients For BOSH-Deployed Components
 Interacting with Metric Store directly, circumventing the GoRouter and CF Auth
-Proxy, can be done using our [Go client library][client] or by generating your
-own with the `.proto` files. This will require a bosh deployed component to
-receive `metric-store` bosh links for certificate sharing. The resulting
-client interaction has admin access.
+Proxy, can be done using our [Go ingress client library][ingressclient] or our
+[Go egress client library][egressclient]. This will require a bosh deployed
+component to receive `metric-store` bosh links for certificate sharing. The
+resulting client interaction has admin access.
 
 #### Using Grafana to visualize metrics
 
@@ -122,6 +129,7 @@ We'd love to hear feedback about your experiences with Metric Store. Please feel
 [go-router]:       https://github.com/cloudfoundry/gorouter
 [bosh-io-release]: https://bosh.io/releases/github.com/cloudfoundry/metric-store-release?latest
 [promql]:          https://prometheus.io/docs/prometheus/latest/querying/api/
-[client]:          https://github.com/cloudfoundry/metric-store-release/tree/develop/src/pkg/client
+[ingressclient]:   https://github.com/cloudfoundry/metric-store-release/tree/develop/src/pkg/ingressclient
+[egressclient]:    https://github.com/cloudfoundry/metric-store-release/tree/develop/src/pkg/egressclient
 [issues]:          https://github.com/cloudfoundry/metric-store-release/issues
 [prs]:             https://github.com/cloudfoundry/metric-store-release/pulls
