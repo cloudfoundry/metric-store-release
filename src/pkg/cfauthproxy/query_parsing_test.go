@@ -59,7 +59,29 @@ var _ = Describe("Query Parser", func() {
 			ids, err := qp.ExtractSourceIds(query)
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError("regular expressions are unavailable on source ids"))
+			Expect(err).To(MatchError("only strict equality is allowed on source id"))
+			Expect(ids).To(BeEmpty())
+		})
+
+		It("returns an error if a query term has a non-regex match on source id", func() {
+			qp := &cfauthproxy.QueryParser{}
+			query := `metric{source_id!~"platform"}`
+
+			ids, err := qp.ExtractSourceIds(query)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("only strict equality is allowed on source id"))
+			Expect(ids).To(BeEmpty())
+		})
+
+		It("returns an error if a query term has a non-equals match on source id", func() {
+			qp := &cfauthproxy.QueryParser{}
+			query := `metric{source_id!="platform"}`
+
+			ids, err := qp.ExtractSourceIds(query)
+
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError("only strict equality is allowed on source id"))
 			Expect(ids).To(BeEmpty())
 		})
 	})

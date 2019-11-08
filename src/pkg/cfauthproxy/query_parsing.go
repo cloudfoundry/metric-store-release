@@ -86,8 +86,8 @@ func (s *sourceIdVisitor) addSourceIdsFromMatchers(labelMatchers []*labels.Match
 
 func addSourceIdsFromLabelMatcher(sourceIds map[string]struct{}, labelMatcher *labels.Matcher) error {
 	switch labelMatcher.Type {
-	case labels.MatchRegexp:
-		return errors.New("regular expressions are unavailable on source ids")
+	case labels.MatchRegexp, labels.MatchNotRegexp, labels.MatchNotEqual:
+		return errors.New("only strict equality is allowed on source id")
 	case labels.MatchEqual:
 		sourceIds[labelMatcher.Value] = struct{}{}
 	}
