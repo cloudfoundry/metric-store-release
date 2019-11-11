@@ -209,7 +209,7 @@ func (store *Store) deleteOldest() {
 }
 
 func (store *Store) emitStorageDurationMetric() {
-	oldestShardID, err := store.adapter.OldestShardID()
+	oldestShardID, err := store.adapter.OldestContiguousShardID()
 	if err != nil {
 		return
 	}

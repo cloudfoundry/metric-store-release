@@ -583,7 +583,7 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 3
+				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 1
 			}, 3).Should(BeTrue())
 		})
 	})
