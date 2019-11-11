@@ -10,13 +10,13 @@ import (
 
 type DefaultAccessLogger struct {
 	writer io.Writer
-	log *logger.Logger
+	log    *logger.Logger
 }
 
 func NewAccessLogger(writer io.Writer, log *logger.Logger) *DefaultAccessLogger {
 	return &DefaultAccessLogger{
 		writer: writer,
-		log: log,
+		log:    log,
 	}
 }
 

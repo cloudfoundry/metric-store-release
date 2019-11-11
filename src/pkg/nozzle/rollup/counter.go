@@ -46,7 +46,7 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for k, _ := range r.totalsForInterval {
+	for k := range r.totalsForInterval {
 		labels, err := labelsFromKey(k, r.nodeIndex, r.rollupTags, r.log)
 		if err != nil {
 			continue

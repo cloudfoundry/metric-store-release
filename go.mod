@@ -20,6 +20,7 @@ require (
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
 	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
 	github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef // indirect
+	github.com/mdempsky/unconvert v0.0.0-20190921185256-3ecd357795af // indirect
 	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
 	github.com/niubaoshu/gotiny v0.0.3
 	github.com/onsi/ginkgo v1.10.3
@@ -36,6 +37,7 @@ require (
 	go.uber.org/zap v1.12.0
 	golang.org/x/net v0.0.0-20191109021931-daa7c04131f5
 	golang.org/x/sys v0.0.0-20191110163157-d32e6e3b99c4
+	golang.org/x/tools v0.0.0-20191111200310-9d59ce8a7f66 // indirect
 	google.golang.org/grpc v1.24.0
 )
 

@@ -285,7 +285,7 @@ func (mf metricFetcher) fetch(name string) (float64, []*goprom.LabelPair) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		panic(fmt.Sprintf("recieved unexpected HTTP status code %d", resp.StatusCode))
+		panic(fmt.Sprintf("received unexpected HTTP status code %d", resp.StatusCode))
 	}
 
 	p := &expfmt.TextParser{}

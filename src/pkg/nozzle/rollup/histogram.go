@@ -57,7 +57,7 @@ func (h *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	for k, _ := range h.histogramsInInterval {
+	for k := range h.histogramsInInterval {
 		var points []*rpc.Point
 		var size int
 

@@ -20,17 +20,17 @@ var _ = Describe("SeriesSetBuilder", func() {
 					"source_id": "source_id",
 				}),
 				[]*query.FloatPoint{
-					&query.FloatPoint{
+					{
 						Name:  "metric_name",
 						Time:  10000000,
 						Value: 99.0,
 					},
-					&query.FloatPoint{
+					{
 						Name:  "metric_name",
 						Time:  15000000,
 						Value: 99.0,
 					},
-					&query.FloatPoint{
+					{
 						Name:  "metric_name",
 						Time:  20000000,
 						Value: 99.0,
@@ -64,7 +64,7 @@ var _ = Describe("SeriesSetBuilder", func() {
 				builder.AddSeriesPoints(
 					labels.Labels{},
 					[]*query.FloatPoint{
-						&query.FloatPoint{
+						{
 							Name:  "metric_name",
 							Time:  10000000,
 							Value: 99.0,
@@ -91,7 +91,7 @@ var _ = Describe("SeriesSetBuilder", func() {
 					"source_id": "source_id",
 				}),
 				[]*query.FloatPoint{
-					&query.FloatPoint{
+					{
 						Name:  "metric_name",
 						Time:  20000000,
 						Value: 99.0,
@@ -108,7 +108,7 @@ var _ = Describe("SeriesSetBuilder", func() {
 					"source_id": "source_id",
 				}),
 				[]*query.FloatPoint{
-					&query.FloatPoint{
+					{
 						Name:  "metric_name",
 						Time:  30000000,
 						Value: 99.0,
@@ -125,7 +125,7 @@ var _ = Describe("SeriesSetBuilder", func() {
 					"source_id": "source_id",
 				}),
 				[]*query.FloatPoint{
-					&query.FloatPoint{
+					{
 						Name:  "metric_name",
 						Time:  10000000,
 						Value: 99.0,

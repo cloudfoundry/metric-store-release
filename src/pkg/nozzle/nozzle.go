@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"code.cloudfoundry.org/go-diodes"
-	"code.cloudfoundry.org/go-loggregator"
+	diodes "code.cloudfoundry.org/go-diodes"
+	loggregator "code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
