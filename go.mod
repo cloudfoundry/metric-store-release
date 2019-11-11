@@ -35,7 +35,7 @@ require (
 	github.com/willf/bitset v1.1.10 // indirect
 	go.uber.org/zap v1.12.0
 	golang.org/x/net v0.0.0-20191109021931-daa7c04131f5
-	golang.org/x/sys v0.0.0-20191029155521-f43be2a4598c
+	golang.org/x/sys v0.0.0-20191110163157-d32e6e3b99c4
 	google.golang.org/grpc v1.24.0
 )
 
