@@ -304,7 +304,7 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 			return []*rpc.Point{}
 		}
 
-		if strings.ToLower(envelope.Tags["peer_type"]) == "client" {
+		if envelope.GetSourceId() == "gorouter" && strings.ToLower(envelope.Tags["peer_type"]) == "client" {
 			return []*rpc.Point{}
 		}
 

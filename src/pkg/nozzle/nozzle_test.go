@@ -126,7 +126,7 @@ var _ = Describe("Nozzle", func() {
 	})
 
 	Describe("when the envelope is a Timer", func() {
-		It("rolls up configured metrics when peer_type is not client", func() {
+		It("rolls up configured metrics", func() {
 			intervalStart := time.Now().Truncate(100 * time.Millisecond).UnixNano()
 
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{
@@ -413,6 +413,271 @@ var _ = Describe("Nozzle", func() {
 						"source_id":  "source-id",
 						"tag1":       "t1",
 						"tag2":       "t2",
+					},
+				},
+			}))
+
+			firstPointTimestamp := points[0].Timestamp
+			firstPointTime := time.Unix(0, firstPointTimestamp)
+
+			Expect(firstPointTime).To(BeTemporally("~", time.Unix(0, intervalStart), time.Second))
+			Expect(firstPointTime).To(Equal(firstPointTime.Truncate(100 * time.Millisecond)))
+
+			for _, point := range points {
+				Expect(point.Timestamp).To(Equal(firstPointTimestamp))
+			}
+		})
+
+		It("only rolls up gorouter metrics with a peer_type of Server", func() {
+			intervalStart := time.Now().Truncate(100 * time.Millisecond).UnixNano()
+
+			streamConnector.envelopes <- []*loggregator_v2.Envelope{
+				{
+					Timestamp: intervalStart + 1,
+					SourceId:  "gorouter",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 100 * int64(time.Millisecond),
+							Stop:  106 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Server",
+						"status_code": "200",
+					},
+				},
+				{
+					Timestamp: intervalStart + 1,
+					SourceId:  "gorouter",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 100 * int64(time.Millisecond),
+							Stop:  106 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Client",
+						"status_code": "200",
+					},
+				},
+				{
+					Timestamp: intervalStart + 2,
+					SourceId:  "gorouter",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 96 * int64(time.Millisecond),
+							Stop:  100 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Server",
+						"status_code": "200",
+					},
+				},
+				{
+					Timestamp: intervalStart + 2,
+					SourceId:  "gorouter",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 96 * int64(time.Millisecond),
+							Stop:  100 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Client",
+						"status_code": "200",
+					},
+				},
+				{
+					Timestamp: intervalStart + 3,
+					SourceId:  "gorouter",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 500 * int64(time.Millisecond),
+							Stop:  1000 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Server",
+						"status_code": "400",
+					},
+				},
+				{
+					Timestamp: intervalStart + 3,
+					SourceId:  "gorouter",
+					Message: &loggregator_v2.Envelope_Timer{
+						Timer: &loggregator_v2.Timer{
+							Name:  "rolled_timer",
+							Start: 500 * int64(time.Millisecond),
+							Stop:  1000 * int64(time.Millisecond),
+						},
+					},
+					Tags: map[string]string{
+						"peer_type":   "Client",
+						"status_code": "400",
+					},
+				},
+			}
+
+			numberOfExpectedSeriesIncludingStatusCode := 2
+			numberOfExpectedSeriesExcludingStatusCode := 1
+			numberOfExpectedPoints := numberOfExpectedSeriesIncludingStatusCode + (14 * numberOfExpectedSeriesExcludingStatusCode)
+			Eventually(metricStore.GetPoints).Should(HaveLen(numberOfExpectedPoints))
+
+			points := metricStore.GetPoints()
+
+			// _count points, per series including status_code
+			Expect(points).To(ContainPoints([]*rpc.Point{
+				{
+					Name:  "rolled_timer_total",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index":  "0",
+						"source_id":   "gorouter",
+						"status_code": "200",
+					},
+				},
+				{
+					Name:  "rolled_timer_total",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index":  "0",
+						"source_id":   "gorouter",
+						"status_code": "400",
+					},
+				},
+			}))
+
+			// _duration_seconds histogram points, per series excluding status_code
+			// only testing one series
+			Expect(points).To(ContainPoints([]*rpc.Point{
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 1,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.005",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.01",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.025",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.05",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.1",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 2,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.25",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "0.5",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "1",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "2.5",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "5",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "10",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_bucket",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+						"le":         "+Inf",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_count",
+					Value: 3,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
+					},
+				},
+				{
+					Name:  "rolled_timer_duration_seconds_sum",
+					Value: 0.510,
+					Labels: map[string]string{
+						"node_index": "0",
+						"source_id":  "gorouter",
 					},
 				},
 			}))
