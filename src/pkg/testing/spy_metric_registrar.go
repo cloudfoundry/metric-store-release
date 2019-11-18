@@ -69,3 +69,17 @@ func (r *SpyMetricRegistrar) Fetch(name string) func() float64 {
 		return 0
 	}
 }
+
+func (r *SpyMetricRegistrar) FetchOption(name string) func() *float64 {
+	return func() *float64 {
+		r.Lock()
+		defer r.Unlock()
+
+		value, found := r.metrics[name]
+		if found {
+			return &value
+		}
+
+		return nil
+	}
+}

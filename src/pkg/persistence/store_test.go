@@ -571,17 +571,18 @@ var _ = Describe("Persistent Store", func() {
 			threeDaysAgo := today.Add(-3 * 24 * time.Hour)
 			threeDaysAgoInMilliseconds := threeDaysAgo.UnixNano() / int64(time.Millisecond)
 
+			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
+			Eventually(func() bool {
+				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 3
+			}, 3).Should(BeTrue())
+
 			tc.storePoint(todayInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 0
+				val := tc.metrics.FetchOption(debug.MetricStoreStorageDays)()
+				return val != nil && *val == 0
 			}, 3).Should(BeTrue())
 
 			tc.storePoint(oneDayAgoInMilliseconds, "counter", 1)
-			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 1
-			}, 3).Should(BeTrue())
-
-			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
 			Eventually(func() bool {
 				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 1
 			}, 3).Should(BeTrue())
