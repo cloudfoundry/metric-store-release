@@ -11,6 +11,7 @@ require (
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 	github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a // indirect
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
+	github.com/go-kit/kit v0.9.0
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/mux v1.7.3
 	github.com/influxdata/flux v0.52.0 // indirect
@@ -18,9 +19,9 @@ require (
 	github.com/influxdata/influxql v1.0.1
 	github.com/influxdata/roaring v0.4.12 // indirect
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
+	github.com/json-iterator/go v1.1.7
 	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
 	github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef // indirect
-	github.com/mdempsky/unconvert v0.0.0-20190921185256-3ecd357795af // indirect
 	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
 	github.com/niubaoshu/gotiny v0.0.3
 	github.com/onsi/ginkgo v1.10.3
