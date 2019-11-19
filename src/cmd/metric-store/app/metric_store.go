@@ -89,6 +89,7 @@ func (m *MetricStoreApp) Run() {
 		persistentStore,
 		tlsEgressConfig,
 		tlsIngressConfig,
+		m.cfg.StoragePath,
 		metricstore.WithMetrics(m.debugRegistrar),
 		metricstore.WithAddr(m.cfg.Addr),
 		metricstore.WithIngressAddr(m.cfg.IngressAddr),

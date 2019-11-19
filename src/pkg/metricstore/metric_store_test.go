@@ -1,11 +1,14 @@
 package metricstore_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"time"
 
@@ -76,10 +79,13 @@ var _ = Describe("MetricStore", func() {
 		tc.peer = testing.NewSpyMetricStore(tc.tlsConfig)
 		tc.spyMetrics = testing.NewSpyMetricRegistrar()
 
+		storagePath, err := ioutil.TempDir("", "storage")
+
 		tc.store = metricstore.New(
 			persistentStore,
 			tc.tlsConfig,
 			tc.tlsConfig,
+			storagePath,
 			metricstore.WithAddr("127.0.0.1:0"),
 			metricstore.WithIngressAddr("127.0.0.1:0"),
 			metricstore.WithMetrics(tc.spyMetrics),
@@ -245,6 +251,111 @@ var _ = Describe("MetricStore", func() {
 			return nil
 		}
 		Eventually(f).Should(BeNil())
+	})
+
+	Describe("Rules API", func() {
+		Describe("/rules/manager endpoint", func() {
+
+			createRulesPayload := []byte(`
+				{
+					"data": {
+						"id": "rules-manager-id"
+					}
+				}
+			`)
+
+			It("Creates a rule manager with a generated ID", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				noIdCreatePayload := []byte(`
+					{
+						"data": {}
+					}
+				`)
+
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(noIdCreatePayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+
+				body, err := ioutil.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				var response struct {
+					Data struct {
+						Id string
+					}
+				}
+
+				err = json.Unmarshal(body, &response)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Data.Id).ToNot(Equal(""))
+
+				resp, err = apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(noIdCreatePayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+			})
+
+			It("Creates a rules manager with the provided ID", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(createRulesPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+
+				body, err := ioutil.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(body).To(MatchJSON(createRulesPayload))
+			})
+
+			It("Returns an error when provided an existing rule manager id", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(createRulesPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+
+				resp, err = apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(createRulesPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(409))
+			})
+
+			It("Returns an error when given invalid json", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader([]byte("invalid json goes here")),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(400))
+			})
+		})
 	})
 
 	Describe("TLS security", func() {

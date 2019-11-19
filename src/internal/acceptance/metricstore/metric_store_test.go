@@ -1,6 +1,7 @@
 package metricstore_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -586,6 +587,49 @@ var _ = Describe("MetricStore", func() {
 
 		Expect(body).To(ContainSubstring(debug.MetricStoreWrittenPointsTotal))
 		Expect(body).To(ContainSubstring("go_threads"))
+	})
+
+	It("processes recording rules added via API", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
+		client, err := ingressclient.NewIngressClient(
+			tc.ingressAddr,
+			tc.tlsConfig,
+		)
+		pointTimestamp := time.Now().UnixNano()
+		points := []*rpc.Point{
+			{
+				Name:      "metric_store_test_metric",
+				Timestamp: pointTimestamp,
+				Value:     1,
+				Labels: map[string]string{
+					"node":  "1",
+					"other": "foo",
+				},
+			},
+		}
+		err = client.Write(points)
+
+		createRulesPayload := []byte(`
+			{
+				"data": {
+					"id": "rules-manager-id"
+				}
+			}
+		`)
+
+		apiClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+		}
+
+		resp, err := apiClient.Post("https://"+tc.addr+"/rules/manager",
+			"application/json",
+			bytes.NewReader(createRulesPayload),
+		)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(201))
 	})
 
 	It("processes recording rules to record metrics", func() {

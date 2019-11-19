@@ -66,9 +66,10 @@ type MetricStore struct {
 
 	alertmanagerAddr string
 	rulesPath        string
+	storagePath      string
 }
 
-func New(persistentStore storage.Storage, egressTLSConfig, ingressTLSConfig *tls.Config, opts ...MetricStoreOption) *MetricStore {
+func New(persistentStore storage.Storage, egressTLSConfig, ingressTLSConfig *tls.Config, storagePath string, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     logger.NewNop(),
 		metrics: &debug.NullRegistrar{},
@@ -79,6 +80,7 @@ func New(persistentStore storage.Storage, egressTLSConfig, ingressTLSConfig *tls
 		ingressAddr:      ":8090",
 		egressTLSConfig:  egressTLSConfig,
 		ingressTLSConfig: ingressTLSConfig,
+		storagePath:      storagePath,
 	}
 
 	for _, o := range opts {
@@ -211,10 +213,10 @@ func (store *MetricStore) Start() {
 	store.setupRouting(queryEngine)
 
 	go store.configureAlertManager()
-	go store.processRules(queryEngine)
+	go store.processRules()
 }
 
-func (store *MetricStore) processRules(queryEngine *promql.Engine) {
+func (store *MetricStore) processRules() {
 	var rules []string
 
 	if store.rulesPath != "" {
@@ -351,10 +353,12 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.log,
 	)
 	apiV1 := promAPI.RouterForStorage(store.persistentStore)
+	rulesAPI := api.NewRulesAPI(store.storagePath, store.log)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", apiV1))
 	mux.HandleFunc("/health", store.apiHealth)
+	mux.Handle("/rules/", http.StripPrefix("/rules", rulesAPI.Router()))
 
 	store.server = &http.Server{
 		Handler:     mux,
