@@ -1,0 +1,17 @@
+---
+name: route_registrar
+release: routing
+consumes: |
+  nats:
+    deployment: ((..cf.deployment_name))
+    from: nats
+manifest: |
+  route_registrar:
+    routes:
+    - name: metric-store-reverse-proxy
+      tls_port: 8083
+      registration_interval: 20s
+      server_cert_domain_san: metric-store
+      uris:
+      - metric-store.((..cf.cloud_controller.system_domain.value))
+      - "*.metric-store.((..cf.cloud_controller.system_domain.value))"

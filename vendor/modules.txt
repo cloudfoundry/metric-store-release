@@ -71,6 +71,8 @@ github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/service/ec2
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
+# github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86
+github.com/benbjohnson/jmphash
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/census-instrumentation/opencensus-proto v0.2.1
@@ -101,6 +103,11 @@ github.com/dvsekhvalnov/jose2go/keys/ecc
 github.com/dvsekhvalnov/jose2go/padding
 # github.com/edsrzf/mmap-go v1.0.0
 github.com/edsrzf/mmap-go
+# github.com/emirpasic/gods v1.9.0
+github.com/emirpasic/gods/containers
+github.com/emirpasic/gods/trees
+github.com/emirpasic/gods/trees/avltree
+github.com/emirpasic/gods/utils
 # github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a
 github.com/glycerine/go-unsnap-stream
 # github.com/go-kit/kit v0.9.0

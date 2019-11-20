@@ -31,6 +31,11 @@ var _ = Describe("Metric Store App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
+			MetricStoreInternodeTLS: app.MetricStoreInternodeTLS{
+				CAPath:   testing.Cert("metric-store-ca.crt"),
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 			StoragePath: "/tmp/metric-store",
 		}, logger.NewTestLogger())
 		go metricStore.Run()

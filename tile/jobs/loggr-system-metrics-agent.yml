@@ -1,0 +1,9 @@
+---
+name: loggr-system-metrics-agent
+release: loggregator-agent
+manifest: |
+  system_metrics:
+    tls:
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.system_metrics_tls_agent_cert.cert_pem ))
+      key: (( .properties.system_metrics_tls_agent_cert.private_key_pem ))

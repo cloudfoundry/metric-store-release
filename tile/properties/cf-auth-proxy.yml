@@ -1,0 +1,8 @@
+---
+- name: routing_provider_tls
+  label: Routing Provider Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+    - metric-store

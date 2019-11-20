@@ -5,17 +5,21 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus"
+	config_util "github.com/prometheus/common/config"
 )
 
 type MetricStoreApp struct {
@@ -51,24 +55,31 @@ func (c *MetricStoreApp) DebugAddr() string {
 func (m *MetricStoreApp) Run() {
 	m.startDebugServer()
 
-	tlsEgressConfig, err := sharedtls.NewMutualTLSConfig(
-		m.cfg.TLS.CAPath,
-		m.cfg.TLS.CertPath,
-		m.cfg.TLS.KeyPath,
-		"metric-store",
-	)
-	if err != nil {
-		m.log.Fatal("invalid mTLS configuration for egress", err)
+	tlsEgressConfig := &config_util.TLSConfig{
+		CAFile:     m.cfg.TLS.CAPath,
+		CertFile:   m.cfg.TLS.CertPath,
+		KeyFile:    m.cfg.TLS.KeyPath,
+		ServerName: metricstore.COMMON_NAME,
 	}
 
 	tlsIngressConfig, err := sharedtls.NewMutualTLSConfig(
 		m.cfg.MetricStoreServerTLS.CAPath,
 		m.cfg.MetricStoreServerTLS.CertPath,
 		m.cfg.MetricStoreServerTLS.KeyPath,
-		"metric-store",
+		metricstore.COMMON_NAME,
 	)
 	if err != nil {
 		m.log.Fatal("invalid mTLS configuration for ingress", err)
+	}
+
+	tlsInternodeConfig, err := sharedtls.NewMutualTLSConfig(
+		m.cfg.MetricStoreInternodeTLS.CAPath,
+		m.cfg.MetricStoreInternodeTLS.CertPath,
+		m.cfg.MetricStoreInternodeTLS.KeyPath,
+		metricstore.COMMON_NAME,
+	)
+	if err != nil {
+		m.log.Fatal("invalid mTLS configuration for internode communication", err)
 	}
 
 	diskFreeReporter := system_stats.NewDiskFreeReporter(m.cfg.StoragePath, m.log, m.debugRegistrar)
@@ -87,14 +98,22 @@ func (m *MetricStoreApp) Run() {
 
 	store := metricstore.New(
 		persistentStore,
-		tlsEgressConfig,
 		tlsIngressConfig,
-		m.cfg.StoragePath,
+		tlsInternodeConfig,
+		tlsEgressConfig,
 		metricstore.WithMetrics(m.debugRegistrar),
 		metricstore.WithAddr(m.cfg.Addr),
 		metricstore.WithIngressAddr(m.cfg.IngressAddr),
+		metricstore.WithInternodeAddr(m.cfg.InternodeAddr),
 		metricstore.WithAlertmanagerAddr(m.cfg.AlertmanagerAddr),
 		metricstore.WithRulesPath(m.cfg.RulesPath),
+		metricstore.WithClustered(
+			m.cfg.NodeIndex,
+			m.cfg.NodeAddrs,
+			m.cfg.InternodeAddrs,
+		),
+		metricstore.WithReplicationFactor(m.cfg.ReplicationFactor),
+		metricstore.WithHandoffStoragePath(filepath.Join(m.cfg.StoragePath, "handoff")),
 		metricstore.WithLogger(m.log),
 		metricstore.WithQueryTimeout(m.cfg.QueryTimeout),
 	)
@@ -109,6 +128,7 @@ func (m *MetricStoreApp) Run() {
 	go func() {
 		sig := <-sigs
 		m.log.Info("received signal", logger.String("signal", sig.String()))
+		store.Close()
 		close(done)
 	}()
 
@@ -130,13 +150,14 @@ func (m *MetricStoreApp) startDebugServer() {
 
 	m.debugRegistrar = debug.NewRegistrar(
 		m.log,
-		"metric_store",
+		"metric-store",
 		debug.WithDefaultRegistry(),
+		debug.WithConstLabels(map[string]string{"nodeIndex": strconv.Itoa(m.cfg.NodeIndex)}),
 		debug.WithCounter(debug.MetricStoreIngressPointsTotal, prometheus.CounterOpts{
 			Help: "Number of points ingressed by metric-store",
 		}),
 		debug.WithCounter(debug.MetricStoreWrittenPointsTotal, prometheus.CounterOpts{
-			Help: "Number of points successfully written to the storage engine",
+			Help: "Number of points successfully written to storage engine",
 		}),
 		debug.WithGauge(debug.MetricStoreWriteDurationSeconds, prometheus.GaugeOpts{
 			Help: "Time spent writing points to the storage engine",
@@ -170,6 +191,36 @@ func (m *MetricStoreApp) startDebugServer() {
 		}),
 		debug.WithGauge(debug.MetricStoreMeasurementNamesQueryDurationSeconds, prometheus.GaugeOpts{
 			Help: "Time spent retrieving measurement names from the storage engine",
+		}),
+		debug.WithLabelledGauge(metrics.MetricStoreReplayerDiskUsageBytes, prometheus.GaugeOpts{
+			Help: "Size of a replayer queue",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreReplayerQueueErrorsTotal, prometheus.CounterOpts{
+			Help: "Number of errors encountered writing to a replayer queue",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreReplayerQueuedBytesTotal, prometheus.CounterOpts{
+			Help: "Number of bytes written to a replayer queue",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreReplayerReadErrorsTotal, prometheus.CounterOpts{
+			Help: "Number of errors encountered reading from a replayer queue",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreReplayerReplayErrorsTotal, prometheus.CounterOpts{
+			Help: "Number of errors encountered replaying writes to a remote node",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreReplayerReplayedBytesTotal, prometheus.CounterOpts{
+			Help: "Number of bytes successfully replayed to a remote node",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreDroppedPointsTotal, prometheus.CounterOpts{
+			Help: "Number of points dropped while writing to a remote node",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledCounter(metrics.MetricStoreDistributedPointsTotal, prometheus.CounterOpts{
+			Help: "Number of points successfully distributed to a remote node",
+		}, []string{"targetNodeIndex"}),
+		debug.WithLabelledGauge(metrics.MetricStoreDistributedRequestDurationSeconds, prometheus.GaugeOpts{
+			Help: "Time spent distributing points to a remote node",
+		}, []string{"targetNodeIndex"}),
+		debug.WithCounter(metrics.MetricStoreCollectedPointsTotal, prometheus.CounterOpts{
+			Help: "Number of points collected by a metric-store instance from remote nodes",
 		}),
 	)
 

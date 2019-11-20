@@ -1,0 +1,62 @@
+name: metric-store
+resource_label: Metric Store
+description: Metric Store VM
+templates:
+  - $( job "metric-store" )
+  - $( job "metric-store-nozzle" )
+  - $( job "metric-store-cf-auth-proxy" )
+  - $( job "prom_scraper" )
+  - $( job "loggregator_agent" )
+  - $( job "route_registrar" )
+  - $( job "loggr-system-metrics-agent" )
+  - $( job "bpm" )
+  - $( job "metric-store-smoke-tests" )
+
+resource_definitions:
+- name: cpu
+  type: integer
+  label: CPU
+  configurable: true
+  default: 4
+  constraints:
+    min: 2
+    power_of_two: true
+
+- name: ram
+  type: integer
+  label: RAM
+  configurable: true
+  default: 32768
+  constraints:
+    min: 8192
+
+- name: ephemeral_disk
+  type: integer
+  label: Ephemeral Disk
+  configurable: true
+  default: 10000
+  constraints:
+    min: 10000
+
+- name: persistent_disk
+  type: integer
+  label: Persistent Disk
+  configurable: true
+  default: 256000
+  constraints:
+    min: 10240
+
+static_ip: 0
+dynamic_ip: 1
+max_in_flight: 1
+single_az_only: false
+
+instance_definition:
+  name: instances
+  type: integer
+  label: Instances
+  configurable: true
+  default: 3
+  constraints:
+    min: 1
+    max: 9

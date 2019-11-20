@@ -1,0 +1,50 @@
+---
+name: p-metric-store
+product_version: $( version )
+minimum_version_for_upgrade: '0.0.0.0'
+metadata_version: '2.2'
+label: Pivotal Metric Store
+description: Metric Store provides a persistent & queryable storage layer for platform and application metrics.
+rank: 1
+service_broker: false
+icon_image: $( icon )
+
+provides_product_versions:
+- name: p-metric-store
+  version: $( version )
+
+stemcell_criteria:
+  os: ubuntu-xenial
+  version: '<%= stemcell_version %>'
+  requires_cpi: false
+
+releases:
+  - $( release "bpm" )
+  - $( release "p-metric-store" )
+  - $( release "metric-store" )
+  - $( release "routing" )
+  - $( release "loggregator-agent" )
+
+job_types:
+  - $( instance_group "metric-store" )
+
+post_deploy_errands:
+  - $( job "metric-store-smoke-tests" )
+
+pre_delete_errands: []
+
+property_blueprints:
+  - $( property "metrics_provider_mtls" )
+  - $( property "routing_provider_tls" )
+  - $( property "system_metrics_tls_agent_cert" )
+
+variables:
+  - $( bosh_variable "metric_store_ca" )
+  - $( bosh_variable "metric_store" )
+  - $( bosh_variable "metric_store_proxy_tls" )
+  - $( bosh_variable "metric_store_internode" )
+  - $( bosh_variable "metric_store_server" )
+  - $( bosh_variable "nozzle_to_metric_store_client" )
+  - $( bosh_variable "metric_scraper_ca" )
+  - $( bosh_variable "loggregator_agent_metrics_tls" )
+  - $( bosh_variable "prom_scraper_metrics_tls" )

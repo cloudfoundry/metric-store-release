@@ -1,0 +1,15 @@
+---
+name: prom_scraper
+release: loggregator-agent
+manifest: |
+  loggregator_agent:
+    grpc_port: 3458
+    tls:
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( ..cf.doppler.metron_tls_cert.cert_pem ))
+      key: (( ..cf.doppler.metron_tls_cert.private_key_pem ))
+  metrics:
+    ca_cert: (((prom_scraper_metrics_tls.ca)))
+    cert: (((prom_scraper_metrics_tls.certificate)))
+    key: (((prom_scraper_metrics_tls.private_key)))
+    server_name: prom_scraper_metrics

@@ -1,7 +1,6 @@
 package metricstore_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -13,13 +12,15 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	shared_api "github.com/cloudfoundry/metric-store-release/src/pkg/api"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
@@ -28,7 +29,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/notifier"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	shared "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -37,7 +38,7 @@ import (
 // Sentinel to detect build failures early
 var __ *metricstore.MetricStore
 
-var storagePath = "/tmp/metric-store-node"
+var storagePaths = []string{"/tmp/metric-store-node1", "/tmp/metric-store-node2"}
 
 type testInstantQuery struct {
 	Query         string
@@ -84,95 +85,121 @@ func (q *testSeriesQuery) EndTimestamp() time.Time {
 	return time.Unix(int64(timeInSeconds), 0)
 }
 
+const (
+	MAGIC_MEASUREMENT_NAME      = "cpu"
+	MAGIC_MEASUREMENT_PEER_NAME = "memory"
+)
+
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
-		addr               string
-		ingressAddr        string
-		healthPort         string
-		metricStoreProcess *gexec.Session
-		tlsConfig          *tls.Config
+		numNodes             int
+		addrs                []string
+		internodeAddrs       []string
+		ingressAddrs         []string
+		healthPorts          []string
+		metricStoreProcesses []*gexec.Session
+		tlsConfig            *tls.Config
+		caCert               string
+		cert                 string
+		key                  string
 
-		rulesPath        string
-		alertmanagerAddr string
-		egressClient     prom_versioned_api_client.API
+		rulesPath         string
+		alertmanagerAddr  string
+		localEgressClient prom_versioned_api_client.API
 	}
 
-	var start = func(tc *testContext) {
-		var err error
-		caCert := testing.Cert("metric-store-ca.crt")
-		cert := testing.Cert("metric-store.crt")
-		key := testing.Cert("metric-store.key")
-
-		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(caCert, cert, key, "metric-store")
-		if err != nil {
-			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
-		}
-
-		tc.metricStoreProcess = testing.StartGoProcess(
+	var startNode = func(tc *testContext, index int) {
+		metricStoreProcess := shared.StartGoProcess(
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
 			[]string{
-				"ADDR=" + tc.addr,
-				"INGRESS_ADDR=" + tc.ingressAddr,
-				"HEALTH_PORT=" + tc.healthPort,
-				"STORAGE_PATH=" + storagePath,
+				"ADDR=" + tc.addrs[index],
+				"INGRESS_ADDR=" + tc.ingressAddrs[index],
+				"INTERNODE_ADDR=" + tc.internodeAddrs[index],
+				"HEALTH_PORT=" + tc.healthPorts[index],
+				"STORAGE_PATH=" + storagePaths[index],
 				"RETENTION_PERIOD_IN_DAYS=1",
-				"CA_PATH=" + caCert,
-				"CERT_PATH=" + cert,
-				"KEY_PATH=" + key,
-				"METRIC_STORE_SERVER_CA_PATH=" + caCert,
-				"METRIC_STORE_SERVER_CERT_PATH=" + cert,
-				"METRIC_STORE_SERVER_KEY_PATH=" + key,
+				fmt.Sprintf("NODE_INDEX=%d", index),
+				"NODE_ADDRS=" + strings.Join(tc.addrs, ","),
+				"INTERNODE_ADDRS=" + strings.Join(tc.internodeAddrs, ","),
+				"CA_PATH=" + tc.caCert,
+				"CERT_PATH=" + tc.cert,
+				"KEY_PATH=" + tc.key,
+				"METRIC_STORE_SERVER_CA_PATH=" + tc.caCert,
+				"METRIC_STORE_SERVER_CERT_PATH=" + tc.cert,
+				"METRIC_STORE_SERVER_KEY_PATH=" + tc.key,
+				"METRIC_STORE_INTERNODE_CA_PATH=" + tc.caCert,
+				"METRIC_STORE_INTERNODE_CERT_PATH=" + tc.cert,
+				"METRIC_STORE_INTERNODE_KEY_PATH=" + tc.key,
 				"RULES_PATH=" + tc.rulesPath,
 				"ALERTMANAGER_ADDR=" + tc.alertmanagerAddr,
 			},
 		)
 
-		testing.WaitForHealthCheck(tc.healthPort)
+		shared.WaitForHealthCheck(tc.healthPorts[index])
+		tc.metricStoreProcesses[index] = metricStoreProcess
 	}
 
-	var stop = func(tc *testContext) {
-		tc.metricStoreProcess.Kill()
-		Eventually(tc.metricStoreProcess.Exited).Should(BeClosed())
+	var stopNode = func(tc *testContext, index int) {
+		tc.metricStoreProcesses[index].Terminate()
+		Eventually(tc.metricStoreProcesses[index].Exited, 2*time.Second).Should(BeClosed())
 	}
 
-	var perform = func(tc *testContext, operation func(*testContext)) {
+	var performOnAllNodes = func(tc *testContext, operation func(*testContext, int)) {
 		wg := &sync.WaitGroup{}
-
-		wg.Add(1)
-		go func() {
-			defer GinkgoRecover()
-			defer wg.Done()
-			operation(tc)
-		}()
+		for index := 0; index < tc.numNodes; index++ {
+			wg.Add(1)
+			go func(index int) {
+				defer GinkgoRecover()
+				defer wg.Done()
+				operation(tc, index)
+			}(index)
+		}
 		wg.Wait()
 	}
 
 	type WithTestContextOption func(*testContext)
 
-	var setup = func(opts ...WithTestContextOption) (*testContext, func()) {
-		tc := &testContext{}
+	var setup = func(numNodes int, opts ...WithTestContextOption) (*testContext, func()) {
+		tc := &testContext{
+			numNodes:             numNodes,
+			metricStoreProcesses: make([]*gexec.Session, numNodes),
+			caCert:               shared.Cert("metric-store-ca.crt"),
+			cert:                 shared.Cert("metric-store.crt"),
+			key:                  shared.Cert("metric-store.key"),
+		}
 
 		for _, opt := range opts {
 			opt(tc)
 		}
 
-		tc.addr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
-		tc.ingressAddr = fmt.Sprintf("localhost:%d", testing.GetFreePort())
-		tc.healthPort = strconv.Itoa(testing.GetFreePort())
+		var err error
+		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(tc.caCert, tc.cert, tc.key, "metric-store")
+		if err != nil {
+			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
+		}
 
-		perform(tc, start)
+		for i := 0; i < numNodes; i++ {
+			tc.addrs = append(tc.addrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
+			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
+			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
+			tc.healthPorts = append(tc.healthPorts, strconv.Itoa(shared.GetFreePort()))
+		}
 
-		promAPIClient, _ := prom_api_client.NewClient(prom_api_client.Config{
-			Address: fmt.Sprintf("https://%s", tc.addr),
+		performOnAllNodes(tc, startNode)
+
+		localPromAPIClient, _ := prom_api_client.NewClient(prom_api_client.Config{
+			Address: fmt.Sprintf("https://%s", tc.addrs[0]),
 			RoundTripper: &http.Transport{
 				TLSClientConfig: tc.tlsConfig,
 			},
 		})
-		tc.egressClient = prom_versioned_api_client.NewAPI(promAPIClient)
+		tc.localEgressClient = prom_versioned_api_client.NewAPI(localPromAPIClient)
 
 		return tc, func() {
-			perform(tc, stop)
-			os.RemoveAll(storagePath)
+			performOnAllNodes(tc, stopNode)
+			for i := 0; i < numNodes; i++ {
+				os.RemoveAll(storagePaths[i])
+			}
 		}
 	}
 
@@ -189,17 +216,17 @@ var _ = Describe("MetricStore", func() {
 	}
 
 	var makeInstantQuery = func(tc *testContext, query testInstantQuery) (model.Value, error) {
-		value, _, err := tc.egressClient.Query(context.Background(), query.Query, query.Timestamp())
+		value, _, err := tc.localEgressClient.Query(context.Background(), query.Query, query.Timestamp())
 		return value, err
 	}
 
 	var makeRangeQuery = func(tc *testContext, query testRangeQuery) (model.Value, error) {
-		value, _, err := tc.egressClient.QueryRange(context.Background(), query.Query, query.Range())
+		value, _, err := tc.localEgressClient.QueryRange(context.Background(), query.Query, query.Range())
 		return value, err
 	}
 
 	var makeSeriesQuery = func(tc *testContext, query testSeriesQuery) ([]model.LabelSet, error) {
-		value, _, err := tc.egressClient.Series(context.Background(), query.Match, query.StartTimestamp(), query.EndTimestamp())
+		value, _, err := tc.localEgressClient.Series(context.Background(), query.Match, query.StartTimestamp(), query.EndTimestamp())
 		return value, err
 	}
 
@@ -210,13 +237,13 @@ var _ = Describe("MetricStore", func() {
 		Labels             map[string]string
 	}
 
-	var writePoints = func(tc *testContext, testPoints []testPoint) {
-		var points []*rpc.Point
+	var optimisticallyWritePoints = func(tc *testContext, points []testPoint) map[string]int {
+		var rpcPoints []*rpc.Point
 		metricNameCounts := make(map[string]int)
-		for _, point := range testPoints {
+		for _, point := range points {
 			timestamp := transform.MillisecondsToNanoseconds(point.TimeInMilliseconds)
 
-			points = append(points, &rpc.Point{
+			rpcPoints = append(rpcPoints, &rpc.Point{
 				Name:      point.Name,
 				Value:     point.Value,
 				Timestamp: timestamp,
@@ -227,74 +254,180 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		client, err := ingressclient.NewIngressClient(
-			tc.ingressAddr,
+			tc.ingressAddrs[0],
 			tc.tlsConfig,
 		)
+		Expect(err).ToNot(HaveOccurred())
 		defer client.Close()
 
-		err = client.Write(points)
+		err = client.Write(rpcPoints)
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() bool {
-			value, _, _ := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
-			return len(value) == len(metricNameCounts)
-		}, 3).Should(BeTrue())
+		return metricNameCounts
 	}
 
-	It("deletes shards with old data when Metric Store starts", func() {
-		tc, cleanup := setup()
-		defer cleanup()
+	var writePoints = func(tc *testContext, points []testPoint) {
+		metricNameCounts := optimisticallyWritePoints(tc, points)
 
-		now := time.Now()
-		Eventually(func() model.LabelValues {
-			writePoints(
+		if tc.metricStoreProcesses[0].ExitCode() == -1 {
+			Eventually(func() bool {
+				value, _, _ := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				return len(value) == len(metricNameCounts)
+			}, 3).Should(BeTrue())
+		}
+	}
+
+	Context("with a single node", func() {
+		It("deletes shards with old data when Metric Store starts", func() {
+			tc, cleanup := setup(1)
+			defer cleanup()
+
+			now := time.Now()
+			Eventually(func() model.LabelValues {
+				writePoints(
+					tc,
+					[]testPoint{
+						{
+							Name:               "metric_name_old",
+							TimeInMilliseconds: 1000,
+						},
+						{
+							Name:               "metric_name_new",
+							TimeInMilliseconds: now.UnixNano() / int64(time.Millisecond),
+						},
+					},
+				)
+
+				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				if err != nil {
+					return nil
+				}
+				return value
+			}, 5).Should(
+				Or(
+					Equal(model.LabelValues{"metric_name_old", "metric_name_new"}),
+					Equal(model.LabelValues{"metric_name_new", "metric_name_old"}),
+				),
+			)
+
+			stopNode(tc, 0)
+
+			startNode(tc, 0)
+
+			Eventually(func() error {
+				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				return err
+			}, 5).Should(Succeed())
+
+			Eventually(func() model.LabelValues {
+				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				if err != nil {
+					return nil
+				}
+				return value
+			}, 1).Should(Equal(model.LabelValues{
+				"metric_name_new",
+			}))
+		})
+	})
+
+	Context("when the health check endpoint is called", func() {
+		It("returns information about metrics store", func() {
+			tc, cleanup := setup(1)
+			defer cleanup()
+
+			client := &http.Client{Transport: &http.Transport{TLSClientConfig: tc.tlsConfig}}
+
+			var resp *http.Response
+			Eventually(func() error {
+				var err error
+				resp, err = client.Get("https://" + tc.addrs[0] + "/health")
+				return err
+			}).Should(BeNil())
+
+			Expect(resp.StatusCode).To(Equal(200))
+			defer resp.Body.Close()
+
+			value, err := ioutil.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(value)).To(MatchJSON(
+				fmt.Sprintf(`{ "version":"%s", "oss_sha": "dev", "css_sha": "dev" }`, version.VERSION),
+			))
+		})
+	})
+
+	Context("as a cluster of nodes", func() {
+		It("replays data when a node comes back online", func() {
+			tc, cleanup := setup(2)
+			defer cleanup()
+
+			stopNode(tc, 1)
+
+			optimisticallyWritePoints(
 				tc,
 				[]testPoint{
-					{
-						Name:               "metric_name_old",
-						TimeInMilliseconds: 1000,
-					},
-					{
-						Name:               "metric_name_new",
-						TimeInMilliseconds: now.UnixNano() / int64(time.Millisecond),
-					},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 1},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 2},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 3},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 4},
 				},
 			)
 
-			value, _, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
-			if err != nil {
-				return nil
-			}
-			return value
-		}, 5).Should(
-			Or(
-				Equal(model.LabelValues{"metric_name_old", "metric_name_new"}),
-				Equal(model.LabelValues{"metric_name_new", "metric_name_old"}),
-			),
-		)
+			startNode(tc, 1)
 
-		stop(tc)
+			Eventually(func() (err error) {
+				_, _, err = tc.localEgressClient.LabelNames(context.Background())
+				return
+			}, 5).Should(Succeed())
 
-		start(tc)
+			Eventually(func() []int64 {
+				client, err := shared_api.NewPromHTTPClient(
+					tc.addrs[1],
+					"",
+					tc.tlsConfig,
+				)
+				if err != nil {
+					return nil
+				}
 
-		Eventually(func() error {
-			_, _, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
-			return err
-		}, 5).Should(Succeed())
+				value, _, err := client.Query(
+					context.Background(),
+					fmt.Sprintf("%s[60s]", MAGIC_MEASUREMENT_PEER_NAME),
+					time.Unix(1, 0),
+				)
+				if err != nil {
+					return nil
+				}
 
-		Eventually(func() model.LabelValues {
-			value, _, err := tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
-			Expect(err).ToNot(HaveOccurred())
-			return value
-		}, 1).Should(Equal(model.LabelValues{
-			"metric_name_new",
-		}))
+				var result []int64
+				switch serieses := value.(type) {
+				case model.Matrix:
+					if len(serieses) != 1 {
+						return nil
+					}
+					for _, point := range serieses[0].Values {
+						result = append(result, point.Timestamp.UnixNano())
+					}
+				default:
+					return nil
+				}
+
+				return result
+			}, 5).Should(
+				And(
+					ContainElement(int64(1*time.Millisecond)),
+					ContainElement(int64(2*time.Millisecond)),
+					ContainElement(int64(3*time.Millisecond)),
+					ContainElement(int64(4*time.Millisecond)),
+				),
+			)
+		})
 	})
 
 	Context("when using HTTP", func() {
 		Context("when a instant query is made", func() {
-			It("returns metrics from a simple query", func() {
-				tc, cleanup := setup()
+			It("returns locally stored metrics from a simple query", func() {
+				tc, cleanup := setup(1)
 				defer cleanup()
 
 				writePoints(
@@ -329,11 +462,92 @@ var _ = Describe("MetricStore", func() {
 					},
 				))
 			})
+
+			It("returns remotely stored metrics from a simple query", func() {
+				tc, cleanup := setup(2)
+				defer cleanup()
+
+				writePoints(
+					tc,
+					[]testPoint{
+						{
+							Name:               MAGIC_MEASUREMENT_PEER_NAME,
+							Value:              99,
+							TimeInMilliseconds: 1000,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+					},
+				)
+
+				value, err := makeInstantQuery(tc, testInstantQuery{
+					Query:         MAGIC_MEASUREMENT_PEER_NAME,
+					TimeInSeconds: "2",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(Equal(
+					model.Vector{
+						&model.Sample{
+							Metric: model.Metric{
+								model.MetricNameLabel: MAGIC_MEASUREMENT_PEER_NAME,
+								"source_id":           "1",
+							},
+							Value:     99.0,
+							Timestamp: 2000,
+						},
+					},
+				))
+			})
+
+			It("a complex query where some metric names are local and some are remote", func() {
+				tc, cleanup := setup(2)
+				defer cleanup()
+
+				writePoints(
+					tc,
+					[]testPoint{
+						{
+							Name:               "metric_name_for_node_0",
+							Value:              99,
+							TimeInMilliseconds: 1000,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+						{
+							Name:               "metric_name_for_node_1",
+							Value:              99,
+							TimeInMilliseconds: 1000,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+					},
+				)
+
+				value, err := makeInstantQuery(tc, testInstantQuery{
+					Query:         "metric_name_for_node_0+metric_name_for_node_1",
+					TimeInSeconds: "2",
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(value).To(Equal(
+					model.Vector{
+						&model.Sample{
+							Metric: model.Metric{
+								"source_id": "1",
+							},
+							Value:     198.0,
+							Timestamp: 2000,
+						},
+					},
+				))
+			})
 		})
 
 		Context("when a range query is made", func() {
-			It("returns metrics from a simple query", func() {
-				tc, cleanup := setup()
+			It("returns locally stored metrics from a simple query", func() {
+				tc, cleanup := setup(1)
 				defer cleanup()
 
 				writePoints(
@@ -405,108 +619,18 @@ var _ = Describe("MetricStore", func() {
 					},
 				))
 			})
-		})
 
-		Context("when a labels query is made", func() {
-			It("returns labels from Metric Store", func() {
-				tc, cleanup := setup()
+			It("returns remotely stored metrics from a simple range query", func() {
+				tc, cleanup := setup(2)
 				defer cleanup()
 
 				writePoints(
 					tc,
 					[]testPoint{
 						{
-							Name:               "metric_name_0",
-							TimeInMilliseconds: 1,
-							Labels: map[string]string{
-								"source_id":  "1",
-								"user_agent": "phil",
-							},
-						},
-						{
-							Name:               "metric_name_1",
-							TimeInMilliseconds: 2,
-							Labels: map[string]string{
-								"source_id":      "2",
-								"content_length": "42",
-							},
-						},
-					},
-				)
-
-				value, _, err := tc.egressClient.LabelNames(context.Background())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(value).To(Equal(
-					[]string{model.MetricNameLabel, "source_id"},
-				))
-			})
-		})
-
-		Context("when a label values query is made", func() {
-			It("returns values for a label name", func() {
-				tc, cleanup := setup()
-				defer cleanup()
-
-				writePoints(
-					tc,
-					[]testPoint{
-						{
-							Name:               "metric_name_0",
-							TimeInMilliseconds: 1,
-							Labels: map[string]string{
-								"source_id":  "1",
-								"user_agent": "100",
-							},
-						},
-						{
-							Name:               "metric_name_1",
-							TimeInMilliseconds: 2,
-							Labels: map[string]string{
-								"source_id":  "10",
-								"user_agent": "200",
-							},
-						},
-						{
-							Name:               "metric_name_2",
-							TimeInMilliseconds: 3,
-							Labels: map[string]string{
-								"source_id":  "10",
-								"user_agent": "100",
-							},
-						},
-					},
-				)
-
-				value, _, err := tc.egressClient.LabelValues(context.Background(), "source_id")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(value).To(Equal(
-					model.LabelValues{"1", "10"},
-				))
-
-				value, _, err = tc.egressClient.LabelValues(context.Background(), "user_agent")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(value).To(BeNil())
-
-				value, _, err = tc.egressClient.LabelValues(context.Background(), model.MetricNameLabel)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(value).To(Equal(
-					model.LabelValues{"metric_name_0", "metric_name_1", "metric_name_2"},
-				))
-			})
-		})
-
-		Context("when a series query is made", func() {
-			It("returns metrics from a simple query", func() {
-				tc, cleanup := setup()
-				defer cleanup()
-
-				writePoints(
-					tc,
-					[]testPoint{
-						{
-							Name:               "metric_name",
+							Name:               "metric_name_for_node_1",
 							Value:              99,
-							TimeInMilliseconds: 1500,
+							TimeInMilliseconds: 1000,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -514,60 +638,302 @@ var _ = Describe("MetricStore", func() {
 					},
 				)
 
-				value, err := makeSeriesQuery(tc, testSeriesQuery{
-					Match:          []string{"metric_name"},
+				value, err := makeRangeQuery(tc, testRangeQuery{
+					Query:          "metric_name_for_node_1",
 					StartInSeconds: "1",
 					EndInSeconds:   "2",
+					StepDuration:   "1s",
 				})
+
 				Expect(err).ToNot(HaveOccurred())
 				Expect(value).To(Equal(
-					[]model.LabelSet{
+					model.Matrix{
+						&model.SampleStream{
+							Metric: model.Metric{
+								model.MetricNameLabel: "metric_name_for_node_1",
+								"source_id":           "1",
+							},
+							Values: []model.SamplePair{
+								{Value: 99.0, Timestamp: 1000},
+								{Value: 99.0, Timestamp: 2000},
+							},
+						},
+					},
+				))
+			})
+
+			It("a complex query where some metric names are local and some are remote", func() {
+				tc, cleanup := setup(2)
+				defer cleanup()
+
+				writePoints(
+					tc,
+					[]testPoint{
 						{
-							model.MetricNameLabel: "metric_name",
-							"source_id":           "1",
+							Name:               "metric_name_for_node_0",
+							Value:              99,
+							TimeInMilliseconds: 1500,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+						{
+							Name:               "metric_name_for_node_0",
+							Value:              101,
+							TimeInMilliseconds: 2100,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+						{
+							Name:               "metric_name_for_node_1",
+							Value:              50,
+							TimeInMilliseconds: 1600,
+							Labels: map[string]string{
+								"source_id": "1",
+							},
+						},
+					},
+				)
+
+				value, err := makeRangeQuery(tc, testRangeQuery{
+					Query:          "metric_name_for_node_0 + metric_name_for_node_1",
+					StartInSeconds: "1",
+					EndInSeconds:   "3",
+					StepDuration:   "1s",
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(value).To(Equal(
+					model.Matrix{
+						&model.SampleStream{
+							Metric: model.Metric{
+								"source_id": "1",
+							},
+							Values: []model.SamplePair{
+								{Value: 149.0, Timestamp: 2000},
+								{Value: 151.0, Timestamp: 3000},
+							},
 						},
 					},
 				))
 			})
 		})
+	})
 
-		Context("when the health check endpoint is called", func() {
-			It("returns information about metrics store", func() {
-				tc, cleanup := setup()
-				defer cleanup()
+	Context("when a labels query is made", func() {
+		It("returns labels from Metric Store aggregated across nodes", func() {
+			tc, cleanup := setup(2)
+			defer cleanup()
 
-				client := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-				}
+			writePoints(
+				tc,
+				[]testPoint{
+					{
+						Name:               "metric_name_for_node_0",
+						TimeInMilliseconds: 1,
+						Labels: map[string]string{
+							"source_id":  "1",
+							"user_agent": "phil",
+						},
+					},
+					{
+						Name:               "metric_name_for_node_1",
+						TimeInMilliseconds: 2,
+						Labels: map[string]string{
+							"source_id":      "2",
+							"content_length": "42",
+						},
+					},
+				},
+			)
 
-				var resp *http.Response
-				Eventually(func() error {
-					var err error
-					resp, err = client.Get("https://" + tc.addr + "/health")
-					return err
-				}).Should(BeNil())
+			value, _, err := tc.localEgressClient.LabelNames(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(
+				[]string{model.MetricNameLabel, "source_id"},
+			))
+		})
+	})
 
-				Expect(resp.StatusCode).To(Equal(200))
-				defer resp.Body.Close()
+	Context("when a label values query is made", func() {
+		It("returns values for a label name", func() {
+			tc, cleanup := setup(2)
+			defer cleanup()
 
-				value, err := ioutil.ReadAll(resp.Body)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(value)).To(MatchJSON(
-					fmt.Sprintf("{ \"version\":\"%s\" }", version.VERSION),
-				))
+			writePoints(
+				tc,
+				[]testPoint{
+					{
+						Name:               "metric_name_for_node_0",
+						TimeInMilliseconds: 1,
+						Labels: map[string]string{
+							"source_id":  "1",
+							"user_agent": "100",
+						},
+					},
+					{
+						Name:               "metric_name_for_node_1",
+						TimeInMilliseconds: 2,
+						Labels: map[string]string{
+							"source_id":  "10",
+							"user_agent": "200",
+						},
+					},
+					{
+						Name:               "metric_name_for_node_2",
+						TimeInMilliseconds: 3,
+						Labels: map[string]string{
+							"source_id":  "10",
+							"user_agent": "100",
+						},
+					},
+				},
+			)
+
+			value, _, err := tc.localEgressClient.LabelValues(context.Background(), "source_id")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(
+				model.LabelValues{"1", "10"},
+			))
+
+			value, _, err = tc.localEgressClient.LabelValues(context.Background(), "user_agent")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(model.LabelValues{}))
+
+			value, _, err = tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(
+				model.LabelValues{"metric_name_for_node_0", "metric_name_for_node_1", "metric_name_for_node_2"},
+			))
+		})
+	})
+
+	Context("when a series query is made", func() {
+		It("returns locally stored metrics from a simple query", func() {
+			tc, cleanup := setup(1)
+			defer cleanup()
+
+			writePoints(
+				tc,
+				[]testPoint{
+					{
+						Name:               "metric_name",
+						Value:              99,
+						TimeInMilliseconds: 1500,
+						Labels: map[string]string{
+							"source_id": "1",
+						},
+					},
+				},
+			)
+
+			value, err := makeSeriesQuery(tc, testSeriesQuery{
+				Match:          []string{"metric_name"},
+				StartInSeconds: "1",
+				EndInSeconds:   "2",
 			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(
+				[]model.LabelSet{
+					{
+						model.MetricNameLabel: "metric_name",
+						"source_id":           "1",
+					},
+				},
+			))
+		})
+
+		It("returns remotely stored metrics from a simple query", func() {
+			tc, cleanup := setup(2)
+			defer cleanup()
+
+			writePoints(
+				tc,
+				[]testPoint{
+					{
+						Name:               "metric_name_for_node_1",
+						Value:              99,
+						TimeInMilliseconds: 1000,
+						Labels: map[string]string{
+							"source_id": "1",
+						},
+					},
+				},
+			)
+
+			value, err := makeSeriesQuery(tc, testSeriesQuery{
+				Match:          []string{"metric_name_for_node_1"},
+				StartInSeconds: "1",
+				EndInSeconds:   "2",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(
+				[]model.LabelSet{
+					{
+						model.MetricNameLabel: "metric_name_for_node_1",
+						"source_id":           "1",
+					},
+				},
+			))
+		})
+
+		It("a complex query where some metric names are local and some are remote", func() {
+			tc, cleanup := setup(2)
+			defer cleanup()
+
+			writePoints(
+				tc,
+				[]testPoint{
+					{
+						Name:               "metric_name_for_node_0",
+						Value:              99,
+						TimeInMilliseconds: 1000,
+						Labels: map[string]string{
+							"source_id": "1",
+						},
+					},
+					{
+						Name:               "metric_name_for_node_1",
+						Value:              99,
+						TimeInMilliseconds: 1000,
+						Labels: map[string]string{
+							"source_id": "1",
+						},
+					},
+				},
+			)
+
+			value, err := makeSeriesQuery(tc, testSeriesQuery{
+				Match:          []string{"metric_name_for_node_0", "metric_name_for_node_1"},
+				StartInSeconds: "1",
+				EndInSeconds:   "2",
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(value).To(Equal(
+				[]model.LabelSet{
+					{
+						model.MetricNameLabel: "metric_name_for_node_0",
+						"source_id":           "1",
+					},
+					{
+						model.MetricNameLabel: "metric_name_for_node_1",
+						"source_id":           "1",
+					},
+				},
+			))
 		})
 	})
 
 	It("exposes internal metrics", func() {
-		tc, cleanup := setup()
+		tc, cleanup := setup(2)
 		defer cleanup()
 
 		writePoints(
 			tc,
 			[]testPoint{
 				{
-					Name:               "metric_store_test_metric",
+					Name:               MAGIC_MEASUREMENT_PEER_NAME,
 					Value:              99,
 					TimeInMilliseconds: 1000,
 					Labels: map[string]string{
@@ -577,7 +943,7 @@ var _ = Describe("MetricStore", func() {
 			},
 		)
 
-		resp, err := http.Get("http://localhost:" + tc.healthPort + "/metrics")
+		resp, err := http.Get("http://localhost:" + tc.healthPorts[0] + "/metrics")
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 
@@ -585,51 +951,8 @@ var _ = Describe("MetricStore", func() {
 		Expect(err).NotTo(HaveOccurred())
 		body := string(bytes)
 
-		Expect(body).To(ContainSubstring(debug.MetricStoreWrittenPointsTotal))
+		Expect(body).To(ContainSubstring(metrics.MetricStoreDistributedPointsTotal))
 		Expect(body).To(ContainSubstring("go_threads"))
-	})
-
-	It("processes recording rules added via API", func() {
-		tc, cleanup := setup()
-		defer cleanup()
-
-		client, err := ingressclient.NewIngressClient(
-			tc.ingressAddr,
-			tc.tlsConfig,
-		)
-		pointTimestamp := time.Now().UnixNano()
-		points := []*rpc.Point{
-			{
-				Name:      "metric_store_test_metric",
-				Timestamp: pointTimestamp,
-				Value:     1,
-				Labels: map[string]string{
-					"node":  "1",
-					"other": "foo",
-				},
-			},
-		}
-		err = client.Write(points)
-
-		createRulesPayload := []byte(`
-			{
-				"data": {
-					"id": "rules-manager-id"
-				}
-			}
-		`)
-
-		apiClient := &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-		}
-
-		resp, err := apiClient.Post("https://"+tc.addr+"/rules/manager",
-			"application/json",
-			bytes.NewReader(createRulesPayload),
-		)
-
-		Expect(err).ToNot(HaveOccurred())
-		Expect(resp.StatusCode).To(Equal(201))
 	})
 
 	It("processes recording rules to record metrics", func() {
@@ -656,12 +979,13 @@ groups:
 		}
 
 		tc, cleanup := setup(
+			1,
 			WithOptionRulesPath(tmpfile.Name()),
 		)
 		defer cleanup()
 
 		client, err := ingressclient.NewIngressClient(
-			tc.ingressAddr,
+			tc.ingressAddrs[0],
 			tc.tlsConfig,
 		)
 		pointTimestamp := time.Now().UnixNano()
@@ -816,6 +1140,7 @@ groups:
 		spyAlertManagerAddr, _ := url.Parse(spyAlertManager.URL)
 
 		tc, cleanup := setup(
+			1,
 			WithOptionRulesPath(tmpfile.Name()),
 			WithOptionAlertManagerAddr(fmt.Sprintf(":%s", spyAlertManagerAddr.Port())),
 		)
@@ -823,7 +1148,7 @@ groups:
 		defer spyAlertManager.Close()
 
 		client, err := ingressclient.NewIngressClient(
-			tc.ingressAddr,
+			tc.ingressAddrs[0],
 			tc.tlsConfig,
 		)
 		points := []*rpc.Point{

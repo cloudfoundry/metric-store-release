@@ -1,0 +1,16 @@
+---
+name: metric-store-nozzle
+release: p-metric-store
+consumes: |
+  reverse_log_proxy: {from: reverse_log_proxy, deployment: ((  ..cf.deployment_name  ))}
+manifest: |
+  logs_provider:
+    tls:
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.metrics_provider_mtls.cert_pem ))
+      key: (( .properties.metrics_provider_mtls.private_key_pem ))
+  metric_store_client:
+    tls:
+      ca_cert: (((nozzle_to_metric_store_client.ca)))
+      cert: (((nozzle_to_metric_store_client.certificate)))
+      key: (((nozzle_to_metric_store_client.private_key)))

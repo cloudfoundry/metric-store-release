@@ -1,0 +1,18 @@
+---
+name: metric-store-cf-auth-proxy
+release: p-metric-store
+consumes: |
+  cloud_controller: {from: cloud_controller, deployment: (( ..cf.deployment_name ))}
+manifest: |
+  cc:
+    ca_cert: (( $ops_manager.ca_certificate ))
+    common_name: cloud-controller-ng.service.cf.internal
+  proxy_port: 8083
+  external_cert: (( .properties.routing_provider_tls.cert_pem ))
+  external_key: (( .properties.routing_provider_tls.private_key_pem ))
+  proxy_ca_cert: (((metric_store_ca.certificate)))
+  uaa:
+    ca_cert: (( $ops_manager.ca_certificate ))
+    client_id: (( ..cf.uaa.doppler_client_credentials.identity ))
+    client_secret: (( ..cf.uaa.doppler_client_credentials.password ))
+    internal_addr: https://uaa.service.cf.internal:8443

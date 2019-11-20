@@ -1,0 +1,8 @@
+#!/bin/bash
+
+bosh -e lite -d metric-store deploy manifests/metric-store.yml \
+    --vars-store deployment-vars.yml \
+    --vars-file /tmp/loggregator-vars.yml \
+    --var system_domain=bosh-lite.com \
+    --var datadog_api_key="$DATADOG_API_KEY" \
+    --no-redact

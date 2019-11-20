@@ -6,9 +6,12 @@ require (
 	code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a
 	collectd.org v0.3.0 // indirect
 	github.com/apache/arrow/go/arrow v0.0.0-20191031071000-627c72987925 // indirect
+	github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
+	github.com/cespare/xxhash v1.1.0
 	github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
+	github.com/emirpasic/gods v1.9.0
 	github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a // indirect
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
 	github.com/go-kit/kit v0.9.0

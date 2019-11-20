@@ -1,0 +1,11 @@
+---
+- name: metrics_provider_mtls
+  label: Metrics Provider (RLP) mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+      - metric-store
+    extended_key_usage:
+    - client_auth
+    - server_auth

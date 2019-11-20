@@ -1,0 +1,24 @@
+---
+name: metric-store-smoke-tests
+alias: metric-store-smoke-tests
+release: metric-store
+colocated: true
+run_default: on
+label: Metric Store Smoke Tests
+description:
+instances:
+  - metric-store/first
+consumes: |
+  cloud_controller: {from: cloud_controller, deployment: (( ..cf.deployment_name ))}
+manifest: |
+  client_id: (( ..cf.uaa.healthwatch_firehose_credentials.identity ))
+  client_secret: (( ..cf.uaa.healthwatch_firehose_credentials.password ))
+  uaa_url: (( $runtime.uaa_url ))
+  skip_cert_verify: false
+  metric_store_url:  https://metric-store.(($runtime.system_domain))
+  metric_store_internal_url: localhost:8080
+  tls:
+    ca_cert: (((metric_store.ca)))
+    cert: (((metric_store.certificate)))
+    key: (((metric_store.private_key)))
+
