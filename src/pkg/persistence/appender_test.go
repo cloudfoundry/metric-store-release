@@ -3,9 +3,9 @@ package persistence_test
 import (
 	"math"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
-	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/prometheus/prometheus/storage"
 
 	. "github.com/onsi/ginkgo"

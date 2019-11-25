@@ -7,7 +7,7 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )

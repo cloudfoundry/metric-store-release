@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
-	shared "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 

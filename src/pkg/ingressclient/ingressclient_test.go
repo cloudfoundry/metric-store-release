@@ -4,12 +4,12 @@ import (
 	"crypto/tls"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	. "github.com/cloudfoundry/metric-store-release/src/internal/matchers"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

@@ -16,8 +16,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	jose "github.com/dvsekhvalnov/jose2go"
 )
 

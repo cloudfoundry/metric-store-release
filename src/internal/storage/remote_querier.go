@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	shared_api "github.com/cloudfoundry/metric-store-release/src/pkg/api"
+	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"

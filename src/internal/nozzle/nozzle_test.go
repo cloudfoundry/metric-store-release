@@ -4,9 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
@@ -14,8 +14,8 @@ import (
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"golang.org/x/net/context"
 
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/matchers"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	. "github.com/cloudfoundry/metric-store-release/src/internal/matchers"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

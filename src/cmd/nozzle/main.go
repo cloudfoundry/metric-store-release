@@ -4,7 +4,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"github.com/influxdata/influxdb/query"
 	"github.com/prometheus/prometheus/pkg/labels"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -16,7 +16,7 @@ import (
 	"github.com/influxdata/influxql"
 	. "github.com/onsi/ginkgo"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )

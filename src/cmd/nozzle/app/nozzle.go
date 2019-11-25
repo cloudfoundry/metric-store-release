@@ -7,10 +7,10 @@ import (
 	"time"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/nozzle"
+	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus"
 )

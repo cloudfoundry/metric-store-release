@@ -19,7 +19,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
-	shared_api "github.com/cloudfoundry/metric-store-release/src/pkg/api"
+	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -29,7 +29,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/notifier"
 
-	shared "github.com/cloudfoundry/metric-store-release/src/pkg/testing"
+	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
