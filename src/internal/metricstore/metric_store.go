@@ -14,18 +14,18 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"go.uber.org/zap"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
+	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/niubaoshu/gotiny"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
-	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
@@ -48,8 +48,7 @@ const (
 )
 
 var (
-	OSS_SHA = "dev"
-	CSS_SHA = "dev"
+	SHA = "dev"
 )
 
 // MetricStore is a persisted store for Loggregator metrics (gauges, timers,
@@ -572,14 +571,12 @@ func (store *MetricStore) Close() error {
 func (store *MetricStore) apiHealth(w http.ResponseWriter, req *http.Request) {
 	type healthInfo struct {
 		Version string `json:"version"`
-		OssSha  string `json:"oss_sha"`
-		CssSha  string `json:"css_sha"`
+		Sha     string `json:"sha"`
 	}
 
 	responseData := healthInfo{
 		Version: version.VERSION,
-		OssSha:  OSS_SHA,
-		CssSha:  CSS_SHA,
+		Sha:     SHA,
 	}
 
 	responseBytes, err := json.Marshal(responseData)

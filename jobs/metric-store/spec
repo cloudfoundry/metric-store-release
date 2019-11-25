@@ -3,13 +3,18 @@ name: metric-store
 
 templates:
   bpm.yml.erb: config/bpm.yml
+  indicators.yml.erb: config/indicators.yml
+  rules.yml: config/rules.yml
+  metric_port.yml.erb: config/metric_port.yml
   metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store.crt.erb: config/certs/metric_store.crt
   metric_store.key.erb: config/certs/metric_store.key
   metric_store_server_ca.crt.erb: config/certs/metric_store_server_ca.crt
   metric_store_server.crt.erb: config/certs/metric_store_server.crt
   metric_store_server.key.erb: config/certs/metric_store_server.key
-  metric_port.yml.erb: config/metric_port.yml
+  metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
+  metric_store_internode.crt.erb: config/certs/metric_store_internode.crt
+  metric_store_internode.key.erb: config/certs/metric_store_internode.key
 
 packages:
 - metric-store
@@ -29,6 +34,9 @@ properties:
   ingress_port:
     description: "The port for the metric-store to listen on for ingress"
     default: 8090
+  internode_port:
+    description: "TODO ............. "
+    default: 8091
 
   health_port:
     description: "The port for metric-store to bind a health endpoint"
@@ -42,6 +50,9 @@ properties:
   disk_free_percent_target:
     description: "Percentage of free disk space below which old metrics are automatically pruned (takes precedence over retention period)"
     default: 20
+  replication_factor:
+    description: "How many instances should store a copy of each metric"
+    default: 1
   label_truncation_length:
     description: "Maximum length of any label value; longer values will be automatically truncated"
     default: 256
@@ -62,6 +73,12 @@ properties:
     description: "The cert for metric-store TCP server mutual TLS."
   metric_store_server.tls.key:
     description: "The private key for metric-store TCP server mutual TLS."
+  metric_store_internode.tls.ca_cert:
+    description: "The Certificate Authority for metric-store mutual TLS."
+  metric_store_internode.tls.cert:
+    description: "The cert for metric-store TCP internode mutual TLS."
+  metric_store_internode.tls.key:
+    description: "The private key for metric-store TCP internode mutual TLS."
 
   alertmanager.addr:
     description: "Address of the alertmanager HTTP API."

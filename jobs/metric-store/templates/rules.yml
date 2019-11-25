@@ -1,0 +1,12 @@
+---
+groups:
+- name: example
+  rules:
+  - alert: logspinner_absolute_entitlement
+    expr: absolute_entitlement{source_id="370238a9-30bd-474d-9416-4da56df97c19"} > 0
+    for: 1h
+    labels:
+      severity: page
+    annotations:
+      summary: absolute_entitlement greater than 0
+      description: validates existence of logspinner app

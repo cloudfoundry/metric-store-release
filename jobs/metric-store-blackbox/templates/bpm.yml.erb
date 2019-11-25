@@ -1,0 +1,37 @@
+<%
+  job_dir = "/var/vcap/jobs/metric-store-blackbox"
+  cert_dir = "#{job_dir}/config/certs"
+
+  ms = link("metric-store")
+  cc = link('cloud_controller')
+%>
+---
+processes:
+- name: metric-store-blackbox
+  executable: /var/vcap/packages/metric-store-blackbox/metric-store-blackbox
+  env:
+    # Blackbox Test
+    EMISSION_INTERVAL: "<%= p('emission_interval') %>"
+    SAMPLE_INTERVAL:   "<%= p('sample_interval') %>"
+    WINDOW_INTERVAL:   "<%= p('window_interval') %>"
+    WINDOW_LAG:        "<%= p('window_lag') %>"
+    SOURCE_ID:         "<%= p('source_id') %>"
+    HEALTH_PORT:       "<%= p('health_port') %>"
+
+    # Metric Store
+    METRIC_STORE_INGRESS_ADDR: "<%= "#{ms.address}:#{ms.p('ingress_port')}" %>"
+    METRIC_STORE_GRPC_ADDR:    "<%= "#{ms.address}:#{ms.p('port')}" %>"
+    CA_PATH:                   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
+    CERT_PATH:                 "<%= "#{cert_dir}/metric_store.crt" %>"
+    KEY_PATH:                  "<%= "#{cert_dir}/metric_store.key" %>"
+
+    # CF Authentication
+    CF_BLACKBOX_ENABLED:    <%= p('cf_blackbox.enabled') %>
+    METRIC_STORE_HTTP_ADDR: "<%= p('cf_blackbox.metric_store_address', "https://metric-store.#{cc.p('system_domain')}") %>"
+    UAA_ADDR:               "<%= "https://uaa.#{cc.p('system_domain')}" %>"
+    CLIENT_ID:              "<%= p('cf_blackbox.client_id') %>"
+    CLIENT_SECRET:          "<%= p('cf_blackbox.client_secret') %>"
+    SKIP_TLS_VERIFY:        "<%= p('cf_blackbox.skip_tls_verify') %>"
+
+  limits:
+    open_files: 8192

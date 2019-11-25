@@ -1,0 +1,21 @@
+---
+apiVersion: indicatorprotocol.io/v1
+kind: IndicatorDocument
+
+metadata:
+  deployment: <%= spec.deployment %>
+
+spec:
+  product:
+    name: p-metric-store-nozzle
+    version: 0.2.0
+
+  indicators:
+  - name: nozzle_dropped
+    promql: 'max(metric_store_nozzle_dropped_envelopes_total{source_id="metric-store-nozzle"})'
+    documentation:
+      title: Envelopes Dropped in Nozzle
+      description: |
+        The maximum count of total envelopes that were dropped by the nozzle
+        process on any given VM.
+      recommendedResponse: Allocate more CPU to the process - vertically scale.

@@ -1,0 +1,52 @@
+---
+name: metric-store-blackbox
+
+templates:
+  bpm.yml.erb: config/bpm.yml
+  metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
+  metric_store.crt.erb: config/certs/metric_store.crt
+  metric_store.key.erb: config/certs/metric_store.key
+  metric_port.yml.erb: config/metric_port.yml
+
+packages:
+- metric-store-blackbox
+
+consumes:
+- name: metric-store
+  type: metric-store
+- name: cloud_controller
+  type: cloud_controller
+  optional: true
+
+properties:
+  emission_interval:
+    description: "The interval between emitted test metrics"
+    default: 1s
+  sample_interval:
+    description: "The interval between samples"
+    default: 1m
+  window_interval:
+    description: "The trailing interval over which to measure metric retrieval"
+    default: 10m
+  window_lag:
+    description: "How far in the past the measurement should be taken"
+    default: 20m
+  source_id:
+    description: "Source ID for metadata of both test and result metrics"
+    default: metric-store
+  health_port:
+    description: "The port for the Blackbox to bind a health endpoint"
+    default: 6066
+
+  cf_blackbox.enabled:
+    description: "Test HTTP egress which uses CF-based UAA authentication"
+    default: false
+  cf_blackbox.metric_store_address:
+    description: "Base URL for Metric Store (should not usually be configured)"
+  cf_blackbox.client_id:
+    description: "UAA client ID for egress testing - requires logs.admin scope"
+  cf_blackbox.client_secret:
+    description: "UAA client secret"
+  cf_blackbox.skip_tls_verify:
+    description: "Skip certificate validation when testing HTTP egress"
+    default: false

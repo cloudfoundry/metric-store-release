@@ -1,0 +1,9 @@
+---
+name: metric-store-blackbox
+
+dependencies:
+- golang-1.13-linux
+
+files:
+- cmd/**/*.go
+- internal/**/*.go

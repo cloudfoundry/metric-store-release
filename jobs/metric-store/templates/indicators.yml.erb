@@ -1,0 +1,36 @@
+---
+apiVersion: indicatorprotocol.io/v1
+kind: IndicatorDocument
+
+metadata:
+  deployment: <%= spec.deployment %>
+
+spec:
+  product:
+    name: p-metric-store
+    version: 0.2.0
+
+  indicators:
+  - name: vm_memory
+    promql: 'max(system_mem_percent{source_id="system_metrics_agent",job="metric-store"})'
+    documentation:
+      title: VM System Memory Percentage
+      description: |
+        The maximum percentage of memory utilization for the VMs.
+      recommendedResponse: Allocate more memory to the VMs - vertically scale.
+
+  - name: vm_disk_usage
+    promql: 'max(metric_store_disk_free_ratio{source_id="metric-store"})'
+    documentation:
+      title: VM Disk Usage
+      description: |
+        The maximum percentage of disk utilization.
+      recommendedResponse: TBD based on resize disk spike - vertically scale.
+
+  - name: metric_store_storage_duration
+    promql: 'min(metric_store_storage_days{source_id="metric-store"})'
+    documentation:
+      title: Metric Store Storage Duration
+      description: |
+        The age in days of the oldest datapoint in metric store.
+      recommendedResponse: Allocate larger persistent storage disks

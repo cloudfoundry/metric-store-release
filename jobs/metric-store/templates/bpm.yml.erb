@@ -1,5 +1,15 @@
 <%
-  cert_dir = "/var/vcap/jobs/metric-store/config/certs"
+  job_dir = "/var/vcap/jobs/metric-store"
+  cert_dir = "#{job_dir}/config/certs"
+
+  ms = link("metric-store")
+
+  sorted_instances = ms.instances.sort_by {|i| i.address}
+  store_addrs = sorted_instances.map {|i| "#{i.address}:#{p('port')}"}
+  internode_addrs = sorted_instances.map {|i| "#{i.address}:#{p('internode_port')}"}
+  index = sorted_instances.index(
+      sorted_instances.find {|i| i.id == spec.id}
+  )
 %>
 ---
 processes:
@@ -10,9 +20,11 @@ processes:
     HEALTH_PORT:              "<%= p('health_port') %>"
     ADDR:                     "<%= ":#{p('port')}" %>"
     INGRESS_ADDR:             "<%= ":#{p('ingress_port')}" %>"
+    INTERNODE_ADDR:           "<%= ":#{p('internode_port')}" %>"
     STORAGE_PATH:             "<%= p('storage_path') %>"
     RETENTION_PERIOD_IN_DAYS: "<%= p('retention_period_in_days') %>"
     DISK_FREE_PERCENT_TARGET: "<%= p('disk_free_percent_target') %>"
+    REPLICATION_FACTOR:       "<%= p('replication_factor') %>"
     LABEL_TRUNCATION_LENGTH:  "<%= p('label_truncation_length') %>"
     QUERY_TIMEOUT:            "<%= p('promql.query_timeout') %>"
 
@@ -25,6 +37,16 @@ processes:
     METRIC_STORE_SERVER_CA_PATH:   "<%= "#{cert_dir}/metric_store_server_ca.crt" %>"
     METRIC_STORE_SERVER_CERT_PATH: "<%= "#{cert_dir}/metric_store_server.crt" %>"
     METRIC_STORE_SERVER_KEY_PATH:  "<%= "#{cert_dir}/metric_store_server.key" %>"
+
+    # Metric Store Internode Mutual TLS
+    METRIC_STORE_INTERNODE_CA_PATH:   "<%= "#{cert_dir}/metric_store_internode_ca.crt" %>"
+    METRIC_STORE_INTERNODE_CERT_PATH: "<%= "#{cert_dir}/metric_store_internode.crt" %>"
+    METRIC_STORE_INTERNODE_KEY_PATH:  "<%= "#{cert_dir}/metric_store_internode.key" %>"
+
+    # Cluster Configuration
+    NODE_INDEX:      "<%= index %>"
+    NODE_ADDRS:      "<%= store_addrs.join(",") %>"
+    INTERNODE_ADDRS: "<%= internode_addrs.join(",") %>"
 
     # Alertmanager and Recording Rules Configuration
     ALERTMANAGER_ADDR: "<%= p('alertmanager.addr', '') %>"

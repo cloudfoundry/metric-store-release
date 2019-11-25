@@ -1,0 +1,5 @@
+check process metric-store-blackbox
+  with pidfile /var/vcap/sys/run/bpm/metric-store-blackbox/metric-store-blackbox.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start metric-store-blackbox"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop metric-store-blackbox"
+  group vcap

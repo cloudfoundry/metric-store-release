@@ -13,7 +13,7 @@ pushd ${boshdir}
   tar -xzf ${DIR}/../release.tgz
 
   pushd packages
-    mkdir -p metric-store metric-store-nozzle metric-store-gateway metric-store-cf-auth-proxy
+    mkdir -p metric-store metric-store-nozzle metric-store-cf-auth-proxy
     tar -xzf metric-store.tgz -C metric-store
     tar -xzf metric-store-nozzle.tgz -C metric-store-nozzle
     tar -xzf metric-store-cf-auth-proxy.tgz -C metric-store-cf-auth-proxy

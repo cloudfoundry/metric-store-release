@@ -16,10 +16,10 @@ import (
 	"sync"
 	"time"
 
+	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
-	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -351,7 +351,7 @@ var _ = Describe("MetricStore", func() {
 			value, err := ioutil.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(value)).To(MatchJSON(
-				fmt.Sprintf(`{ "version":"%s", "oss_sha": "dev", "css_sha": "dev" }`, version.VERSION),
+				fmt.Sprintf(`{ "version":"%s", "sha": "dev" }`, version.VERSION),
 			))
 		})
 	})

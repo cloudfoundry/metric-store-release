@@ -3,6 +3,7 @@ name: metric-store-nozzle
 
 templates:
   bpm.yml.erb: config/bpm.yml
+  indicators.yml.erb: config/indicators.yml
   logs_provider.crt.erb: config/certs/logs_provider.crt
   logs_provider.key.erb: config/certs/logs_provider.key
   logs_provider_ca.crt.erb: config/certs/logs_provider_ca.crt

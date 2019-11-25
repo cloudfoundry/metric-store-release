@@ -1,0 +1,69 @@
+#!/bin/bash
+
+TILE_NAME=metric-store
+RELEASE_VERSION=0.0.1-build.1
+
+PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
+
+echo_green() {
+  GREEN='\033[0;32m'
+  CLEAR='\033[0m'
+  local message=${1}
+
+  echo -e "${GREEN}${message}${CLEAR}"
+}
+
+echo_red() {
+  RED='\033[0;31m'
+  CLEAR='\033[0m'
+  local message=${1}
+
+  echo -e "${RED}${message}${CLEAR}"
+}
+
+mkdir -p ${PROJECT_DIR}/tmp/releases
+
+echo_green "Creating p-metric-store release from local changes..."
+bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/p-metric-store.tgz
+
+pushd ~/workspace/oss/metric-store-release
+  echo_green "Creating metric-store release from local changes..."
+  bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/metric-store.tgz
+popd
+
+pushd ${PROJECT_DIR}/tmp
+    echo_green $(pwd)
+    RELEASE_URLS=(
+      https://bosh.io/d/github.com/cloudfoundry-incubator/bpm-release
+      https://bosh.io/d/github.com/cloudfoundry-incubator/cf-routing-release
+    )
+
+    echo_green "Fetching releases for tile..."
+
+    pushd releases
+        for URL in ${RELEASE_URLS[@]}; do
+            curl \
+              --location \
+              --remote-name \
+              --remote-header-name \
+              --silent \
+              --retry 5 \
+              ${URL} || true
+        done
+    popd
+
+    TILE_FILE=${TILE_NAME}-${RELEASE_VERSION}.pivotal
+
+    echo_green "Baking tile $TILE_FILE"
+
+    kiln bake \
+        --version "$RELEASE_VERSION" \
+        --metadata ${PROJECT_DIR}/tile/metadata.yml \
+        --icon ${PROJECT_DIR}/tile/icon.png \
+        --releases-directory releases \
+        --properties-directory ${PROJECT_DIR}/tile/properties \
+        --jobs-directory ${PROJECT_DIR}/tile/jobs \
+        --instance-groups-directory ${PROJECT_DIR}/tile/instance_groups \
+        --bosh-variables-directory ${PROJECT_DIR}/tile/variables \
+        --output-file ${TILE_FILE}
+popd

@@ -3,4 +3,9 @@ set -ex
 source /var/vcap/packages/golang-1.13-linux/bosh/compile.env
 export GOPATH=$BOSH_INSTALL_TARGET
 
-go build -mod=vendor -o ${BOSH_INSTALL_TARGET}/metric-store ./src/cmd/metric-store
+module_path="github.com/pivotal/metric-store-release/src/internal/metricstore"
+
+go build -mod=vendor \
+  -ldflags "-X ${module_path}.SHA=$(cat sha)" \
+  -o ${BOSH_INSTALL_TARGET}/metric-store \
+  ./src/cmd/metric-store

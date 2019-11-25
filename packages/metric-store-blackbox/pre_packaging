@@ -4,10 +4,8 @@ set -ex
 cp -R $RELEASE_DIR/vendor $BUILD_DIR
 cp $RELEASE_DIR/go.mod $BUILD_DIR
 cp $RELEASE_DIR/go.sum $BUILD_DIR
-cp $RELEASE_DIR/sha $BUILD_DIR
 
 # make sure our code is correctly staged in src
 mkdir -p $BUILD_DIR/src
 mv $BUILD_DIR/cmd $BUILD_DIR/src/
-mv $BUILD_DIR/pkg $BUILD_DIR/src/
 mv $BUILD_DIR/internal $BUILD_DIR/src/
