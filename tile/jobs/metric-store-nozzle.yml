@@ -1,6 +1,6 @@
 ---
 name: metric-store-nozzle
-release: p-metric-store
+release: metric-store
 consumes: |
   reverse_log_proxy: {from: reverse_log_proxy, deployment: ((  ..cf.deployment_name  ))}
 manifest: |

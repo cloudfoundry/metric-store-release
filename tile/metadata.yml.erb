@@ -1,5 +1,5 @@
 ---
-name: p-metric-store
+name: metric-store
 product_version: $( version )
 minimum_version_for_upgrade: '0.0.0.0'
 metadata_version: '2.2'
@@ -10,7 +10,7 @@ service_broker: false
 icon_image: $( icon )
 
 provides_product_versions:
-- name: p-metric-store
+- name: metric-store
   version: $( version )
 
 stemcell_criteria:
@@ -20,7 +20,6 @@ stemcell_criteria:
 
 releases:
   - $( release "bpm" )
-  - $( release "p-metric-store" )
   - $( release "metric-store" )
   - $( release "routing" )
   - $( release "loggregator-agent" )

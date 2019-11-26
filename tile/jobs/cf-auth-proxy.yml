@@ -1,6 +1,6 @@
 ---
 name: metric-store-cf-auth-proxy
-release: p-metric-store
+release: metric-store
 consumes: |
   cloud_controller: {from: cloud_controller, deployment: (( ..cf.deployment_name ))}
 manifest: |

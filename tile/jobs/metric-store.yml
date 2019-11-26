@@ -1,6 +1,6 @@
 ---
 name: metric-store
-release: p-metric-store
+release: metric-store
 provides: |
   metric-store: { shared: true }
 manifest: |
