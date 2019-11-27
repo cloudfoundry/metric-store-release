@@ -6,9 +6,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path"
 	"sync/atomic"
 	"time"
 
@@ -94,11 +97,12 @@ type MetricStore struct {
 
 	alertmanagerAddr string
 	rulesPath        string
+	storagePath      string
 
 	replicatedStorage prom_storage.Storage
 }
 
-func New(localStore prom_storage.Storage, ingressTLSConfig, internodeTLSConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
+func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     logger.NewNop(),
 		metrics: &debug.NullRegistrar{},
@@ -114,6 +118,7 @@ func New(localStore prom_storage.Storage, ingressTLSConfig, internodeTLSConfig *
 		ingressTLSConfig:   ingressTLSConfig,
 		internodeTLSConfig: internodeTLSConfig,
 		egressTLSConfig:    egressTLSConfig,
+		storagePath:        storagePath,
 	}
 
 	for _, o := range opts {
@@ -307,7 +312,7 @@ func (store *MetricStore) Start() {
 	store.setupSanitizedListener()
 
 	go store.configureAlertManager()
-	go store.processRules(queryEngine)
+	go store.processRules()
 }
 
 func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
@@ -347,10 +352,24 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	apiV1 := promAPI.RouterForStorage(store.replicatedStorage)
 	apiPrivate := promAPI.RouterForStorage(store.localStore)
 
+	// TODO store the rulesStoragePath in the store object?
+	rulesStoragePath := path.Join(store.storagePath, "rules")
+	err = os.Mkdir(rulesStoragePath, os.ModePerm)
+	if err != nil && !os.IsExist(err) {
+		store.log.Fatal("failed to create rules storage dir", err)
+	}
+	rulesAPI := api.NewRulesAPI(
+		rulesStoragePath,
+		time.Duration(promql.DefaultEvaluationInterval)*time.Millisecond,
+		store.log,
+	)
+	rulesAPIRouter := rulesAPI.Router()
+
 	mux := http.NewServeMux()
 	mux.Handle("/api/v1/", http.StripPrefix("/api/v1", apiV1))
 	// TODO: extract private as constant
 	mux.Handle("/private/api/v1/", http.StripPrefix("/private/api/v1", apiPrivate))
+	mux.Handle("/rules/", http.StripPrefix("/rules", rulesAPIRouter))
 
 	mux.HandleFunc("/health", store.apiHealth)
 
@@ -368,14 +387,34 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	}()
 }
 
-func (store *MetricStore) processRules(queryEngine *promql.Engine) {
-	var rules []string
+func (store *MetricStore) processRules() {
+	// TODO reconsider this design
+	go func(storagePath string, rulesPath string) {
+		for {
+			time.Sleep(1 * time.Second)
+			rules := []string{}
+			if rulesPath != "" {
+				rules = append(rules, store.rulesPath)
+			}
+			rulesDir := path.Join(storagePath, "rules")
+			files, err := ioutil.ReadDir(rulesDir)
+			if err != nil {
+				store.log.Info("could not read rules dir", zap.Error(err))
+				continue
+			}
 
-	if store.rulesPath != "" {
-		rules = append(rules, store.rulesPath)
-	}
+			for _, ruleFile := range files {
+				rules = append(rules, path.Join(rulesDir, ruleFile.Name()))
+			}
 
-	store.ruleManager.Update(5*time.Second, rules, nil)
+			err = store.ruleManager.Update(5*time.Second, rules, nil)
+			if err != nil {
+				store.log.Info("could not update rule manager")
+				continue
+			}
+		}
+	}(store.storagePath, store.rulesPath)
+
 	store.ruleManager.Run()
 }
 

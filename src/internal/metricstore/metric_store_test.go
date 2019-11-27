@@ -1,23 +1,26 @@
 package metricstore_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"time"
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/influxdata/influxql"
 	"github.com/niubaoshu/gotiny"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
@@ -25,11 +28,11 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 )
 
 const (
@@ -55,7 +58,7 @@ type testContext struct {
 }
 
 var _ = Describe("MetricStore", func() {
-	var setupWithPersistentStore = func(persistentStore storage.Storage) (tc *testContext, cleanup func()) {
+	var setupWithPersistentStore = func(persistentStore storage.Storage, storagePath string) (tc *testContext, cleanup func()) {
 		tc = &testContext{
 			minTimeInMilliseconds: influxql.MinTime / int64(time.Millisecond),
 			maxTimeInMilliseconds: influxql.MaxTime / int64(time.Millisecond),
@@ -84,6 +87,7 @@ var _ = Describe("MetricStore", func() {
 
 		tc.store = metricstore.New(
 			persistentStore,
+			storagePath,
 			tc.tlsConfig,
 			tc.tlsConfig,
 			tc.egressTLSConfig,
@@ -128,7 +132,7 @@ var _ = Describe("MetricStore", func() {
 			spyPersistentStoreMetrics,
 		)
 
-		tc, innerCleanup := setupWithPersistentStore(persistentStore)
+		tc, innerCleanup := setupWithPersistentStore(persistentStore, storagePath)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
 
 		tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsConfig)
@@ -297,6 +301,350 @@ var _ = Describe("MetricStore", func() {
 		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(int64(2)))
 		Expect(tc.peer.GetInternodePoints()[1].Timestamp).To(Equal(int64(3)))
 		Expect(tc.peer.GetLocalOnlyValues()).ToNot(ContainElement(false))
+	})
+
+	Describe("Rules API", func() {
+		createRulesManagerPayload := []byte(`
+			{
+				"data": {
+					"id": "rules-manager-id"
+				}
+			}
+		`)
+
+		Describe("/rules/manager endpoint", func() {
+			It("Creates a rule manager with a generated ID", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				noIdCreatePayload := []byte(`
+					{
+						"data": {}
+					}
+				`)
+
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(noIdCreatePayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+
+				body, err := ioutil.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				var response struct {
+					Data struct {
+						Id string
+					}
+				}
+
+				err = json.Unmarshal(body, &response)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.Data.Id).ToNot(Equal(""))
+
+				resp, err = apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(noIdCreatePayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+			})
+
+			It("Creates a rules manager with the provided ID", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(createRulesManagerPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+
+				body, err := ioutil.ReadAll(resp.Body)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(body).To(MatchJSON(createRulesManagerPayload))
+			})
+
+			It("Returns an error when provided an existing rule manager id", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(createRulesManagerPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(201))
+
+				resp, err = apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader(createRulesManagerPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(409))
+			})
+
+			It("Returns an error when given invalid json", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+					"application/json",
+					bytes.NewReader([]byte("invalid json goes here")),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(400))
+			})
+		})
+
+		Describe("/rules/manager/:manager_id/group endpoint", func() {
+			// recordedMetric := "job:http_total:sum"
+			createRuleGroupPayload := []byte(`
+			{
+				"data": {
+					"name": "my-example-group",
+					"interval": "1s",
+					"rules": [
+						{
+							"record": "job:http_total:sum",
+							"expr": "sum(http_total) by (source_id)",
+							"labels": {
+								"foo": "bar"
+							}
+						}
+					]
+				}
+			}`)
+
+			Context("when a rule manager exists", func() {
+				var tc *testContext
+				var cleanup func()
+				var apiClient *http.Client
+
+				BeforeEach(func() {
+					tc, cleanup = setup()
+
+					apiClient = &http.Client{
+						Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+					}
+
+					resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+						"application/json",
+						bytes.NewReader(createRulesManagerPayload),
+					)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(201))
+				})
+
+				AfterEach(func() {
+					cleanup()
+				})
+
+				It("Creates a rule group", func() {
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(createRuleGroupPayload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(201))
+
+					body, err := ioutil.ReadAll(resp.Body)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(body).To(MatchJSON(createRuleGroupPayload))
+
+					f := func() error {
+						rules, err := tc.apiClient.Rules(context.Background())
+						Expect(err).ToNot(HaveOccurred())
+
+						if len(rules.Groups) == 0 {
+							return errors.New("no rule group")
+						}
+						return nil
+					}
+					Eventually(f, 5*time.Second).Should(BeNil())
+				})
+
+				It("Returns an error if no name is provided", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"interval": "1m",
+							"rules": [
+								{
+									"record": "job:http_total:sum",
+									"expr": "sum(http_total) by (source_id)",
+								}
+							]
+						}
+					}`)
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(400))
+				})
+
+				It("Uses the default if no interval is provided", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"name": "my-example-group",
+							"rules": [
+								{
+									"record": "job:http_total:sum",
+									"expr": "sum(http_total) by (source_id)",
+									"labels": {
+										"foo": "bar"
+									}
+								}
+							]
+						}
+					}`)
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(201))
+					responseBytes, err := ioutil.ReadAll(resp.Body)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(responseBytes).To(MatchJSON([]byte(`
+					{
+						"data": {
+							"name": "my-example-group",
+							"interval": "1m0s",
+							"rules": [
+								{
+									"record": "job:http_total:sum",
+									"expr": "sum(http_total) by (source_id)",
+									"labels": {
+										"foo": "bar"
+									}
+								}
+							]
+						}
+					}`)))
+
+				})
+
+				It("Returns an error if the provided interval is not a duration", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"name": "my-example-group",
+							"interval": "not a duration",
+							"rules": [
+								{
+									"record": "job:http_total:sum",
+									"expr": "sum(http_total) by (source_id)",
+									"labels": {
+										"foo": "bar"
+									}
+								}
+							]
+						}
+					}`)
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(400))
+				})
+
+				It("Returns an error if the rules array is not provided", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"name": "my-example-group",
+							"interval": "1m",
+						}
+					}`)
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(400))
+				})
+
+				It("Returns an error if the rules array is empty", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"name": "my-example-group",
+							"interval": "1m",
+							"rules": []
+						}
+					}`)
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(400))
+				})
+
+				It("Returns an error if the resulting config is not valid", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"name": "my-example-group",
+							"interval": "1m",
+							"rules": [
+								{
+									"record": "job:http_total:sum",
+									"expr": "invalid promql {",
+									"labels": {
+										"foo": "bar"
+									}
+								}
+							]
+						}
+					}`)
+					resp, err := apiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(400))
+				})
+			})
+
+			It("Returns an error if the manager_id does not exist", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+
+				apiClient := &http.Client{
+					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+				}
+				resp, err := apiClient.Post(
+					"https://"+tc.store.Addr()+"/rules/manager/rules-manager-that-doesnt-exist/group",
+					"application/json",
+					bytes.NewReader(createRuleGroupPayload),
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.StatusCode).To(Equal(400))
+			})
+		})
 	})
 
 	Describe("TLS security", func() {
