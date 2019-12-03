@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
@@ -364,6 +364,32 @@ var _ = Describe("CfAuthMiddleware", func() {
 			Expect(tc.baseHandlerCalled).To(BeTrue())
 
 			Expect(tc.spyOauth2ClientReader.token).To(Equal(""))
+		})
+	})
+
+	Describe("/rules", func() {
+		Describe("/manager", func() {
+			It("forwards the request to the rules endpoint handler", func() {
+				tc := setup("/rules/manager")
+
+				tc.invokeAuthHandler()
+
+				Expect(tc.recorder.Code).ToNot(Equal(http.StatusNotFound))
+				Expect(tc.baseHandlerCalled).To(BeTrue())
+				Expect(tc.spyOauth2ClientReader.token).To(Equal(""))
+			})
+		})
+
+		Describe("/manager/:id/group", func() {
+			It("forwards the request to the rules group endpoint", func() {
+				tc := setup("/rules/manager/id/group")
+
+				tc.invokeAuthHandler()
+
+				Expect(tc.recorder.Code).ToNot(Equal(http.StatusNotFound))
+				Expect(tc.baseHandlerCalled).To(BeTrue())
+				Expect(tc.spyOauth2ClientReader.token).To(Equal(""))
+			})
 		})
 	})
 })

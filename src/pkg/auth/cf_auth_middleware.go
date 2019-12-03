@@ -116,6 +116,7 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 	})
 
 	router.HandleFunc("/health", h.ServeHTTP)
+	router.PathPrefix("/rules/").Handler(h)
 
 	return router
 }
