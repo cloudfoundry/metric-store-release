@@ -2,14 +2,11 @@ package metricstore
 
 import (
 	"context"
-	"crypto/md5"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"sync/atomic"
@@ -18,6 +15,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"go.uber.org/zap"
@@ -31,15 +29,8 @@ import (
 	"github.com/niubaoshu/gotiny"
 
 	config_util "github.com/prometheus/common/config"
-	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"github.com/prometheus/prometheus/notifier"
 	prom_labels "github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
-	"github.com/prometheus/prometheus/rules"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
@@ -72,8 +63,7 @@ type MetricStore struct {
 	closing            int64
 
 	localStore        prom_storage.Storage
-	ruleManager       *rules.Manager
-	notifierManager   *notifier.Manager
+	ruleManagers      *rules.RuleManagers
 	replicationFactor uint
 	queryTimeout      time.Duration
 
@@ -241,28 +231,6 @@ func WithRulesPath(rulesPath string) MetricStoreOption {
 	}
 }
 
-func EngineQueryFunc(engine *promql.Engine, q prom_storage.Queryable) rules.QueryFunc {
-	return func(ctx context.Context, qs string, t time.Time) (promql.Vector, error) {
-		vector, err := rules.EngineQueryFunc(engine, q)(ctx, qs, t)
-		if err != nil {
-			return nil, err
-		}
-
-		samples := []promql.Sample{}
-		for _, sample := range vector {
-			samples = append(samples, promql.Sample{
-				Point: promql.Point{
-					T: transform.MillisecondsToNanoseconds(sample.T),
-					V: sample.V,
-				},
-				Metric: sample.Metric,
-			})
-		}
-
-		return promql.Vector(samples), nil
-	}
-}
-
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
@@ -290,29 +258,18 @@ func (store *MetricStore) Start() {
 	}
 	queryEngine := promql.NewEngine(engineOpts)
 
-	options := &notifier.Options{
-		QueueCapacity: 10,
-		Registerer:    store.metrics.Registerer(),
-	}
-	store.notifierManager = notifier.NewManager(options, store.log)
-
-	store.ruleManager = rules.NewManager(&rules.ManagerOptions{
-		Appendable:  store.replicatedStorage,
-		TSDB:        store.replicatedStorage,
-		QueryFunc:   EngineQueryFunc(queryEngine, store.replicatedStorage),
-		NotifyFunc:  sendAlerts(store.notifierManager),
-		Context:     context.Background(),
-		ExternalURL: &url.URL{},
-		Logger:      store.log,
-		Registerer:  store.metrics.Registerer(),
-	})
+	store.ruleManagers = rules.NewRuleManagers(
+		store.replicatedStorage,
+		queryEngine,
+		store.log,
+		store.metrics,
+	)
 
 	store.setupRouting(queryEngine)
 	store.setupDirtyListener()
 	store.setupSanitizedListener()
 
-	go store.configureAlertManager()
-	go store.processRules()
+	go store.loadRules(queryEngine)
 }
 
 func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
@@ -344,8 +301,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 	promAPI := api.NewPromAPI(
 		promQLEngine,
-		store.notifierManager,
-		store.ruleManager,
+		store.ruleManagers,
 		store.log,
 	)
 
@@ -360,6 +316,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	}
 	rulesAPI := api.NewRulesAPI(
 		rulesStoragePath,
+		store.ruleManagers,
 		time.Duration(promql.DefaultEvaluationInterval)*time.Millisecond,
 		store.log,
 	)
@@ -387,87 +344,29 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	}()
 }
 
-func (store *MetricStore) processRules() {
-	// TODO reconsider this design
-	go func(storagePath string, rulesPath string) {
-		for {
-			time.Sleep(1 * time.Second)
-			rules := []string{}
-			if rulesPath != "" {
-				rules = append(rules, store.rulesPath)
-			}
-			rulesDir := path.Join(storagePath, "rules")
-			files, err := ioutil.ReadDir(rulesDir)
-			if err != nil {
-				store.log.Info("could not read rules dir", zap.Error(err))
-				continue
-			}
+func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
+	if store.rulesPath != "" {
+		store.ruleManagers.Create(store.rulesPath, store.alertmanagerAddr)
+	}
 
-			for _, ruleFile := range files {
-				rules = append(rules, path.Join(rulesDir, ruleFile.Name()))
-			}
-
-			err = store.ruleManager.Update(5*time.Second, rules, nil)
-			if err != nil {
-				store.log.Info("could not update rule manager")
-				continue
-			}
-		}
-	}(store.storagePath, store.rulesPath)
-
-	store.ruleManager.Run()
-}
-
-func (store *MetricStore) configureAlertManager() {
-	if store.alertmanagerAddr == "" {
+	rulesDir := path.Join(store.storagePath, "rules")
+	files, err := ioutil.ReadDir(rulesDir)
+	if err != nil {
+		store.log.Error("no rules are available", err)
 		return
 	}
 
-	discoveryManagerNotify := discovery.NewManager(
-		context.Background(),
-		store.log,
-		discovery.Name("notify"),
-	)
-	go discoveryManagerNotify.Run()
-	go store.notifierManager.Run(discoveryManagerNotify.SyncCh())
+	managerStore := rules.NewManagerStore(rulesDir)
 
-	cfg := &config.Config{
-		AlertingConfig: config.AlertingConfig{
-			AlertmanagerConfigs: []*config.AlertmanagerConfig{
-				{
-					ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-						StaticConfigs: []*targetgroup.Group{
-							{
-								Targets: []model.LabelSet{
-									{
-										"__address__": model.LabelValue(store.alertmanagerAddr),
-									},
-								},
-							},
-						},
-					},
-					Scheme:     "http",
-					Timeout:    10000000000,
-					APIVersion: config.AlertmanagerAPIVersionV2,
-				},
-			},
-		},
-	}
-
-	if err := store.notifierManager.ApplyConfig(cfg); err != nil {
-		store.log.Fatal("error Applying the config", err)
-	}
-
-	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
-	for _, v := range cfg.AlertingConfig.AlertmanagerConfigs {
-		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
-		b, err := json.Marshal(v)
+	for _, ruleFile := range files {
+		managerFile, alertmanagerAddr, err := managerStore.Load(ruleFile.Name())
 		if err != nil {
-			store.log.Fatal("error parsing alertmanager config", err)
+			store.log.Error("could not parse rule file", err, logger.String("file", ruleFile.Name()))
+			continue
 		}
-		discoveredConfig[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
+
+		store.ruleManagers.Create(managerFile, alertmanagerAddr)
 	}
-	discoveryManagerNotify.ApplyConfig(discoveredConfig)
 }
 
 func (store *MetricStore) setupDirtyListener() {
@@ -625,28 +524,4 @@ func (store *MetricStore) apiHealth(w http.ResponseWriter, req *http.Request) {
 
 	w.Write(responseBytes)
 	return
-}
-
-func sendAlerts(s *notifier.Manager) rules.NotifyFunc {
-	return func(ctx context.Context, expr string, alerts ...*rules.Alert) {
-		var res []*notifier.Alert
-
-		for _, alert := range alerts {
-			a := &notifier.Alert{
-				StartsAt:    alert.FiredAt,
-				Labels:      alert.Labels,
-				Annotations: alert.Annotations,
-			}
-			if !alert.ResolvedAt.IsZero() {
-				a.EndsAt = alert.ResolvedAt
-			} else {
-				a.EndsAt = alert.ValidUntil
-			}
-			res = append(res, a)
-		}
-
-		if len(alerts) > 0 {
-			s.Send(res...)
-		}
-	}
 }

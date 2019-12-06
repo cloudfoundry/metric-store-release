@@ -48,13 +48,59 @@ type testContext struct {
 	store           *metricstore.MetricStore
 	persistentStore storage.Storage
 	apiClient       prom_api_client.API
+	rulesApiClient  *http.Client
 
 	spyMetrics                *shared.SpyMetricRegistrar
 	spyPersistentStoreMetrics *shared.SpyMetricRegistrar
 	registry                  *prometheus.Registry
 
+	alertManager1         *testing.AlertManagerSpy
+	alertManager2         *testing.AlertManagerSpy
 	minTimeInMilliseconds int64
 	maxTimeInMilliseconds int64
+}
+
+func (tc *testContext) CreateRuleManager(managerId, alertmanagerAddr string) {
+	createRulesManagerPayload := `
+	{
+		"data": {
+			"id": "` + managerId + `",
+			"alertmanager_url": "` + alertmanagerAddr + `"
+		}
+	}`
+
+	resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+		"application/json",
+		bytes.NewReader([]byte(createRulesManagerPayload)),
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(resp.StatusCode).To(Equal(201))
+}
+
+func (tc *testContext) CreateRuleGroup(managerId, ruleType, alertName, alertExpr string) *http.Response {
+	createRuleGroupPayload := []byte(`
+	{
+		"data": {
+			"name": "my-example-group",
+			"interval": "1s",
+			"rules": [
+				{
+					"` + ruleType + `": "` + alertName + `",
+					"expr": "` + alertExpr + `"
+				}
+			]
+		}
+	}`)
+
+	resp, err := tc.rulesApiClient.Post(
+		"https://"+tc.store.Addr()+"/rules/manager/"+managerId+"/group",
+		"application/json",
+		bytes.NewReader(createRuleGroupPayload),
+	)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(resp.StatusCode).To(Equal(201))
+
+	return resp
 }
 
 var _ = Describe("MetricStore", func() {
@@ -135,18 +181,34 @@ var _ = Describe("MetricStore", func() {
 		tc, innerCleanup := setupWithPersistentStore(persistentStore, storagePath)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
 
+		tc.alertManager1 = testing.NewAlertManagerSpy()
+		tc.alertManager2 = testing.NewAlertManagerSpy()
+		tc.alertManager1.Start()
+		tc.alertManager2.Start()
 		tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsConfig)
+
+		tc.rulesApiClient = &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+		}
 
 		return tc, func() {
 			innerCleanup()
 			os.RemoveAll(storagePath)
+			tc.alertManager1.Stop()
+			tc.alertManager2.Stop()
 		}
 	}
 
-	It("queries data via PromQL Instant Queries", func() {
-		tc, cleanup := setup()
-		defer cleanup()
+	var tc *testContext
+	var cleanup func()
 
+	BeforeEach(func() {
+		tc, cleanup = setup()
+	})
+
+	AfterEach(func() { cleanup() })
+
+	It("queries data via PromQL Instant Queries", func() {
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{
@@ -180,9 +242,6 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("queries data via PromQL Range Queries", func() {
-		tc, cleanup := setup()
-		defer cleanup()
-
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{
@@ -224,9 +283,6 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("provides a default resolution for sub-queries", func() {
-		tc, cleanup := setup()
-		defer cleanup()
-
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{
@@ -270,9 +326,6 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("routes points to internode peers", func() {
-		tc, cleanup := setup()
-		defer cleanup()
-
 		writePoints(tc, []*rpc.Point{
 			{Timestamp: 1, Name: MAGIC_MEASUREMENT_NAME},
 			{Timestamp: 2, Name: MAGIC_MEASUREMENT_PEER_NAME},
@@ -286,9 +339,6 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("replays writes to internode connections when they come back online", func() {
-		tc, cleanup := setup()
-		defer cleanup()
-
 		tc.peer.Stop()
 		writePoints(tc, []*rpc.Point{
 			{Timestamp: 1, Name: MAGIC_MEASUREMENT_NAME},
@@ -307,25 +357,21 @@ var _ = Describe("MetricStore", func() {
 		createRulesManagerPayload := []byte(`
 			{
 				"data": {
-					"id": "rules-manager-id"
+					"id": "rules-manager-id",
+					"alertmanager_url": ""
 				}
 			}
 		`)
 
 		Describe("/rules/manager endpoint", func() {
 			It("Creates a rule manager with a generated ID", func() {
-				tc, cleanup := setup()
-				defer cleanup()
 				noIdCreatePayload := []byte(`
 					{
 						"data": {}
 					}
 				`)
 
-				apiClient := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-				}
-				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
 					"application/json",
 					bytes.NewReader(noIdCreatePayload),
 				)
@@ -344,7 +390,7 @@ var _ = Describe("MetricStore", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.Data.Id).ToNot(Equal(""))
 
-				resp, err = apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+				resp, err = tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
 					"application/json",
 					bytes.NewReader(noIdCreatePayload),
 				)
@@ -353,12 +399,7 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			It("Creates a rules manager with the provided ID", func() {
-				tc, cleanup := setup()
-				defer cleanup()
-				apiClient := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-				}
-				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
 					"application/json",
 					bytes.NewReader(createRulesManagerPayload),
 				)
@@ -371,19 +412,14 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			It("Returns an error when provided an existing rule manager id", func() {
-				tc, cleanup := setup()
-				defer cleanup()
-				apiClient := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-				}
-				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
 					"application/json",
 					bytes.NewReader(createRulesManagerPayload),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(201))
 
-				resp, err = apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+				resp, err = tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
 					"application/json",
 					bytes.NewReader(createRulesManagerPayload),
 				)
@@ -392,22 +428,47 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			It("Returns an error when given invalid json", func() {
-				tc, cleanup := setup()
-				defer cleanup()
-				apiClient := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-				}
-				resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
+				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
 					"application/json",
 					bytes.NewReader([]byte("invalid json goes here")),
 				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.StatusCode).To(Equal(400))
 			})
+
+			It("Sends triggered alerts to the respective alertmanager address", func() {
+				tc.CreateRuleManager("rules-manager-id1", tc.alertManager1.Addr())
+				tc.CreateRuleManager("rules-manager-id2", tc.alertManager2.Addr())
+
+				tc.CreateRuleGroup("rules-manager-id1", "alert", "sumCpuTotal1", "sum(cpu) > 0")
+				tc.CreateRuleGroup("rules-manager-id2", "alert", "sumCpuTotal2", "sum(cpu) > 0")
+
+				now := time.Now()
+				writePoints(tc, []*rpc.Point{
+					{Timestamp: now.Add(-2 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_NAME, Value: 1},
+					{Timestamp: now.Add(-1 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_NAME, Value: 1},
+					{Timestamp: now.UnixNano(), Name: MAGIC_MEASUREMENT_NAME, Value: 1},
+				})
+
+				Eventually(countRuleGroups(tc), 5*time.Second).Should(Equal(2))
+				Eventually(countManagersActive(tc), 5*time.Second).Should(Equal(2))
+				Eventually(countFiringAlerts(tc), 20*time.Second).Should(Equal(2))
+
+				alertsReceived1 := func() bool {
+					return tc.alertManager1.AlertsReceived() >= 1 && tc.alertManager1.LastAlertReceived() == "sumCpuTotal1"
+				}
+
+				alertsReceived2 := func() bool {
+					return tc.alertManager2.AlertsReceived() >= 1 && tc.alertManager2.LastAlertReceived() == "sumCpuTotal2"
+				}
+
+				Eventually(alertsReceived1, 1).Should(BeTrue())
+				Eventually(alertsReceived2, 1).Should(BeTrue())
+
+			})
 		})
 
 		Describe("/rules/manager/:manager_id/group endpoint", func() {
-			// recordedMetric := "job:http_total:sum"
 			createRuleGroupPayload := []byte(`
 			{
 				"data": {
@@ -416,63 +477,49 @@ var _ = Describe("MetricStore", func() {
 					"rules": [
 						{
 							"record": "job:http_total:sum",
-							"expr": "sum(http_total) by (source_id)",
-							"labels": {
-								"foo": "bar"
-							}
+							"expr": "sum(http_total) by (source_id)"
 						}
 					]
 				}
 			}`)
 
 			Context("when a rule manager exists", func() {
-				var tc *testContext
-				var cleanup func()
-				var apiClient *http.Client
-
 				BeforeEach(func() {
-					tc, cleanup = setup()
-
-					apiClient = &http.Client{
-						Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-					}
-
-					resp, err := apiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
-						"application/json",
-						bytes.NewReader(createRulesManagerPayload),
-					)
-
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(201))
-				})
-
-				AfterEach(func() {
-					cleanup()
+					tc.CreateRuleManager("rules-manager-id", "")
 				})
 
 				It("Creates a rule group", func() {
-					resp, err := apiClient.Post(
-						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
-						"application/json",
-						bytes.NewReader(createRuleGroupPayload),
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(201))
+					resp := tc.CreateRuleGroup("rules-manager-id", "record", "job:http_total:sum", "sum(http_total) by (source_id)")
 
 					body, err := ioutil.ReadAll(resp.Body)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(body).To(MatchJSON(createRuleGroupPayload))
 
-					f := func() error {
-						rules, err := tc.apiClient.Rules(context.Background())
-						Expect(err).ToNot(HaveOccurred())
+					Eventually(countRuleGroups(tc), 5*time.Second).Should(BeNumerically(">", 0))
+				})
 
-						if len(rules.Groups) == 0 {
-							return errors.New("no rule group")
+				It("Correctly serializes the duration from the `for` field", func() {
+					payload := []byte(`
+					{
+						"data": {
+							"name": "example-group",
+							"interval": "1m",
+							"rules": [
+								{
+									"alert": "job:http_total:sum",
+									"expr": "sum(http_total) > 1",
+									"for": "10s"
+								}
+							]
 						}
-						return nil
-					}
-					Eventually(f, 5*time.Second).Should(BeNil())
+					}`)
+					resp, err := tc.rulesApiClient.Post(
+						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
+						"application/json",
+						bytes.NewReader(payload),
+					)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(201))
 				})
 
 				It("Returns an error if no name is provided", func() {
@@ -483,12 +530,12 @@ var _ = Describe("MetricStore", func() {
 							"rules": [
 								{
 									"record": "job:http_total:sum",
-									"expr": "sum(http_total) by (source_id)",
+									"expr": "sum(http_total) by (source_id)"
 								}
 							]
 						}
 					}`)
-					resp, err := apiClient.Post(
+					resp, err := tc.rulesApiClient.Post(
 						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
 						"application/json",
 						bytes.NewReader(payload),
@@ -505,21 +552,19 @@ var _ = Describe("MetricStore", func() {
 							"rules": [
 								{
 									"record": "job:http_total:sum",
-									"expr": "sum(http_total) by (source_id)",
-									"labels": {
-										"foo": "bar"
-									}
+									"expr": "sum(http_total) by (source_id)"
 								}
 							]
 						}
 					}`)
-					resp, err := apiClient.Post(
+					resp, err := tc.rulesApiClient.Post(
 						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
 						"application/json",
 						bytes.NewReader(payload),
 					)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(resp.StatusCode).To(Equal(201))
+
 					responseBytes, err := ioutil.ReadAll(resp.Body)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(responseBytes).To(MatchJSON([]byte(`
@@ -530,10 +575,7 @@ var _ = Describe("MetricStore", func() {
 							"rules": [
 								{
 									"record": "job:http_total:sum",
-									"expr": "sum(http_total) by (source_id)",
-									"labels": {
-										"foo": "bar"
-									}
+									"expr": "sum(http_total) by (source_id)"
 								}
 							]
 						}
@@ -550,15 +592,12 @@ var _ = Describe("MetricStore", func() {
 							"rules": [
 								{
 									"record": "job:http_total:sum",
-									"expr": "sum(http_total) by (source_id)",
-									"labels": {
-										"foo": "bar"
-									}
+									"expr": "sum(http_total) by (source_id)"
 								}
 							]
 						}
 					}`)
-					resp, err := apiClient.Post(
+					resp, err := tc.rulesApiClient.Post(
 						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
 						"application/json",
 						bytes.NewReader(payload),
@@ -572,10 +611,10 @@ var _ = Describe("MetricStore", func() {
 					{
 						"data": {
 							"name": "my-example-group",
-							"interval": "1m",
+							"interval": "1m"
 						}
 					}`)
-					resp, err := apiClient.Post(
+					resp, err := tc.rulesApiClient.Post(
 						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
 						"application/json",
 						bytes.NewReader(payload),
@@ -593,7 +632,7 @@ var _ = Describe("MetricStore", func() {
 							"rules": []
 						}
 					}`)
-					resp, err := apiClient.Post(
+					resp, err := tc.rulesApiClient.Post(
 						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
 						"application/json",
 						bytes.NewReader(payload),
@@ -611,15 +650,12 @@ var _ = Describe("MetricStore", func() {
 							"rules": [
 								{
 									"record": "job:http_total:sum",
-									"expr": "invalid promql {",
-									"labels": {
-										"foo": "bar"
-									}
+									"expr": "invalid promql {"
 								}
 							]
 						}
 					}`)
-					resp, err := apiClient.Post(
+					resp, err := tc.rulesApiClient.Post(
 						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
 						"application/json",
 						bytes.NewReader(payload),
@@ -630,13 +666,7 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			It("Returns an error if the manager_id does not exist", func() {
-				tc, cleanup := setup()
-				defer cleanup()
-
-				apiClient := &http.Client{
-					Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-				}
-				resp, err := apiClient.Post(
+				resp, err := tc.rulesApiClient.Post(
 					"https://"+tc.store.Addr()+"/rules/manager/rules-manager-that-doesnt-exist/group",
 					"application/json",
 					bytes.NewReader(createRuleGroupPayload),
@@ -649,8 +679,6 @@ var _ = Describe("MetricStore", func() {
 
 	Describe("TLS security", func() {
 		DescribeTable("allows only supported TLS versions", func(clientTLSVersion int, serverAllows bool) {
-			tc, cleanup := setup()
-			defer cleanup()
 
 			clientTlsConfig := tc.tlsConfig.Clone()
 			clientTlsConfig.MaxVersion = uint16(clientTLSVersion)
@@ -673,9 +701,6 @@ var _ = Describe("MetricStore", func() {
 		)
 
 		DescribeTable("allows only supported cipher suites", func(clientCipherSuite uint16, serverAllows bool) {
-			tc, cleanup := setup()
-			defer cleanup()
-
 			clientTlsConfig := tc.tlsConfig.Clone()
 			clientTlsConfig.MaxVersion = tls.VersionTLS12
 			clientTlsConfig.CipherSuites = []uint16{clientCipherSuite}
@@ -765,6 +790,39 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 			return nil
 		}
 		Eventually(f).Should(BeNil())
+	}
+}
+
+func countRuleGroups(tc *testContext) func() int {
+	return func() int {
+		rules, err := tc.apiClient.Rules(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		return len(rules.Groups)
+	}
+}
+
+func countManagersActive(tc *testContext) func() int {
+	return func() int {
+		managers, err := tc.apiClient.AlertManagers(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		return len(managers.Active)
+	}
+}
+
+func countFiringAlerts(tc *testContext) func() int {
+	return func() int {
+		alerts, err := tc.apiClient.Alerts(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+
+		count := 0
+		for _, alert := range alerts.Alerts {
+			if alert.State == prom_api_client.AlertStateFiring {
+				count += 1
+			}
+		}
+		return count
 	}
 }
 

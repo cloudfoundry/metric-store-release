@@ -1,0 +1,139 @@
+package rules
+
+// TODO:
+// metrics register
+
+import (
+	"context"
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"time"
+
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/discovery"
+	sd_config "github.com/prometheus/prometheus/discovery/config"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/prometheus/prometheus/notifier"
+	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/rules"
+	"github.com/prometheus/prometheus/storage"
+)
+
+type RuleManager struct {
+	PromRuleManager      *rules.Manager
+	PromNotifierManager  *notifier.Manager
+	PromDiscoveryManager *discovery.Manager
+	ruleFile             string
+	alertmanagerAddr     string
+	log                  *logger.Logger
+	metrics              debug.MetricRegistrar
+}
+
+func NewRuleManager(ruleFile, alertmanagerAddr string, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *RuleManager {
+	options := &notifier.Options{
+		QueueCapacity: 10,
+		// TODO
+		// Registerer: metrics.Registerer(),
+	}
+
+	promNotifierManager := notifier.NewManager(options, log)
+
+	promRuleManager := rules.NewManager(&rules.ManagerOptions{
+		Appendable:  store,
+		TSDB:        store,
+		QueryFunc:   EngineQueryFunc(engine, store),
+		NotifyFunc:  sendAlerts(promNotifierManager),
+		Context:     context.Background(),
+		ExternalURL: &url.URL{},
+		Logger:      log,
+		// TODO
+		// Registerer:  r.metrics.Registerer(),
+	})
+
+	promDiscoveryManager := discovery.NewManager(
+		context.Background(),
+		log,
+		discovery.Name("notify"),
+	)
+
+	return &RuleManager{
+		PromRuleManager:      promRuleManager,
+		PromNotifierManager:  promNotifierManager,
+		PromDiscoveryManager: promDiscoveryManager,
+		ruleFile:             ruleFile,
+		alertmanagerAddr:     alertmanagerAddr,
+		log:                  log,
+		metrics:              metrics,
+	}
+}
+
+func (r *RuleManager) Start() error {
+	err := r.Reload()
+	if err != nil {
+		return err
+	}
+	r.PromRuleManager.Run()
+
+	go r.PromDiscoveryManager.Run()
+	go r.PromNotifierManager.Run(r.PromDiscoveryManager.SyncCh())
+
+	return nil
+}
+
+func (r *RuleManager) Reload() error {
+	err := r.PromRuleManager.Update(5*time.Second, []string{r.ruleFile}, nil)
+	if err != nil {
+		return err
+	}
+
+	if r.alertmanagerAddr == "" {
+		return nil
+	}
+
+	cfg := &config.Config{
+		AlertingConfig: config.AlertingConfig{
+			AlertmanagerConfigs: []*config.AlertmanagerConfig{
+				{
+					ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
+						StaticConfigs: []*targetgroup.Group{
+							{
+								Targets: []model.LabelSet{
+									{
+										"__address__": model.LabelValue(r.alertmanagerAddr),
+									},
+								},
+							},
+						},
+					},
+					Scheme:     "http",
+					Timeout:    10000000000,
+					APIVersion: config.AlertmanagerAPIVersionV2,
+				},
+			},
+		},
+	}
+
+	if err := r.PromNotifierManager.ApplyConfig(cfg); err != nil {
+		r.log.Fatal("error Applying the config", err)
+		return err
+	}
+
+	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
+	for _, v := range cfg.AlertingConfig.AlertmanagerConfigs {
+		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
+		b, err := json.Marshal(v)
+		if err != nil {
+			r.log.Fatal("error parsing alertmanager config", err)
+			return err
+		}
+		discoveredConfig[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
+	}
+	r.PromDiscoveryManager.ApplyConfig(discoveredConfig)
+
+	return nil
+}

@@ -3,13 +3,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"os"
-	"path"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/go-kit/kit/log/level"
 	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
@@ -17,18 +15,19 @@ import (
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 	"github.com/prometheus/prometheus/util/httputil"
-	"gopkg.in/yaml.v2"
 )
 
 type RulesAPI struct {
-	rulesStoragePath   string
+	rulesManagerStore  *rules.ManagerStore
+	ruleManagers       *rules.RuleManagers
 	evaluationInterval time.Duration
 	log                *logger.Logger
 }
 
-func NewRulesAPI(rulesStoragePath string, evaluationInterval time.Duration, log *logger.Logger) *RulesAPI {
+func NewRulesAPI(rulesStoragePath string, ruleManagers *rules.RuleManagers, evaluationInterval time.Duration, log *logger.Logger) *RulesAPI {
 	return &RulesAPI{
-		rulesStoragePath:   rulesStoragePath,
+		rulesManagerStore:  rules.NewManagerStore(rulesStoragePath),
+		ruleManagers:       ruleManagers,
 		evaluationInterval: evaluationInterval,
 		log:                log,
 	}
@@ -84,7 +83,8 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 
 	var body struct {
 		Data struct {
-			Id string `json:"id"`
+			Id              string `json:"id"`
+			AlertManagerUrl string `json:"alertmanager_url"`
 		} `json:"data"`
 	}
 
@@ -98,26 +98,28 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		body.Data.Id = uuid.New().String()
 	}
 
-	managerFile := api.rulesFileForManager(body.Data.Id)
-	file, err := os.OpenFile(managerFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, os.ModePerm)
-	if os.IsExist(err) {
-		return apiFuncResult{
-			nil,
-			&apiError{
+	managerFile, err := api.rulesManagerStore.Create(body.Data.Id, body.Data.AlertManagerUrl)
+	if err != nil {
+		var returnErr *apiError
+
+		switch err {
+		case rules.ManagerExistsError:
+			returnErr = &apiError{
 				http.StatusConflict,
 				fmt.Errorf("Could not create ruleManager, a ruleManager with name %s already exists", body.Data.Id),
-			},
+			}
+		default:
+			returnErr = &apiError{
+				http.StatusInternalServerError,
+				err,
+			}
 		}
-	}
-	if err != nil && !os.IsNotExist(err) {
-		return apiFuncResult{nil, &apiError{http.StatusInternalServerError, err}}
-	}
-	defer file.Close()
 
-	_, err = file.Write([]byte("groups: []"))
-	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusInternalServerError, err}}
+		return apiFuncResult{nil, returnErr}
 	}
+
+	api.ruleManagers.Create(managerFile, body.Data.AlertManagerUrl)
+
 	return apiFuncResult{body, nil}
 }
 
@@ -140,16 +142,33 @@ func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
 	if err != nil {
 		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
 	}
-	exists, err := api.rulesManagerExists(managerId)
-	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusInternalServerError, err}}
-	}
-	if !exists {
-		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
-	}
 
 	if body.Data.Name == "" {
 		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+	}
+
+	if len(body.Data.Rules) == 0 {
+		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+	}
+
+	var apiRules []Rule
+	rulesBytes, err := json.Marshal(body.Data.Rules)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+	}
+	err = json.Unmarshal(rulesBytes, &apiRules)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+	}
+
+	var promRules []rulefmt.Rule
+	for _, apiRule := range apiRules {
+		promRule, err := apiRule.convertToPromRule()
+		if err != nil {
+			return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+		}
+
+		promRules = append(promRules, promRule)
 	}
 
 	var duration model.Duration
@@ -158,29 +177,15 @@ func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
 		body.Data.Interval = api.evaluationInterval.String()
 	} else {
 		duration, err = model.ParseDuration(body.Data.Interval)
-	}
-	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
-	}
-
-	var rules []rulefmt.Rule
-	rulesBytes, err := json.Marshal(body.Data.Rules)
-	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
-	}
-	err = json.Unmarshal(rulesBytes, &rules)
-	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
-	}
-
-	if len(body.Data.Rules) == 0 {
-		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+		if err != nil {
+			return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+		}
 	}
 
 	ruleGroup := rulefmt.RuleGroup{
 		Name:     body.Data.Name,
 		Interval: duration,
-		Rules:    rules,
+		Rules:    promRules,
 	}
 	ruleGroups := rulefmt.RuleGroups{
 		Groups: []rulefmt.RuleGroup{
@@ -189,55 +194,32 @@ func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
 	}
 
 	if errs := ruleGroups.Validate(); len(errs) != 0 {
-		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+		return apiFuncResult{nil, &apiError{http.StatusBadRequest, errs[0]}}
 	}
 
-	err = api.writeRuleToFile(managerId, ruleGroup)
+	err = api.rulesManagerStore.AddRuleGroup(managerId, &ruleGroup)
 	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusInternalServerError, err}}
+		var returnErr *apiError
+
+		switch err {
+		case rules.ManagerNotExistsError:
+			returnErr = &apiError{
+				http.StatusBadRequest,
+				err,
+			}
+		default:
+			returnErr = &apiError{
+				http.StatusInternalServerError,
+				err,
+			}
+		}
+
+		return apiFuncResult{nil, returnErr}
 	}
+
+	api.ruleManagers.Reload()
+
 	return apiFuncResult{body, nil}
-}
-
-func (api *RulesAPI) rulesManagerExists(managerId string) (bool, error) {
-	managerFile := api.rulesFileForManager(managerId)
-	_, err := os.Stat(managerFile)
-
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
-func (api *RulesAPI) writeRuleToFile(managerId string, ruleGroup rulefmt.RuleGroup) error {
-	var err error
-
-	rulesFile := api.rulesFileForManager(managerId)
-	bytes, err := ioutil.ReadFile(rulesFile)
-	var rgs rulefmt.RuleGroups
-	err = yaml.Unmarshal(bytes, &rgs)
-	if err != nil {
-		return err
-	}
-	rgs.Groups = append(rgs.Groups, ruleGroup)
-	outBytes, err := yaml.Marshal(rgs)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(rulesFile, outBytes, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (api *RulesAPI) rulesFileForManager(managerId string) string {
-	return path.Join(api.rulesStoragePath, managerId)
 }
 
 func (api *RulesAPI) respond(w http.ResponseWriter, data interface{}) {

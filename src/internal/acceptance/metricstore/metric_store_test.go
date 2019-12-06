@@ -1,6 +1,7 @@
 package metricstore_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -1188,5 +1190,103 @@ groups:
 			}
 		}
 		Eventually(checkCount, 20).Should(BeTrue())
+	})
+
+	It("Adds rules via API and persists rules across restarts", func() {
+		tc, cleanup := setup(1)
+		defer cleanup()
+
+		alertmanager := testing.NewAlertManagerSpy()
+		alertmanager.Start()
+		defer alertmanager.Stop()
+
+		writePoints(
+			tc,
+			[]testPoint{
+				{
+					Name:               MAGIC_MEASUREMENT_PEER_NAME,
+					Value:              99,
+					TimeInMilliseconds: 1000,
+				},
+			},
+		)
+
+		createPayload := []byte(`
+			{
+				"data": {
+					"id": "test-id",
+					"alertmanager_url": "` + alertmanager.Addr() + `"
+				}
+			}
+		`)
+
+		apiClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+		}
+		_, err := apiClient.Post("https://"+tc.addrs[0]+"/rules/manager",
+			"application/json",
+			bytes.NewReader(createPayload),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		createRuleGroupPayload := []byte(`
+		{
+			"data": {
+				"name": "test-group",
+				"rules": [
+					{
+						"record": "sumCpuTotal",
+						"expr": "sum(cpu)"
+					}
+				]
+			}
+		}`)
+
+		_, err = apiClient.Post(
+			"https://"+tc.addrs[0]+"/rules/manager/test-id/group",
+			"application/json",
+			bytes.NewReader(createRuleGroupPayload),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		f := func() int {
+			rules, err := tc.localEgressClient.Rules(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			return len(rules.Groups)
+		}
+		Eventually(f, 5*time.Second).Should(Equal(1))
+
+		f = func() int {
+			managers, err := tc.localEgressClient.AlertManagers(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			return len(managers.Active)
+		}
+		Eventually(f, 10*time.Second).Should(Equal(1))
+
+		stopNode(tc, 0)
+		startNode(tc, 0)
+
+		Eventually(func() error {
+			_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			return err
+		}, 5).Should(Succeed())
+
+		f = func() int {
+			rules, err := tc.localEgressClient.Rules(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			return len(rules.Groups)
+		}
+		Eventually(f, 5*time.Second).Should(Equal(1))
+
+		f = func() int {
+			managers, err := tc.localEgressClient.AlertManagers(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			return len(managers.Active)
+		}
+		Eventually(f, 10*time.Second).Should(Equal(1))
 	})
 })
