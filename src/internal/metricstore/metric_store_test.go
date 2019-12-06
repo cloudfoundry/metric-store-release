@@ -464,7 +464,6 @@ var _ = Describe("MetricStore", func() {
 
 				Eventually(alertsReceived1, 1).Should(BeTrue())
 				Eventually(alertsReceived2, 1).Should(BeTrue())
-
 			})
 		})
 

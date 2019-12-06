@@ -308,7 +308,6 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	apiV1 := promAPI.RouterForStorage(store.replicatedStorage)
 	apiPrivate := promAPI.RouterForStorage(store.localStore)
 
-	// TODO store the rulesStoragePath in the store object?
 	rulesStoragePath := path.Join(store.storagePath, "rules")
 	err = os.Mkdir(rulesStoragePath, os.ModePerm)
 	if err != nil && !os.IsExist(err) {
@@ -346,7 +345,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
 	if store.rulesPath != "" {
-		store.ruleManagers.Create(store.rulesPath, store.alertmanagerAddr)
+		store.ruleManagers.Create("default", store.rulesPath, store.alertmanagerAddr)
 	}
 
 	rulesDir := path.Join(store.storagePath, "rules")
@@ -359,13 +358,14 @@ func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
 	managerStore := rules.NewManagerStore(rulesDir)
 
 	for _, ruleFile := range files {
-		managerFile, alertmanagerAddr, err := managerStore.Load(ruleFile.Name())
+		managerId := ruleFile.Name()
+		managerFile, alertmanagerAddr, err := managerStore.Load(managerId)
 		if err != nil {
-			store.log.Error("could not parse rule file", err, logger.String("file", ruleFile.Name()))
+			store.log.Error("could not parse rule file", err, logger.String("file", managerId))
 			continue
 		}
 
-		store.ruleManagers.Create(managerFile, alertmanagerAddr)
+		store.ruleManagers.Create(managerId, managerFile, alertmanagerAddr)
 	}
 }
 

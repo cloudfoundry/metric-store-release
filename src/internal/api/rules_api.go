@@ -118,7 +118,7 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		return apiFuncResult{nil, returnErr}
 	}
 
-	api.ruleManagers.Create(managerFile, body.Data.AlertManagerUrl)
+	api.ruleManagers.Create(body.Data.Id, managerFile, body.Data.AlertManagerUrl)
 
 	return apiFuncResult{body, nil}
 }

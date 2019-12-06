@@ -13,6 +13,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery"
@@ -25,6 +26,7 @@ import (
 )
 
 type RuleManager struct {
+	id                   string
 	PromRuleManager      *rules.Manager
 	PromNotifierManager  *notifier.Manager
 	PromDiscoveryManager *discovery.Manager
@@ -34,15 +36,19 @@ type RuleManager struct {
 	metrics              debug.MetricRegistrar
 }
 
-func NewRuleManager(ruleFile, alertmanagerAddr string, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *RuleManager {
+func NewRuleManager(managerId, ruleFile, alertmanagerAddr string, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *RuleManager {
+	rulesManagerRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"manager_id": managerId},
+		metrics.Registerer(),
+	)
+	rulesManagerLog := log.NamedLog(managerId)
+
 	options := &notifier.Options{
 		QueueCapacity: 10,
-		// TODO
-		// Registerer: metrics.Registerer(),
+		Registerer:    rulesManagerRegisterer,
 	}
 
 	promNotifierManager := notifier.NewManager(options, log)
-
 	promRuleManager := rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store,
 		TSDB:        store,
@@ -50,24 +56,24 @@ func NewRuleManager(ruleFile, alertmanagerAddr string, store storage.Storage, en
 		NotifyFunc:  sendAlerts(promNotifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
-		Logger:      log,
-		// TODO
-		// Registerer:  r.metrics.Registerer(),
+		Logger:      rulesManagerLog,
+		Registerer:  rulesManagerRegisterer,
 	})
 
 	promDiscoveryManager := discovery.NewManager(
 		context.Background(),
-		log,
+		rulesManagerLog,
 		discovery.Name("notify"),
 	)
 
 	return &RuleManager{
+		id:                   managerId,
 		PromRuleManager:      promRuleManager,
 		PromNotifierManager:  promNotifierManager,
 		PromDiscoveryManager: promDiscoveryManager,
 		ruleFile:             ruleFile,
 		alertmanagerAddr:     alertmanagerAddr,
-		log:                  log,
+		log:                  rulesManagerLog,
 		metrics:              metrics,
 	}
 }

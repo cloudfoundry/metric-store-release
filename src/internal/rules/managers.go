@@ -31,8 +31,8 @@ func NewRuleManagers(store storage.Storage, engine *promql.Engine, log *logger.L
 	}
 }
 
-func (r *RuleManagers) Create(ruleFile, alertmanagerAddr string) {
-	ruleManager := NewRuleManager(ruleFile, alertmanagerAddr, r.store, r.engine, r.log, r.metrics)
+func (r *RuleManagers) Create(managerId, ruleFile, alertmanagerAddr string) {
+	ruleManager := NewRuleManager(managerId, ruleFile, alertmanagerAddr, r.store, r.engine, r.log, r.metrics)
 	r.add(ruleManager)
 	ruleManager.Start()
 }

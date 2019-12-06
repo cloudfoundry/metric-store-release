@@ -87,6 +87,13 @@ func (l *Logger) StdLog(name string) *log.Logger {
 	return zap.NewStdLog(l.log.Named(name))
 }
 
+func (l *Logger) NamedLog(name string) *Logger {
+	namedLogger := l.log.Named(name)
+	return &Logger{
+		log: namedLogger,
+	}
+}
+
 func (l *Logger) Info(msg string, fields ...zap.Field) {
 	l.log.Info(msg, fields...)
 }

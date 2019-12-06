@@ -69,7 +69,7 @@ groups:
 			logger.NewTestLogger(),
 			spyMetrics,
 		)
-		ruleManagers.Create(tmpfile.Name(), alertmanager.Addr())
+		ruleManagers.Create("rule_manager_yml", tmpfile.Name(), alertmanager.Addr())
 
 		Expect(len(ruleManagers.RuleGroups())).To(Equal(1))
 		Expect(len(ruleManagers.AlertingRules())).To(Equal(1))
