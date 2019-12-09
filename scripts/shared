@@ -18,4 +18,6 @@ cleanup() {
   rm -rf src/*.in
   rm -rf src/*.com
   rm -f src/modules.txt
+
+  rm -rf src/contrib.go.opencensus.io src/go.opencensus.io src/honnef.co src/k8s.io src/sigs.k8s.io
 }
