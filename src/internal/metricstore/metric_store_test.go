@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -20,7 +22,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/influxdata/influxql"
-	"github.com/niubaoshu/gotiny"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
@@ -759,11 +760,14 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 	remoteConnection, err := leanstreams.DialTCP(cfg)
 	Expect(err).ToNot(HaveOccurred())
 
-	payload := gotiny.Marshal(&rpc.Batch{
-		Points: testPoints,
-	})
+	var payload bytes.Buffer
+	enc := gob.NewEncoder(&payload)
+	err = enc.Encode(rpc.Batch{Points: testPoints})
+	if err != nil {
+		log.Fatal("gob encode error:", err)
+	}
 
-	_, err = remoteConnection.Write(payload)
+	_, err = remoteConnection.Write(payload.Bytes())
 	Expect(err).ToNot(HaveOccurred())
 
 	querier, _ := tc.persistentStore.Querier(context.TODO(), 0, 0)

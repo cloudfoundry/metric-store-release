@@ -1,14 +1,16 @@
 package testing
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/gob"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"github.com/niubaoshu/gotiny"
 )
 
 type SpyTCPListener struct {
@@ -28,8 +30,13 @@ func NewSpyTCPListener(tlsConfig *tls.Config) *SpyTCPListener {
 
 func (s *SpyTCPListener) Start() error {
 	callback := func(payload []byte) error {
+		network := bytes.NewBuffer(payload)
+		dec := gob.NewDecoder(network)
 		batch := rpc.Batch{}
-		gotiny.Unmarshal(payload, &batch)
+		err := dec.Decode(&batch)
+		if err != nil {
+			log.Fatal("decode error 1:", err)
+		}
 
 		for _, e := range batch.Points {
 			s.receivedPointsChan <- e

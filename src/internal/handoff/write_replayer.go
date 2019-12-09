@@ -1,6 +1,8 @@
 package handoff
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
@@ -8,10 +10,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"github.com/niubaoshu/gotiny"
 )
 
 const (
@@ -183,17 +184,21 @@ func (w *WriteReplayer) Write(points []*rpc.Point) error {
 		return fmt.Errorf("write replayer is closed")
 	}
 
-	payload := gotiny.Marshal(&rpc.Batch{
-		Points: points,
-	})
+	var payload bytes.Buffer
+	enc := gob.NewEncoder(&payload)
+	err := enc.Encode(rpc.Batch{Points: points})
+	if err != nil {
+		w.log.Error("gob encode error", err)
+		return err
+	}
 
-	err := w.queue.Append(payload)
+	err = w.queue.Append(payload.Bytes())
 
 	if err != nil {
 		w.metrics.Inc(metrics.MetricStoreReplayerQueueErrorsTotal, w.targetNodeIndex)
 	} else {
 		w.metrics.Set(metrics.MetricStoreReplayerDiskUsageBytes, float64(w.queue.DiskUsage()), w.targetNodeIndex)
-		w.metrics.Add(metrics.MetricStoreReplayerQueuedBytesTotal, float64(len(payload)), w.targetNodeIndex)
+		w.metrics.Add(metrics.MetricStoreReplayerQueuedBytesTotal, float64(len(payload.Bytes())), w.targetNodeIndex)
 	}
 
 	return err

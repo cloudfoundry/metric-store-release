@@ -1,13 +1,14 @@
 package ingressclient
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/gob"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"github.com/niubaoshu/gotiny"
 )
 
 const (
@@ -61,10 +62,16 @@ func WithDialTimeout(timeout time.Duration) IngressClientOption {
 }
 
 func (c *IngressClient) Write(points []*rpc.Point) error {
-	payload := gotiny.Marshal(&rpc.Batch{Points: points})
+	var payload bytes.Buffer
+	enc := gob.NewEncoder(&payload)
+	err := enc.Encode(rpc.Batch{Points: points})
+	if err != nil {
+		c.log.Error("gob encode error", err)
+		return err
+	}
 
 	// TODO: consider adding back in a timeout (i.e. 3 seconds)
-	bytesWritten, err := c.connection.Write(payload)
+	bytesWritten, err := c.connection.Write(payload.Bytes())
 
 	if err == nil {
 		c.log.Info("wrote bytes", logger.Count(bytesWritten))

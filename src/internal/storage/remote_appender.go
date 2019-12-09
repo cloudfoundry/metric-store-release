@@ -9,7 +9,9 @@ import (
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
 
+	"bytes"
 	"crypto/tls"
+	"encoding/gob"
 	"fmt"
 	"os"
 	"sync"
@@ -17,16 +19,15 @@ import (
 
 	diodes "code.cloudfoundry.org/go-diodes"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/batch"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
-	"github.com/niubaoshu/gotiny"
-	"github.com/cloudfoundry/metric-store-release/src/internal/batch"
-	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/prometheus/prometheus/pkg/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
@@ -154,10 +155,15 @@ func (a *RemoteAppender) createWriter() {
 		// TODO: consider adding back in a timeout (i.e. 3 seconds)
 		start := time.Now()
 
-		payload := gotiny.Marshal(&rpc.Batch{
-			Points: points,
-		})
-		bytesWritten, err := tcpClient.Write(payload)
+		var payload bytes.Buffer
+		enc := gob.NewEncoder(&payload)
+		err := enc.Encode(rpc.Batch{Points: points})
+		if err != nil {
+			a.log.Error("gob encode error", err)
+			return
+		}
+
+		bytesWritten, err := tcpClient.Write(payload.Bytes())
 		if err != nil {
 			a.log.Error("error writing", err)
 

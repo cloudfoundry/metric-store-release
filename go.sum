@@ -491,10 +491,6 @@ github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRW
 github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f h1:KUppIJq7/+SVif2QVs3tOP0zanoHgBEVAwHxUSIzRqU=
 github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
-github.com/niubaoshu/gotiny v0.0.3 h1:aUt+fvr8nQmitT6XqwuBH8JUQz7QyS4A+KyCNXSesGc=
-github.com/niubaoshu/gotiny v0.0.3/go.mod h1:QdEauSzqdF5tbLIVtGYO6sqOhUKVPSZGd5x7xK5oeS4=
-github.com/niubaoshu/goutils v0.0.0-20180828035119-e8e576f66c2b h1:T7vmCmpGIvqlOOp5SXatALP+HYc/40ZHbxmgy+p+sN0=
-github.com/niubaoshu/goutils v0.0.0-20180828035119-e8e576f66c2b/go.mod h1:aDwH4aWrEBXw/uvtSvwNwxdtnsx++aP8c8ad4AmlRCg=
 github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d/go.mod h1:YUTz3bUH2ZwIWBy3CJBeOBEugqcmXREj14T+iG/4k4U=
 github.com/oklog/run v1.0.0/go.mod h1:dlhp/R75TPv97u0XWUtDeV/lRKWPKSdTuV0TZvrmrQA=
 github.com/oklog/ulid v0.0.0-20170117200651-66bb6560562f/go.mod h1:CirwcVhetQ6Lv90oh/F+FBtV6XMibvdAFo93nm5qn4U=

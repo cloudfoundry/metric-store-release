@@ -1,8 +1,10 @@
 package metricstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/gob"
 	"encoding/json"
 	"io/ioutil"
 	"net"
@@ -26,7 +28,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"github.com/niubaoshu/gotiny"
 
 	config_util "github.com/prometheus/common/config"
 	prom_labels "github.com/prometheus/prometheus/pkg/labels"
@@ -373,8 +374,14 @@ func (store *MetricStore) setupDirtyListener() {
 	appender, _ := store.replicatedStorage.Appender()
 
 	queuePoints := func(payload []byte) error {
+		network := bytes.NewBuffer(payload)
+		dec := gob.NewDecoder(network)
 		batch := rpc.Batch{}
-		gotiny.Unmarshal(payload, &batch)
+		err := dec.Decode(&batch)
+		if err != nil {
+			store.log.Error("gob decode error", err)
+			return err
+		}
 
 		// figure out which nodes this point belongs to and add it there
 		points := batch.Points
@@ -404,7 +411,7 @@ func (store *MetricStore) setupDirtyListener() {
 
 			ingressPointsTotal++
 		}
-		err := appender.Commit()
+		err = appender.Commit()
 		if err != nil {
 			return err
 		}
@@ -437,8 +444,13 @@ func (store *MetricStore) setupSanitizedListener() {
 
 	writePoints := func(payload []byte) error {
 		// TODO: queue in diode
+		network := bytes.NewBuffer(payload)
+		dec := gob.NewDecoder(network)
 		batch := rpc.Batch{}
-		gotiny.Unmarshal(payload, &batch)
+		err := dec.Decode(&batch)
+		if err != nil {
+			store.log.Error("gob decode error", err)
+		}
 
 		points := batch.Points
 		var collectedPointsTotal uint64
@@ -455,7 +467,7 @@ func (store *MetricStore) setupSanitizedListener() {
 
 			collectedPointsTotal++
 		}
-		err := appender.Commit()
+		err = appender.Commit()
 		if err != nil {
 			return err
 		}

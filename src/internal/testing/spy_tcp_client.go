@@ -1,10 +1,11 @@
 package testing
 
 import (
+	"bytes"
+	"encoding/gob"
 	"sync"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"github.com/niubaoshu/gotiny"
 )
 
 type SpyTCPClient struct {
@@ -30,8 +31,13 @@ func (s *SpyTCPClient) Write(data []byte) (int, error) {
 
 	size := len(data)
 
+	network := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(network)
 	batch := rpc.Batch{}
-	gotiny.Unmarshal(data, &batch)
+	err := dec.Decode(&batch)
+	if err != nil {
+		return 0, err
+	}
 
 	for _, point := range batch.Points {
 		s.sentPointsChan <- point
