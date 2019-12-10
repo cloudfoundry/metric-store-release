@@ -111,7 +111,7 @@ var _ = Describe("Influx Adapter", func() {
 
 			tc.adapter.AllMeasurementNames()
 
-			Expect(tc.metrics.Fetch(debug.MetricStoreMeasurementNamesQueryDurationSeconds)()).ToNot(BeZero())
+			Expect(tc.metrics.FetchHistogram(debug.MetricStoreMeasurementNamesQueryDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Influx Adapter", func() {
 
 			tc.adapter.AllTagValues("source_id")
 
-			Expect(tc.metrics.Fetch(debug.MetricStoreTagValuesQueryDurationSeconds)()).ToNot(BeZero())
+			Expect(tc.metrics.FetchHistogram(debug.MetricStoreTagValuesQueryDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 

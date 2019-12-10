@@ -160,8 +160,9 @@ func (m *MetricStoreApp) startDebugServer() {
 		debug.WithCounter(debug.MetricStoreWrittenPointsTotal, prometheus.CounterOpts{
 			Help: "Number of points successfully written to storage engine",
 		}),
-		debug.WithGauge(debug.MetricStoreWriteDurationSeconds, prometheus.GaugeOpts{
-			Help: "Time spent writing points to the storage engine",
+		debug.WithHistogram(debug.MetricStoreWriteDurationSeconds, prometheus.HistogramOpts{
+			Help:    "Time spent writing points to the storage engine",
+			Buckets: []float64{.001, .01, .05, .1, .2, 1},
 		}),
 		debug.WithGauge(debug.MetricStoreDiskFreeRatio, prometheus.GaugeOpts{
 			Help: "Percentage of free space on persistent disk",
@@ -187,11 +188,13 @@ func (m *MetricStoreApp) startDebugServer() {
 		debug.WithCounter(debug.MetricStoreReadErrorsTotal, prometheus.CounterOpts{
 			Help: "Number of errors encountered reading from the storage engine",
 		}),
-		debug.WithGauge(debug.MetricStoreTagValuesQueryDurationSeconds, prometheus.GaugeOpts{
-			Help: "Time spent retrieving tag values from the storage engine",
+		debug.WithHistogram(debug.MetricStoreTagValuesQueryDurationSeconds, prometheus.HistogramOpts{
+			Help:    "Time spent retrieving tag values from the storage engine",
+			Buckets: []float64{.001, .01, .05, .1, .2, 1},
 		}),
-		debug.WithGauge(debug.MetricStoreMeasurementNamesQueryDurationSeconds, prometheus.GaugeOpts{
-			Help: "Time spent retrieving measurement names from the storage engine",
+		debug.WithHistogram(debug.MetricStoreMeasurementNamesQueryDurationSeconds, prometheus.HistogramOpts{
+			Help:    "Time spent retrieving measurement names from the storage engine",
+			Buckets: []float64{.1, .5, 1, 4, 16},
 		}),
 		debug.WithLabelledGauge(metrics.MetricStoreReplayerDiskUsageBytes, prometheus.GaugeOpts{
 			Help: "Size of a replayer queue",

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
@@ -923,14 +923,21 @@ var _ = Describe("Nozzle", func() {
 		})
 	})
 
-	It("writes Ingress, Egress and Err metrics", func() {
-		addEnvelope(1, "memory", "some-source-id", streamConnector)
-		addEnvelope(2, "memory", "some-source-id", streamConnector)
-		addEnvelope(3, "memory", "some-source-id", streamConnector)
+	Describe("collect nozzle metrics", func() {
+		It("writes Ingress, Egress and Err metrics", func() {
+			addEnvelope(1, "memory", "some-source-id", streamConnector)
+			addEnvelope(2, "memory", "some-source-id", streamConnector)
+			addEnvelope(3, "memory", "some-source-id", streamConnector)
 
-		Eventually(metricRegistrar.Fetch(debug.NozzleIngressEnvelopesTotal)).Should(Equal(float64(3)))
-		Eventually(metricRegistrar.Fetch(debug.NozzleEgressPointsTotal)).Should(Equal(float64(3)))
-		Eventually(metricRegistrar.Fetch(debug.NozzleEgressErrorsTotal)).Should(Equal(float64(0)))
+			Eventually(metricRegistrar.Fetch(debug.NozzleIngressEnvelopesTotal)).Should(Equal(float64(3)))
+			Eventually(metricRegistrar.Fetch(debug.NozzleEgressPointsTotal)).Should(Equal(float64(3)))
+			Eventually(metricRegistrar.Fetch(debug.NozzleEgressErrorsTotal)).Should(Equal(float64(0)))
+		})
+
+		It("writes duration seconds histogram metrics", func() {
+			addEnvelope(1, "memory", "some-source-id", streamConnector)
+			Eventually(metricRegistrar.FetchHistogram(debug.NozzleEgressDurationSeconds)).Should(HaveLen(1))
+		})
 	})
 
 	It("forwards all tags", func() {

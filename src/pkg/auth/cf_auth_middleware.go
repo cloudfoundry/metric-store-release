@@ -91,7 +91,7 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 
 		totalQueryTime := time.Since(start).Seconds()
-		m.metrics.Set(debug.AuthProxyRequestDurationSeconds, float64(totalQueryTime))
+		m.metrics.Histogram(debug.AuthProxyRequestDurationSeconds).Observe(float64(totalQueryTime))
 
 	})
 

@@ -25,6 +25,16 @@ func (*NullRegistrar) Inc(string, ...string) {
 func (*NullRegistrar) Add(string, float64, ...string) {
 }
 
+func (*NullRegistrar) Histogram(string) prometheus.Observer {
+	return &NullObserver{}
+}
+
+type NullObserver struct {
+}
+
+func (o *NullObserver) Observe(float64) {
+}
+
 type NullRegisterer struct {
 }
 

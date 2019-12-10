@@ -200,7 +200,7 @@ func (t *InfluxAdapter) AllTagValues(tagKey string) []string {
 		}
 	}
 
-	t.metrics.Set(debug.MetricStoreTagValuesQueryDurationSeconds, transform.DurationToSeconds(time.Since(start)))
+	t.metrics.Histogram(debug.MetricStoreTagValuesQueryDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
 	return values
 }
 
@@ -302,7 +302,7 @@ func (t *InfluxAdapter) AllMeasurementNames() []string {
 	start := time.Now()
 	allShards := t.influx.ShardGroup(t.ShardIDs())
 	measurementNames := allShards.MeasurementsByRegex(regexp.MustCompile(".*"))
-	t.metrics.Set(debug.MetricStoreMeasurementNamesQueryDurationSeconds, transform.DurationToSeconds(time.Since(start)))
+	t.metrics.Histogram(debug.MetricStoreMeasurementNamesQueryDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
 	return measurementNames
 }
 

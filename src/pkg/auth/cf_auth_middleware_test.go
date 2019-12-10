@@ -157,7 +157,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 			tc.invokeAuthHandler()
 
-			Expect(tc.spyMetricRegistrar.Fetch(debug.AuthProxyRequestDurationSeconds)()).ToNot(BeZero())
+			Expect(tc.spyMetricRegistrar.FetchHistogram(debug.AuthProxyRequestDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 
@@ -181,7 +181,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 			tc.invokeAuthHandler()
 
-			Expect(tc.spyMetricRegistrar.Fetch(debug.AuthProxyRequestDurationSeconds)()).ToNot(BeZero())
+			Expect(tc.spyMetricRegistrar.FetchHistogram(debug.AuthProxyRequestDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 

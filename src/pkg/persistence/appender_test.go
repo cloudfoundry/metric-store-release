@@ -4,8 +4,8 @@ import (
 	"math"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/prometheus/prometheus/storage"
 
 	. "github.com/onsi/ginkgo"
@@ -52,7 +52,7 @@ var _ = Describe("Appender", func() {
 	})
 
 	Describe("instrumentation", func() {
-		It("updates ingress metrics", func() {
+		It("updates ingress point total metric", func() {
 			tc := setup()
 
 			_, err := tc.appender.Add(nil, 1, 1.0)
@@ -62,6 +62,29 @@ var _ = Describe("Appender", func() {
 			Eventually(
 				tc.spyMetrics.Fetch(debug.MetricStoreWrittenPointsTotal),
 			).Should(BeEquivalentTo(1))
+		})
+
+		It("updates the duration metrics in Commit", func() {
+			tc := setup()
+
+			_, err := tc.appender.Add(nil, 1, 1.0)
+			Expect(err).ToNot(HaveOccurred())
+			tc.appender.Commit()
+
+			Eventually(
+				tc.spyMetrics.FetchHistogram(debug.MetricStoreWriteDurationSeconds),
+			).Should(HaveLen(1))
+		})
+
+		It("updates the duration metrics in AddFast", func() {
+			tc := setup()
+
+			err := tc.appender.AddFast(nil, 0, 1, 1.0)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(
+				tc.spyMetrics.FetchHistogram(debug.MetricStoreWriteDurationSeconds),
+			).Should(HaveLen(1))
 		})
 	})
 })

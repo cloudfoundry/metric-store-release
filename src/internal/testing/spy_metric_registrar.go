@@ -10,8 +10,13 @@ type SpyMetricRegistrar struct {
 	sync.Mutex
 
 	metrics    map[string]float64
+	histograms map[string]*SpyHistogramObserver
 	registerer prometheus.Registerer
 	gatherer   prometheus.Gatherer
+}
+
+type SpyHistogramObserver struct {
+	Observations []float64
 }
 
 func NewSpyMetricRegistrar() *SpyMetricRegistrar {
@@ -19,6 +24,7 @@ func NewSpyMetricRegistrar() *SpyMetricRegistrar {
 
 	return &SpyMetricRegistrar{
 		metrics:    make(map[string]float64),
+		histograms: make(map[string]*SpyHistogramObserver),
 		registerer: defaultRegistry,
 		gatherer:   defaultRegistry,
 	}
@@ -52,6 +58,25 @@ func (r *SpyMetricRegistrar) Add(name string, delta float64, labels ...string) {
 	r.metrics[name] = delta
 }
 
+func (s *SpyHistogramObserver) Observe(value float64) {
+	s.Observations = append(s.Observations, value)
+}
+
+func (r *SpyMetricRegistrar) Histogram(name string) prometheus.Observer {
+	r.Lock()
+	defer r.Unlock()
+
+	spy, ok := r.histograms[name]
+
+	if ok {
+		return spy
+	}
+
+	spy = &SpyHistogramObserver{}
+	r.histograms[name] = spy
+	return spy
+}
+
 func (r *SpyMetricRegistrar) Inc(name string, labels ...string) {
 	r.Add(name, 1)
 }
@@ -67,6 +92,20 @@ func (r *SpyMetricRegistrar) Fetch(name string) func() float64 {
 		}
 
 		return 0
+	}
+}
+
+func (r *SpyMetricRegistrar) FetchHistogram(name string) func() []float64 {
+	return func() []float64 {
+		r.Lock()
+		defer r.Unlock()
+
+		spy, found := r.histograms[name]
+		if found {
+			return spy.Observations
+		}
+
+		return []float64{}
 	}
 }
 

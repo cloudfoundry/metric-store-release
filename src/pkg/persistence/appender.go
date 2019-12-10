@@ -101,7 +101,7 @@ func (a *Appender) AddFast(l labels.Labels, _ uint64, timestamp int64, value flo
 	a.adapter.WritePoints([]*rpc.Point{point})
 
 	duration := transform.DurationToSeconds(time.Since(start))
-	a.metrics.Set(debug.MetricStoreWriteDurationSeconds, duration)
+	a.metrics.Histogram(debug.MetricStoreWriteDurationSeconds).Observe(duration)
 	a.metrics.Inc(debug.MetricStoreWrittenPointsTotal)
 
 	return nil
@@ -117,7 +117,7 @@ func (a *Appender) Commit() error {
 
 	if err == nil {
 		duration := transform.DurationToSeconds(time.Since(start))
-		a.metrics.Set(debug.MetricStoreWriteDurationSeconds, duration)
+		a.metrics.Histogram(debug.MetricStoreWriteDurationSeconds).Observe(duration)
 		a.metrics.Add(debug.MetricStoreWrittenPointsTotal, float64(len(a.points)))
 	}
 

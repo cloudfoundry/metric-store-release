@@ -8,9 +8,9 @@ import (
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -138,8 +138,9 @@ func (n *NozzleApp) startDebugServer() {
 		debug.WithCounter(debug.NozzleEgressErrorsTotal, prometheus.CounterOpts{
 			Help: "Total number of egress errors within the nozzle",
 		}),
-		debug.WithGauge(debug.NozzleEgressDurationSeconds, prometheus.GaugeOpts{
-			Help: "Total duration in seconds of egress within the nozzle",
+		debug.WithHistogram(debug.NozzleEgressDurationSeconds, prometheus.HistogramOpts{
+			Help:    "Total duration in seconds of egress within the nozzle",
+			Buckets: []float64{.001, .01, .05, .1, .2, 1},
 		}),
 	)
 
