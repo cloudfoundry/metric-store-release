@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
-	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -133,11 +133,13 @@ func (c *CFAuthProxyApp) startDebugServer() {
 		c.log,
 		"metric_store_cf_auth_proxy",
 		debug.WithDefaultRegistry(),
-		debug.WithGauge(debug.AuthProxyRequestDurationSeconds, prometheus.GaugeOpts{
-			Help: "Duration in seconds of requests made to the auth proxy",
+		debug.WithHistogram(debug.AuthProxyRequestDurationSeconds, prometheus.HistogramOpts{
+			Help:    "Duration in seconds of requests made to the auth proxy",
+			Buckets: []float64{.001, .01, .05, .1, .2, 1},
 		}),
-		debug.WithGauge(debug.AuthProxyCAPIRequestDurationSeconds, prometheus.GaugeOpts{
-			Help: "Duration in seconds of external requests made to CAPI",
+		debug.WithHistogram(debug.AuthProxyCAPIRequestDurationSeconds, prometheus.HistogramOpts{
+			Help:    "Duration in seconds of external requests made to CAPI",
+			Buckets: []float64{.001, .01, .05, .1, .2, 1},
 		}),
 	)
 

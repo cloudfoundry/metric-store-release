@@ -295,7 +295,7 @@ func (c *CAPIClient) doRequest(req *http.Request, authToken string) (*http.Respo
 	req.Header.Set("Authorization", authToken)
 	start := time.Now()
 	resp, err := c.client.Do(req)
-	c.metrics.Set(debug.AuthProxyCAPIRequestDurationSeconds, float64(time.Since(start).Seconds()))
+	c.metrics.Histogram(debug.AuthProxyCAPIRequestDurationSeconds).Observe(float64(time.Since(start).Seconds()))
 
 	if err != nil {
 		c.log.Error("CAPI request failed", err, logger.String("url", req.URL.Path))

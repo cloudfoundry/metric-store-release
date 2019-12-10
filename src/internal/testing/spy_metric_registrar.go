@@ -16,6 +16,7 @@ type SpyMetricRegistrar struct {
 }
 
 type SpyHistogramObserver struct {
+	sync.Mutex
 	Observations []float64
 }
 
@@ -59,6 +60,8 @@ func (r *SpyMetricRegistrar) Add(name string, delta float64, labels ...string) {
 }
 
 func (s *SpyHistogramObserver) Observe(value float64) {
+	s.Lock()
+	defer s.Unlock()
 	s.Observations = append(s.Observations, value)
 }
 
