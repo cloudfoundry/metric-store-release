@@ -176,9 +176,6 @@ func (m *MetricStoreApp) startDebugServer() {
 		debug.WithGauge(debug.MetricStoreStorageDays, prometheus.GaugeOpts{
 			Help: "Days of data stored on disk",
 		}),
-		debug.WithGauge(debug.MetricStoreIndexSize, prometheus.GaugeOpts{
-			Help: "Size of the index",
-		}),
 		debug.WithGauge(debug.MetricStoreSeriesCount, prometheus.GaugeOpts{
 			Help: "Number of unique series stored in the index",
 		}),

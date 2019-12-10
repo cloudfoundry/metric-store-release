@@ -30,7 +30,6 @@ const (
 	MetricStoreExpiredShardsTotal                   = "metric_store_expired_shards_total"
 	MetricStorePrunedShardsTotal                    = "metric_store_pruned_shards_total"
 	MetricStoreStorageDays                          = "metric_store_storage_days"
-	MetricStoreIndexSize                            = "metric_store_index_size_bytes"
 	MetricStoreSeriesCount                          = "metric_store_series_count"
 	MetricStoreMeasurementsCount                    = "metric_store_measurements_count"
 	MetricStoreReadErrorsTotal                      = "metric_store_read_errors_total"

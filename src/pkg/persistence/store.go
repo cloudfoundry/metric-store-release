@@ -223,7 +223,6 @@ func (store *Store) emitStorageMetrics() {
 		time.Sleep(time.Minute)
 
 		statistics := store.tsStore.Statistics(map[string]string{})
-		store.metrics.Set(debug.MetricStoreIndexSize, float64(store.tsStore.IndexBytes()))
 
 		for _, statistic := range statistics {
 			if statistic.Values["numSeries"] != nil {
