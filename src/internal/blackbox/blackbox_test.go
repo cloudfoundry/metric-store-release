@@ -31,7 +31,7 @@ var _ = Describe("Metric Store© Blackbox™", func() {
 
 		startTime := time.Now().UnixNano()
 		go func() {
-			tc.blackbox.StartEmittingTestMetrics(
+			tc.blackbox.StartEmittingReliabilityMetrics(
 				"source-1",
 				emissionInterval,
 				tc.client,

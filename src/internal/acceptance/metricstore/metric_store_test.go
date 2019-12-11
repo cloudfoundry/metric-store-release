@@ -1086,8 +1086,8 @@ groups:
 
 			expectedMetric := model.Metric{
 				model.MetricNameLabel: "testRecordingRule",
-				"foo":                 "bar",
-				"node":                "1",
+				"foo":  "bar",
+				"node": "1",
 			}
 			if !sample.Metric.Equal(expectedMetric) {
 				return false

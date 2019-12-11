@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/prometheus/client_golang/api"
 	prom_api_client "github.com/prometheus/client_golang/api"
@@ -103,10 +103,12 @@ func (b *Blackbox) emitPerformanceMetrics(sourceId string, client *ingressclient
 	}
 }
 
-func (b *Blackbox) StartEmittingTestMetrics(sourceId string, emissionInterval time.Duration, ingressClient *ingressclient.IngressClient, stopChan chan bool) {
+func (b *Blackbox) StartEmittingReliabilityMetrics(sourceId string, emissionInterval time.Duration, ingressClient *ingressclient.IngressClient, stopChan chan bool) {
 	var lastTimestamp time.Time
 	var expectedTimestamp time.Time
 	var timestamp time.Time
+
+	b.log.Info("reliability: emitter started")
 
 	for range time.NewTicker(emissionInterval).C {
 		expectedTimestamp = lastTimestamp.Add(emissionInterval)
@@ -116,7 +118,7 @@ func (b *Blackbox) StartEmittingTestMetrics(sourceId string, emissionInterval ti
 			b.log.Info("reliability: WARNING: an expected emission was missed", logger.String("missed", expectedTimestamp.String()), logger.String("sent", timestamp.String()))
 		}
 
-		b.emitTestMetrics(sourceId, ingressClient, timestamp)
+		b.emitReliabilityMetrics(sourceId, ingressClient, timestamp)
 		lastTimestamp = timestamp
 
 		select {
@@ -127,7 +129,7 @@ func (b *Blackbox) StartEmittingTestMetrics(sourceId string, emissionInterval ti
 	}
 }
 
-func (b *Blackbox) emitTestMetrics(sourceId string, client *ingressclient.IngressClient, timestamp time.Time) {
+func (b *Blackbox) emitReliabilityMetrics(sourceId string, client *ingressclient.IngressClient, timestamp time.Time) {
 	var points []*rpc.Point
 
 	for _, metric_name := range MagicMetricNames() {
@@ -156,7 +158,9 @@ func (b *Blackbox) emitTestMetrics(sourceId string, client *ingressclient.Ingres
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	if err != nil {
+	if err == nil {
+		b.log.Info("reliability: interval metrics emitted")
+	} else {
 		b.log.Error("reliability: failed to write test metric envelope", err)
 	}
 }

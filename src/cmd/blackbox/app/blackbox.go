@@ -8,11 +8,11 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox/metricscanner"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/egressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -68,7 +68,7 @@ func (b *BlackboxApp) StartReliabilityCalculator(egressClient blackbox.Queryable
 	}
 
 	bb := blackbox.NewBlackbox(b.log)
-	go bb.StartEmittingTestMetrics(b.cfg.SourceId, b.cfg.EmissionInterval, ingressClient, stopChan)
+	go bb.StartEmittingReliabilityMetrics(b.cfg.SourceId, b.cfg.EmissionInterval, ingressClient, stopChan)
 	labels := map[string][]string{
 		"app_id":              []string{"bde5831e-a819-4a34-9a46-012fd2e821e6b"},
 		"app_name":            []string{"bblog"},
