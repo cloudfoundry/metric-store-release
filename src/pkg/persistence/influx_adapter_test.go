@@ -48,17 +48,17 @@ var _ = Describe("Influx Adapter", func() {
 		It("writes data to correct shards", func() {
 			tc := setup()
 			points := []*rpc.Point{
-				{Timestamp: daysSinceEpoch(0)},
-				{Timestamp: daysSinceEpoch(1)},
+				{Timestamp: nanosecondsInDays(0)},
+				{Timestamp: nanosecondsInDays(1)},
 			}
 			tc.adapter.WritePoints(points)
 
 			Expect(tc.influxStore.timestampsWrittenToShards).To(Equal(map[uint64][]time.Time{
 				getShardIdForDay(0): {
-					time.Unix(0, daysSinceEpoch(0)),
+					time.Unix(0, nanosecondsInDays(0)),
 				},
 				getShardIdForDay(1): {
-					time.Unix(0, daysSinceEpoch(1)),
+					time.Unix(0, nanosecondsInDays(1)),
 				},
 			}))
 		})
@@ -67,8 +67,8 @@ var _ = Describe("Influx Adapter", func() {
 			tc := setup()
 
 			points := []*rpc.Point{
-				{Timestamp: daysSinceEpoch(0)},
-				{Timestamp: daysSinceEpoch(4)},
+				{Timestamp: nanosecondsInDays(0)},
+				{Timestamp: nanosecondsInDays(4)},
 			}
 			tc.adapter.WritePoints(points)
 
@@ -80,7 +80,7 @@ var _ = Describe("Influx Adapter", func() {
 			tc.influxStore.writeToShardError = errors.New("write-to-shard-error")
 
 			points := []*rpc.Point{
-				{Timestamp: daysSinceEpoch(0)},
+				{Timestamp: nanosecondsInDays(0)},
 			}
 			err := tc.adapter.WritePoints(points)
 			Expect(err).To(MatchError("write-to-shard-error"))
@@ -160,7 +160,7 @@ var _ = Describe("Influx Adapter", func() {
 		It("deletes old shards when requested", func() {
 			tc := setup()
 
-			numDeleted, err := tc.adapter.DeleteOlderThan(daysSinceEpoch(0.5))
+			numDeleted, err := tc.adapter.DeleteOlderThan(nanosecondsInDays(0.5))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numDeleted).To(BeEquivalentTo(1))
 
@@ -170,19 +170,19 @@ var _ = Describe("Influx Adapter", func() {
 				getShardIdForDay(3),
 			))
 
-			tc.adapter.DeleteOlderThan(daysSinceEpoch(0.5))
+			tc.adapter.DeleteOlderThan(nanosecondsInDays(0.5))
 			Expect(tc.adapter.ShardIDs()).To(HaveLen(3))
 		})
 
 		It("allows a slight margin of error near day boundaries", func() {
 			tc := setup()
 
-			numDeleted, err := tc.adapter.DeleteOlderThan(daysSinceEpoch(1))
+			numDeleted, err := tc.adapter.DeleteOlderThan(nanosecondsInDays(1))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numDeleted).To(BeEquivalentTo(1))
 			Expect(tc.adapter.ShardIDs()).To(HaveLen(3))
 
-			numDeleted, err = tc.adapter.DeleteOlderThan(daysSinceEpoch(1) + int64(30*time.Minute))
+			numDeleted, err = tc.adapter.DeleteOlderThan(nanosecondsInDays(1) + int64(30*time.Minute))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(numDeleted).To(BeEquivalentTo(1))
 			Expect(tc.adapter.ShardIDs()).To(ConsistOf(
@@ -289,14 +289,57 @@ var _ = Describe("Influx Adapter", func() {
 			_, err := tc.adapter.OldestContiguousShardID()
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("ignores shards in the future", func() {
+			influxStore := newMockInfluxStore([]uint64{
+				getShardIdForDay(9),
+				getShardIdInFuture(900),
+			})
+
+			metrics := testing.NewSpyMetricRegistrar()
+
+			tc := &influxAdapterTestContext{
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				influxStore: influxStore,
+				metrics:     metrics,
+			}
+
+			oldestShardID, err := tc.adapter.OldestContiguousShardID()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(oldestShardID).To(Equal(getShardIdForDay(9)))
+
+		})
+
+		It("errors if all shards are in future", func() {
+			influxStore := newMockInfluxStore([]uint64{
+				getShardIdInFuture(90),
+				getShardIdInFuture(900),
+			})
+
+			metrics := testing.NewSpyMetricRegistrar()
+
+			tc := &influxAdapterTestContext{
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				influxStore: influxStore,
+				metrics:     metrics,
+			}
+
+			_, err := tc.adapter.OldestContiguousShardID()
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })
 
 func getShardIdForDay(days uint64) uint64 {
-	return uint64(daysSinceEpoch(float64(days)))
+	return uint64(nanosecondsInDays(float64(days)))
 }
 
-func daysSinceEpoch(days float64) int64 {
+func getShardIdInFuture(days int64) uint64 {
+	return uint64(time.Now().Add(time.Duration(days*24) * time.Hour).Truncate(time.Hour * 24).UnixNano())
+}
+
+// Returns the number of nanoseconds elapsed since days after the epoch.
+func nanosecondsInDays(days float64) int64 {
 	return int64(24*days) * int64(time.Hour)
 }
 

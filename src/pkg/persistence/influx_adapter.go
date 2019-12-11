@@ -278,10 +278,23 @@ func (t *InfluxAdapter) OldestShardID() (uint64, error) {
 	return shardIDs[len(shardIDs)-1], nil
 }
 
+func removeFutureShardIds(shardIds []uint64) []uint64 {
+	nonFutureShards := make([]uint64, 0)
+
+	cutoff := uint64(time.Now().Add(time.Hour * 24).UnixNano())
+	for _, id := range shardIds {
+		if id <= cutoff {
+			nonFutureShards = append(nonFutureShards, id)
+		}
+	}
+
+	return nonFutureShards
+}
+
 // OldestContiguousShardID returns the oldest shardID known to the adapter,
 // that is part of the unbroken series closest to the newest shardID
 func (t *InfluxAdapter) OldestContiguousShardID() (uint64, error) {
-	shardIDs := t.ShardIDs()
+	shardIDs := removeFutureShardIds(t.ShardIDs())
 	if len(shardIDs) == 0 {
 		return 0, fmt.Errorf("Cannot determine oldest shardID when there are no shardIDs")
 	}
