@@ -5,18 +5,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
-	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 )
 
 var _ = Describe("Metric Store© Blackbox™", func() {
@@ -138,7 +138,7 @@ func setup() testContext {
 		blackbox:          blackbox.NewBlackbox(logger.NewNop()),
 		client:            client,
 		testDuration:      100 * time.Millisecond,
-		timingFudgeFactor: 10 * time.Millisecond,
+		timingFudgeFactor: 1 * time.Second,
 		metricStore:       ms,
 		msAddrs:           addrs,
 		tlsConfig:         tlsConfig,
