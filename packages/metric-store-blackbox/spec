@@ -7,3 +7,4 @@ dependencies:
 files:
 - cmd/**/*.go
 - internal/**/*.go
+- pkg/ingressclient/**/*.go
