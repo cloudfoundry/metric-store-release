@@ -9,3 +9,4 @@ cp $RELEASE_DIR/go.sum $BUILD_DIR
 mkdir -p $BUILD_DIR/src
 mv $BUILD_DIR/cmd $BUILD_DIR/src/
 mv $BUILD_DIR/internal $BUILD_DIR/src/
+mv $BUILD_DIR/pkg $BUILD_DIR/src/
