@@ -158,9 +158,7 @@ func (b *Blackbox) emitReliabilityMetrics(sourceId string, client *ingressclient
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	if err == nil {
-		b.log.Info("reliability: interval metrics emitted")
-	} else {
+	if err != nil {
 		b.log.Error("reliability: failed to write test metric envelope", err)
 	}
 }

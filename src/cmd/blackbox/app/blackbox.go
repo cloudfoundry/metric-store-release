@@ -62,7 +62,7 @@ func (b *BlackboxApp) StartReliabilityCalculator(egressClient blackbox.Queryable
 		b.log.Fatal("reliability: invalid mTLS configuration for metric-store communication", err)
 	}
 
-	ingressClient, err := ingressclient.NewIngressClient(b.cfg.MetricStoreIngressAddr, tlsConfig)
+	ingressClient, err := ingressclient.NewIngressClient(b.cfg.MetricStoreIngressAddr, tlsConfig, ingressclient.WithIngressClientLogger(b.log))
 	if err != nil {
 		b.log.Fatal("reliability: could not connect metric-store ingress client", err)
 	}
