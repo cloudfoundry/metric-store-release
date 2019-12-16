@@ -8,7 +8,6 @@ templates:
   - $( job "prom_scraper" )
   - $( job "loggregator_agent" )
   - $( job "route_registrar" )
-  - $( job "loggr-system-metrics-agent" )
   - $( job "bpm" )
   - $( job "metric-store-smoke-tests" )
 
