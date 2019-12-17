@@ -134,7 +134,7 @@ func (b *BlackboxApp) StartReliabilityCalculator(egressClient blackbox.Queryable
 func (b *BlackboxApp) StartMetricScanner(egressClient blackbox.QueryableClient) {
 	go func() {
 		b.log.Info("metric scanner: starting")
-		t := time.NewTicker(2 * time.Minute)
+		t := time.NewTicker(15 * time.Minute)
 		scanner := metricscanner.NewMetricScanner(egressClient, b.debugRegistrar, b.log)
 		for range t.C {
 			err := scanner.TestCurrentMetrics()
