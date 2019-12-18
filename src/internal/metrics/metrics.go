@@ -1,6 +1,7 @@
 package metrics
 
 const (
+	// pointless comment to kick a redeploy
 	MetricStoreReplayerDiskUsageBytes            = "metric_store_replayer_disk_usage_bytes"
 	MetricStoreReplayerQueueErrorsTotal          = "metric_store_replayer_queue_errors_total"
 	MetricStoreReplayerQueuedBytesTotal          = "metric_store_replayer_queued_bytes_total"
