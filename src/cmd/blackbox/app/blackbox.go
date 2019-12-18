@@ -46,7 +46,8 @@ func (b *BlackboxApp) Run() {
 	}
 
 	b.StartReliabilityCalculator(egressClient, stopChan)
-	b.StartMetricScanner(egressClient)
+	// not sure exactly what we want from this
+	//b.StartMetricScanner(egressClient)
 
 	<-stopChan
 }
