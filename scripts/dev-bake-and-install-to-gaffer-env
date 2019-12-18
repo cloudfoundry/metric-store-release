@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+scripts_dir=$(cd $(dirname $0) && pwd)
+
+function get-env-fullpath()
+{
+    if [[ "$#" -lt 1 ]]; then
+        echo "Usage: get-env-fullpath <environment-name>"
+        return 1
+    fi
+
+    local __env_name=$1
+    local __env_path
+
+    # try to find a cf-deployment env first by looking for a directory named after the environment
+    __env_path=$(find -H $HOME/workspace/denver-locks -name "${__env_name}*" -type d | tail -1)
+
+    # if no cf-deployment found, try finding an OpsMan env next
+    if [[ -z ${__env_path} ]]; then
+        __env_path=$(find -H $HOME/workspace/denver-locks -name "${__env_name}.json" | tail -1)
+    fi
+
+    if [[ -z ${__env_path} ]]; then
+        echo "${FUNCNAME[0]} cannot find env '$__env_name'"
+        return 1
+    fi
+
+    echo ${__env_path}
+}
+
+env_name=$1
+if ! gaffer_lock_file=$(get-env-fullpath ${env_name}); then
+  echo "ERROR missing gaffer env: ${gaffer_lock_file}"
+  exit 1
+fi
+om_env=$(mktemp)
+config=$(mktemp)
+
+cat <<OM_ENV > ${om_env}
+---
+target: $(cat ${gaffer_lock_file} | jq .ops_manager.url )
+username: $(cat ${gaffer_lock_file} | jq .ops_manager.username )
+password: $(cat ${gaffer_lock_file} | jq .ops_manager.password )
+skip-ssl-validation: true
+OM_ENV
+
+cat <<CONFIG > ${config}
+---
+product-name: metric-store
+network-properties:
+  network:
+    name: $(cat ${gaffer_lock_file} | jq -r .ert_subnet)
+  other_availability_zones:
+    - name: $(cat ${gaffer_lock_file} | jq -r .azs[0])
+    - name: $(cat ${gaffer_lock_file} | jq -r .azs[1])
+    - name: $(cat ${gaffer_lock_file} | jq -r .azs[2])
+  singleton_availability_zone:
+    name: $(cat ${gaffer_lock_file} | jq -r .azs[0])
+resource-config:
+CONFIG
+
+if [[ -z ${RELEASE_VERSION:-} ]]; then
+  bumped_version=$(
+    om --env ${om_env} available-products --format json |
+    jq -r '.[] |
+    .name + "\t" + .version' |
+    grep metric-store |
+    cut -f 2 |
+    sort -V |
+    tail -n 1 |
+    awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+  export RELEASE_VERSION=${bumped_version:-"0.0.1"}
+fi
+
+$scripts_dir/dev_bake
+
+om --env ${om_env} \
+  upload-product \
+  --product tmp/metric-store-${RELEASE_VERSION}.pivotal
+om --env ${om_env} \
+  stage-product \
+  --product-name metric-store \
+  --product-version ${RELEASE_VERSION}
+#om --env ${om_env} \
+#  configure-product \
+#  --config ${config}
+
+# om --env ${om_env} \
+#   upload-stemcell \
+#   --stemcell ${stemcell_path}
+
+om --env ${om_env} \
+  apply-changes \
+  --product-name metric-store

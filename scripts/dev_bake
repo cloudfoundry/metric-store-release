@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TILE_NAME=metric-store
-RELEASE_VERSION=0.0.1-build.1
+RELEASE_VERSION=${RELEASE_VERSION:-0.0.1-build.1}
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
 
@@ -24,12 +24,8 @@ echo_red() {
 mkdir -p ${PROJECT_DIR}/tmp/releases
 
 echo_green "Creating p-metric-store release from local changes..."
-bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/p-metric-store.tgz
-
-pushd ~/workspace/oss/metric-store-release
-  echo_green "Creating metric-store release from local changes..."
-  bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/metric-store.tgz
-popd
+git rev-parse HEAD > sha
+bosh create-release --force --tarball=${PROJECT_DIR}/tmp/releases/metric-store.tgz
 
 pushd ${PROJECT_DIR}/tmp
     echo_green $(pwd)
