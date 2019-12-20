@@ -2,6 +2,7 @@ package blackbox
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
@@ -90,16 +91,12 @@ func (b *Blackbox) emitPerformanceMetrics(sourceId string, client *ingressclient
 		Labels:    labels,
 	}}
 
-	var err error
-	if err != nil {
-		b.log.Error("failed to marshal test metric points", err)
-		return
-	}
-
-	err = client.Write(points)
+	err := client.Write(points)
 
 	if err != nil {
 		b.log.Error("failed to write test metric envelope", err)
+	} else {
+		b.log.Info(fmt.Sprintf("performance: wrote %d %s points", len(points), BlackboxPerformanceTestCanary))
 	}
 }
 
