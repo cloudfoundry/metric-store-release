@@ -2,12 +2,13 @@ package main
 
 import (
 	"github.com/cloudfoundry/metric-store-release/src/cmd/blackbox/app"
-	"github.com/cloudfoundry/metric-store-release/src/internal/version"
+	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 )
 
 func main() {
-	cfg := app.LoadConfig()
+	cfg := blackbox.LoadConfig()
 
 	log := logger.NewLogger(cfg.LogLevel, "blackbox")
 	log.Info("starting", logger.String("version", version.VERSION))

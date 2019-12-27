@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/prometheus/common/model"
+	"go.uber.org/zap"
 )
 
 type ReliabilityCalculator struct {
@@ -18,6 +22,28 @@ type ReliabilityCalculator struct {
 	EmissionInterval time.Duration
 	SourceId         string
 	Log              *logger.Logger
+	DebugRegistrar   *debug.Registrar
+}
+
+const (
+	// https://play.golang.org/p/Qroq0HGXjdL
+	MAGIC_METRIC_NAME_NODE_1_OF_6 = "blackbox_test_metric_001"
+	MAGIC_METRIC_NAME_NODE_2_OF_6 = "blackbox_test_metric_002"
+	MAGIC_METRIC_NAME_NODE_3_OF_6 = "blackbox_test_metric_005"
+	MAGIC_METRIC_NAME_NODE_4_OF_6 = "blackbox_test_metric_007"
+	MAGIC_METRIC_NAME_NODE_5_OF_6 = "blackbox_test_metric_021"
+	MAGIC_METRIC_NAME_NODE_6_OF_6 = "blackbox_test_metric_003"
+)
+
+func MagicMetricNames() []string {
+	return []string{
+		MAGIC_METRIC_NAME_NODE_1_OF_6,
+		MAGIC_METRIC_NAME_NODE_2_OF_6,
+		MAGIC_METRIC_NAME_NODE_3_OF_6,
+		MAGIC_METRIC_NAME_NODE_4_OF_6,
+		MAGIC_METRIC_NAME_NODE_5_OF_6,
+		MAGIC_METRIC_NAME_NODE_6_OF_6,
+	}
 }
 
 func (rc ReliabilityCalculator) Calculate(qc QueryableClient) (float64, error) {
@@ -116,4 +142,81 @@ func (rc ReliabilityCalculator) CountMetricPoints(metricName string, client Quer
 	}
 
 	return uint64(len(points)), nil
+}
+
+func (rc *ReliabilityCalculator) EmitReliabilityMetrics(ingressClient *ingressclient.IngressClient, stopChan chan bool) {
+	var lastTimestamp time.Time
+	var expectedTimestamp time.Time
+	var timestamp time.Time
+
+	rc.Log.Info("reliability: emitter started")
+
+	for range time.NewTicker(rc.EmissionInterval).C {
+		expectedTimestamp = lastTimestamp.Add(rc.EmissionInterval)
+		timestamp = time.Now().Truncate(rc.EmissionInterval)
+
+		if !lastTimestamp.IsZero() && expectedTimestamp != timestamp {
+			rc.Log.Info("reliability: WARNING: an expected emission was missed", logger.String("missed", expectedTimestamp.String()), logger.String("sent", timestamp.String()))
+		}
+
+		rc.emitReliabilityMetrics(rc.SourceId, ingressClient, timestamp)
+		lastTimestamp = timestamp
+
+		select {
+		case <-stopChan:
+			return
+		default:
+		}
+	}
+}
+
+func (rc *ReliabilityCalculator) emitReliabilityMetrics(sourceId string, client *ingressclient.IngressClient, timestamp time.Time) {
+	var points []*rpc.Point
+
+	for _, metric_name := range MagicMetricNames() {
+		points = append(points, &rpc.Point{
+			Timestamp: timestamp.UnixNano(),
+			Name:      metric_name,
+			Value:     10.0,
+			Labels:    map[string]string{"source_id": sourceId},
+		})
+	}
+
+	var err error
+	if err != nil {
+		rc.Log.Error("reliability: failed to marshal test metric points", err)
+		return
+	}
+
+	// TODO is a reliability metric that hides errors behind retries valid?
+	for retries := 5; retries > 0; retries-- {
+		err = client.Write(points)
+
+		if err == nil {
+			break
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	if err == nil {
+		rc.Log.Info("reliability: interval metrics emitted")
+	} else {
+		rc.Log.Error("reliability: failed to write test metric envelope", err)
+	}
+}
+
+func (rc *ReliabilityCalculator) CalculateReliability(egressClient QueryableClient, stopChan chan bool) {
+	rc.Log.Info("reliability: starting calculator")
+	t := time.NewTicker(rc.SampleInterval)
+
+	for range t.C {
+		httpReliability, err := rc.Calculate(egressClient)
+		if err != nil {
+			rc.Log.Error("reliability: error calculating", err)
+		}
+
+		rc.DebugRegistrar.Set(BlackboxHTTPReliability, httpReliability)
+		rc.Log.Info("reliability: ", zap.Float64("percent", httpReliability*100))
+	}
 }

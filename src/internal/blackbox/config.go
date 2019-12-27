@@ -1,4 +1,4 @@
-package app
+package blackbox
 
 import (
 	"log"

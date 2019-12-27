@@ -8,11 +8,13 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	prom_http_client "github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/model"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 var _ = Describe("ReliabilityCalculator", func() {
@@ -68,6 +70,48 @@ var _ = Describe("ReliabilityCalculator", func() {
 			})
 		})
 	})
+
+	It("emits one test metric per emission interval per MagicMetricName", func() {
+		tc := setup()
+		defer tc.teardown()
+
+		tc.waitGroup.Add(1)
+		emissionInterval := 10 * time.Millisecond
+		numberOfMagicMetricNames := len(blackbox.MagicMetricNames())
+		expectedEmissionCount := int(tc.testDuration/emissionInterval) * numberOfMagicMetricNames
+
+		rc := blackbox.ReliabilityCalculator{
+			EmissionInterval: emissionInterval,
+			WindowInterval:   10 * time.Minute,
+			WindowLag:        15 * time.Minute,
+			SourceId:         "source-1",
+			Log:              logger.NewNop(),
+		}
+		startTime := time.Now().UnixNano()
+		go func() {
+			rc.EmitReliabilityMetrics(tc.client, tc.stop)
+			tc.waitGroup.Done()
+		}()
+
+		var points []*rpc.Point
+		Eventually(func() int {
+			points = tc.metricStore.GetPoints()
+			return len(points)
+		}, tc.testDuration+tc.timingFudgeFactor).Should(BeNumerically(">=", expectedEmissionCount))
+
+		for i, expected_metric_name := range blackbox.MagicMetricNames() {
+			Expect(points[i]).To(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Timestamp": BeNumerically("~", startTime, int64(time.Second)),
+				"Name":      Equal(expected_metric_name),
+				"Value":     Equal(10.0),
+				"Labels":    HaveKeyWithValue("source_id", "source-1"),
+			})))
+		}
+
+		close(tc.stop)
+		tc.waitGroup.Wait()
+	})
+
 })
 
 type mockClient struct {

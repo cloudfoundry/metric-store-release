@@ -1,10 +1,10 @@
-package app_test
+package app
 
 import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/cloudfoundry/metric-store-release/src/cmd/blackbox/app"
+	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
@@ -15,29 +15,29 @@ import (
 
 var _ = Describe("Blackbox App", func() {
 	var (
-		blackbox *app.BlackboxApp
+		bb *BlackboxApp
 	)
 
 	BeforeEach(func() {
-		blackbox = app.NewBlackboxApp(&app.Config{
+		bb = NewBlackboxApp(&blackbox.Config{
 			TLS: tls.TLS{
 				CAPath:   testing.Cert("metric-store-ca.crt"),
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
 		}, logger.NewTestLogger())
-		go blackbox.Run()
-		Eventually(blackbox.DebugAddr).ShouldNot(BeEmpty())
+		go bb.Run()
+		Eventually(bb.DebugAddr).ShouldNot(BeEmpty())
 	})
 
 	AfterEach(func() {
-		defer blackbox.Stop()
+		defer bb.Stop()
 	})
 
 	It("serves metrics on a metrics endpoint", func() {
 		var body string
 		fn := func() string {
-			resp, err := http.Get("http://" + blackbox.DebugAddr() + "/metrics")
+			resp, err := http.Get("http://" + bb.DebugAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}
