@@ -40,7 +40,7 @@ require (
 	github.com/willf/bitset v1.1.10 // indirect
 	go.uber.org/zap v1.13.0
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
-	golang.org/x/sys v0.0.0-20191210023423-ac6580df4449
+	golang.org/x/sys v0.0.0-20191228213918-04cbcbbfeed8
 	google.golang.org/grpc v1.24.0
 	gopkg.in/yaml.v2 v2.2.7
 )
