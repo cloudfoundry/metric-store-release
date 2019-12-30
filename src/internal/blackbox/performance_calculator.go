@@ -97,6 +97,7 @@ func (pc *PerformanceCalculator) EmitPerformanceTestMetrics(sourceId string, emi
 	var timestamp time.Time
 
 	labelValueIndex := 0
+	defer pc.log.Info("performance: halting canary emit")
 
 	for range time.NewTicker(emissionInterval).C {
 		expectedTimestamp = lastTimestamp.Add(emissionInterval)
@@ -117,6 +118,7 @@ func (pc *PerformanceCalculator) EmitPerformanceTestMetrics(sourceId string, emi
 
 		select {
 		case <-stopChan:
+			pc.log.Info("performance: emission stop signal received")
 			return
 		default:
 		}
@@ -133,11 +135,13 @@ func (pc *PerformanceCalculator) emitPerformanceMetrics(sourceId string, client 
 		Labels:    labels,
 	}}
 
+	pc.log.Info("performance: canary pre-write")
 	err := client.Write(points)
+	pc.log.Info("performance: canary post-write")
 
 	if err != nil {
 		pc.log.Error("failed to write test metric envelope", err)
-	} else {
-		pc.log.Info(fmt.Sprintf("performance: wrote %d %s points", len(points), BlackboxPerformanceTestCanary))
-	}
+	} // else {
+	//pc.log.Info(fmt.Sprintf("performance: wrote %d %s points", len(points), BlackboxPerformanceTestCanary))
+	//}
 }
