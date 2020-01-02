@@ -135,13 +135,9 @@ func (pc *PerformanceCalculator) emitPerformanceMetrics(sourceId string, client 
 		Labels:    labels,
 	}}
 
-	pc.log.Info("performance: canary pre-write")
 	err := client.Write(points)
-	pc.log.Info("performance: canary post-write")
 
 	if err != nil {
 		pc.log.Error("failed to write test metric envelope", err)
-	} // else {
-	//pc.log.Info(fmt.Sprintf("performance: wrote %d %s points", len(points), BlackboxPerformanceTestCanary))
-	//}
+	}
 }
