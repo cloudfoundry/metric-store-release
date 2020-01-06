@@ -31,7 +31,7 @@ require (
 	github.com/onsi/gomega v1.7.1
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.2.1
-	github.com/prometheus/client_model v0.0.0-20191202183732-d1d2010b5bee
+	github.com/prometheus/client_model v0.1.0
 	github.com/prometheus/common v0.7.0
 	github.com/prometheus/prometheus v1.8.2-0.20191017095924-6f92ce560538
 	github.com/smartystreets/goconvey v1.6.4 // indirect
