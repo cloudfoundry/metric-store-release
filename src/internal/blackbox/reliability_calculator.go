@@ -199,9 +199,7 @@ func (rc *ReliabilityCalculator) emitReliabilityMetrics(sourceId string, client 
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	if err == nil {
-		rc.Log.Info("reliability: interval metrics emitted")
-	} else {
+	if err != nil {
 		rc.Log.Error("reliability: failed to write test metric envelope", err)
 	}
 }
