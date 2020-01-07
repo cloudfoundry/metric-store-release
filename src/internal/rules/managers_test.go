@@ -57,7 +57,7 @@ groups:
 
 		engineOpts := promql.EngineOpts{
 			MaxConcurrent: 10,
-			MaxSamples:    1e6,
+			MaxSamples:    20e6,
 			Timeout:       time.Minute,
 			Logger:        logger.NewTestLogger(),
 		}
