@@ -28,11 +28,11 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
 	"github.com/prometheus/prometheus/tsdb/chunks"
 	"github.com/prometheus/prometheus/tsdb/encoding"
 	"github.com/prometheus/prometheus/tsdb/index"
-	"github.com/prometheus/prometheus/tsdb/labels"
 	"github.com/prometheus/prometheus/tsdb/record"
 	"github.com/prometheus/prometheus/tsdb/tombstones"
 	"github.com/prometheus/prometheus/tsdb/wal"
@@ -389,9 +389,6 @@ func (h *Head) loadWAL(r *wal.Reader, multiRef map[uint64]uint64) (err error) {
 
 	var (
 		dec       record.Decoder
-		series    []record.RefSeries
-		samples   []record.RefSample
-		tstones   []tombstones.Stone
 		allStones = tombstones.NewMemTombstones()
 		shards    = make([][]record.RefSample, n)
 	)
@@ -400,21 +397,82 @@ func (h *Head) loadWAL(r *wal.Reader, multiRef map[uint64]uint64) (err error) {
 			level.Warn(h.logger).Log("msg", "closing  memTombstones during wal read", "err", err)
 		}
 	}()
-	for r.Next() {
-		series, samples, tstones = series[:0], samples[:0], tstones[:0]
-		rec := r.Record()
 
-		switch dec.Type(rec) {
-		case record.Series:
-			series, err = dec.Series(rec, series)
-			if err != nil {
-				return &wal.CorruptionErr{
-					Err:     errors.Wrap(err, "decode series"),
+	var (
+		decoded    = make(chan interface{}, 10)
+		errCh      = make(chan error, 1)
+		seriesPool = sync.Pool{
+			New: func() interface{} {
+				return []record.RefSeries{}
+			},
+		}
+		samplesPool = sync.Pool{
+			New: func() interface{} {
+				return []record.RefSample{}
+			},
+		}
+		tstonesPool = sync.Pool{
+			New: func() interface{} {
+				return []tombstones.Stone{}
+			},
+		}
+	)
+	go func() {
+		defer close(decoded)
+		for r.Next() {
+			rec := r.Record()
+			switch dec.Type(rec) {
+			case record.Series:
+				series := seriesPool.Get().([]record.RefSeries)[:0]
+				series, err = dec.Series(rec, series)
+				if err != nil {
+					errCh <- &wal.CorruptionErr{
+						Err:     errors.Wrap(err, "decode series"),
+						Segment: r.Segment(),
+						Offset:  r.Offset(),
+					}
+					return
+				}
+				decoded <- series
+			case record.Samples:
+				samples := samplesPool.Get().([]record.RefSample)[:0]
+				samples, err = dec.Samples(rec, samples)
+				if err != nil {
+					errCh <- &wal.CorruptionErr{
+						Err:     errors.Wrap(err, "decode samples"),
+						Segment: r.Segment(),
+						Offset:  r.Offset(),
+					}
+					return
+				}
+				decoded <- samples
+			case record.Tombstones:
+				tstones := tstonesPool.Get().([]tombstones.Stone)[:0]
+				tstones, err = dec.Tombstones(rec, tstones)
+				if err != nil {
+					errCh <- &wal.CorruptionErr{
+						Err:     errors.Wrap(err, "decode tombstones"),
+						Segment: r.Segment(),
+						Offset:  r.Offset(),
+					}
+					return
+				}
+				decoded <- tstones
+			default:
+				errCh <- &wal.CorruptionErr{
+					Err:     errors.Errorf("invalid record type %v", dec.Type(rec)),
 					Segment: r.Segment(),
 					Offset:  r.Offset(),
 				}
+				return
 			}
-			for _, s := range series {
+		}
+	}()
+
+	for d := range decoded {
+		switch v := d.(type) {
+		case []record.RefSeries:
+			for _, s := range v {
 				series, created := h.getOrCreateWithID(s.Ref, s.Labels.Hash(), s.Labels)
 
 				if !created {
@@ -426,16 +484,10 @@ func (h *Head) loadWAL(r *wal.Reader, multiRef map[uint64]uint64) (err error) {
 					h.lastSeriesID = s.Ref
 				}
 			}
-		case record.Samples:
-			samples, err = dec.Samples(rec, samples)
-			s := samples
-			if err != nil {
-				return &wal.CorruptionErr{
-					Err:     errors.Wrap(err, "decode samples"),
-					Segment: r.Segment(),
-					Offset:  r.Offset(),
-				}
-			}
+			//lint:ignore SA6002 relax staticcheck verification.
+			seriesPool.Put(v)
+		case []record.RefSample:
+			samples := v
 			// We split up the samples into chunks of 5000 samples or less.
 			// With O(300 * #cores) in-flight sample batches, large scrapes could otherwise
 			// cause thousands of very large in flight buffers occupying large amounts
@@ -465,17 +517,10 @@ func (h *Head) loadWAL(r *wal.Reader, multiRef map[uint64]uint64) (err error) {
 				}
 				samples = samples[m:]
 			}
-			samples = s // Keep whole slice for reuse.
-		case record.Tombstones:
-			tstones, err = dec.Tombstones(rec, tstones)
-			if err != nil {
-				return &wal.CorruptionErr{
-					Err:     errors.Wrap(err, "decode tombstones"),
-					Segment: r.Segment(),
-					Offset:  r.Offset(),
-				}
-			}
-			for _, s := range tstones {
+			//lint:ignore SA6002 relax staticcheck verification.
+			samplesPool.Put(v)
+		case []tombstones.Stone:
+			for _, s := range v {
 				for _, itv := range s.Intervals {
 					if itv.Maxt < h.minValidTime {
 						continue
@@ -487,13 +532,17 @@ func (h *Head) loadWAL(r *wal.Reader, multiRef map[uint64]uint64) (err error) {
 					allStones.AddInterval(s.Ref, itv)
 				}
 			}
+			//lint:ignore SA6002 relax staticcheck verification.
+			tstonesPool.Put(v)
 		default:
-			return &wal.CorruptionErr{
-				Err:     errors.Errorf("invalid record type %v", dec.Type(rec)),
-				Segment: r.Segment(),
-				Offset:  r.Offset(),
-			}
+			panic(fmt.Errorf("unexpected decoded type: %T", d))
 		}
+	}
+
+	select {
+	case err := <-errCh:
+		return err
+	default:
 	}
 
 	// Signal termination to each worker and wait for it to close its output channel.
@@ -998,7 +1047,7 @@ func (a *headAppender) Rollback() error {
 
 // Delete all samples in the range of [mint, maxt] for series that satisfy the given
 // label matchers.
-func (h *Head) Delete(mint, maxt int64, ms ...labels.Matcher) error {
+func (h *Head) Delete(mint, maxt int64, ms ...*labels.Matcher) error {
 	// Do not delete anything beyond the currently valid range.
 	mint, maxt = clampInterval(mint, maxt, h.MinTime(), h.MaxTime())
 
@@ -1290,16 +1339,17 @@ func (h *headIndexReader) Close() error {
 	return nil
 }
 
-func (h *headIndexReader) Symbols() (map[string]struct{}, error) {
+func (h *headIndexReader) Symbols() index.StringIter {
 	h.head.symMtx.RLock()
-	defer h.head.symMtx.RUnlock()
-
-	res := make(map[string]struct{}, len(h.head.symbols))
+	res := make([]string, 0, len(h.head.symbols))
 
 	for s := range h.head.symbols {
-		res[s] = struct{}{}
+		res = append(res, s)
 	}
-	return res, nil
+	h.head.symMtx.RUnlock()
+
+	sort.Strings(res)
+	return index.NewStringListIter(res)
 }
 
 // LabelValues returns the possible label values
@@ -1334,9 +1384,13 @@ func (h *headIndexReader) LabelNames() ([]string, error) {
 	return labelNames, nil
 }
 
-// Postings returns the postings list iterator for the label pair.
-func (h *headIndexReader) Postings(name, value string) (index.Postings, error) {
-	return h.head.postings.Get(name, value), nil
+// Postings returns the postings list iterator for the label pairs.
+func (h *headIndexReader) Postings(name string, values ...string) (index.Postings, error) {
+	res := make([]index.Postings, 0, len(values))
+	for _, value := range values {
+		res = append(res, h.head.postings.Get(name, value))
+	}
+	return index.Merge(res...), nil
 }
 
 func (h *headIndexReader) SortedPostings(p index.Postings) index.Postings {
@@ -1403,16 +1457,6 @@ func (h *headIndexReader) Series(ref uint64, lbls *labels.Labels, chks *[]chunks
 	return nil
 }
 
-func (h *headIndexReader) LabelIndices() ([][]string, error) {
-	h.head.symMtx.RLock()
-	defer h.head.symMtx.RUnlock()
-	res := [][]string{}
-	for s := range h.head.values {
-		res = append(res, []string{s})
-	}
-	return res, nil
-}
-
 func (h *Head) getOrCreate(hash uint64, lset labels.Labels) (*memSeries, bool) {
 	// Just using `getOrSet` below would be semantically sufficient, but we'd create
 	// a new series on every sample inserted via Add(), which causes allocations
@@ -1467,7 +1511,7 @@ type seriesHashmap map[uint64][]*memSeries
 
 func (m seriesHashmap) get(hash uint64, lset labels.Labels) *memSeries {
 	for _, s := range m[hash] {
-		if s.lset.Equals(lset) {
+		if labels.Equal(s.lset, lset) {
 			return s
 		}
 	}
@@ -1477,7 +1521,7 @@ func (m seriesHashmap) get(hash uint64, lset labels.Labels) *memSeries {
 func (m seriesHashmap) set(hash uint64, s *memSeries) {
 	l := m[hash]
 	for i, prev := range l {
-		if prev.lset.Equals(s.lset) {
+		if labels.Equal(prev.lset, s.lset) {
 			l[i] = s
 			return
 		}
@@ -1488,7 +1532,7 @@ func (m seriesHashmap) set(hash uint64, s *memSeries) {
 func (m seriesHashmap) del(hash uint64, lset labels.Labels) {
 	var rem []*memSeries
 	for _, s := range m[hash] {
-		if !s.lset.Equals(lset) {
+		if !labels.Equal(s.lset, lset) {
 			rem = append(rem, s)
 		}
 	}

@@ -5,7 +5,6 @@ package rules
 
 import (
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -103,7 +102,7 @@ func (r *RuleManager) Reload() error {
 
 	cfg := &config.Config{
 		AlertingConfig: config.AlertingConfig{
-			AlertmanagerConfigs: []*config.AlertmanagerConfig{
+			AlertmanagerConfigs: config.AlertmanagerConfigs{
 				{
 					ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
 						StaticConfigs: []*targetgroup.Group{
@@ -130,14 +129,14 @@ func (r *RuleManager) Reload() error {
 	}
 
 	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
-	for _, v := range cfg.AlertingConfig.AlertmanagerConfigs {
+	for i, v := range cfg.AlertingConfig.AlertmanagerConfigs {
 		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
-		b, err := json.Marshal(v)
+		_, err := json.Marshal(v)
 		if err != nil {
 			r.log.Fatal("error parsing alertmanager config", err)
 			return err
 		}
-		discoveredConfig[fmt.Sprintf("%x", md5.Sum(b))] = v.ServiceDiscoveryConfig
+		discoveredConfig[fmt.Sprintf("config-%d", i)] = v.ServiceDiscoveryConfig
 	}
 	r.PromDiscoveryManager.ApplyConfig(discoveredConfig)
 

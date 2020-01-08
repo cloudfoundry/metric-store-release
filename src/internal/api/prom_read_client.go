@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"time"
@@ -22,13 +23,16 @@ func NewPromReadClient(index int, addr string, timeout time.Duration, tlsConfig 
 		Path:   "/api/v1/read",
 	}
 
-	c, err := remote.NewClient(index, &remote.ClientConfig{
-		URL:     &config.URL{URL: url},
-		Timeout: model.Duration(timeout),
-		HTTPClientConfig: config.HTTPClientConfig{
-			TLSConfig: *tlsConfig,
+	c, err := remote.NewClient(
+		fmt.Sprintf("Node %d", index),
+		&remote.ClientConfig{
+			URL:     &config.URL{URL: url},
+			Timeout: model.Duration(timeout),
+			HTTPClientConfig: config.HTTPClientConfig{
+				TLSConfig: *tlsConfig,
+			},
 		},
-	})
+	)
 
 	if err != nil {
 		return nil, err

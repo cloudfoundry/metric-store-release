@@ -49,7 +49,7 @@ require (
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/client_model v0.1.0
 	github.com/prometheus/common v0.7.0
-	github.com/prometheus/prometheus v1.8.2-0.20191111142012-edeb7a44cbf7
+	github.com/prometheus/prometheus v1.8.2-0.20200106144642-d9613e5c466c
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.3.0 // indirect

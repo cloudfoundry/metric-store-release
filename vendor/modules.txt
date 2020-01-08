@@ -36,7 +36,7 @@ github.com/alecthomas/units
 github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go v1.23.12
+# github.com/aws/aws-sdk-go v1.25.48
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/awsutil
@@ -360,7 +360,7 @@ github.com/prometheus/common/version
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/prometheus/prometheus v1.8.2-0.20191111142012-edeb7a44cbf7
+# github.com/prometheus/prometheus v1.8.2-0.20200106144642-d9613e5c466c
 github.com/prometheus/prometheus/config
 github.com/prometheus/prometheus/discovery
 github.com/prometheus/prometheus/discovery/azure
@@ -378,6 +378,7 @@ github.com/prometheus/prometheus/discovery/targetgroup
 github.com/prometheus/prometheus/discovery/triton
 github.com/prometheus/prometheus/discovery/zookeeper
 github.com/prometheus/prometheus/notifier
+github.com/prometheus/prometheus/pkg/exemplar
 github.com/prometheus/prometheus/pkg/gate
 github.com/prometheus/prometheus/pkg/labels
 github.com/prometheus/prometheus/pkg/logging
@@ -403,7 +404,6 @@ github.com/prometheus/prometheus/tsdb/errors
 github.com/prometheus/prometheus/tsdb/fileutil
 github.com/prometheus/prometheus/tsdb/goversion
 github.com/prometheus/prometheus/tsdb/index
-github.com/prometheus/prometheus/tsdb/labels
 github.com/prometheus/prometheus/tsdb/record
 github.com/prometheus/prometheus/tsdb/tombstones
 github.com/prometheus/prometheus/tsdb/wal

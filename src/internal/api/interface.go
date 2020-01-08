@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	prom_labels "github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 	"github.com/prometheus/prometheus/scrape"
-	tsdbLabels "github.com/prometheus/prometheus/tsdb/labels"
+	"github.com/prometheus/prometheus/tsdb"
 )
 
 type nullTargetRetriever struct{}
@@ -17,10 +18,11 @@ func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { re
 
 type nullTSDBAdmin struct{}
 
-func (a *nullTSDBAdmin) CleanTombstones() error                           { return nil }
-func (a *nullTSDBAdmin) Delete(int64, int64, ...tsdbLabels.Matcher) error { return nil }
-func (a *nullTSDBAdmin) Dir() string                                      { return "" }
-func (a *nullTSDBAdmin) Snapshot(string, bool) error                      { return nil }
+func (a *nullTSDBAdmin) CleanTombstones() error                             { return nil }
+func (a *nullTSDBAdmin) Delete(int64, int64, ...*prom_labels.Matcher) error { return nil }
+func (a *nullTSDBAdmin) Dir() string                                        { return "" }
+func (a *nullTSDBAdmin) Snapshot(string, bool) error                        { return nil }
+func (a *nullTSDBAdmin) Head() *tsdb.Head                                   { return nil }
 
 type Rule struct {
 	Record      string            `yaml:"record,omitempty"`

@@ -34,13 +34,18 @@ import (
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
 	tsdb_errors "github.com/prometheus/prometheus/tsdb/errors"
 	"github.com/prometheus/prometheus/tsdb/fileutil"
 	_ "github.com/prometheus/prometheus/tsdb/goversion"
-	"github.com/prometheus/prometheus/tsdb/labels"
 	"github.com/prometheus/prometheus/tsdb/wal"
 	"golang.org/x/sync/errgroup"
+)
+
+// Default duration of a block in milliseconds - 2h.
+const (
+	DefaultBlockDuration = int64(2 * 60 * 60 * 1000)
 )
 
 // DefaultOptions used for the DB. They are sane for setups using
@@ -48,7 +53,7 @@ import (
 var DefaultOptions = &Options{
 	WALSegmentSize:         wal.DefaultSegmentSize,
 	RetentionDuration:      15 * 24 * 60 * 60 * 1000, // 15 days in milliseconds
-	BlockRanges:            ExponentialBlockRanges(int64(2*time.Hour)/1e6, 3, 5),
+	BlockRanges:            ExponentialBlockRanges(DefaultBlockDuration, 3, 5),
 	NoLockfile:             false,
 	AllowOverlappingBlocks: false,
 	WALCompression:         false,
@@ -860,7 +865,7 @@ func openBlocks(l log.Logger, dir string, loaded []*Block, chunkPool chunkenc.Po
 	for _, bDir := range bDirs {
 		meta, _, err := readMetaFile(bDir)
 		if err != nil {
-			level.Error(l).Log("msg", "not a block dir", "dir", bDir)
+			level.Error(l).Log("msg", "failed to read meta.json for a block", "dir", bDir, "err", err)
 			continue
 		}
 
@@ -933,7 +938,11 @@ func (db *DB) beyondSizeRetention(blocks []*Block) (deleteable map[ulid.ULID]*Bl
 	}
 
 	deleteable = make(map[ulid.ULID]*Block)
-	blocksSize := int64(0)
+
+	walSize, _ := db.Head().wal.Size()
+	// Initializing size counter with WAL size,
+	// as that is part of the retention strategy.
+	blocksSize := walSize
 	for i, block := range blocks {
 		blocksSize += block.Size()
 		if blocksSize > db.opts.MaxBytes {
@@ -1243,7 +1252,7 @@ func rangeForTimestamp(t int64, width int64) (maxt int64) {
 }
 
 // Delete implements deletion of metrics. It only has atomicity guarantees on a per-block basis.
-func (db *DB) Delete(mint, maxt int64, ms ...labels.Matcher) error {
+func (db *DB) Delete(mint, maxt int64, ms ...*labels.Matcher) error {
 	db.cmtx.Lock()
 	defer db.cmtx.Unlock()
 

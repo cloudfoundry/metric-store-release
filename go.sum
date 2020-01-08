@@ -69,8 +69,8 @@ github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a h1:idn718Q4
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/attack/influxdb v1.7.9-0.20191029173138-5bd71457cbd5 h1:53tFBb3yZwl0Uuiuwe720vsCDfEKtfSYZOQ56bkutKQ=
 github.com/attack/influxdb v1.7.9-0.20191029173138-5bd71457cbd5/go.mod h1:WbUMJKMHxHunrGmp6stb4Q94h2++ZM55EhGAMgSh/40=
-github.com/aws/aws-sdk-go v1.23.12 h1:2UnxgNO6Y5J1OrkXS8XNp0UatDxD1bWHiDT62RDPggI=
-github.com/aws/aws-sdk-go v1.23.12/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
+github.com/aws/aws-sdk-go v1.25.48 h1:J82DYDGZHOKHdhx6hD24Tm30c2C3GchYGfN0mf9iKUk=
+github.com/aws/aws-sdk-go v1.25.48/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86 h1:GvfVd/aKGyYnAPHc17Hp7KimG2Ql7TzLF23KNKkTfpw=
 github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86/go.mod h1:pEmjzwpusd4aX9Aiz7gVcGTmSRnx80UzqvuoZvPQ2bg=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 h1:xJ4a3vCFaGF/jqvzLMYoU8P317H5OQ+Via4RmuPwCS0=
@@ -525,8 +525,8 @@ github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDa
 github.com/prometheus/procfs v0.0.5 h1:3+auTFlqw+ZaQYJARz6ArODtkaIwtvBTx3N2NehQlL8=
 github.com/prometheus/procfs v0.0.5/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/prometheus/prometheus v0.0.0-20180315085919-58e2a31db8de/go.mod h1:oAIUtOny2rjMX0OWN5vPR5/q/twIROJvdqnQKDdil/s=
-github.com/prometheus/prometheus v1.8.2-0.20191111142012-edeb7a44cbf7 h1:OhR8SVtl7w0Z+ssULwwm5TJnJaAPkd/uV+zQdk6ADmA=
-github.com/prometheus/prometheus v1.8.2-0.20191111142012-edeb7a44cbf7/go.mod h1:PVTKYlgELGIDbIKIyWRzD4WKjnavPynGOFLSuDpvOwU=
+github.com/prometheus/prometheus v1.8.2-0.20200106144642-d9613e5c466c h1:eAhSTkHlZEgkVcXfZh3GJiGoHiMY4GD5pa0AFz/3ArQ=
+github.com/prometheus/prometheus v1.8.2-0.20200106144642-d9613e5c466c/go.mod h1:7U90zPoLkWjEIQcy/rweQla82OCTUzxVHE51G3OhJbI=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
 github.com/rs/cors v1.6.0/go.mod h1:gFx+x8UowdsKA9AchylcLynDq+nNFfI8FkUZdN/jGCU=
