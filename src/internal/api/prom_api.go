@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"regexp"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
@@ -34,6 +35,30 @@ func NewPromAPI(promQLEngine *promql.Engine, ruleManagers *rules.RuleManagers, l
 }
 
 func (api *PromAPI) RouterForStorage(storage storage.Storage) *route.Router {
+	prometheusVersion := &prom_api.PrometheusVersion{
+		Version:   "2.14.0",
+		Revision:  "edeb7a44cbf745f1d8be4ea6f215e79e651bfe19",
+		Branch:    "v2.14.0",
+		BuildUser: "",
+		BuildDate: "",
+		GoVersion: "",
+	}
+
+	runtimeInfo := prom_api.RuntimeInfo{
+		StartTime:           time.Now(),
+		CWD:                 "",
+		ReloadConfigSuccess: false,
+		LastConfigTime:      time.Now(),
+		ChunkCount:          0,
+		TimeSeriesCount:     0,
+		CorruptionCount:     0,
+		GoroutineCount:      0,
+		GOMAXPROCS:          0,
+		GOGC:                "",
+		GODEBUG:             "",
+		StorageRetention:    "",
+	}
+
 	promAPI := prom_api.NewAPI(
 		api.promQLEngine,
 		storage,
@@ -50,6 +75,8 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage) *route.Router {
 		REMOTE_READ_CONCURRENCY_LIMIT,
 		REMOTE_READ_MAX_BYTES_IN_FRAME,
 		&regexp.Regexp{},
+		func() (prom_api.RuntimeInfo, error) { return runtimeInfo, nil },
+		prometheusVersion,
 	)
 
 	promAPIRouter := route.New()
