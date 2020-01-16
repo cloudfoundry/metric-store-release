@@ -29,6 +29,18 @@ type ManagerData struct {
 	Data Manager `json:"data"`
 }
 
+type RuleGroupData struct {
+	Data RuleGroup `json:"data"`
+}
+
+type RuleGroup struct {
+	Name     string   `json:"name"`
+	Interval Duration `json:"interval,omitempty"`
+	Rules    []Rule   `json:"rules"`
+}
+
+type Duration time.Duration
+
 type Rule struct {
 	Record      string            `json:"record,omitempty"`
 	Alert       string            `json:"alert,omitempty"`
@@ -56,12 +68,6 @@ func (r *Rule) convertToPromRule() (rulefmt.Rule, error) {
 		Labels:      r.Labels,
 		Annotations: r.Annotations,
 	}, nil
-}
-
-type RuleGroup struct {
-	Name     string   `json:"name"`
-	Interval Duration `json:"interval,omitempty"`
-	Rules    []Rule   `json:"rules"`
 }
 
 func (rg *RuleGroup) Validate() error {
@@ -104,12 +110,6 @@ func (rg *RuleGroup) ConvertToPromRuleGroup() (*rulefmt.RuleGroup, error) {
 		Rules:    promRules,
 	}, nil
 }
-
-type RuleGroupData struct {
-	Data RuleGroup `json:"data"`
-}
-
-type Duration time.Duration
 
 func (d *Duration) Type() string {
 	return "duration"

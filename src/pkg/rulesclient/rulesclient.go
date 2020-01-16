@@ -80,7 +80,7 @@ type ErrorNotCreated struct {
 }
 
 func (e *ErrorNotCreated) Error() string {
-	panic("not implemented")
+	return e.Title
 }
 
 func (c *RulesClient) CreateManager(managerId, alertmanagerAddr string) (*Manager, error) {

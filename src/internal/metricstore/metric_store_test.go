@@ -13,6 +13,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
@@ -48,6 +50,7 @@ type testContext struct {
 	store           *metricstore.MetricStore
 	persistentStore storage.Storage
 	apiClient       prom_api_client.API
+	rulesClient     *rulesclient.RulesClient
 	rulesApiClient  *http.Client
 
 	spyMetrics                *shared.SpyMetricRegistrar
@@ -61,47 +64,38 @@ type testContext struct {
 }
 
 func (tc *testContext) CreateRuleManager(managerId, alertmanagerAddr string) {
-	createRulesManagerPayload := `
-	{
-		"data": {
-			"id": "` + managerId + `",
-			"alertmanager_url": "` + alertmanagerAddr + `"
-		}
-	}`
-
-	resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
-		"application/json",
-		bytes.NewReader([]byte(createRulesManagerPayload)),
-	)
+	_, err := tc.rulesClient.CreateManager(managerId, alertmanagerAddr)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(resp.StatusCode).To(Equal(201))
 }
 
-func (tc *testContext) CreateRuleGroup(managerId, ruleType, alertName, alertExpr string) *http.Response {
-	createRuleGroupPayload := []byte(`
-	{
-		"data": {
-			"name": "my-example-group",
-			"interval": "1s",
-			"rules": [
-				{
-					"` + ruleType + `": "` + alertName + `",
-					"expr": "` + alertExpr + `"
-				}
-			]
-		}
-	}`)
+func (tc *testContext) CreateRecordGroup(managerId, alertName, alertExpr string) (*rulesclient.RuleGroup, error) {
+	group := rulesclient.RuleGroup{
+		Name:     "my-example-group",
+		Interval: rulesclient.Duration(time.Second),
+		Rules: []rulesclient.Rule{
+			{
+				Record: alertName,
+				Expr:   alertExpr,
+			},
+		},
+	}
+	return tc.rulesClient.UpsertRuleGroup(managerId, group)
+}
 
-	// TODO: use rulesclient
-	resp, err := tc.rulesApiClient.Post(
-		"https://"+tc.store.Addr()+"/rules/manager/"+managerId+"/group",
-		"application/json",
-		bytes.NewReader(createRuleGroupPayload),
-	)
+func (tc *testContext) CreateAlertGroup(managerId, alertName, alertExpr string) {
+	group := rulesclient.RuleGroup{
+		Name:     "my-example-group",
+		Interval: rulesclient.Duration(time.Second),
+		Rules: []rulesclient.Rule{
+			{
+				Alert: alertName,
+				Expr:  alertExpr,
+			},
+		},
+	}
+
+	_, err := tc.rulesClient.UpsertRuleGroup(managerId, group)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(resp.StatusCode).To(Equal(201))
-
-	return resp
 }
 
 var _ = Describe("MetricStore", func() {
@@ -191,6 +185,9 @@ var _ = Describe("MetricStore", func() {
 		tc.rulesApiClient = &http.Client{
 			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
 		}
+
+		tc.rulesClient = rulesclient.NewRulesClient(tc.store.Addr(), tc.tlsConfig,
+			rulesclient.WithRulesClientLogger(logger.NewTestLogger()))
 
 		return tc, func() {
 			innerCleanup()
@@ -355,44 +352,24 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	Describe("Rules API", func() {
-		createRulesManagerPayload := []byte(`
-			{
-				"data": {
-					"id": "` + MAGIC_MEASUREMENT_NAME + `",
-					"alertmanager_url": ""
-				}
-			}
-		`)
-
 		Describe("/rules/manager endpoint", func() {
 			It("Creates a rules manager with the provided ID", func() {
-				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
-					"application/json",
-					bytes.NewReader(createRulesManagerPayload),
-				)
+				manager, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, "")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(201))
 
-				body, err := ioutil.ReadAll(resp.Body)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(body).To(MatchJSON(createRulesManagerPayload))
+				Expect(manager).To(Equal(&rulesclient.Manager{
+					Id:              MAGIC_MEASUREMENT_NAME,
+					AlertManagerUrl: "",
+				}))
 			})
 
 			// TODO use local manager name
 			It("Returns an error when provided an existing rule manager id", func() {
-				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
-					"application/json",
-					bytes.NewReader(createRulesManagerPayload),
-				)
+				_, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, "")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(201))
 
-				resp, err = tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
-					"application/json",
-					bytes.NewReader(createRulesManagerPayload),
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(409))
+				_, err = tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, "")
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Returns an error when given invalid json", func() {
@@ -408,8 +385,8 @@ var _ = Describe("MetricStore", func() {
 				tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, tc.alertManager1.Addr())
 				tc.CreateRuleManager("rules-manager-id3", tc.alertManager2.Addr())
 
-				tc.CreateRuleGroup(MAGIC_MEASUREMENT_NAME, "alert", "sumCpuTotal1", "sum(cpu) > 0")
-				tc.CreateRuleGroup("rules-manager-id3", "alert", "sumCpuTotal2", "sum(cpu) > 0")
+				tc.CreateAlertGroup(MAGIC_MEASUREMENT_NAME, "sumCpuTotal1", "sum(cpu) > 0")
+				tc.CreateAlertGroup("rules-manager-id3", "sumCpuTotal2", "sum(cpu) > 0")
 
 				now := time.Now()
 				writePoints(tc, []*rpc.Point{
@@ -456,11 +433,16 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Creates a rule group", func() {
-					resp := tc.CreateRuleGroup(MAGIC_MEASUREMENT_NAME, "record", "job:http_total:sum", "sum(http_total) by (source_id)")
-
-					body, err := ioutil.ReadAll(resp.Body)
+					group, err := tc.CreateRecordGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "sum(http_total) by (source_id)")
 					Expect(err).ToNot(HaveOccurred())
-					Expect(body).To(MatchJSON(createRuleGroupPayload))
+
+					Expect(group).To(Equal(&rulesclient.RuleGroup{
+						Name:     "my-example-group",
+						Interval: rulesclient.Duration(time.Second),
+						Rules: []rulesclient.Rule{
+							{Record: "job:http_total:sum", Expr: "sum(http_total) by (source_id)"},
+						},
+					}))
 
 					Eventually(countRuleGroups(tc), 5*time.Second).Should(BeNumerically(">", 0))
 				})
@@ -490,25 +472,15 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Returns an error if no name is provided", func() {
-					payload := []byte(`
-					{
-						"data": {
-							"interval": "1m",
-							"rules": [
-								{
-									"record": "job:http_total:sum",
-									"expr": "sum(http_total) by (source_id)"
-								}
-							]
-						}
-					}`)
-					resp, err := tc.rulesApiClient.Post(
-						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
-						"application/json",
-						bytes.NewReader(payload),
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(400))
+					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
+						Interval: rulesclient.Duration(time.Minute),
+						Rules: []rulesclient.Rule{
+							{Record: "job:http_total:sum", Expr: "sum(http_total) by (source_id)"},
+						},
+					})
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("name"))
 				})
 
 				It("Returns an error if the provided interval is not a duration", func() {
@@ -535,61 +507,28 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Returns an error if the rules array is not provided", func() {
-					payload := []byte(`
-					{
-						"data": {
-							"name": "my-example-group",
-							"interval": "1m"
-						}
-					}`)
-					resp, err := tc.rulesApiClient.Post(
-						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
-						"application/json",
-						bytes.NewReader(payload),
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(400))
+					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
+						Name:     "tragic",
+						Interval: rulesclient.Duration(time.Minute),
+					})
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("rule"))
 				})
 
 				It("Returns an error if the rules array is empty", func() {
-					payload := []byte(`
-					{
-						"data": {
-							"name": "my-example-group",
-							"interval": "1m",
-							"rules": []
-						}
-					}`)
-					resp, err := tc.rulesApiClient.Post(
-						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
-						"application/json",
-						bytes.NewReader(payload),
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(400))
+					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
+						Name:     "tragic",
+						Interval: rulesclient.Duration(time.Minute),
+						Rules:    []rulesclient.Rule{},
+					})
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("rule"))
 				})
 
 				It("Returns an error if the resulting config is not valid", func() {
-					payload := []byte(`
-					{
-						"data": {
-							"name": "my-example-group",
-							"interval": "1m",
-							"rules": [
-								{
-									"record": "job:http_total:sum",
-									"expr": "invalid promql {"
-								}
-							]
-						}
-					}`)
-					resp, err := tc.rulesApiClient.Post(
-						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
-						"application/json",
-						bytes.NewReader(payload),
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(400))
+					_, err := tc.CreateRecordGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "invalid promql {")
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("parse"))
 				})
 			})
 
