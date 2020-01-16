@@ -22,19 +22,17 @@ const (
 
 type PromAPI struct {
 	promQLEngine *promql.Engine
-	ruleManagers *rules.RuleManagers
 	log          *logger.Logger
 }
 
-func NewPromAPI(promQLEngine *promql.Engine, ruleManagers *rules.RuleManagers, log *logger.Logger) *PromAPI {
+func NewPromAPI(promQLEngine *promql.Engine, log *logger.Logger) *PromAPI {
 	return &PromAPI{
 		promQLEngine: promQLEngine,
-		ruleManagers: ruleManagers,
 		log:          log,
 	}
 }
 
-func (api *PromAPI) RouterForStorage(storage storage.Storage) *route.Router {
+func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.RuleManager) *route.Router {
 	prometheusVersion := &prom_api.PrometheusVersion{
 		Version:   "2.14.0",
 		Revision:  "edeb7a44cbf745f1d8be4ea6f215e79e651bfe19",
@@ -63,14 +61,14 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage) *route.Router {
 		api.promQLEngine,
 		storage,
 		&nullTargetRetriever{},
-		api.ruleManagers,
+		ruleManager,
 		func() config.Config { return config.Config{} },
 		nil,
 		func(h http.HandlerFunc) http.HandlerFunc { return h },
 		func() prom_api.TSDBAdmin { return &nullTSDBAdmin{} },
 		false,
 		api.log,
-		api.ruleManagers,
+		ruleManager,
 		REMOTE_READ_SAMPLE_LIMIT,
 		REMOTE_READ_CONCURRENCY_LIMIT,
 		REMOTE_READ_MAX_BYTES_IN_FRAME,

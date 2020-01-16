@@ -16,21 +16,21 @@ type ManagerStoreError string
 func (e ManagerStoreError) Error() string { return string(e) }
 
 const (
-	ManagerExistsError    = ManagerStoreError("ManagerExistsError")
-	ManagerNotExistsError = ManagerStoreError("ManagerNotExistsError")
+	ManagerExistsError    = ManagerStoreError("The manager already exists")
+	ManagerNotExistsError = ManagerStoreError("The manager does not exist")
 
 	alertManagerURLConfigPrefix = "# ALERTMANAGER_URL "
 )
 
-type ManagerStore struct {
+type RuleManagerFile struct {
 	rulesStoragePath string
 }
 
-func NewManagerStore(rulesStoragePath string) *ManagerStore {
-	return &ManagerStore{rulesStoragePath: rulesStoragePath}
+func NewRuleManagerFile(rulesStoragePath string) *RuleManagerFile {
+	return &RuleManagerFile{rulesStoragePath: rulesStoragePath}
 }
 
-func (m *ManagerStore) Create(managerId, alertmanagerAddr string) (string, error) {
+func (m *RuleManagerFile) Create(managerId, alertmanagerAddr string) (string, error) {
 	managerFilePath := m.rulesFilePath(managerId)
 	exists, err := m.rulesManagerExists(managerId)
 	if err != nil {
@@ -48,7 +48,7 @@ func (m *ManagerStore) Create(managerId, alertmanagerAddr string) (string, error
 	return managerFilePath, nil
 }
 
-func (m *ManagerStore) Load(managerId string) (string, string, error) {
+func (m *RuleManagerFile) Load(managerId string) (string, string, error) {
 	managerFilePath := m.rulesFilePath(managerId)
 	alertmanagerAddr, err := extractAlertmanagerAddr(managerFilePath)
 	if err != nil {
@@ -58,7 +58,7 @@ func (m *ManagerStore) Load(managerId string) (string, string, error) {
 	return managerFilePath, alertmanagerAddr, nil
 }
 
-func (m *ManagerStore) AddRuleGroup(managerId string, ruleGroup *rulefmt.RuleGroup) error {
+func (m *RuleManagerFile) UpsertRuleGroup(managerId string, ruleGroup *rulefmt.RuleGroup) error {
 	exists, err := m.rulesManagerExists(managerId)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func extractAlertmanagerAddr(ruleFile string) (string, error) {
 	return alertmanagerAddr, nil
 }
 
-func (m *ManagerStore) write(managerId string, ruleGroup *rulefmt.RuleGroup, alertmanagerAddr string) error {
+func (m *RuleManagerFile) write(managerId string, ruleGroup *rulefmt.RuleGroup, alertmanagerAddr string) error {
 	managerFilePath := m.rulesFilePath(managerId)
 
 	ruleGroups := rulefmt.RuleGroups{}
@@ -126,7 +126,7 @@ func (m *ManagerStore) write(managerId string, ruleGroup *rulefmt.RuleGroup, ale
 	return nil
 }
 
-func (m *ManagerStore) rulesManagerExists(managerId string) (bool, error) {
+func (m *RuleManagerFile) rulesManagerExists(managerId string) (bool, error) {
 	managerFilePath := m.rulesFilePath(managerId)
 	_, err := os.Stat(managerFilePath)
 
@@ -141,6 +141,6 @@ func (m *ManagerStore) rulesManagerExists(managerId string) (bool, error) {
 	return true, nil
 }
 
-func (m *ManagerStore) rulesFilePath(managerId string) string {
+func (m *RuleManagerFile) rulesFilePath(managerId string) string {
 	return path.Join(m.rulesStoragePath, managerId)
 }

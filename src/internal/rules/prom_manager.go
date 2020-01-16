@@ -1,8 +1,5 @@
 package rules
 
-// TODO:
-// metrics register
-
 import (
 	"context"
 	"encoding/json"
@@ -24,18 +21,19 @@ import (
 	"github.com/prometheus/prometheus/storage"
 )
 
-type RuleManager struct {
+type PromRuleManager struct {
 	id                   string
-	PromRuleManager      *rules.Manager
+	evaluationInterval   time.Duration
+	promRuleManager      *rules.Manager
 	PromNotifierManager  *notifier.Manager
 	PromDiscoveryManager *discovery.Manager
-	ruleFile             string
+	promRuleFile         string
 	alertmanagerAddr     string
 	log                  *logger.Logger
 	metrics              debug.MetricRegistrar
 }
 
-func NewRuleManager(managerId, ruleFile, alertmanagerAddr string, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *RuleManager {
+func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *PromRuleManager {
 	rulesManagerRegisterer := prometheus.WrapRegistererWith(
 		prometheus.Labels{"manager_id": managerId},
 		metrics.Registerer(),
@@ -51,7 +49,7 @@ func NewRuleManager(managerId, ruleFile, alertmanagerAddr string, store storage.
 	promRuleManager := rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store,
 		TSDB:        store,
-		QueryFunc:   EngineQueryFunc(engine, store),
+		QueryFunc:   wrappedEngineQueryFunc(engine, store),
 		NotifyFunc:  sendAlerts(promNotifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},
@@ -65,24 +63,25 @@ func NewRuleManager(managerId, ruleFile, alertmanagerAddr string, store storage.
 		discovery.Name("notify"),
 	)
 
-	return &RuleManager{
+	return &PromRuleManager{
 		id:                   managerId,
-		PromRuleManager:      promRuleManager,
+		evaluationInterval:   evaluationInterval,
+		promRuleManager:      promRuleManager,
 		PromNotifierManager:  promNotifierManager,
 		PromDiscoveryManager: promDiscoveryManager,
-		ruleFile:             ruleFile,
+		promRuleFile:         promRuleFile,
 		alertmanagerAddr:     alertmanagerAddr,
 		log:                  rulesManagerLog,
 		metrics:              metrics,
 	}
 }
 
-func (r *RuleManager) Start() error {
+func (r *PromRuleManager) Start() error {
 	err := r.Reload()
 	if err != nil {
 		return err
 	}
-	r.PromRuleManager.Run()
+	r.promRuleManager.Run()
 
 	go r.PromDiscoveryManager.Run()
 	go r.PromNotifierManager.Run(r.PromDiscoveryManager.SyncCh())
@@ -90,8 +89,8 @@ func (r *RuleManager) Start() error {
 	return nil
 }
 
-func (r *RuleManager) Reload() error {
-	err := r.PromRuleManager.Update(5*time.Second, []string{r.ruleFile}, nil)
+func (r *PromRuleManager) Reload() error {
+	err := r.promRuleManager.Update(r.evaluationInterval, []string{r.promRuleFile}, nil)
 	if err != nil {
 		return err
 	}
@@ -141,4 +140,12 @@ func (r *RuleManager) Reload() error {
 	r.PromDiscoveryManager.ApplyConfig(discoveredConfig)
 
 	return nil
+}
+
+func (r *PromRuleManager) RuleGroups() []*rules.Group {
+	return r.promRuleManager.RuleGroups()
+}
+
+func (r *PromRuleManager) AlertingRules() []*rules.AlertingRule {
+	return r.promRuleManager.AlertingRules()
 }

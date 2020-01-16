@@ -1,16 +1,12 @@
 package metricstore_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -25,11 +21,11 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/notifier"
 
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
@@ -90,6 +86,9 @@ func (q *testSeriesQuery) EndTimestamp() time.Time {
 const (
 	MAGIC_MEASUREMENT_NAME      = "cpu"
 	MAGIC_MEASUREMENT_PEER_NAME = "memory"
+
+	MAGIC_MANAGER_NAME      = "cpu"
+	MAGIC_MANAGER_PEER_NAME = "memory"
 )
 
 var _ = Describe("MetricStore", func() {
@@ -108,6 +107,7 @@ var _ = Describe("MetricStore", func() {
 		rulesPath         string
 		alertmanagerAddr  string
 		localEgressClient prom_versioned_api_client.API
+		peerEgressClient  prom_versioned_api_client.API
 	}
 
 	var startNode = func(tc *testContext, index int) {
@@ -196,6 +196,17 @@ var _ = Describe("MetricStore", func() {
 			},
 		})
 		tc.localEgressClient = prom_versioned_api_client.NewAPI(localPromAPIClient)
+
+		// TODO: remove this when /api/v1/rules supports aggregation
+		if numNodes > 1 {
+			peerPromAPIClient, _ := prom_api_client.NewClient(prom_api_client.Config{
+				Address: fmt.Sprintf("https://%s", tc.addrs[1]),
+				RoundTripper: &http.Transport{
+					TLSClientConfig: tc.tlsConfig,
+				},
+			})
+			tc.peerEgressClient = prom_versioned_api_client.NewAPI(peerPromAPIClient)
+		}
 
 		return tc, func() {
 			performOnAllNodes(tc, stopNode)
@@ -1086,8 +1097,8 @@ groups:
 
 			expectedMetric := model.Metric{
 				model.MetricNameLabel: "testRecordingRule",
-				"foo":  "bar",
-				"node": "1",
+				"foo":                 "bar",
+				"node":                "1",
 			}
 			if !sample.Metric.Equal(expectedMetric) {
 				return false
@@ -1103,6 +1114,7 @@ groups:
 ---
 groups:
 - name: example
+  interval: 1s
   rules:
   - alert: HighNumberOfTestMetrics
     expr: metric_store_test_metric > 2
@@ -1124,30 +1136,16 @@ groups:
 			log.Fatal(err)
 		}
 
-		receivedAlertCountChan := make(chan int)
-		f := func(w http.ResponseWriter, r *http.Request) {
-			var receivedAlerts []*notifier.Alert
-			defer r.Body.Close()
-
-			err := json.NewDecoder(r.Body).Decode(&receivedAlerts)
-			Expect(err).NotTo(HaveOccurred())
-
-			receivedAlertCountChan <- len(receivedAlerts)
-		}
-
-		spyAlertManager := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			f(w, r)
-			w.WriteHeader(http.StatusOK)
-		}))
-		spyAlertManagerAddr, _ := url.Parse(spyAlertManager.URL)
+		spyAlertManager := testing.NewAlertManagerSpy()
+		spyAlertManager.Start()
 
 		tc, cleanup := setup(
 			1,
 			WithOptionRulesPath(tmpfile.Name()),
-			WithOptionAlertManagerAddr(fmt.Sprintf(":%s", spyAlertManagerAddr.Port())),
+			WithOptionAlertManagerAddr(spyAlertManager.Addr()),
 		)
 		defer cleanup()
-		defer spyAlertManager.Close()
+		defer spyAlertManager.Stop()
 
 		client, err := ingressclient.NewIngressClient(
 			tc.ingressAddrs[0],
@@ -1181,24 +1179,12 @@ groups:
 		}
 		err = client.Write(points)
 
-		checkCount := func() bool {
-			select {
-			case count := <-receivedAlertCountChan:
-				return count > 0
-			default:
-				return false
-			}
-		}
-		Eventually(checkCount, 20).Should(BeTrue())
+		Eventually(spyAlertManager.AlertsReceived, 20).Should(BeNumerically(">", 0))
 	})
 
 	It("Adds rules via API and persists rules across restarts", func() {
-		tc, cleanup := setup(1)
+		tc, cleanup := setup(2)
 		defer cleanup()
-
-		alertmanager := testing.NewAlertManagerSpy()
-		alertmanager.Start()
-		defer alertmanager.Stop()
 
 		writePoints(
 			tc,
@@ -1211,59 +1197,54 @@ groups:
 			},
 		)
 
-		createPayload := []byte(`
-			{
-				"data": {
-					"id": "test-id",
-					"alertmanager_url": "` + alertmanager.Addr() + `"
-				}
-			}
-		`)
+		localRulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
+		peerRulesClient := rulesclient.NewRulesClient(tc.addrs[1], tc.tlsConfig)
 
-		apiClient := &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-		}
-		_, err := apiClient.Post("https://"+tc.addrs[0]+"/rules/manager",
-			"application/json",
-			bytes.NewReader(createPayload),
+		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = peerRulesClient.UpsertRuleGroup(
+			MAGIC_MANAGER_NAME,
+			rulesclient.RuleGroup{
+				Name:     "test-group",
+				Interval: rulesclient.Duration(2 * time.Minute),
+				Rules: []rulesclient.Rule{
+					{
+						Record: "sumCpuTotal",
+						Expr:   "sum(cpu)",
+					},
+				},
+			},
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		createRuleGroupPayload := []byte(`
-		{
-			"data": {
-				"name": "test-group",
-				"rules": [
-					{
-						"record": "sumCpuTotal",
-						"expr": "sum(cpu)"
-					}
-				]
-			}
-		}`)
+		_, err = localRulesClient.CreateManager(MAGIC_MANAGER_PEER_NAME, "")
+		Expect(err).ToNot(HaveOccurred())
 
-		_, err = apiClient.Post(
-			"https://"+tc.addrs[0]+"/rules/manager/test-id/group",
-			"application/json",
-			bytes.NewReader(createRuleGroupPayload),
+		_, err = peerRulesClient.UpsertRuleGroup(
+			MAGIC_MANAGER_PEER_NAME,
+			rulesclient.RuleGroup{
+				Name: "test-group-peer",
+				Rules: []rulesclient.Rule{
+					{
+						Record: "sumMemoryTotal",
+						Expr:   "sum(memory)",
+					},
+				},
+			},
 		)
 		Expect(err).ToNot(HaveOccurred())
 
 		f := func() int {
-			rules, err := tc.localEgressClient.Rules(context.Background())
+			localRules, err := tc.localEgressClient.Rules(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
-			return len(rules.Groups)
-		}
-		Eventually(f, 5*time.Second).Should(Equal(1))
-
-		f = func() int {
-			managers, err := tc.localEgressClient.AlertManagers(context.Background())
+			peerRules, err := tc.peerEgressClient.Rules(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
-			return len(managers.Active)
+			return len(localRules.Groups) + len(peerRules.Groups)
 		}
-		Eventually(f, 10*time.Second).Should(Equal(1))
+		Eventually(f, 5*time.Second).Should(Equal(2))
 
 		stopNode(tc, 0)
 		startNode(tc, 0)
@@ -1274,19 +1255,14 @@ groups:
 		}, 5).Should(Succeed())
 
 		f = func() int {
-			rules, err := tc.localEgressClient.Rules(context.Background())
+			localRules, err := tc.localEgressClient.Rules(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
-			return len(rules.Groups)
-		}
-		Eventually(f, 5*time.Second).Should(Equal(1))
-
-		f = func() int {
-			managers, err := tc.localEgressClient.AlertManagers(context.Background())
+			peerRules, err := tc.peerEgressClient.Rules(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
-			return len(managers.Active)
+			return len(localRules.Groups) + len(peerRules.Groups)
 		}
-		Eventually(f, 10*time.Second).Should(Equal(1))
+		Eventually(f, 5*time.Second).Should(Equal(2))
 	})
 })
