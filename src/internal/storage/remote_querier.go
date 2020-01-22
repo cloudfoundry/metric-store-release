@@ -2,11 +2,14 @@ package storage
 
 import (
 	"context"
+	"errors"
+	"net"
 	"time"
 
-	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
+	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
+	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -20,6 +23,7 @@ type RemoteQuerier struct {
 	addr          string
 	publicClient  *remote.Client
 	privateClient prom_api_client.API
+	log           *logger.Logger
 }
 
 func NewRemoteQuerier(
@@ -27,6 +31,7 @@ func NewRemoteQuerier(
 	index int,
 	addr string,
 	egressTLSConfig *config_util.TLSConfig,
+	logger *logger.Logger,
 ) (prom_storage.Querier, error) {
 	// TODO - remote query timeout should probably not be a hardcoded value?
 	publicClient, err := api.NewPromReadClient(
@@ -64,6 +69,7 @@ func NewRemoteQuerier(
 		addr:          addr,
 		publicClient:  publicClient,
 		privateClient: privateClient,
+		log:           logger,
 	}
 	return querier, nil
 }
@@ -75,11 +81,38 @@ func (r *RemoteQuerier) Select(params *prom_storage.SelectParams, matchers ...*l
 	}
 
 	res, err := r.publicClient.Read(r.ctx, query)
+	if err != nil && serverIsUnavailable(err) {
+		ticker, stop := NewExponentialTicker(TickerConfig{Context: r.ctx, MaxDelay: 30 * time.Second})
+		defer stop()
+		for {
+			select {
+			case <-ticker:
+				r.log.Info("Retrying read", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
+				res, err = r.publicClient.Read(r.ctx, query)
+				if err == nil || !serverIsUnavailable(err) {
+					break
+				}
+			}
+		}
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-
 	return remote.FromQueryResult(res), nil, nil
+}
+
+func serverIsUnavailable(err error) bool {
+	var opError *net.OpError
+
+	// necessary until promclient upgrades from pkg/errors
+	for err != nil {
+		cause, ok := err.(interface{ Cause() error })
+		if !ok {
+			break
+		}
+		err = cause.Cause()
+	}
+	return errors.As(err, &opError)
 }
 
 func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {

@@ -11,8 +11,8 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
-	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	_ "github.com/influxdata/influxdb/tsdb/engine"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/storage"
 	prom_storage "github.com/prometheus/prometheus/storage"
@@ -127,6 +127,7 @@ func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64)
 				i,
 				addr,
 				r.egressTLSConfig,
+				r.log,
 			)
 			queriers[i] = remoteQuerier
 
