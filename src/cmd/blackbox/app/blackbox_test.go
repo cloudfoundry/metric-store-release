@@ -25,7 +25,7 @@ var _ = Describe("Blackbox App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
-		}, logger.NewTestLogger())
+		}, logger.NewTestLogger(GinkgoWriter))
 		go bb.Run()
 		Eventually(bb.DebugAddr).ShouldNot(BeEmpty())
 	})

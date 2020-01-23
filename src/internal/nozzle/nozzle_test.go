@@ -49,7 +49,7 @@ var _ = Describe("Nozzle", func() {
 				[]string{"tag1", "tag2", "status_code"},
 				[]string{"tag1", "tag2"},
 			),
-			WithNozzleLogger(logger.NewTestLogger()),
+			WithNozzleLogger(logger.NewTestLogger(GinkgoWriter)),
 		)
 		go n.Start()
 	})

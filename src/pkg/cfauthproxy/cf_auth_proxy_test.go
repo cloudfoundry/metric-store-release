@@ -124,7 +124,7 @@ var _ = Describe("CFAuthProxy", func() {
 			testing.Cert("metric-store.key"),
 			proxyCACertPool,
 			WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
-				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234", logger.NewTestLogger())
+				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234", logger.NewTestLogger(GinkgoWriter))
 			}),
 		)
 		proxy.Start()

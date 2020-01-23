@@ -66,7 +66,7 @@ groups:
 			MaxConcurrent: 10,
 			MaxSamples:    20e6,
 			Timeout:       time.Minute,
-			Logger:        logger.NewTestLogger(),
+			Logger:        logger.NewTestLogger(GinkgoWriter),
 		}
 		queryEngine := promql.NewEngine(engineOpts)
 
@@ -74,7 +74,7 @@ groups:
 			persistentStore,
 			queryEngine,
 			time.Duration(5*time.Second),
-			logger.NewTestLogger(),
+			logger.NewTestLogger(GinkgoWriter),
 			spyMetrics,
 		)
 		ruleManagers.Create("rule_manager_yml", tmpfile.Name(), alertmanager.Addr())
@@ -111,14 +111,14 @@ groups:
 			MaxConcurrent: 10,
 			MaxSamples:    1e6,
 			Timeout:       time.Minute,
-			Logger:        logger.NewTestLogger(),
+			Logger:        logger.NewTestLogger(GinkgoWriter),
 		}
 		queryEngine := promql.NewEngine(engineOpts)
 		ruleManagers := NewRuleManagers(
 			persistentStore,
 			queryEngine,
 			time.Duration(5*time.Second),
-			logger.NewTestLogger(),
+			logger.NewTestLogger(GinkgoWriter),
 			spyMetrics,
 		)
 

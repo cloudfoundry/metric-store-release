@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 
 	"bytes"
 	"encoding/base64"
@@ -363,7 +363,7 @@ func uaaSetup(opts ...auth.UAAOption) *UAATestContext {
 		"https://uaa.com",
 		httpClient,
 		testing.NewSpyMetricRegistrar(),
-		logger.NewTestLogger(),
+		logger.NewTestLogger(GinkgoWriter),
 		opts...,
 	)
 	return &UAATestContext{

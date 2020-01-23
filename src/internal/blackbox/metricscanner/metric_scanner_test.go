@@ -33,7 +33,7 @@ type testContext struct {
 func setup() *testContext {
 	registrar := mockRegistrar{}
 	client := mockMetricStoreClient{}
-	scanner := NewMetricScanner(&client, &registrar, logger.NewTestLogger())
+	scanner := NewMetricScanner(&client, &registrar, logger.NewTestLogger(GinkgoWriter))
 
 	return &testContext{
 		client:    &client,

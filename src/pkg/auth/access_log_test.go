@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -53,7 +53,7 @@ var _ = Describe("AccessLog", func() {
 
 	JustBeforeEach(func() {
 		req = testing.BuildRequest(method, url, remoteAddr, requestId, forwardedFor)
-		al = auth.NewAccessLog(req, timestamp, dstHost, dstPort, logger.NewTestLogger())
+		al = auth.NewAccessLog(req, timestamp, dstHost, dstPort, logger.NewTestLogger(GinkgoWriter))
 	})
 
 	Describe("String", func() {

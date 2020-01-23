@@ -37,7 +37,7 @@ var _ = Describe("Metric Store App", func() {
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
 			StoragePath: "/tmp/metric-store",
-		}, logger.NewTestLogger())
+		}, logger.NewTestLogger(GinkgoWriter))
 		go metricStore.Run()
 
 		Eventually(metricStore.DebugAddr).ShouldNot(BeEmpty())

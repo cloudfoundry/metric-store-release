@@ -63,7 +63,7 @@ var _ = Describe("Remote Querier", func() {
 
 			ctx, _ := context.WithCancel(context.Background())
 
-			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger())
+			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
 			_, _, err = querier.Select(nil, &labels.Matcher{
 				Name:  "__name__",
@@ -81,7 +81,7 @@ var _ = Describe("Remote Querier", func() {
 
 			internalAddr := insecureConnection.Addr().String()
 			go func() {
-				querier, err := storage.NewRemoteQuerier(context.Background(), 0, internalAddr, defaultQuerierConfig, logger.NewTestLogger())
+				querier, err := storage.NewRemoteQuerier(context.Background(), 0, internalAddr, defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 				Expect(err).ToNot(HaveOccurred())
 				querier.Select(nil, &labels.Matcher{
 					Name:  "__name__",
@@ -110,7 +110,7 @@ var _ = Describe("Remote Querier", func() {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
-			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger())
+			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
 			querier.Select(nil, &labels.Matcher{
 				Name:  "__name__",

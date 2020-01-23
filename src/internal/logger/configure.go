@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io"
 	"log"
 
 	"go.uber.org/zap"
@@ -148,8 +149,18 @@ func (l *Logger) Log(keyvals ...interface{}) error {
 	return nil
 }
 
-func NewTestLogger() *Logger {
-	logger, _ := zap.NewDevelopment()
+func NewTestLogger(w io.Writer) *Logger {
+	encoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+	sync := zapcore.AddSync(w)
+
+	core := zapcore.NewCore(
+		encoder,
+		sync,
+		zap.LevelEnablerFunc(func(zapcore.Level) bool {
+			return true
+		}),
+	)
+	logger := zap.New(core)
 	logger.Sync()
 
 	return &Logger{

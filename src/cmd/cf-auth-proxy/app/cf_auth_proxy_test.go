@@ -44,7 +44,7 @@ var _ = Describe("CF Auth Proxy App", func() {
 			CertPath:    testing.Cert("metric-store.crt"),
 			KeyPath:     testing.Cert("metric-store.key"),
 			ProxyCAPath: testing.Cert("metric-store-ca.crt"),
-		}, logger.NewTestLogger())
+		}, logger.NewTestLogger(GinkgoWriter))
 		go cfAuthProxy.Run()
 
 		Eventually(cfAuthProxy.DebugAddr).ShouldNot(BeEmpty())

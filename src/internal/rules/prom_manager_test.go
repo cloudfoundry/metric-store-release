@@ -39,7 +39,7 @@ groups:
 			defer teardown()
 
 			promManager := NewPromRuleManager("manager", deps.ruleFile.Name(), "",
-				time.Second, deps.store, deps.queryEngine, logger.NewTestLogger(), deps.spyMetrics)
+				time.Second, deps.store, deps.queryEngine, logger.NewTestLogger(GinkgoWriter), deps.spyMetrics)
 			err := promManager.Start()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -71,7 +71,7 @@ groups:
 			defer teardown()
 
 			promManager := NewPromRuleManager("manager", deps.ruleFile.Name(), alertSpy.Addr(),
-				time.Second, deps.store, deps.queryEngine, logger.NewTestLogger(), deps.spyMetrics)
+				time.Second, deps.store, deps.queryEngine, logger.NewTestLogger(GinkgoWriter), deps.spyMetrics)
 			err := promManager.Start()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -90,7 +90,7 @@ groups:
 `)
 			defer os.Remove(tmpfile.Name())
 
-			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(), shared.NewSpyMetricRegistrar())
+			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar())
 
 			err := promManager.Reload()
 			Expect(err).ToNot(HaveOccurred())
@@ -112,7 +112,7 @@ groups:
 `)
 			defer os.Remove(tmpfile.Name())
 
-			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(), shared.NewSpyMetricRegistrar())
+			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar())
 
 			err := promManager.Reload()
 			Expect(err).ToNot(HaveOccurred())
@@ -125,7 +125,7 @@ groups:
 		})
 
 		It("Returns an error when the file doesn't exist", func() {
-			promManager := NewPromRuleManager("manager", "badfile.yml", "localhost", time.Second, nil, nil, logger.NewTestLogger(), shared.NewSpyMetricRegistrar())
+			promManager := NewPromRuleManager("manager", "badfile.yml", "localhost", time.Second, nil, nil, logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar())
 
 			err := promManager.Reload()
 			Expect(err).To(HaveOccurred())
@@ -139,7 +139,7 @@ yaml
 `)
 			defer os.Remove(tmpfile.Name())
 
-			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(), shared.NewSpyMetricRegistrar())
+			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar())
 
 			err := promManager.Reload()
 			Expect(err).To(HaveOccurred())
@@ -172,7 +172,7 @@ func setupDependencies(rules string) (*ruleManagerDependencies, func()) {
 		MaxConcurrent: 10,
 		MaxSamples:    1e6,
 		Timeout:       time.Second,
-		Logger:        logger.NewTestLogger(),
+		Logger:        logger.NewTestLogger(GinkgoWriter),
 		Reg:           spyMetrics.Registerer(),
 	})
 

@@ -51,7 +51,7 @@ func setup(requestPath string) *testContext {
 		spyLogAuthorizer,
 		spyQueryParser,
 		spyMetricRegistrar,
-		logger.NewTestLogger(),
+		logger.NewTestLogger(GinkgoWriter),
 	)
 
 	request := httptest.NewRequest(http.MethodGet, requestPath, nil)

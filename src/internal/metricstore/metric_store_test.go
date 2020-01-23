@@ -141,7 +141,7 @@ var _ = Describe("MetricStore", func() {
 				[]string{"my-addr", peerAddrs.InternodeAddr},
 			),
 			metricstore.WithMetrics(tc.spyMetrics),
-			metricstore.WithLogger(logger.NewTestLogger()),
+			metricstore.WithLogger(logger.NewTestLogger(GinkgoWriter)),
 		)
 		tc.store.Start()
 
@@ -187,7 +187,7 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		tc.rulesClient = rulesclient.NewRulesClient(tc.store.Addr(), tc.tlsConfig,
-			rulesclient.WithRulesClientLogger(logger.NewTestLogger()))
+			rulesclient.WithRulesClientLogger(logger.NewTestLogger(GinkgoWriter)))
 
 		return tc, func() {
 			innerCleanup()

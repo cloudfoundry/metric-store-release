@@ -47,7 +47,7 @@ var _ = Describe("IngressClient", func() {
 			},
 		}
 
-		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger()))
+		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger(GinkgoWriter)))
 		Expect(err).ToNot(HaveOccurred())
 
 		points := []*rpc.Point{point}
@@ -66,7 +66,7 @@ var _ = Describe("IngressClient", func() {
 			},
 		}
 
-		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger()))
+		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger(GinkgoWriter)))
 		Expect(err).ToNot(HaveOccurred())
 		metricStore.Stop()
 
@@ -91,7 +91,7 @@ var _ = Describe("IngressClient", func() {
 			points[n] = point
 		}
 
-		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger()))
+		ingressClient, err := NewIngressClient(ingressAddress, ingressTlsConfig, WithIngressClientLogger(logger.NewTestLogger(GinkgoWriter)))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(ingressClient.Write(points)).ToNot(Succeed())

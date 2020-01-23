@@ -3,8 +3,8 @@ package auth_test
 import (
 	"errors"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
@@ -19,7 +19,7 @@ var _ = Describe("DefaultAccessLogger", func() {
 
 	BeforeEach(func() {
 		writer = &spyWriter{}
-		accessLogger = auth.NewAccessLogger(writer, logger.NewTestLogger())
+		accessLogger = auth.NewAccessLogger(writer, logger.NewTestLogger(GinkgoWriter))
 	})
 
 	It("logs Access", func() {
@@ -71,7 +71,7 @@ var _ = Describe("DefaultAccessLogger", func() {
 	It("returns an error", func() {
 		writer = &spyWriter{}
 		writer.err = errors.New("boom")
-		accessLogger = auth.NewAccessLogger(writer, logger.NewTestLogger())
+		accessLogger = auth.NewAccessLogger(writer, logger.NewTestLogger(GinkgoWriter))
 
 		req, err := testing.NewServerRequest("GET", "http://some.url.com/foo", nil)
 		Expect(err).ToNot(HaveOccurred())

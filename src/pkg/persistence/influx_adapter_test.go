@@ -38,7 +38,7 @@ var _ = Describe("Influx Adapter", func() {
 		metrics := testing.NewSpyMetricRegistrar()
 
 		return &influxAdapterTestContext{
-			adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+			adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger(GinkgoWriter)),
 			influxStore: influxStore,
 			metrics:     metrics,
 		}
@@ -247,7 +247,7 @@ var _ = Describe("Influx Adapter", func() {
 			metrics := testing.NewSpyMetricRegistrar()
 
 			tc := &influxAdapterTestContext{
-				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger(GinkgoWriter)),
 				influxStore: influxStore,
 				metrics:     metrics,
 			}
@@ -265,7 +265,7 @@ var _ = Describe("Influx Adapter", func() {
 			metrics := testing.NewSpyMetricRegistrar()
 
 			tc := &influxAdapterTestContext{
-				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger(GinkgoWriter)),
 				influxStore: influxStore,
 				metrics:     metrics,
 			}
@@ -281,7 +281,7 @@ var _ = Describe("Influx Adapter", func() {
 			metrics := testing.NewSpyMetricRegistrar()
 
 			tc := &influxAdapterTestContext{
-				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger(GinkgoWriter)),
 				influxStore: influxStore,
 				metrics:     metrics,
 			}
@@ -299,7 +299,7 @@ var _ = Describe("Influx Adapter", func() {
 			metrics := testing.NewSpyMetricRegistrar()
 
 			tc := &influxAdapterTestContext{
-				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger(GinkgoWriter)),
 				influxStore: influxStore,
 				metrics:     metrics,
 			}
@@ -319,7 +319,7 @@ var _ = Describe("Influx Adapter", func() {
 			metrics := testing.NewSpyMetricRegistrar()
 
 			tc := &influxAdapterTestContext{
-				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger()),
+				adapter:     NewInfluxAdapter(influxStore, metrics, logger.NewTestLogger(GinkgoWriter)),
 				influxStore: influxStore,
 				metrics:     metrics,
 			}

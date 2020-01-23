@@ -54,7 +54,7 @@ var _ = Describe("Rules API", func() {
 		secureConnection := tls.NewListener(insecureConnection, tlsConfig)
 		mux := http.NewServeMux()
 
-		rulesAPI := NewRulesAPI(spyRuleManager, logger.NewTestLogger())
+		rulesAPI := NewRulesAPI(spyRuleManager, logger.NewTestLogger(GinkgoWriter))
 		rulesAPIRouter := rulesAPI.Router()
 		mux.Handle("/rules/", http.StripPrefix("/rules", rulesAPIRouter))
 		server := &http.Server{Handler: mux}

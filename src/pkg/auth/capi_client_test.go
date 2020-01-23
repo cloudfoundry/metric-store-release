@@ -31,7 +31,7 @@ var _ = Describe("CAPIClient", func() {
 			"http://external.capi.com",
 			capiClient,
 			metrics,
-			logger.NewTestLogger(),
+			logger.NewTestLogger(GinkgoWriter),
 			capiOpts...,
 		)
 
