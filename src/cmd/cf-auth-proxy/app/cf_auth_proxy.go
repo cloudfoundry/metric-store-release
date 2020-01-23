@@ -135,11 +135,11 @@ func (c *CFAuthProxyApp) startDebugServer() {
 		debug.WithDefaultRegistry(),
 		debug.WithHistogram(debug.AuthProxyRequestDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Duration in seconds of requests made to the auth proxy",
-			Buckets: []float64{.001, .01, .05, .1, .2, 1, 2, 5},
+			Buckets: []float64{.001, .01, .05, .1, .2, 1, 2, 5, 10, 30},
 		}),
 		debug.WithHistogram(debug.AuthProxyCAPIRequestDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Duration in seconds of external requests made to CAPI",
-			Buckets: []float64{.001, .01, .05, .1, .2, 1},
+			Buckets: []float64{.001, .01, .05, .1, .2, 1, 2, 5, 10, 30},
 		}),
 	)
 
