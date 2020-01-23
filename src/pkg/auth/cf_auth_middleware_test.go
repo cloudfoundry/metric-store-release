@@ -371,24 +371,62 @@ var _ = Describe("CfAuthMiddleware", func() {
 		Describe("/manager", func() {
 			It("forwards the request to the rules endpoint handler", func() {
 				tc := setup("/rules/manager")
+				tc.spyOauth2ClientReader.isAdminResult = true
 
 				tc.invokeAuthHandler()
 
 				Expect(tc.recorder.Code).ToNot(Equal(http.StatusNotFound))
 				Expect(tc.baseHandlerCalled).To(BeTrue())
-				Expect(tc.spyOauth2ClientReader.token).To(Equal(""))
+				Expect(tc.spyOauth2ClientReader.token).To(Equal("bearer valid-token"))
+			})
+
+			It("404s if the user is not an admin", func() {
+				tc := setup("/rules/manager")
+
+				tc.invokeAuthHandler()
+
+				Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("404s if the oauth2reader returns an error", func() {
+				tc := setup("/rules/manager")
+				tc.spyOauth2ClientReader.isAdminResult = true
+				tc.spyOauth2ClientReader.err = errors.New("some-error")
+
+				tc.invokeAuthHandler()
+
+				Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
 			})
 		})
 
 		Describe("/manager/:id/group", func() {
 			It("forwards the request to the rules group endpoint", func() {
 				tc := setup("/rules/manager/id/group")
+				tc.spyOauth2ClientReader.isAdminResult = true
 
 				tc.invokeAuthHandler()
 
 				Expect(tc.recorder.Code).ToNot(Equal(http.StatusNotFound))
 				Expect(tc.baseHandlerCalled).To(BeTrue())
-				Expect(tc.spyOauth2ClientReader.token).To(Equal(""))
+				Expect(tc.spyOauth2ClientReader.token).To(Equal("bearer valid-token"))
+			})
+
+			It("404s if the user is not an admin", func() {
+				tc := setup("/rules/manager/id/group")
+
+				tc.invokeAuthHandler()
+
+				Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
+			})
+
+			It("404s if the oauth2reader returns an error", func() {
+				tc := setup("/rules/manager/id/group")
+				tc.spyOauth2ClientReader.isAdminResult = true
+				tc.spyOauth2ClientReader.err = errors.New("some-error")
+
+				tc.invokeAuthHandler()
+
+				Expect(tc.recorder.Code).To(Equal(http.StatusNotFound))
 			})
 		})
 	})
