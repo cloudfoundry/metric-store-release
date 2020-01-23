@@ -29,7 +29,7 @@ func validateConfig(cfg TickerConfig) TickerConfig {
 		panic("BaseDelay must be non-negative")
 	}
 	if cfg.BaseDelay == 0 {
-		cfg.BaseDelay = 10 * time.Millisecond
+		cfg.BaseDelay = 100 * time.Millisecond
 	}
 
 	if cfg.Multiplier < 0 {

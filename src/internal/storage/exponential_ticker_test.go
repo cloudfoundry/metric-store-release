@@ -50,12 +50,12 @@ var _ = Describe("A ticker for exponential backoffs", func() {
 	})
 
 	It("default inputs", func() {
-		// default multiplier of 2, delay of 10ms, no max
+		// default multiplier of 2, delay of 100ms, no max
 		ticker, _ := storage.NewExponentialTicker(storage.TickerConfig{})
 
-		expectTickerTiming(ticker, 10*time.Millisecond, 20*time.Millisecond)
-		expectTickerTiming(ticker, 20*time.Millisecond, 40*time.Millisecond)
-		expectTickerTiming(ticker, 40*time.Millisecond, 80*time.Millisecond)
+		expectTickerTiming(ticker, 100*time.Millisecond, 200*time.Millisecond)
+		expectTickerTiming(ticker, 200*time.Millisecond, 400*time.Millisecond)
+		expectTickerTiming(ticker, 400*time.Millisecond, 800*time.Millisecond)
 	})
 
 	It("validate inputs", func() {
