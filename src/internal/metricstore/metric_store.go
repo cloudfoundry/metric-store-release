@@ -89,6 +89,7 @@ type MetricStore struct {
 	alertmanagerAddr string
 	rulesPath        string
 	storagePath      string
+	queryLogPath     string
 
 	replicatedStorage prom_storage.Storage
 }
@@ -110,6 +111,7 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		internodeTLSConfig: internodeTLSConfig,
 		egressTLSConfig:    egressTLSConfig,
 		storagePath:        storagePath,
+		queryLogPath:       "/tmp/metric-store/query.log",
 	}
 
 	for _, o := range opts {
@@ -128,6 +130,12 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 
 // MetricStoreOption configures a MetricStore.
 type MetricStoreOption func(*MetricStore)
+
+func WithQueryLogger(path string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.queryLogPath = path
+	}
+}
 
 // WithLogger returns a MetricStoreOption that configures the logger used for
 // the MetricStore. Defaults to silent logger.
@@ -250,12 +258,14 @@ func (store *MetricStore) Start() {
 		storage.WithReplicatedMetrics(store.metrics),
 	)
 
+	maxConcurrentQueries := 20
 	engineOpts := promql.EngineOpts{
-		MaxConcurrent: 20,
-		MaxSamples:    20e6,
-		Timeout:       store.queryTimeout,
-		Logger:        store.log,
-		Reg:           store.metrics.Registerer(),
+		MaxConcurrent:      maxConcurrentQueries,
+		MaxSamples:         20e6,
+		Timeout:            store.queryTimeout,
+		Logger:             store.log,
+		Reg:                store.metrics.Registerer(),
+		ActiveQueryTracker: promql.NewActiveQueryTracker(store.queryLogPath, maxConcurrentQueries, store.log),
 	}
 	queryEngine := promql.NewEngine(engineOpts)
 

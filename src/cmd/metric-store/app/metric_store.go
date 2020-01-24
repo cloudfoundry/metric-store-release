@@ -117,6 +117,7 @@ func (m *MetricStoreApp) Run() {
 		metricstore.WithHandoffStoragePath(filepath.Join(m.cfg.StoragePath, "handoff")),
 		metricstore.WithLogger(m.log),
 		metricstore.WithQueryTimeout(m.cfg.QueryTimeout),
+		metricstore.WithQueryLogger(filepath.Join(m.cfg.StoragePath, "query.log")),
 	)
 
 	store.Start()
