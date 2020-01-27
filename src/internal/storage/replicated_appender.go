@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
-	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 	prom_storage "github.com/prometheus/prometheus/storage"

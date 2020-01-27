@@ -41,7 +41,7 @@ func (r *RuleManagerSpy) Create(managerId, alertmanagerAddr string) error {
 func (r *RuleManagerSpy) ManagerIds() []string {
 	managerIds := []string{}
 
-	for managerId, _ := range r.rules {
+	for managerId := range r.rules {
 		managerIds = append(managerIds, managerId)
 	}
 

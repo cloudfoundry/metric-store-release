@@ -3,10 +3,10 @@ package storage_test
 import (
 	"errors"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/prometheus/prometheus/pkg/labels"
 )
 

@@ -82,7 +82,7 @@ func (a *RulesApiSpy) writeError(rw http.ResponseWriter) bool {
 	rw.WriteHeader(apiErr.Status)
 
 	errors := []RulesApiError{
-		RulesApiError{Title: apiErr.Title},
+		{Title: apiErr.Title},
 	}
 	apiResponse := RulesApiResponse{
 		Errors: errors,

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
-	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	"github.com/golang/protobuf/proto"
 )
