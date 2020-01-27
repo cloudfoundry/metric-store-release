@@ -73,7 +73,7 @@ groups:
 		ruleManagers := NewRuleManagers(
 			persistentStore,
 			queryEngine,
-			time.Duration(5*time.Second),
+			5*time.Second,
 			logger.NewTestLogger(GinkgoWriter),
 			spyMetrics,
 		)
@@ -117,7 +117,7 @@ groups:
 		ruleManagers := NewRuleManagers(
 			persistentStore,
 			queryEngine,
-			time.Duration(5*time.Second),
+			5*time.Second,
 			logger.NewTestLogger(GinkgoWriter),
 			spyMetrics,
 		)

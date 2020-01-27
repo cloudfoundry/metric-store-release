@@ -54,7 +54,7 @@ func (r *Rule) convertToPromRule() (rulefmt.Rule, error) {
 	var duration time.Duration
 	var err error
 	if r.For != "" {
-		duration, err = time.ParseDuration(strings.Trim(string(r.For), `"`))
+		duration, err = time.ParseDuration(strings.Trim(r.For, `"`))
 		if err != nil {
 			return rulefmt.Rule{}, err
 		}

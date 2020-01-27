@@ -92,7 +92,7 @@ func (a *RulesApiSpy) writeError(rw http.ResponseWriter) bool {
 		panic("Unable to marshal test data")
 	}
 
-	rw.Write([]byte(json))
+	rw.Write(json)
 
 	return true
 }

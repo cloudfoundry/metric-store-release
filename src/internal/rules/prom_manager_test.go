@@ -196,7 +196,7 @@ func loadMetric(store *persistence.Store) {
 	Expect(err).ToNot(HaveOccurred())
 	appender.Add(
 		labels.FromMap(map[string]string{"__name__": "metric_store_test_metric"}),
-		int64(time.Now().UnixNano()),
+		time.Now().UnixNano(),
 		3,
 	)
 	appender.Commit()
