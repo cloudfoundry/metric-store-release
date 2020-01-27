@@ -1,6 +1,8 @@
 #!/bin/bash
 
-ulimit -Sn unlimited
+if [[ "$(ulimit)" != "unlimited" ]]; then
+  ulimit -Sn unlimited
+fi
 
 trap "echo Exited!; exit 1;" SIGINT SIGTERM
 
@@ -82,7 +84,7 @@ function run_unit {
   # enabled, but only consider actual data races as failures. We then run the test suite
   # without race detection and assert on test correctness.
   print_checkpoint "Checking for Data Races"
-  race_log=$(mktemp metric_store_race_log.XXXXXXXX --tmpdir)
+  race_log=$(mktemp)
 
   # Run all tests, exclude acceptance tests
   tests=$(go list -mod=vendor ./... | grep -v pkg/acceptance)
