@@ -110,7 +110,7 @@ function run_all {
 }
 
 function parse_argc {
-    command=run_all
+    command=run_unit
     if [[ $# -eq 0 ]]; then
         return
     fi
