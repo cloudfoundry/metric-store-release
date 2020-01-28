@@ -13,10 +13,11 @@ import (
 )
 
 type RulesApiSpy struct {
-	server           *http.Server
-	tlsConfig        *tls.Config
-	apiErrors        chan *RulesApiHttpError
-	requestsReceived *int64
+	server              *http.Server
+	tlsConfig           *tls.Config
+	apiErrors           chan *RulesApiHttpError
+	requestsReceived    *int64
+	lastRequestPathChan chan string
 }
 
 type RulesApiHttpError struct {
@@ -34,14 +35,28 @@ type RulesApiError struct {
 
 func NewRulesApiSpy(tlsConfig *tls.Config) (*RulesApiSpy, error) {
 	return &RulesApiSpy{
-		tlsConfig:        tlsConfig,
-		requestsReceived: new(int64),
-		apiErrors:        make(chan *RulesApiHttpError, 1),
+		tlsConfig:           tlsConfig,
+		requestsReceived:    new(int64),
+		apiErrors:           make(chan *RulesApiHttpError, 1),
+		lastRequestPathChan: make(chan string, 10),
 	}, nil
 }
 
 func (a *RulesApiSpy) RequestsReceived() int {
 	return int(atomic.LoadInt64(a.requestsReceived))
+}
+
+func (a *RulesApiSpy) LastRequestPath() string {
+	var lastPath string
+
+	for {
+		select {
+		case path := <-a.lastRequestPathChan:
+			lastPath = path
+		default:
+			return lastPath
+		}
+	}
 }
 
 func (a *RulesApiSpy) NextRequestError(err *RulesApiHttpError) {
@@ -62,6 +77,7 @@ func (a *RulesApiSpy) createManager(rw http.ResponseWriter, r *http.Request) {
 	body, _ := ioutil.ReadAll(r.Body)
 
 	atomic.AddInt64(a.requestsReceived, 1)
+	a.lastRequestPathChan <- r.URL.String()
 
 	var receivedManagerData rulesclient.ManagerData
 	json.Unmarshal(body, &receivedManagerData)
@@ -69,6 +85,18 @@ func (a *RulesApiSpy) createManager(rw http.ResponseWriter, r *http.Request) {
 	if !a.writeError(rw) {
 		rw.WriteHeader(http.StatusCreated)
 		rw.Write(body)
+	}
+}
+
+func (a *RulesApiSpy) deleteManager(rw http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	ioutil.ReadAll(r.Body)
+
+	atomic.AddInt64(a.requestsReceived, 1)
+	a.lastRequestPathChan <- r.URL.String()
+
+	if !a.writeError(rw) {
+		rw.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -101,6 +129,7 @@ func (a *RulesApiSpy) upsertGroup(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	atomic.AddInt64(a.requestsReceived, 1)
+	a.lastRequestPathChan <- r.URL.String()
 
 	body, _ := ioutil.ReadAll(r.Body)
 
@@ -123,6 +152,7 @@ func (a *RulesApiSpy) Start() error {
 	mux := mux.NewRouter()
 	mux.HandleFunc("/rules/manager", a.createManager)
 	mux.HandleFunc("/rules/manager/{manager_id}/group", a.upsertGroup)
+	mux.HandleFunc("/rules/manager/{manager_id}", a.deleteManager)
 	a.server = &http.Server{Handler: mux, Addr: secureConnection.Addr().String()}
 
 	go a.server.Serve(secureConnection)

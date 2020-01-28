@@ -25,12 +25,13 @@ type PromRuleManager struct {
 	id                   string
 	evaluationInterval   time.Duration
 	promRuleManager      *rules.Manager
-	PromNotifierManager  *notifier.Manager
-	PromDiscoveryManager *discovery.Manager
+	promNotifierManager  *notifier.Manager
+	promDiscoveryManager *discovery.Manager
 	promRuleFile         string
 	alertmanagerAddr     string
 	log                  *logger.Logger
 	metrics              debug.MetricRegistrar
+	cancel               context.CancelFunc
 }
 
 func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *PromRuleManager {
@@ -57,8 +58,11 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 		Registerer:  rulesManagerRegisterer,
 	})
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+
 	promDiscoveryManager := discovery.NewManager(
-		context.Background(),
+		ctx,
 		rulesManagerLog,
 		discovery.Name("notify"),
 	)
@@ -67,12 +71,13 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 		id:                   managerId,
 		evaluationInterval:   evaluationInterval,
 		promRuleManager:      promRuleManager,
-		PromNotifierManager:  promNotifierManager,
-		PromDiscoveryManager: promDiscoveryManager,
+		promNotifierManager:  promNotifierManager,
+		promDiscoveryManager: promDiscoveryManager,
 		promRuleFile:         promRuleFile,
 		alertmanagerAddr:     alertmanagerAddr,
 		log:                  rulesManagerLog,
 		metrics:              metrics,
+		cancel:               cancel,
 	}
 }
 
@@ -83,8 +88,16 @@ func (r *PromRuleManager) Start() error {
 	}
 	r.promRuleManager.Run()
 
-	go r.PromDiscoveryManager.Run()
-	go r.PromNotifierManager.Run(r.PromDiscoveryManager.SyncCh())
+	go r.promDiscoveryManager.Run()
+	go r.promNotifierManager.Run(r.promDiscoveryManager.SyncCh())
+
+	return nil
+}
+
+func (r *PromRuleManager) Stop() error {
+	r.promRuleManager.Stop()
+	r.promNotifierManager.Stop()
+	r.cancel()
 
 	return nil
 }
@@ -122,7 +135,7 @@ func (r *PromRuleManager) Reload() error {
 		},
 	}
 
-	if err := r.PromNotifierManager.ApplyConfig(cfg); err != nil {
+	if err := r.promNotifierManager.ApplyConfig(cfg); err != nil {
 		r.log.Fatal("error Applying the config", err)
 		return err
 	}
@@ -137,7 +150,7 @@ func (r *PromRuleManager) Reload() error {
 		}
 		discoveredConfig[fmt.Sprintf("config-%d", i)] = v.ServiceDiscoveryConfig
 	}
-	r.PromDiscoveryManager.ApplyConfig(discoveredConfig)
+	r.promDiscoveryManager.ApplyConfig(discoveredConfig)
 
 	return nil
 }
@@ -148,4 +161,12 @@ func (r *PromRuleManager) RuleGroups() []*rules.Group {
 
 func (r *PromRuleManager) AlertingRules() []*rules.AlertingRule {
 	return r.promRuleManager.AlertingRules()
+}
+
+func (r *PromRuleManager) Alertmanagers() []*url.URL {
+	return r.promNotifierManager.Alertmanagers()
+}
+
+func (r *PromRuleManager) DroppedAlertmanagers() []*url.URL {
+	return r.promNotifierManager.DroppedAlertmanagers()
 }

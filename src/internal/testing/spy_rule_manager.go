@@ -38,6 +38,16 @@ func (r *RuleManagerSpy) Create(managerId, alertmanagerAddr string) error {
 	return nil
 }
 
+func (r *RuleManagerSpy) DeleteManager(managerId string) error {
+	if _, exists := r.rules[managerId]; !exists {
+		return rules.ManagerNotExistsError
+	}
+
+	delete(r.rules, managerId)
+
+	return nil
+}
+
 func (r *RuleManagerSpy) ManagerIds() []string {
 	managerIds := []string{}
 

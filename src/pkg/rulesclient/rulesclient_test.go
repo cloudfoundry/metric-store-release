@@ -135,4 +135,52 @@ var _ = Describe("RulesClient", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Describe("#DeleteManager", func() {
+		It("deletes a rules manager", func() {
+			tc := setup()
+
+			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
+			_, err := client.CreateManager("app-metrics", "")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tc.rulesApi.RequestsReceived()).To(Equal(1))
+
+			err = client.DeleteManager("app-metrics")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tc.rulesApi.RequestsReceived()).To(Equal(2))
+			Expect(tc.rulesApi.LastRequestPath()).To(Equal("/rules/manager/app-metrics"))
+		})
+
+		It("returns an error when manager deletion failed", func() {
+			tc := setup()
+
+			tc.rulesApi.NextRequestError(&testing.RulesApiHttpError{
+				Status: http.StatusNotFound,
+				Title:  "Error Occurred",
+			})
+
+			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
+			err := client.DeleteManager("app-metrics")
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(&ErrorNotCreated{
+				Title: "Error Occurred",
+			}))
+		})
+
+		It("server unavailable", func() {
+			tlsConfig, err := sharedtls.NewMutualTLSConfig(
+				testing.Cert("metric-store-ca.crt"),
+				testing.Cert("metric-store.crt"),
+				testing.Cert("metric-store.key"),
+				"metric-store",
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			client := NewRulesClient("localhost:10", tlsConfig)
+			err = client.DeleteManager("app-metrics")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

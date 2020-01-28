@@ -7,15 +7,6 @@ import (
 	"github.com/prometheus/prometheus/rules"
 )
 
-type RuleManagers interface {
-	Create(string, string, string) error
-	Reload() error
-	RuleGroups() []*rules.Group
-	AlertingRules() []*rules.AlertingRule
-	Alertmanagers() []*url.URL
-	DroppedAlertmanagers() []*url.URL
-}
-
 type LocalRuleManager struct {
 	rulesManagerFile *RuleManagerFile
 	promRuleManagers RuleManagers
@@ -34,12 +25,16 @@ func (l *LocalRuleManager) Create(managerId, alertmanagerAddr string) error {
 		return err
 	}
 
-	err = l.promRuleManagers.Create(managerId, managerFile, alertmanagerAddr)
+	return l.promRuleManagers.Create(managerId, managerFile, alertmanagerAddr)
+}
+
+func (l *LocalRuleManager) DeleteManager(managerId string) error {
+	err := l.rulesManagerFile.DeleteManager(managerId)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return l.promRuleManagers.DeleteManager(managerId)
 }
 
 func (l *LocalRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
@@ -53,12 +48,7 @@ func (l *LocalRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulescli
 		return err
 	}
 
-	err = l.promRuleManagers.Reload()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return l.promRuleManagers.Reload()
 }
 
 func (l *LocalRuleManager) RuleGroups() []*rules.Group {

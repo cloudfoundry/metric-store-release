@@ -36,6 +36,16 @@ func (tc *ruleApiTestContext) Post(path string, payload []byte) (resp *http.Resp
 	)
 }
 
+func (tc *ruleApiTestContext) Delete(path string) (resp *http.Response, err error) {
+	req, err := http.NewRequest("DELETE", "https://"+tc.addr+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	return tc.httpClient.Do(req)
+}
+
 var _ = Describe("Rules API", func() {
 	var setup = func() (*ruleApiTestContext, func()) {
 		spyRuleManager := testing.NewRuleManagerSpy()
@@ -275,6 +285,49 @@ var _ = Describe("Rules API", func() {
 			Expect(len(apiErrors.Errors)).To(Equal(1))
 			Expect(apiErrors.Errors[0].Status).To(Equal(400))
 			Expect(apiErrors.Errors[0].Title).To(ContainSubstring("does not exist"))
+		})
+	})
+
+	Describe("DELETE /rules/manager/:manager_id", func() {
+		It("deletes a rule manager", func() {
+			tc, teardown := setup()
+			defer teardown()
+
+			tc.ruleManager.Create("app-metrics", "")
+
+			resp, err := tc.Delete("/rules/manager/app-metrics")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(204))
+			Expect(tc.ruleManager.ManagerIds()).NotTo(ContainElement("app-metrics"))
+		})
+
+		It("returns an error when the managerId does not exist", func() {
+			tc, teardown := setup()
+			defer teardown()
+
+			Expect(tc.ruleManager.ManagerIds()).To(BeEmpty())
+
+			resp, err := tc.Delete("/rules/manager/app-metrics")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(404))
+
+			apiErrors := rulesclient.ApiErrors{}
+			json.NewDecoder(resp.Body).Decode(&apiErrors)
+
+			Expect(len(apiErrors.Errors)).To(Equal(1))
+			Expect(apiErrors.Errors[0].Status).To(Equal(404))
+			Expect(apiErrors.Errors[0].Title).To(ContainSubstring("does not exist"))
+		})
+
+		It("doesn't do anything and returns an error if the HTTP verb is not DELETE", func() {
+			tc, teardown := setup()
+			defer teardown()
+
+			resp, err := tc.Post("/rules/manager/app-metrics", nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(405))
 		})
 	})
 })

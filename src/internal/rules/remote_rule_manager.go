@@ -44,6 +44,10 @@ func (r *RemoteRuleManager) Create(managerId, alertmanagerAddr string) error {
 	return err
 }
 
+func (r *RemoteRuleManager) DeleteManager(managerId string) error {
+	return r.rulesClient.DeleteManager(managerId)
+}
+
 func (r *RemoteRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
 	_, err := r.rulesClient.UpsertRuleGroup(managerId, *ruleGroup)
 	return err

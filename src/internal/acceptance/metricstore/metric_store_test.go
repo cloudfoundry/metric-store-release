@@ -1235,7 +1235,7 @@ groups:
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		f := func() int {
+		totalRuleCount := func() int {
 			localRules, err := tc.localEgressClient.Rules(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1244,7 +1244,7 @@ groups:
 
 			return len(localRules.Groups) + len(peerRules.Groups)
 		}
-		Eventually(f, 5*time.Second).Should(Equal(2))
+		Eventually(totalRuleCount, 5*time.Second).Should(Equal(2))
 
 		stopNode(tc, 0)
 		startNode(tc, 0)
@@ -1254,15 +1254,11 @@ groups:
 			return err
 		}, 5).Should(Succeed())
 
-		f = func() int {
-			localRules, err := tc.localEgressClient.Rules(context.Background())
-			Expect(err).ToNot(HaveOccurred())
+		Eventually(totalRuleCount, 5*time.Second).Should(Equal(2))
 
-			peerRules, err := tc.peerEgressClient.Rules(context.Background())
-			Expect(err).ToNot(HaveOccurred())
+		err = localRulesClient.DeleteManager(MAGIC_MANAGER_PEER_NAME)
+		Expect(err).ToNot(HaveOccurred())
 
-			return len(localRules.Groups) + len(peerRules.Groups)
-		}
-		Eventually(f, 5*time.Second).Should(Equal(2))
+		Eventually(totalRuleCount, 10*time.Second).Should(Equal(1))
 	})
 })

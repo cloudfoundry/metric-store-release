@@ -15,7 +15,7 @@ import (
 )
 
 type PromRuleManagers struct {
-	promRuleManagers   []*PromRuleManager
+	promRuleManagers   map[string]*PromRuleManager
 	store              storage.Storage
 	engine             *promql.Engine
 	evaluationInterval time.Duration
@@ -30,17 +30,29 @@ func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInt
 		evaluationInterval: evaluationInterval,
 		log:                log,
 		metrics:            metrics,
+		promRuleManagers:   make(map[string]*PromRuleManager),
 	}
 }
 
 func (r *PromRuleManagers) Create(managerId, promRuleFile, alertmanagerAddr string) error {
 	promRuleManager := NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr, r.evaluationInterval, r.store, r.engine, r.log, r.metrics)
-	r.add(promRuleManager)
+	r.add(managerId, promRuleManager)
 	return promRuleManager.Start()
 }
 
-func (r *PromRuleManagers) add(promRuleManager *PromRuleManager) {
-	r.promRuleManagers = append(r.promRuleManagers, promRuleManager)
+func (r *PromRuleManagers) DeleteManager(managerId string) error {
+	promRuleManager, exists := r.promRuleManagers[managerId]
+	if !exists {
+		return ManagerNotExistsError
+	}
+
+	promRuleManager.Stop()
+	delete(r.promRuleManagers, managerId)
+	return nil
+}
+
+func (r *PromRuleManagers) add(managerId string, promRuleManager *PromRuleManager) {
+	r.promRuleManagers[managerId] = promRuleManager
 }
 
 func (r *PromRuleManagers) Reload() error {
@@ -81,7 +93,7 @@ func (r *PromRuleManagers) Alertmanagers() []*url.URL {
 	var uniqueAlertmanagers []*url.URL
 
 	for _, promRuleManager := range r.promRuleManagers {
-		for _, url := range promRuleManager.PromNotifierManager.Alertmanagers() {
+		for _, url := range promRuleManager.Alertmanagers() {
 			alertmanagers[url.String()] = url
 		}
 	}
@@ -97,7 +109,7 @@ func (r *PromRuleManagers) DroppedAlertmanagers() []*url.URL {
 	var alertmanagers []*url.URL
 
 	for _, promRuleManager := range r.promRuleManagers {
-		alertmanagers = append(alertmanagers, promRuleManager.PromNotifierManager.DroppedAlertmanagers()...)
+		alertmanagers = append(alertmanagers, promRuleManager.DroppedAlertmanagers()...)
 	}
 
 	return alertmanagers

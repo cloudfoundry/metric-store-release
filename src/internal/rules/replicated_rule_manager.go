@@ -9,15 +9,6 @@ import (
 	"github.com/prometheus/prometheus/rules"
 )
 
-type RuleManager interface {
-	Create(managerId, alertmanagerAddr string) error
-	UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error
-	RuleGroups() []*rules.Group
-	AlertingRules() []*rules.AlertingRule
-	Alertmanagers() []*url.URL
-	DroppedAlertmanagers() []*url.URL
-}
-
 type ReplicatedRuleManager struct {
 	localRuleManager RuleManager
 	localIndex       int
@@ -49,6 +40,19 @@ func (r *ReplicatedRuleManager) Create(managerId, alertmanagerAddr string) error
 
 	for _, nodeIndex := range r.lookup(managerId) {
 		err = r.ruleManagers[nodeIndex].Create(managerId, alertmanagerAddr)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *ReplicatedRuleManager) DeleteManager(managerId string) error {
+	var err error
+
+	for _, nodeIndex := range r.lookup(managerId) {
+		err = r.ruleManagers[nodeIndex].DeleteManager(managerId)
 		if err != nil {
 			return err
 		}

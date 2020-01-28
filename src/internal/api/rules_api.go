@@ -58,7 +58,9 @@ func (api *RulesAPI) Register(r *route.Router) {
 			result := f(r)
 			if result.err != nil {
 				api.respondError(w, *result.err, result.data)
-			} else if result.data != nil {
+			} else if result.data == nil {
+				api.respondNoData(w)
+			} else {
 				api.respond(w, result.data)
 			}
 		})
@@ -69,6 +71,7 @@ func (api *RulesAPI) Register(r *route.Router) {
 	}
 	r.Post("/manager", wrap(api.createManager))
 	r.Post("/manager/:manager_id/group", wrap(api.createRuleGroup))
+	r.Del("/manager/:manager_id", wrap(api.deleteManager))
 }
 
 func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
@@ -106,6 +109,20 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 	}
 
 	return apiFuncResult{managerData, nil}
+}
+
+func (api *RulesAPI) deleteManager(r *http.Request) apiFuncResult {
+	defer r.Body.Close()
+
+	ctx := r.Context()
+	managerId := route.Param(ctx, "manager_id")
+
+	err := api.ruleManager.DeleteManager(managerId)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{http.StatusNotFound, err}}
+	}
+
+	return apiFuncResult{}
 }
 
 func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
@@ -161,6 +178,10 @@ func (api *RulesAPI) respond(w http.ResponseWriter, data interface{}) {
 	if n, err := w.Write(b); err != nil {
 		level.Error(api.log).Log("msg", "error writing response", "bytesWritten", n, "err", err)
 	}
+}
+
+func (api *RulesAPI) respondNoData(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (api *RulesAPI) respondError(w http.ResponseWriter, apiErr apiError, data interface{}) {

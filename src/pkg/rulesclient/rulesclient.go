@@ -75,6 +75,20 @@ func (c *RulesClient) post(path string, payload []byte) (resp *http.Response, er
 	)
 }
 
+func (c *RulesClient) destroy(path string) (resp *http.Response, err error) {
+	req, err := http.NewRequest("DELETE", c.path()+path, bytes.NewReader([]byte("")))
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err = c.httpClient.Do(req)
+	if err != nil {
+		return resp, err
+	}
+
+	return resp, err
+}
+
 type ErrorNotCreated struct {
 	Title string
 }
@@ -152,6 +166,20 @@ func (c *RulesClient) UpsertRuleGroup(managerId string, ruleGroup RuleGroup) (*R
 	}
 
 	return &responseBody.Data, nil
+}
+
+func (c *RulesClient) DeleteManager(managerId string) error {
+	resp, err := c.destroy("/rules/manager/" + managerId)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return c.createError(resp)
+	}
+
+	return nil
 }
 
 func (c *RulesClient) createError(resp *http.Response) error {

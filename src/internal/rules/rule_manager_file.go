@@ -16,9 +16,6 @@ type ManagerStoreError string
 func (e ManagerStoreError) Error() string { return string(e) }
 
 const (
-	ManagerExistsError    = ManagerStoreError("The manager already exists")
-	ManagerNotExistsError = ManagerStoreError("The manager does not exist")
-
 	alertManagerURLConfigPrefix = "# ALERTMANAGER_URL "
 )
 
@@ -30,9 +27,9 @@ func NewRuleManagerFile(rulesStoragePath string) *RuleManagerFile {
 	return &RuleManagerFile{rulesStoragePath: rulesStoragePath}
 }
 
-func (m *RuleManagerFile) Create(managerId, alertmanagerAddr string) (string, error) {
-	managerFilePath := m.rulesFilePath(managerId)
-	exists, err := m.rulesManagerExists(managerId)
+func (f *RuleManagerFile) Create(managerId, alertmanagerAddr string) (string, error) {
+	managerFilePath := f.rulesFilePath(managerId)
+	exists, err := f.rulesManagerExists(managerId)
 	if err != nil {
 		return managerFilePath, err
 	}
@@ -40,16 +37,25 @@ func (m *RuleManagerFile) Create(managerId, alertmanagerAddr string) (string, er
 		return managerFilePath, ManagerExistsError
 	}
 
-	err = m.write(managerId, nil, alertmanagerAddr)
-	if err != nil {
-		return managerFilePath, err
-	}
-
-	return managerFilePath, nil
+	err = f.write(managerId, nil, alertmanagerAddr)
+	return managerFilePath, err
 }
 
-func (m *RuleManagerFile) Load(managerId string) (string, string, error) {
-	managerFilePath := m.rulesFilePath(managerId)
+func (f *RuleManagerFile) DeleteManager(managerId string) error {
+	managerFilePath := f.rulesFilePath(managerId)
+	exists, err := f.rulesManagerExists(managerId)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return ManagerNotExistsError
+	}
+
+	return f.remove(managerFilePath)
+}
+
+func (f *RuleManagerFile) Load(managerId string) (string, string, error) {
+	managerFilePath := f.rulesFilePath(managerId)
 	alertmanagerAddr, err := extractAlertmanagerAddr(managerFilePath)
 	if err != nil {
 		return managerFilePath, alertmanagerAddr, err
@@ -58,8 +64,8 @@ func (m *RuleManagerFile) Load(managerId string) (string, string, error) {
 	return managerFilePath, alertmanagerAddr, nil
 }
 
-func (m *RuleManagerFile) UpsertRuleGroup(managerId string, ruleGroup *rulefmt.RuleGroup) error {
-	exists, err := m.rulesManagerExists(managerId)
+func (f *RuleManagerFile) UpsertRuleGroup(managerId string, ruleGroup *rulefmt.RuleGroup) error {
+	exists, err := f.rulesManagerExists(managerId)
 	if err != nil {
 		return err
 	}
@@ -67,18 +73,13 @@ func (m *RuleManagerFile) UpsertRuleGroup(managerId string, ruleGroup *rulefmt.R
 		return ManagerNotExistsError
 	}
 
-	managerFilePath := m.rulesFilePath(managerId)
+	managerFilePath := f.rulesFilePath(managerId)
 	alertmanagerAddr, err := extractAlertmanagerAddr(managerFilePath)
 	if err != nil {
 		return err
 	}
 
-	err = m.write(managerId, ruleGroup, alertmanagerAddr)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return f.write(managerId, ruleGroup, alertmanagerAddr)
 }
 
 func extractAlertmanagerAddr(ruleFile string) (string, error) {
@@ -103,8 +104,8 @@ func extractAlertmanagerAddr(ruleFile string) (string, error) {
 	return alertmanagerAddr, nil
 }
 
-func (m *RuleManagerFile) write(managerId string, ruleGroup *rulefmt.RuleGroup, alertmanagerAddr string) error {
-	managerFilePath := m.rulesFilePath(managerId)
+func (f *RuleManagerFile) write(managerId string, ruleGroup *rulefmt.RuleGroup, alertmanagerAddr string) error {
+	managerFilePath := f.rulesFilePath(managerId)
 
 	ruleGroups := rulefmt.RuleGroups{}
 	if ruleGroup != nil {
@@ -118,16 +119,15 @@ func (m *RuleManagerFile) write(managerId string, ruleGroup *rulefmt.RuleGroup, 
 
 	outBytes = append([]byte(alertManagerURLConfigPrefix+alertmanagerAddr+"\n"), outBytes...)
 
-	err = ioutil.WriteFile(managerFilePath, outBytes, os.ModePerm)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ioutil.WriteFile(managerFilePath, outBytes, os.ModePerm)
 }
 
-func (m *RuleManagerFile) rulesManagerExists(managerId string) (bool, error) {
-	managerFilePath := m.rulesFilePath(managerId)
+func (f *RuleManagerFile) remove(filePath string) error {
+	return os.Remove(filePath)
+}
+
+func (f *RuleManagerFile) rulesManagerExists(managerId string) (bool, error) {
+	managerFilePath := f.rulesFilePath(managerId)
 	_, err := os.Stat(managerFilePath)
 
 	if os.IsNotExist(err) {
@@ -141,6 +141,6 @@ func (m *RuleManagerFile) rulesManagerExists(managerId string) (bool, error) {
 	return true, nil
 }
 
-func (m *RuleManagerFile) rulesFilePath(managerId string) string {
-	return path.Join(m.rulesStoragePath, managerId)
+func (f *RuleManagerFile) rulesFilePath(managerId string) string {
+	return path.Join(f.rulesStoragePath, managerId)
 }
