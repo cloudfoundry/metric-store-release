@@ -264,7 +264,7 @@ func (w *WriteReplayer) SendWrite() (int, error) {
 	bytesWritten, err := w.client.Write(payload)
 
 	if err != nil {
-		w.log.Error("error writing", err)
+		w.log.Error("error replaying", err)
 
 		w.metrics.Inc(metrics.MetricStoreReplayerReplayErrorsTotal, w.targetNodeIndex)
 		return 0, err

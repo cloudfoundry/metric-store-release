@@ -165,8 +165,6 @@ func (a *RemoteAppender) createWriter() {
 
 		bytesWritten, err := tcpClient.Write(payload.Bytes())
 		if err != nil {
-			a.log.Error("error writing", err)
-
 			err = writeReplayer.Write(points)
 			if err != nil {
 				a.log.Error("failed to write to write replayer", err, logger.String("node", a.targetNodeIndex))
