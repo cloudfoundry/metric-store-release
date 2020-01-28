@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
@@ -24,6 +25,7 @@ type RemoteQuerier struct {
 	publicClient  *remote.Client
 	privateClient prom_api_client.API
 	log           *logger.Logger
+	mu            sync.Mutex
 }
 
 func NewRemoteQuerier(
@@ -82,6 +84,8 @@ func (r *RemoteQuerier) Select(params *prom_storage.SelectParams, matchers ...*l
 
 	res, err := r.publicClient.Read(r.ctx, query)
 	if err != nil && serverIsUnavailable(err) {
+		r.mu.Lock()
+		defer r.mu.Unlock()
 		ticker, stop := NewExponentialTicker(TickerConfig{Context: r.ctx, MaxDelay: 30 * time.Second})
 		defer stop()
 		for {
