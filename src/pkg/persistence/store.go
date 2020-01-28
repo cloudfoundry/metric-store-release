@@ -173,7 +173,7 @@ func (store *Store) periodicMetrics() {
 func (store *Store) deleteExpiredData() {
 	if store.expiryConfig.RetentionPeriod > NULL_RETENTION_PERIOD {
 		cutoff := time.Now().Add(-store.expiryConfig.RetentionPeriod)
-		store.log.Info("expiring old data", logger.String("older than", cutoff.Format(time.RFC3339)))
+		store.log.Debug("expiring old data", logger.String("older than", cutoff.Format(time.RFC3339)))
 		store.deleteOlderThan(cutoff)
 	}
 
@@ -185,7 +185,7 @@ func (store *Store) deleteExpiredData() {
 		}
 
 		if diskFree < store.expiryConfig.DiskFreePercentTarget {
-			store.log.Info("expiring data due to disk free space", logger.String("disk free", fmt.Sprintf("%.0f%%", diskFree)))
+			store.log.Debug("expiring data due to disk free space", logger.String("disk free", fmt.Sprintf("%.0f%%", diskFree)))
 			store.deleteOldest()
 		}
 	}
