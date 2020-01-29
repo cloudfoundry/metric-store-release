@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	prom_http_client "github.com/prometheus/client_golang/api"
 	"github.com/prometheus/common/model"

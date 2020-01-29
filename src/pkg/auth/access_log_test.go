@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/onsi/ginkgo"

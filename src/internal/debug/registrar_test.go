@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	goprom "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
