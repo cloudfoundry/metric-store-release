@@ -17,7 +17,7 @@ var _ = Describe("LocalRuleManager", func() {
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()
 			localRuleManager := NewLocalRuleManager(tempStorage.Path(), spyPromRuleManagers)
 
-			Expect(localRuleManager.Create("app-metrics", "")).To(Succeed())
+			Expect(localRuleManager.CreateManager("app-metrics", "")).To(Succeed())
 			Expect(spyPromRuleManagers.ManagerIds()).To(ConsistOf("app-metrics"))
 			Expect(tempStorage.FileNames()).To(ConsistOf("app-metrics"))
 
@@ -44,10 +44,10 @@ var _ = Describe("LocalRuleManager", func() {
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()
 			localRuleManager := NewLocalRuleManager(tempStorage.Path(), spyPromRuleManagers)
 
-			Expect(localRuleManager.Create("app-metrics", "")).To(Succeed())
+			Expect(localRuleManager.CreateManager("app-metrics", "")).To(Succeed())
 			Expect(spyPromRuleManagers.ManagerIds()).To(ConsistOf("app-metrics"))
 
-			spyPromRuleManagers.DeleteManager("app-metrics")
+			spyPromRuleManagers.Delete("app-metrics")
 			Expect(localRuleManager.DeleteManager("app-metrics")).ToNot(Succeed())
 		})
 	})

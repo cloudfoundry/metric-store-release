@@ -14,8 +14,8 @@ var _ = Describe("Rules", func() {
 	Describe("#AlertManagers", func() {
 		It("returns unique alertmanagers from all nodes", func() {
 			localRuleManager := testing.NewRuleManagerSpy()
-			localRuleManager.Create("app-metrics", "localhost:8080")
-			localRuleManager.Create("healthwatch", "localhost:8080")
+			localRuleManager.CreateManager("app-metrics", "localhost:8080")
+			localRuleManager.CreateManager("healthwatch", "localhost:8080")
 
 			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060"}, 1, nil)
 			alertmanagers := ruleManager.Alertmanagers()

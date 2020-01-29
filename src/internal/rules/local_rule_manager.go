@@ -19,7 +19,7 @@ func NewLocalRuleManager(storagePath string, promRuleManagers RuleManagers) *Loc
 	}
 }
 
-func (l *LocalRuleManager) Create(managerId, alertmanagerAddr string) error {
+func (l *LocalRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
 	managerFile, err := l.rulesManagerFile.Create(managerId, alertmanagerAddr)
 	if err != nil {
 		return err
@@ -29,12 +29,12 @@ func (l *LocalRuleManager) Create(managerId, alertmanagerAddr string) error {
 }
 
 func (l *LocalRuleManager) DeleteManager(managerId string) error {
-	err := l.rulesManagerFile.DeleteManager(managerId)
+	err := l.rulesManagerFile.Delete(managerId)
 	if err != nil {
 		return err
 	}
 
-	return l.promRuleManagers.DeleteManager(managerId)
+	return l.promRuleManagers.Delete(managerId)
 }
 
 func (l *LocalRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {

@@ -22,7 +22,7 @@ func (p *PromRuleManagersSpy) Create(managerId string, _ string, _ string) error
 	return nil
 }
 
-func (p *PromRuleManagersSpy) DeleteManager(managerId string) error {
+func (p *PromRuleManagersSpy) Delete(managerId string) error {
 	_, exists := p.managerIds[managerId]
 
 	if !exists {

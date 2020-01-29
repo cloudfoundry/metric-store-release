@@ -9,7 +9,7 @@ import (
 )
 
 var _ = Describe("RuleManagerFile", func() {
-	Describe("DeleteManager", func() {
+	Describe("Delete", func() {
 		It("deletes the file for a manager", func() {
 			tempStorage := testing.NewTempStorage()
 			defer tempStorage.Cleanup()
@@ -20,7 +20,7 @@ var _ = Describe("RuleManagerFile", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(tempStorage.FileNames()).To(ConsistOf("app-metrics"))
 
-			Expect(ruleManagerFile.DeleteManager("app-metrics")).To(Succeed())
+			Expect(ruleManagerFile.Delete("app-metrics")).To(Succeed())
 			Expect(tempStorage.FileNames()).To(BeEmpty())
 		})
 
@@ -32,7 +32,7 @@ var _ = Describe("RuleManagerFile", func() {
 
 			Expect(tempStorage.FileNames()).To(BeEmpty())
 
-			err := ruleManagerFile.DeleteManager("app-metrics")
+			err := ruleManagerFile.Delete("app-metrics")
 			Expect(err).To(MatchError(ManagerNotExistsError))
 		})
 	})

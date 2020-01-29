@@ -13,8 +13,7 @@ const (
 )
 
 type RuleManager interface {
-	// TODO: rename to CreateManager
-	Create(managerId, alertmanagerAddr string) error
+	CreateManager(managerId, alertmanagerAddr string) error
 	DeleteManager(managerId string) error
 	UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error
 	RuleGroups() []*rules.Group
@@ -25,7 +24,7 @@ type RuleManager interface {
 
 type RuleManagers interface {
 	Create(managerId string, managerFile string, alertmanagerAddr string) error
-	DeleteManager(managerId string) error
+	Delete(managerId string) error
 	Reload() error
 	RuleGroups() []*rules.Group
 	AlertingRules() []*rules.AlertingRule

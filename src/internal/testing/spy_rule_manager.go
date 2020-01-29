@@ -20,7 +20,7 @@ func NewRuleManagerSpy() *RuleManagerSpy {
 	}
 }
 
-func (r *RuleManagerSpy) Create(managerId, alertmanagerAddr string) error {
+func (r *RuleManagerSpy) CreateManager(managerId, alertmanagerAddr string) error {
 	if _, exists := r.rules[managerId]; exists {
 		return rules.ManagerExistsError
 	}

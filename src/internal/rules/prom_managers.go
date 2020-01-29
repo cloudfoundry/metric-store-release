@@ -40,7 +40,7 @@ func (r *PromRuleManagers) Create(managerId, promRuleFile, alertmanagerAddr stri
 	return promRuleManager.Start()
 }
 
-func (r *PromRuleManagers) DeleteManager(managerId string) error {
+func (r *PromRuleManagers) Delete(managerId string) error {
 	promRuleManager, exists := r.promRuleManagers[managerId]
 	if !exists {
 		return ManagerNotExistsError

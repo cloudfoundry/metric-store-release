@@ -39,7 +39,7 @@ func NewRemoteRuleManager(addr string, tlsConfig *tls.Config) *RemoteRuleManager
 	}
 }
 
-func (r *RemoteRuleManager) Create(managerId, alertmanagerAddr string) error {
+func (r *RemoteRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
 	_, err := r.rulesClient.CreateManager(managerId, alertmanagerAddr)
 	return err
 }

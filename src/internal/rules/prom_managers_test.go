@@ -74,7 +74,7 @@ groups:
 		})
 	})
 
-	Describe("#DeleteManager", func() {
+	Describe("#Delete", func() {
 		It("deletes a rule manager", func() {
 			tmpfile, cleanup := createRuleFile("", "app_metrics")
 			defer cleanup()
@@ -100,7 +100,7 @@ groups:
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(1))
 			Expect(len(ruleManagers.AlertingRules())).To(Equal(1))
 
-			ruleManagers.DeleteManager("app-metrics")
+			ruleManagers.Delete("app-metrics")
 
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(0))
 			Expect(len(ruleManagers.AlertingRules())).To(Equal(0))

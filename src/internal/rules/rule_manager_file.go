@@ -41,7 +41,7 @@ func (f *RuleManagerFile) Create(managerId, alertmanagerAddr string) (string, er
 	return managerFilePath, err
 }
 
-func (f *RuleManagerFile) DeleteManager(managerId string) error {
+func (f *RuleManagerFile) Delete(managerId string) error {
 	managerFilePath := f.rulesFilePath(managerId)
 	exists, err := f.rulesManagerExists(managerId)
 	if err != nil {

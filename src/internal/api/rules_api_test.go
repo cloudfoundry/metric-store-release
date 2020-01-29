@@ -177,7 +177,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.Create("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", "")
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -206,7 +206,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.Create("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", "")
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -237,7 +237,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.Create("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", "")
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -261,7 +261,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.Create("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", "")
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -316,7 +316,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.Create("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", "")
 
 			resp, err := tc.Delete("/rules/manager/app-metrics")
 			Expect(err).ToNot(HaveOccurred())

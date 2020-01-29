@@ -93,7 +93,7 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
 	}
 
-	err = api.ruleManager.Create(managerData.Data.Id, managerData.Data.AlertManagerUrl)
+	err = api.ruleManager.CreateManager(managerData.Data.Id, managerData.Data.AlertManagerUrl)
 	if err != nil {
 		var returnErr *apiError
 

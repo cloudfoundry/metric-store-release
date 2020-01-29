@@ -35,11 +35,11 @@ func NewReplicatedRuleManager(localRuleManager RuleManager, localIndex int, addr
 	return replicatedRuleManager
 }
 
-func (r *ReplicatedRuleManager) Create(managerId, alertmanagerAddr string) error {
+func (r *ReplicatedRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
 	var err error
 
 	for _, nodeIndex := range r.lookup(managerId) {
-		err = r.ruleManagers[nodeIndex].Create(managerId, alertmanagerAddr)
+		err = r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerAddr)
 		if err != nil {
 			return err
 		}
