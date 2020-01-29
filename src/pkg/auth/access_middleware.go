@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 )
 
 func NewAccessMiddleware(accessLogger AccessLogger, host, port string, log *logger.Logger) func(http.Handler) *AccessHandler {

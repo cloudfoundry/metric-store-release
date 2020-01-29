@@ -1,7 +1,7 @@
 package debug
 
 import (
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -97,7 +97,6 @@ func (h *Registrar) Inc(name string, labels ...string) {
 	}
 
 	h.log.Panic("Inc called for unknown health metric", logger.String("name", name))
-
 }
 
 // Add will add the given value to the counter metric. If the counter

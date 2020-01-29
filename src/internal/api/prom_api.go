@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/config"

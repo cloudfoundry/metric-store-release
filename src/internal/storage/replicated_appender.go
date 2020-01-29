@@ -6,7 +6,7 @@ import (
 	// the go linter in some instances removes it
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/pkg/labels"

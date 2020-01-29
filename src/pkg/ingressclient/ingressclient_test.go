@@ -3,7 +3,7 @@ package ingressclient_test
 import (
 	"crypto/tls"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"

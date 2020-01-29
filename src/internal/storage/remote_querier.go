@@ -9,7 +9,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/internal/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	config_util "github.com/prometheus/common/config"
