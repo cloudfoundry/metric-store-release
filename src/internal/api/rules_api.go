@@ -88,6 +88,11 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		managerData.Data.Id = uuid.New().String()
 	}
 
+	err = managerData.Data.Validate()
+	if err != nil {
+		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
+	}
+
 	err = api.ruleManager.Create(managerData.Data.Id, managerData.Data.AlertManagerUrl)
 	if err != nil {
 		var returnErr *apiError

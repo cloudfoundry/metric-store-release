@@ -290,6 +290,19 @@ var _ = Describe("MetricStore", func() {
 		}
 	}
 
+	var waitForApi = func(tc *testContext) {
+		writePoints(
+			tc,
+			[]testPoint{
+				{
+					Name:               MAGIC_MEASUREMENT_PEER_NAME,
+					Value:              99,
+					TimeInMilliseconds: 1000,
+				},
+			},
+		)
+	}
+
 	Context("with a single node", func() {
 		It("deletes shards with old data when Metric Store starts", func() {
 			tc, cleanup := setup(1)
@@ -1182,20 +1195,115 @@ groups:
 		Eventually(spyAlertManager.AlertsReceived, 20).Should(BeNumerically(">", 0))
 	})
 
+	It("processes alerting rules to trigger alerts for multiple tenants", func() {
+		tc, cleanup := setup(1)
+		defer cleanup()
+
+		spyAlertManagerCpu := testing.NewAlertManagerSpy()
+		spyAlertManagerCpu.Start()
+		defer spyAlertManagerCpu.Stop()
+
+		spyAlertManagerMemory := testing.NewAlertManagerSpy()
+		spyAlertManagerMemory.Start()
+		defer spyAlertManagerMemory.Stop()
+
+		waitForApi(tc)
+
+		rulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
+
+		_, err := rulesClient.CreateManager("cpu_manager", spyAlertManagerCpu.Addr())
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = rulesClient.UpsertRuleGroup(
+			"cpu_manager",
+			rulesclient.RuleGroup{
+				Name:     "test-group-cpu",
+				Interval: rulesclient.Duration(time.Minute),
+				Rules: []rulesclient.Rule{
+					{
+						Alert: "job:cpu:sum",
+						Expr:  "sum(cpu) > 1",
+					},
+				},
+			},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = rulesClient.CreateManager("memory_manager", spyAlertManagerMemory.Addr())
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = rulesClient.UpsertRuleGroup(
+			"memory_manager",
+			rulesclient.RuleGroup{
+				Name:     "test-group-memory",
+				Interval: rulesclient.Duration(time.Minute),
+				Rules: []rulesclient.Rule{
+					{
+						Alert: "job:memory:sum",
+						Expr:  "sum(memory) > 1",
+					},
+				},
+			},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		client, err := ingressclient.NewIngressClient(
+			tc.ingressAddrs[0],
+			tc.tlsConfig,
+		)
+		points := []*rpc.Point{
+			{
+				Name:      "memory",
+				Timestamp: time.Now().UnixNano(),
+				Value:     1,
+				Labels: map[string]string{
+					"node": "1",
+				},
+			},
+			{
+				Name:      "memory",
+				Timestamp: time.Now().UnixNano(),
+				Value:     2,
+				Labels: map[string]string{
+					"node": "2",
+				},
+			},
+			{
+				Name:      "memory",
+				Timestamp: time.Now().UnixNano(),
+				Value:     3,
+				Labels: map[string]string{
+					"node": "3",
+				},
+			},
+			{
+				Name:      "cpu",
+				Timestamp: time.Now().UnixNano(),
+				Value:     3,
+				Labels: map[string]string{
+					"node": "1",
+				},
+			},
+			{
+				Name:      "cpu",
+				Timestamp: time.Now().UnixNano(),
+				Value:     3,
+				Labels: map[string]string{
+					"node": "1",
+				},
+			},
+		}
+		err = client.Write(points)
+
+		Eventually(spyAlertManagerCpu.AlertsReceived, 80).Should(BeNumerically(">", 0))
+		Eventually(spyAlertManagerMemory.AlertsReceived, 80).Should(BeNumerically(">", 0))
+	})
+
 	It("Adds rules via API and persists rules across restarts", func() {
 		tc, cleanup := setup(2)
 		defer cleanup()
 
-		writePoints(
-			tc,
-			[]testPoint{
-				{
-					Name:               MAGIC_MEASUREMENT_PEER_NAME,
-					Value:              99,
-					TimeInMilliseconds: 1000,
-				},
-			},
-		)
+		waitForApi(tc)
 
 		localRulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
 		peerRulesClient := rulesclient.NewRulesClient(tc.addrs[1], tc.tlsConfig)

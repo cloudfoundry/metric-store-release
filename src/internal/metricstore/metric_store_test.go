@@ -68,10 +68,10 @@ func (tc *testContext) CreateRuleManager(managerId, alertmanagerAddr string) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func (tc *testContext) CreateRecordGroup(managerId, alertName, alertExpr string) (*rulesclient.RuleGroup, error) {
+func (tc *testContext) CreateRuleGroup(managerId, alertName, alertExpr string) (*rulesclient.RuleGroup, error) {
 	group := rulesclient.RuleGroup{
 		Name:     "my-example-group",
-		Interval: rulesclient.Duration(time.Second),
+		Interval: rulesclient.Duration(time.Minute),
 		Rules: []rulesclient.Rule{
 			{
 				Record: alertName,
@@ -362,54 +362,6 @@ var _ = Describe("MetricStore", func() {
 					AlertManagerUrl: "",
 				}))
 			})
-
-			// TODO use local manager name
-			It("Returns an error when provided an existing rule manager id", func() {
-				_, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, "")
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, "")
-				Expect(err).To(HaveOccurred())
-			})
-
-			It("Returns an error when given invalid json", func() {
-				resp, err := tc.rulesApiClient.Post("https://"+tc.store.Addr()+"/rules/manager",
-					"application/json",
-					bytes.NewReader([]byte("invalid json goes here")),
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(resp.StatusCode).To(Equal(400))
-			})
-
-			It("Sends triggered alerts to the respective alertmanager address", func() {
-				tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, tc.alertManager1.Addr())
-				tc.CreateRuleManager("rules-manager-id3", tc.alertManager2.Addr())
-
-				tc.CreateAlertGroup(MAGIC_MEASUREMENT_NAME, "sumCpuTotal1", "sum(cpu) > 0")
-				tc.CreateAlertGroup("rules-manager-id3", "sumCpuTotal2", "sum(cpu) > 0")
-
-				now := time.Now()
-				writePoints(tc, []*rpc.Point{
-					{Timestamp: now.Add(-2 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_NAME, Value: 1},
-					{Timestamp: now.Add(-1 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_NAME, Value: 1},
-					{Timestamp: now.UnixNano(), Name: MAGIC_MEASUREMENT_NAME, Value: 1},
-				})
-
-				Eventually(countRuleGroups(tc), 5*time.Second).Should(Equal(2))
-				Eventually(countManagersActive(tc), 5*time.Second).Should(Equal(2))
-				Eventually(countFiringAlerts(tc), 20*time.Second).Should(Equal(2))
-
-				alertsReceived1 := func() bool {
-					return tc.alertManager1.AlertsReceived() >= 1 && tc.alertManager1.LastAlertReceived() == "sumCpuTotal1"
-				}
-
-				alertsReceived2 := func() bool {
-					return tc.alertManager2.AlertsReceived() >= 1 && tc.alertManager2.LastAlertReceived() == "sumCpuTotal2"
-				}
-
-				Eventually(alertsReceived1, 1).Should(BeTrue())
-				Eventually(alertsReceived2, 1).Should(BeTrue())
-			})
 		})
 
 		Describe("/rules/manager/:manager_id/group endpoint", func() {
@@ -417,7 +369,7 @@ var _ = Describe("MetricStore", func() {
 			{
 				"data": {
 					"name": "my-example-group",
-					"interval": "1s",
+					"interval": "1m",
 					"rules": [
 						{
 							"record": "job:http_total:sum",
@@ -433,12 +385,12 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Creates a rule group", func() {
-					group, err := tc.CreateRecordGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "sum(http_total) by (source_id)")
+					group, err := tc.CreateRuleGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "sum(http_total) by (source_id)")
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(group).To(Equal(&rulesclient.RuleGroup{
 						Name:     "my-example-group",
-						Interval: rulesclient.Duration(time.Second),
+						Interval: rulesclient.Duration(time.Minute),
 						Rules: []rulesclient.Rule{
 							{Record: "job:http_total:sum", Expr: "sum(http_total) by (source_id)"},
 						},
@@ -471,41 +423,6 @@ var _ = Describe("MetricStore", func() {
 					Expect(resp.StatusCode).To(Equal(201))
 				})
 
-				It("Returns an error if no name is provided", func() {
-					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
-						Interval: rulesclient.Duration(time.Minute),
-						Rules: []rulesclient.Rule{
-							{Record: "job:http_total:sum", Expr: "sum(http_total) by (source_id)"},
-						},
-					})
-
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("name"))
-				})
-
-				It("Returns an error if the provided interval is not a duration", func() {
-					payload := []byte(`
-					{
-						"data": {
-							"name": "my-example-group",
-							"interval": "not a duration",
-							"rules": [
-								{
-									"record": "job:http_total:sum",
-									"expr": "sum(http_total) by (source_id)"
-								}
-							]
-						}
-					}`)
-					resp, err := tc.rulesApiClient.Post(
-						"https://"+tc.store.Addr()+"/rules/manager/rules-manager-id/group",
-						"application/json",
-						bytes.NewReader(payload),
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(resp.StatusCode).To(Equal(400))
-				})
-
 				It("Returns an error if the rules array is not provided", func() {
 					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
 						Name:     "tragic",
@@ -515,18 +432,8 @@ var _ = Describe("MetricStore", func() {
 					Expect(err.Error()).To(ContainSubstring("rule"))
 				})
 
-				It("Returns an error if the rules array is empty", func() {
-					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
-						Name:     "tragic",
-						Interval: rulesclient.Duration(time.Minute),
-						Rules:    []rulesclient.Rule{},
-					})
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("rule"))
-				})
-
 				It("Returns an error if the resulting config is not valid", func() {
-					_, err := tc.CreateRecordGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "invalid promql {")
+					_, err := tc.CreateRuleGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "invalid promql {")
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("parse"))
 				})

@@ -55,5 +55,5 @@ func (a *AlertManagerSpy) Stop() {
 
 func (a *AlertManagerSpy) Addr() string {
 	addr, _ := url.Parse(a.server.URL)
-	return fmt.Sprintf(":%s", addr.Port())
+	return fmt.Sprintf("localhost:%s", addr.Port())
 }

@@ -151,6 +151,28 @@ var _ = Describe("Rules API", func() {
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(0))
 		})
 
+		It("returns an error when invalid manager is posted", func() {
+			tc, teardown := setup()
+			defer teardown()
+
+			payload := []byte(`
+{
+	"data": {
+		"alertmanager_url": "http://localhost:1234"
+	}
+}`)
+
+			resp, err := tc.Post("/rules/manager", payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(400))
+
+			apiErrors := rulesclient.ApiErrors{}
+			json.NewDecoder(resp.Body).Decode(&apiErrors)
+
+			Expect(len(apiErrors.Errors)).To(Equal(1))
+			Expect(apiErrors.Errors[0].Status).To(Equal(400))
+		})
+
 		It("returns an error when the managerId has already been created", func() {
 			tc, teardown := setup()
 			defer teardown()
@@ -203,7 +225,8 @@ var _ = Describe("Rules API", func() {
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
 
 			ruleGroupData := rulesclient.RuleGroupData{}
-			json.NewDecoder(resp.Body).Decode(&ruleGroupData)
+			err = json.NewDecoder(resp.Body).Decode(&ruleGroupData)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(ruleGroupData.Data.Name).To(Equal("test-group"))
 			Expect(len(tc.ruleManager.RuleGroups())).To(Equal(1))
@@ -234,7 +257,7 @@ var _ = Describe("Rules API", func() {
 			Expect(apiErrors.Errors[0].Title).To(ContainSubstring("invalid character"))
 		})
 
-		It("returns an error when invalid poorly defined rule is posted", func() {
+		It("returns an error when invalid rule group is posted", func() {
 			tc, teardown := setup()
 			defer teardown()
 

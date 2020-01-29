@@ -4,30 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 )
-
-type ApiErrors struct {
-	Errors []ApiError `json:"errors"`
-}
-
-type ApiError struct {
-	Status int    `json:"status"`
-	Title  string `json:"title"`
-}
-
-type Manager struct {
-	Id              string `json:"id"`
-	AlertManagerUrl string `json:"alertmanager_url"`
-}
-
-type ManagerData struct {
-	Data Manager `json:"data"`
-}
 
 type RuleGroupData struct {
 	Data RuleGroup `json:"data"`
@@ -41,38 +22,13 @@ type RuleGroup struct {
 
 type Duration time.Duration
 
-type Rule struct {
-	Record      string            `json:"record,omitempty"`
-	Alert       string            `json:"alert,omitempty"`
-	Expr        string            `json:"expr"`
-	For         string            `json:"for,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-func (r *Rule) convertToPromRule() (rulefmt.Rule, error) {
-	var duration time.Duration
-	var err error
-	if r.For != "" {
-		duration, err = time.ParseDuration(strings.Trim(r.For, `"`))
-		if err != nil {
-			return rulefmt.Rule{}, err
-		}
-	}
-
-	return rulefmt.Rule{
-		Record:      r.Record,
-		Alert:       r.Alert,
-		Expr:        r.Expr,
-		For:         model.Duration(duration),
-		Labels:      r.Labels,
-		Annotations: r.Annotations,
-	}, nil
-}
-
 func (rg *RuleGroup) Validate() error {
 	if rg.Name == "" {
 		return errors.New("name is required")
+	}
+
+	if rg.Interval != 0 && rg.Interval < Duration(time.Minute) {
+		return errors.New("interval is too short")
 	}
 
 	if len(rg.Rules) == 0 {
@@ -80,13 +36,9 @@ func (rg *RuleGroup) Validate() error {
 	}
 
 	for _, rule := range rg.Rules {
-		promRule, err := rule.convertToPromRule()
+		err := rule.Validate()
 		if err != nil {
 			return err
-		}
-		errs := promRule.Validate()
-		if len(errs) != 0 {
-			return errs[0]
 		}
 	}
 
