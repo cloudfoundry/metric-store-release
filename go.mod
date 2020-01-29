@@ -23,7 +23,7 @@ require (
 	github.com/influxdata/influxql v1.0.1
 	github.com/influxdata/roaring v0.4.12 // indirect
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
-	github.com/json-iterator/go v1.1.8
+	github.com/json-iterator/go v1.1.9
 	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
 	github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef // indirect
 	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
