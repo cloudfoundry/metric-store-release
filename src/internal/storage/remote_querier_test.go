@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/prompb"
@@ -24,11 +24,10 @@ import (
 var _ = Describe("Remote Querier", func() {
 	Describe("retry", func() {
 		listenForSecureQueries := func(insecureConnection net.Listener) chan int {
-			tlsConfig, err := sharedtls.NewMutualTLSConfig(
+			tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
 				testing.Cert("metric-store-ca.crt"),
 				testing.Cert("metric-store.crt"),
 				testing.Cert("metric-store.key"),
-				"metric-store",
 			)
 			Expect(err).ToNot(HaveOccurred())
 

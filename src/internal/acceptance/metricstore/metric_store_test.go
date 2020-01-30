@@ -22,7 +22,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -175,7 +175,7 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		var err error
-		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(tc.caCert, tc.cert, tc.key, "metric-store")
+		tc.tlsConfig, err = sharedtls.NewMutualTLSClientConfig(tc.caCert, tc.cert, tc.key, "metric-store")
 		if err != nil {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
 		}

@@ -9,10 +9,10 @@ import (
 	"net/http"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -50,7 +50,14 @@ var _ = Describe("Rules API", func() {
 	var setup = func() (*ruleApiTestContext, func()) {
 		spyRuleManager := testing.NewRuleManagerSpy()
 
-		tlsConfig, err := sharedtls.NewMutualTLSConfig(
+		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		tlsClientConfig, err := sharedtls.NewMutualTLSClientConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
@@ -61,7 +68,7 @@ var _ = Describe("Rules API", func() {
 		insecureConnection, err := net.Listen("tcp", ":0")
 		Expect(err).ToNot(HaveOccurred())
 
-		secureConnection := tls.NewListener(insecureConnection, tlsConfig)
+		secureConnection := tls.NewListener(insecureConnection, tlsServerConfig)
 		mux := http.NewServeMux()
 
 		rulesAPI := NewRulesAPI(spyRuleManager, logger.NewTestLogger(GinkgoWriter))
@@ -71,7 +78,7 @@ var _ = Describe("Rules API", func() {
 		go server.Serve(secureConnection)
 
 		httpClient := &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+			Transport: &http.Transport{TLSClientConfig: tlsClientConfig},
 		}
 
 		return &ruleApiTestContext{

@@ -11,13 +11,13 @@ import (
 	"github.com/prometheus/common/model"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -107,18 +107,23 @@ func (c *mockPerfClient) LabelValues(context.Context, string) (model.LabelValues
 }
 
 func setup() testContext {
-	tlsConfig, _ := sharedtls.NewMutualTLSConfig(
+	tlsServerConfig, _ := sharedtls.NewMutualTLSServerConfig(
+		shared.Cert("metric-store-ca.crt"),
+		shared.Cert("metric-store.crt"),
+		shared.Cert("metric-store.key"),
+	)
+	ms := testing.NewSpyMetricStore(
+		tlsServerConfig,
+	)
+
+	tlsClientConfig, _ := sharedtls.NewMutualTLSClientConfig(
 		shared.Cert("metric-store-ca.crt"),
 		shared.Cert("metric-store.crt"),
 		shared.Cert("metric-store.key"),
 		metricstore.COMMON_NAME,
 	)
-	ms := testing.NewSpyMetricStore(
-		tlsConfig,
-	)
-
 	addrs := ms.Start()
-	client, err := ingressclient.NewIngressClient(addrs.IngressAddr, tlsConfig)
+	client, err := ingressclient.NewIngressClient(addrs.IngressAddr, tlsClientConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	time.Sleep(10 * time.Millisecond)

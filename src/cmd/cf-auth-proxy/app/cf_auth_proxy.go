@@ -1,9 +1,7 @@
 package app
 
 import (
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -11,10 +9,10 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -81,14 +79,13 @@ func (c *CFAuthProxyApp) Run() {
 		c.log,
 	)
 
-	proxyCACertPool := loadCA(c.cfg.ProxyCAPath, c.log)
-
 	proxy := NewCFAuthProxy(
 		c.cfg.MetricStoreAddr,
 		c.cfg.Addr,
 		c.cfg.CertPath,
 		c.cfg.KeyPath,
-		proxyCACertPool,
+		c.cfg.ProxyCAPath,
+		c.log,
 		WithAuthMiddleware(middlewareProvider.Middleware),
 		WithCFAuthProxyBlock(),
 	)
@@ -152,10 +149,10 @@ func (c *CFAuthProxyApp) startDebugServer() {
 }
 
 func buildUAAClient(cfg *Config, log *logger.Logger) *http.Client {
-	tlsConfig := sharedtls.NewBaseTLSConfig()
-	tlsConfig.InsecureSkipVerify = cfg.SkipCertVerify
-
-	tlsConfig.RootCAs = loadCA(cfg.UAA.CAPath, log)
+	tlsConfig, err := sharedtls.NewUAATLSConfig(cfg.UAA.CAPath, cfg.SkipCertVerify)
+	if err != nil {
+		log.Fatal("failed to load UAA CA certificate", err)
+	}
 
 	transport := &http.Transport{
 		TLSHandshakeTimeout: 10 * time.Second,
@@ -170,12 +167,11 @@ func buildUAAClient(cfg *Config, log *logger.Logger) *http.Client {
 }
 
 func buildCAPIClient(cfg *Config, log *logger.Logger) *http.Client {
-	tlsConfig := sharedtls.NewBaseTLSConfig()
-	tlsConfig.ServerName = cfg.CAPI.CommonName
+	tlsConfig, err := sharedtls.NewCAPITLSConfig(cfg.CAPI.CAPath, cfg.SkipCertVerify, cfg.CAPI.CommonName)
+	if err != nil {
+		log.Fatal("failed to load CAPI CA certificate", err)
+	}
 
-	tlsConfig.RootCAs = loadCA(cfg.CAPI.CAPath, log)
-
-	tlsConfig.InsecureSkipVerify = cfg.SkipCertVerify
 	transport := &http.Transport{
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     tlsConfig,
@@ -186,19 +182,4 @@ func buildCAPIClient(cfg *Config, log *logger.Logger) *http.Client {
 		Timeout:   20 * time.Second,
 		Transport: transport,
 	}
-}
-
-func loadCA(caCertPath string, log *logger.Logger) *x509.CertPool {
-	caCert, err := ioutil.ReadFile(caCertPath)
-	if err != nil {
-		log.Fatal("failed to read CA certificate", err)
-	}
-
-	certPool := x509.NewCertPool()
-	ok := certPool.AppendCertsFromPEM(caCert)
-	if !ok {
-		log.Fatal("failed to parse CA certificate.", nil)
-	}
-
-	return certPool
 }

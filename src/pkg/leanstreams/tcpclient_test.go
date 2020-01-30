@@ -10,7 +10,7 @@ import (
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/golang/protobuf/proto"
 )
 
@@ -21,7 +21,12 @@ func exampleCallback(bts []byte) error {
 }
 
 var (
-	tlsConfig, _ = sharedtls.NewMutualTLSConfig(
+	tlsServerConfig, _ = sharedtls.NewMutualTLSServerConfig(
+		shared.Cert("metric-store-ca.crt"),
+		shared.Cert("metric-store.crt"),
+		shared.Cert("metric-store.key"),
+	)
+	tlsClientConfig, _ = sharedtls.NewMutualTLSClientConfig(
 		shared.Cert("metric-store-ca.crt"),
 		shared.Cert("metric-store.crt"),
 		shared.Cert("metric-store.key"),
@@ -31,13 +36,13 @@ var (
 	buffWriteConfig = TCPClientConfig{
 		MaxMessageSize: 2048,
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5034)),
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsClientConfig,
 	}
 
 	buffWriteConfig2 = TCPClientConfig{
 		MaxMessageSize: 2048,
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5035)),
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsClientConfig,
 	}
 
 	listenConfig = TCPListenerConfig{
@@ -45,7 +50,7 @@ var (
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5033)),
 		Callback:       exampleCallback,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsServerConfig,
 	}
 
 	listenConfig2 = TCPListenerConfig{
@@ -53,7 +58,7 @@ var (
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5034)),
 		Callback:       exampleCallback,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsServerConfig,
 	}
 
 	listenConfig3 = TCPListenerConfig{
@@ -61,7 +66,7 @@ var (
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5035)),
 		Callback:       exampleCallback,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsServerConfig,
 	}
 
 	btl      = &TCPListener{}
@@ -116,7 +121,7 @@ func TestMain(m *testing.M) {
 func TestDialBuffTCPUsesDefaultMessageSize(t *testing.T) {
 	cfg := TCPClientConfig{
 		Address:   buffWriteConfig.Address,
-		TLSConfig: tlsConfig,
+		TLSConfig: tlsClientConfig,
 	}
 	buffM, err := DialTCP(&cfg)
 	if err != nil {
@@ -131,7 +136,7 @@ func TestDialBuffTCPUsesSpecifiedMaxMessageSize(t *testing.T) {
 	cfg := TCPClientConfig{
 		Address:        buffWriteConfig.Address,
 		MaxMessageSize: 8196,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsClientConfig,
 	}
 	conn, err := DialTCP(&cfg)
 	if err != nil {
@@ -146,7 +151,7 @@ func TestDialTCPUntilConnected(t *testing.T) {
 	cfg := TCPClientConfig{
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5036)),
 		MaxMessageSize: 8196,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsClientConfig,
 	}
 	result := make(chan bool)
 
@@ -162,7 +167,7 @@ func TestDialTCPUntilConnected(t *testing.T) {
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5036)),
 		Callback:       exampleCallback,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsServerConfig,
 	}
 	server, err := ListenTCP(serverConfig)
 	if err != nil {
@@ -181,7 +186,7 @@ func TestDialTCPUntilConnectedTimeout(t *testing.T) {
 	cfg := TCPClientConfig{
 		Address:        FormatAddress("127.0.0.1", strconv.Itoa(5037)),
 		MaxMessageSize: 8196,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsClientConfig,
 	}
 	result := make(chan bool)
 
@@ -197,7 +202,7 @@ func TestDialTCPUntilConnectedTimeout(t *testing.T) {
 		EnableLogging:  true,
 		Address:        FormatAddress("", strconv.Itoa(5037)),
 		Callback:       exampleCallback,
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsServerConfig,
 	}
 	server, err := ListenTCP(serverConfig)
 	if err != nil {

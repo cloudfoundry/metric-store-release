@@ -5,13 +5,13 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"golang.org/x/net/context"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/matchers"
@@ -29,19 +29,27 @@ var _ = Describe("Nozzle", func() {
 	)
 
 	BeforeEach(func() {
-		tlsConfig, err := sharedtls.NewMutualTLSConfig(
+		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		tlsClientConfig, err := sharedtls.NewMutualTLSClientConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
 			"metric-store",
 		)
 		Expect(err).ToNot(HaveOccurred())
+
 		streamConnector = newSpyStreamConnector()
 		metricRegistrar = testing.NewSpyMetricRegistrar()
-		metricStore = testing.NewSpyMetricStore(tlsConfig)
+		metricStore = testing.NewSpyMetricStore(tlsServerConfig)
 		addrs := metricStore.Start()
 
-		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsConfig, "metric-store", 0,
+		n = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsClientConfig, "metric-store", 0,
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,

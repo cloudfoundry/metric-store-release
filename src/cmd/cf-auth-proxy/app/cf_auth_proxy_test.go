@@ -6,9 +6,9 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/cmd/cf-auth-proxy/app"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,7 +20,7 @@ var _ = Describe("CF Auth Proxy App", func() {
 	)
 
 	BeforeEach(func() {
-		uaaTLSConfig, _ := tls.NewMutualTLSConfig(
+		uaaTLSConfig, _ := tls.NewMutualTLSClientConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("localhost.crt"),
 			testing.Cert("localhost.key"),

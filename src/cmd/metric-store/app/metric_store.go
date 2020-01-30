@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
 )
@@ -62,24 +62,32 @@ func (m *MetricStoreApp) Run() {
 		ServerName: metricstore.COMMON_NAME,
 	}
 
-	tlsIngressConfig, err := sharedtls.NewMutualTLSConfig(
+	tlsIngressConfig, err := sharedtls.NewMutualTLSServerConfig(
 		m.cfg.MetricStoreServerTLS.CAPath,
 		m.cfg.MetricStoreServerTLS.CertPath,
 		m.cfg.MetricStoreServerTLS.KeyPath,
-		metricstore.COMMON_NAME,
 	)
 	if err != nil {
 		m.log.Fatal("invalid mTLS configuration for ingress", err)
 	}
 
-	tlsInternodeConfig, err := sharedtls.NewMutualTLSConfig(
+	tlsInternodeServerConfig, err := sharedtls.NewMutualTLSServerConfig(
+		m.cfg.MetricStoreInternodeTLS.CAPath,
+		m.cfg.MetricStoreInternodeTLS.CertPath,
+		m.cfg.MetricStoreInternodeTLS.KeyPath,
+	)
+	if err != nil {
+		m.log.Fatal("invalid mTLS configuration for internode server", err)
+	}
+
+	tlsInternodeClientConfig, err := sharedtls.NewMutualTLSClientConfig(
 		m.cfg.MetricStoreInternodeTLS.CAPath,
 		m.cfg.MetricStoreInternodeTLS.CertPath,
 		m.cfg.MetricStoreInternodeTLS.KeyPath,
 		metricstore.COMMON_NAME,
 	)
 	if err != nil {
-		m.log.Fatal("invalid mTLS configuration for internode communication", err)
+		m.log.Fatal("invalid mTLS configuration for internode client", err)
 	}
 
 	diskFreeReporter := system_stats.NewDiskFreeReporter(m.cfg.StoragePath, m.log, m.debugRegistrar)
@@ -100,7 +108,8 @@ func (m *MetricStoreApp) Run() {
 		persistentStore,
 		m.cfg.StoragePath,
 		tlsIngressConfig,
-		tlsInternodeConfig,
+		tlsInternodeServerConfig,
+		tlsInternodeClientConfig,
 		tlsEgressConfig,
 		metricstore.WithMetrics(m.debugRegistrar),
 		metricstore.WithAddr(m.cfg.Addr),

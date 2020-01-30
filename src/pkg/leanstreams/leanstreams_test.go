@@ -10,7 +10,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -72,7 +72,14 @@ var _ = Describe("Leanstreams", func() {
 	var setup = func() (tc *leanstreamsTestContext, cleanup func()) {
 		tc = &leanstreamsTestContext{}
 
-		tlsConfig, err := sharedtls.NewMutualTLSConfig(
+		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		tlsClientConfig, err := sharedtls.NewMutualTLSClientConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
@@ -86,7 +93,7 @@ var _ = Describe("Leanstreams", func() {
 			EnableLogging:  true,
 			Address:        ":0",
 			Callback:       tc.Callback,
-			TLSConfig:      tlsConfig,
+			TLSConfig:      tlsServerConfig,
 		}
 		listener, err := ListenTCP(listenConfig)
 		if err != nil {
@@ -98,7 +105,7 @@ var _ = Describe("Leanstreams", func() {
 		writeConfig := TCPClientConfig{
 			MaxMessageSize: maxMessageSize,
 			Address:        listener.Address,
-			TLSConfig:      tlsConfig,
+			TLSConfig:      tlsClientConfig,
 		}
 		connection, err := DialTCP(&writeConfig)
 		if err != nil {

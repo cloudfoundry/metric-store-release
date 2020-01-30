@@ -16,12 +16,12 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/influxdata/influxql"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -106,7 +106,14 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		var err error
-		tc.tlsConfig, err = sharedtls.NewMutualTLSConfig(
+		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
+			shared.Cert("metric-store-ca.crt"),
+			shared.Cert("metric-store.crt"),
+			shared.Cert("metric-store.key"),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		tc.tlsConfig, err = sharedtls.NewMutualTLSClientConfig(
 			shared.Cert("metric-store-ca.crt"),
 			shared.Cert("metric-store.crt"),
 			shared.Cert("metric-store.key"),
@@ -121,7 +128,7 @@ var _ = Describe("MetricStore", func() {
 			ServerName: metricstore.COMMON_NAME,
 		}
 
-		tc.peer = testing.NewSpyMetricStore(tc.tlsConfig)
+		tc.peer = testing.NewSpyMetricStore(tlsServerConfig)
 		peerAddrs := tc.peer.Start()
 		tc.spyMetrics = shared.NewSpyMetricRegistrar()
 		tc.persistentStore = persistentStore
@@ -129,7 +136,8 @@ var _ = Describe("MetricStore", func() {
 		tc.store = metricstore.New(
 			persistentStore,
 			storagePath,
-			tc.tlsConfig,
+			tlsServerConfig,
+			tlsServerConfig,
 			tc.tlsConfig,
 			tc.egressTLSConfig,
 			metricstore.WithAddr("127.0.0.1:0"),

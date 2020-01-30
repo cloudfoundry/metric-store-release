@@ -2,9 +2,7 @@ package cfauthproxy
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -12,7 +10,8 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 )
 
 type CFAuthProxy struct {
@@ -23,34 +22,37 @@ type CFAuthProxy struct {
 	addr            string
 	certPath        string
 	keyPath         string
-	proxyCACertPool *x509.CertPool
+	caPath          string
 	clientTLSConfig *tls.Config
 
 	authMiddleware   func(http.Handler) http.Handler
 	accessMiddleware func(http.Handler) *auth.AccessHandler
+
+	log *logger.Logger
 }
 
-func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath string, proxyCACertPool *x509.CertPool, opts ...CFAuthProxyOption) *CFAuthProxy {
-	// Force communication with Metric Store to happen via HTTPS
-	metricStoreURL, err := url.Parse(fmt.Sprintf("https://%s", metricStoreAddr))
-	if err != nil {
-		log.Fatalf("failed to parse metric-store address: %s", err)
-	}
-
+func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath, caPath string, log *logger.Logger, opts ...CFAuthProxyOption) *CFAuthProxy {
 	p := &CFAuthProxy{
-		metricStoreURL:  metricStoreURL,
-		addr:            addr,
-		certPath:        certPath,
-		keyPath:         keyPath,
-		proxyCACertPool: proxyCACertPool,
+		addr:     addr,
+		certPath: certPath,
+		keyPath:  keyPath,
+		caPath:   caPath,
 		authMiddleware: func(h http.Handler) http.Handler {
 			return h
 		},
 		accessMiddleware: auth.NewNullAccessMiddleware(),
+		log:              log,
 	}
 
 	for _, o := range opts {
 		o(p)
+	}
+
+	// Force communication with Metric Store to happen via HTTPS
+	var err error
+	p.metricStoreURL, err = url.Parse(fmt.Sprintf("https://%s", metricStoreAddr))
+	if err != nil {
+		p.log.Fatal("failed to parse metric-store address", err)
 	}
 
 	return p
@@ -87,9 +89,9 @@ func WithAccessMiddleware(accessMiddleware func(http.Handler) *auth.AccessHandle
 func WithClientTLS(caCert, cert, key, cn string) CFAuthProxyOption {
 	return func(p *CFAuthProxy) {
 		var err error
-		p.clientTLSConfig, err = sharedtls.NewMutualTLSConfig(caCert, cert, key, cn)
+		p.clientTLSConfig, err = sharedtls.NewMutualTLSClientConfig(caCert, cert, key, cn)
 		if err != nil {
-			log.Fatalf("failed to create client TLS config: %s", err)
+			p.log.Fatal("failed to create client TLS config", err)
 		}
 	}
 }
@@ -100,22 +102,29 @@ func WithClientTLS(caCert, cert, key, cn string) CFAuthProxyOption {
 func (p *CFAuthProxy) Start() {
 	ln, err := net.Listen("tcp", p.addr)
 	if err != nil {
-		log.Fatalf("failed to start listener: %s", err)
+		p.log.Fatal("failed to start listener", err)
 	}
 
 	p.ln = ln
 
+	tlsConfig, err := sharedtls.NewGenericTLSConfig()
+	if err != nil {
+		p.log.Fatal("failed to create TLS config", err)
+	}
+
 	server := http.Server{
 		Handler:   p.accessMiddleware(p.authMiddleware(p.reverseProxy())),
-		TLSConfig: sharedtls.NewBaseTLSConfig(),
+		TLSConfig: tlsConfig,
 	}
 
 	if p.blockOnStart {
-		log.Fatal(server.ServeTLS(ln, p.certPath, p.keyPath))
+		err = server.ServeTLS(ln, p.certPath, p.keyPath)
+		p.log.Fatal("server exiting", err)
 	}
 
 	go func() {
-		log.Fatal(server.ServeTLS(ln, p.certPath, p.keyPath))
+		err = server.ServeTLS(ln, p.certPath, p.keyPath)
+		p.log.Fatal("server exiting", err)
 	}()
 }
 
@@ -126,6 +135,14 @@ func (p *CFAuthProxy) Addr() string {
 
 func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 	proxy := httputil.NewSingleHostReverseProxy(p.metricStoreURL)
+
+	defaultTLSConfig, err := sharedtls.NewTLSClientConfig(
+		p.caPath,
+		"metric-store",
+	)
+	if err != nil {
+		p.log.Fatal("failed to create reverse proxy TLS config", err)
+	}
 
 	// Aside from the Root CA for the gateway, these values are defaults
 	// from Golang's http.DefaultTransport
@@ -140,10 +157,7 @@ func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig: &tls.Config{
-			RootCAs:    p.proxyCACertPool,
-			ServerName: "metric-store",
-		},
+		TLSClientConfig:       defaultTLSConfig,
 	}
 	if p.clientTLSConfig != nil {
 		transport.TLSClientConfig = p.clientTLSConfig

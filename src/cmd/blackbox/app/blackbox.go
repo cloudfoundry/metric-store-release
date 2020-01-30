@@ -10,11 +10,11 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox/metricscanner"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/egressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -57,7 +57,7 @@ func (b *BlackboxApp) Run() {
 }
 
 func (b *BlackboxApp) StartCalculators(egressClient blackbox.QueryableClient, stopChan chan bool) {
-	tlsConfig, err := sharedtls.NewMutualTLSConfig(
+	tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
 		b.cfg.TLS.CAPath,
 		b.cfg.TLS.CertPath,
 		b.cfg.TLS.KeyPath,

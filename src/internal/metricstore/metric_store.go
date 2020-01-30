@@ -16,10 +16,10 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"go.uber.org/zap"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
@@ -27,7 +27,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	shared_tls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	config_util "github.com/prometheus/common/config"
 	prom_labels "github.com/prometheus/prometheus/pkg/labels"
@@ -57,11 +57,12 @@ type MetricStore struct {
 	internodeListener *leanstreams.TCPListener
 	// internodeConns    chan *leanstreams.TCPClient
 
-	ingressTLSConfig   *tls.Config
-	internodeTLSConfig *tls.Config
-	egressTLSConfig    *config_util.TLSConfig
-	metrics            debug.MetricRegistrar
-	closing            int64
+	ingressTLSConfig         *tls.Config
+	internodeTLSServerConfig *tls.Config
+	internodeTLSClientConfig *tls.Config
+	egressTLSConfig          *config_util.TLSConfig
+	metrics                  debug.MetricRegistrar
+	closing                  int64
 
 	localStore        prom_storage.Storage
 	promRuleManagers  *rules.PromRuleManagers
@@ -94,7 +95,7 @@ type MetricStore struct {
 	replicatedStorage prom_storage.Storage
 }
 
-func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
+func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     logger.NewNop(),
 		metrics: &debug.NullRegistrar{},
@@ -103,15 +104,16 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		replicationFactor: 1,
 		queryTimeout:      10 * time.Second,
 
-		addr:               ":8080",
-		ingressAddr:        ":8090",
-		internodeAddr:      ":8091",
-		handoffStoragePath: "/tmp/metric-store/handoff",
-		ingressTLSConfig:   ingressTLSConfig,
-		internodeTLSConfig: internodeTLSConfig,
-		egressTLSConfig:    egressTLSConfig,
-		storagePath:        storagePath,
-		queryLogPath:       "/tmp/metric-store/query.log",
+		addr:                     ":8080",
+		ingressAddr:              ":8090",
+		internodeAddr:            ":8091",
+		handoffStoragePath:       "/tmp/metric-store/handoff",
+		ingressTLSConfig:         ingressTLSConfig,
+		internodeTLSServerConfig: internodeTLSServerConfig,
+		internodeTLSClientConfig: internodeTLSClientConfig,
+		egressTLSConfig:          egressTLSConfig,
+		storagePath:              storagePath,
+		queryLogPath:             "/tmp/metric-store/query.log",
 	}
 
 	for _, o := range opts {
@@ -251,7 +253,7 @@ func (store *MetricStore) Start() {
 		store.nodeAddrs,
 		store.internodeAddrs,
 		store.replicationFactor,
-		store.internodeTLSConfig,
+		store.internodeTLSClientConfig,
 		store.egressTLSConfig,
 		storage.WithReplicatedLogger(store.log),
 		storage.WithReplicatedHandoffStoragePath(store.handoffStoragePath),
@@ -295,17 +297,25 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.log.Fatal("failed to listen", err)
 	}
 
-	tlsConfig, err := shared_tls.NewMutualTLSConfig(
+	tlsServerConfig, err := shared_tls.NewMutualTLSServerConfig(
+		store.egressTLSConfig.CAFile,
+		store.egressTLSConfig.CertFile,
+		store.egressTLSConfig.KeyFile,
+	)
+	if err != nil {
+		store.log.Fatal("failed to convert TLS server config", err)
+	}
+	tlsClientConfig, err := shared_tls.NewMutualTLSClientConfig(
 		store.egressTLSConfig.CAFile,
 		store.egressTLSConfig.CertFile,
 		store.egressTLSConfig.KeyFile,
 		store.egressTLSConfig.ServerName,
 	)
 	if err != nil {
-		store.log.Fatal("failed to convert TLS config", err)
+		store.log.Fatal("failed to convert TLS client config", err)
 	}
 
-	secureConnection := tls.NewListener(insecureConnection, tlsConfig)
+	secureConnection := tls.NewListener(insecureConnection, tlsServerConfig)
 	store.lis = secureConnection
 	if store.extAddr == "" {
 		store.extAddr = store.lis.Addr().String()
@@ -325,7 +335,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.nodeIndex,
 		store.nodeAddrs,
 		store.replicationFactor,
-		tlsConfig,
+		tlsClientConfig,
 	)
 
 	promAPI := api.NewPromAPI(
@@ -501,7 +511,7 @@ func (store *MetricStore) setupSanitizedListener() {
 		MaxMessageSize: MAX_INTERNODE_PAYLOAD_SIZE_IN_BYTES,
 		Callback:       writePoints,
 		Address:        store.internodeAddr,
-		TLSConfig:      store.internodeTLSConfig,
+		TLSConfig:      store.internodeTLSServerConfig,
 	}
 	btl, err := leanstreams.ListenTCP(cfg)
 	store.internodeListener = btl

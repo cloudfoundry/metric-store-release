@@ -7,7 +7,7 @@ import (
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -19,7 +19,14 @@ type rulesClientTestContext struct {
 
 var _ = Describe("RulesClient", func() {
 	var setup = func() *rulesClientTestContext {
-		tlsConfig, err := sharedtls.NewMutualTLSConfig(
+		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		tlsClientConfig, err := sharedtls.NewMutualTLSClientConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
@@ -27,14 +34,14 @@ var _ = Describe("RulesClient", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		rulesApi, err := testing.NewRulesApiSpy(tlsConfig)
+		rulesApi, err := testing.NewRulesApiSpy(tlsServerConfig)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = rulesApi.Start()
 		Expect(err).ToNot(HaveOccurred())
 
 		return &rulesClientTestContext{
-			tlsConfig: tlsConfig,
+			tlsConfig: tlsClientConfig,
 			rulesApi:  rulesApi,
 		}
 	}
@@ -70,7 +77,7 @@ var _ = Describe("RulesClient", func() {
 		})
 
 		It("server unavailable", func() {
-			tlsConfig, err := sharedtls.NewMutualTLSConfig(
+			tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
 				testing.Cert("metric-store-ca.crt"),
 				testing.Cert("metric-store.crt"),
 				testing.Cert("metric-store.key"),
@@ -120,7 +127,7 @@ var _ = Describe("RulesClient", func() {
 		})
 
 		It("server unavailable", func() {
-			tlsConfig, err := sharedtls.NewMutualTLSConfig(
+			tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
 				testing.Cert("metric-store-ca.crt"),
 				testing.Cert("metric-store.crt"),
 				testing.Cert("metric-store.key"),
@@ -170,7 +177,7 @@ var _ = Describe("RulesClient", func() {
 		})
 
 		It("server unavailable", func() {
-			tlsConfig, err := sharedtls.NewMutualTLSConfig(
+			tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
 				testing.Cert("metric-store-ca.crt"),
 				testing.Cert("metric-store.crt"),
 				testing.Cert("metric-store.key"),

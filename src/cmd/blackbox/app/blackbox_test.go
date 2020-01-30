@@ -7,7 +7,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

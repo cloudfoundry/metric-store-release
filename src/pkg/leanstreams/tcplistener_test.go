@@ -11,7 +11,7 @@ func TestListenTCPUsesDefaultMessageSize(t *testing.T) {
 	cfg := TCPListenerConfig{
 		Address:   FormatAddress("", strconv.Itoa(5031)),
 		Callback:  func([]byte) error { return nil },
-		TLSConfig: tlsConfig,
+		TLSConfig: tlsServerConfig,
 	}
 	buffM, err := ListenTCP(cfg)
 	if err != nil {
@@ -27,7 +27,7 @@ func TestListenTCPUsesSpecifiedMaxMessageSize(t *testing.T) {
 		MaxMessageSize: 8196,
 		Address:        FormatAddress("", strconv.Itoa(5032)),
 		Callback:       func([]byte) error { return nil },
-		TLSConfig:      tlsConfig,
+		TLSConfig:      tlsServerConfig,
 	}
 	buffM, err := ListenTCP(cfg)
 	if err != nil {

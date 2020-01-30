@@ -3,10 +3,10 @@ package ingressclient_test
 import (
 	"crypto/tls"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/pkg/tls"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/matchers"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -22,7 +22,7 @@ var _ = Describe("IngressClient", func() {
 	)
 
 	BeforeEach(func() {
-		tlsConfig, err := sharedtls.NewMutualTLSConfig(
+		tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
