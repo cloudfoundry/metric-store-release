@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -88,6 +89,12 @@ func (c *CFAuthProxyApp) Run() {
 		c.log,
 		WithAuthMiddleware(middlewareProvider.Middleware),
 		WithCFAuthProxyBlock(),
+		WithClientTLS(
+			c.cfg.ProxyCAPath,
+			c.cfg.CertPath,
+			c.cfg.KeyPath,
+			metricstore.COMMON_NAME,
+		),
 	)
 
 	if c.cfg.SecurityEventLog != "" {
