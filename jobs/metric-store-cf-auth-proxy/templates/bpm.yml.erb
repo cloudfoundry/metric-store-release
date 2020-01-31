@@ -31,5 +31,9 @@ processes:
     UAA_CLIENT_SECRET: "<%= p('uaa.client_secret') %>"
     SKIP_CERT_VERIFY:  "<%= p('skip_cert_verify') %>"
 
+    # Metric Store Client Mutual TLS
+    METRIC_STORE_CLIENT_CERT_PATH: "<%= "#{cert_dir}/metric_store_client.crt" %>"
+    METRIC_STORE_CLIENT_KEY_PATH:  "<%= "#{cert_dir}/metric_store_client.key" %>"
+
   limits:
     open_files: 8192

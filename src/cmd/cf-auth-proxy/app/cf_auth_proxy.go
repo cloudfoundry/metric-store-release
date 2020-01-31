@@ -91,8 +91,8 @@ func (c *CFAuthProxyApp) Run() {
 		WithCFAuthProxyBlock(),
 		WithClientTLS(
 			c.cfg.ProxyCAPath,
-			c.cfg.CertPath,
-			c.cfg.KeyPath,
+			c.cfg.MetricStoreClientTLS.CertPath,
+			c.cfg.MetricStoreClientTLS.KeyPath,
 			metricstore.COMMON_NAME,
 		),
 	)

@@ -7,8 +7,8 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/cmd/cf-auth-proxy/app"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,6 +44,10 @@ var _ = Describe("CF Auth Proxy App", func() {
 			CertPath:    testing.Cert("metric-store.crt"),
 			KeyPath:     testing.Cert("metric-store.key"),
 			ProxyCAPath: testing.Cert("metric-store-ca.crt"),
+			MetricStoreClientTLS: app.MetricStoreClientTLS{
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 		}, logger.NewTestLogger(GinkgoWriter))
 		go cfAuthProxy.Run()
 

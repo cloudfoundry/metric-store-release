@@ -8,6 +8,8 @@ templates:
   external.key.erb: config/certs/external.key
   proxy_ca.crt.erb: config/certs/proxy_ca.crt
   metric_port.yml.erb: config/metric_port.yml
+  metric_store_client.crt.erb: config/certs/metric_store_client.crt
+  metric_store_client.key.erb: config/certs/metric_store_client.key
 
 packages:
 - metric-store-cf-auth-proxy
@@ -53,4 +55,8 @@ properties:
     description: "The CA for internal UAA api"
   uaa.internal_addr:
     description: "The endpoint used for the internal UAA api"
+  metric_store_client.tls.cert:
+    description: "The client cert for cf-auth-proxy to metric-store mutual TLS."
+  metric_store_client.tls.key:
+    description: "The private key for cf-auth-proxy to metric-store mutual TLS."
 
