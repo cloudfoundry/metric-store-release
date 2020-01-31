@@ -2,6 +2,7 @@ package cfauthproxy_test
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,16 +11,27 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("CFAuthProxy", func() {
+	var proxyCACertPool *x509.CertPool
+
+	BeforeEach(func() {
+		proxyCACert, err := ioutil.ReadFile(testing.Cert("metric-store-ca.crt"))
+		Expect(err).To(BeNil())
+
+		proxyCACertPool = x509.NewCertPool()
+		ok := proxyCACertPool.AppendCertsFromPEM(proxyCACert)
+		Expect(ok).To(BeTrue())
+	})
+
 	It("proxies requests to Metric Store", func() {
 		metricstore := startMetricStore("Hello World!")
 		defer metricstore.Close()
@@ -29,7 +41,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
+			proxyCACertPool,
 			logger.NewTestLogger(GinkgoWriter),
 			WithClientTLS(
 				testing.Cert("metric-store-ca.crt"),
@@ -63,7 +75,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
+			proxyCACertPool,
 			logger.NewTestLogger(GinkgoWriter),
 		)
 		proxy.Start()
@@ -86,7 +98,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
+			proxyCACertPool,
 			logger.NewTestLogger(GinkgoWriter),
 			WithAuthMiddleware(func(http.Handler) http.Handler {
 				return middleware
@@ -113,7 +125,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"127.0.0.1:0",
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
+			proxyCACertPool,
 			logger.NewTestLogger(GinkgoWriter),
 			WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
 				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234", logger.NewTestLogger(GinkgoWriter))
@@ -137,7 +149,7 @@ var _ = Describe("CFAuthProxy", func() {
 			"localhost:0",
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
+			proxyCACertPool,
 			logger.NewTestLogger(GinkgoWriter),
 		)
 		proxy.Start()

@@ -1,7 +1,9 @@
 package app
 
 import (
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -80,12 +82,14 @@ func (c *CFAuthProxyApp) Run() {
 		c.log,
 	)
 
+	proxyCACertPool := loadCA(c.cfg.ProxyCAPath, c.log)
+
 	proxy := NewCFAuthProxy(
 		c.cfg.MetricStoreAddr,
 		c.cfg.Addr,
 		c.cfg.CertPath,
 		c.cfg.KeyPath,
-		c.cfg.ProxyCAPath,
+		proxyCACertPool,
 		c.log,
 		WithAuthMiddleware(middlewareProvider.Middleware),
 		WithCFAuthProxyBlock(),
@@ -189,4 +193,19 @@ func buildCAPIClient(cfg *Config, log *logger.Logger) *http.Client {
 		Timeout:   20 * time.Second,
 		Transport: transport,
 	}
+}
+
+func loadCA(caCertPath string, log *logger.Logger) *x509.CertPool {
+	caCert, err := ioutil.ReadFile(caCertPath)
+	if err != nil {
+		log.Fatal("failed to read CA certificate", err)
+	}
+
+	certPool := x509.NewCertPool()
+	ok := certPool.AppendCertsFromPEM(caCert)
+	if !ok {
+		log.Fatal("failed to parse CA certificate.", nil)
+	}
+
+	return certPool
 }

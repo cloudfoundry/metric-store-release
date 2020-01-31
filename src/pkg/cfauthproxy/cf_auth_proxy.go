@@ -2,6 +2,7 @@ package cfauthproxy
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
@@ -9,9 +10,9 @@ import (
 	"net/url"
 	"time"
 
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 )
 
 type CFAuthProxy struct {
@@ -22,6 +23,7 @@ type CFAuthProxy struct {
 	addr            string
 	certPath        string
 	keyPath         string
+	proxyCACertPool *x509.CertPool
 	caPath          string
 	clientTLSConfig *tls.Config
 
@@ -31,12 +33,12 @@ type CFAuthProxy struct {
 	log *logger.Logger
 }
 
-func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath, caPath string, log *logger.Logger, opts ...CFAuthProxyOption) *CFAuthProxy {
+func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath string, proxyCACertPool *x509.CertPool, log *logger.Logger, opts ...CFAuthProxyOption) *CFAuthProxy {
 	p := &CFAuthProxy{
-		addr:     addr,
-		certPath: certPath,
-		keyPath:  keyPath,
-		caPath:   caPath,
+		addr:            addr,
+		certPath:        certPath,
+		keyPath:         keyPath,
+		proxyCACertPool: proxyCACertPool,
 		authMiddleware: func(h http.Handler) http.Handler {
 			return h
 		},
@@ -136,13 +138,13 @@ func (p *CFAuthProxy) Addr() string {
 func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 	proxy := httputil.NewSingleHostReverseProxy(p.metricStoreURL)
 
-	defaultTLSConfig, err := sharedtls.NewTLSClientConfig(
-		p.caPath,
-		"metric-store",
-	)
-	if err != nil {
-		p.log.Fatal("failed to create reverse proxy TLS config", err)
-	}
+	// defaultTLSConfig, err := sharedtls.NewTLSClientConfig(
+	// 	p.caPath,
+	// 	"metric-store",
+	// )
+	// if err != nil {
+	// 	p.log.Fatal("failed to create reverse proxy TLS config", err)
+	// }
 
 	// Aside from the Root CA for the gateway, these values are defaults
 	// from Golang's http.DefaultTransport
@@ -157,7 +159,10 @@ func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		TLSClientConfig:       defaultTLSConfig,
+		TLSClientConfig: &tls.Config{
+			RootCAs:    p.proxyCACertPool,
+			ServerName: "metric-store",
+		},
 	}
 	if p.clientTLSConfig != nil {
 		transport.TLSClientConfig = p.clientTLSConfig
