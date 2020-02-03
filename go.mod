@@ -4,7 +4,7 @@ require (
 	code.cloudfoundry.org/go-diodes v0.0.0-20190809170250-f77fb823c7ee
 	code.cloudfoundry.org/go-envstruct v1.5.0
 	code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a
-	code.cloudfoundry.org/tlsconfig v0.0.0-20200125003142-b5ccaa4fedfc
+	code.cloudfoundry.org/tlsconfig v0.0.0-20200131000646-bbe0f8da39b3
 	collectd.org v0.3.0 // indirect
 	github.com/apache/arrow/go/arrow v0.0.0-20200121172959-3c452dc2b12a // indirect
 	github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86
