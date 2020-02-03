@@ -86,14 +86,20 @@ func (r *RemoteQuerier) Select(params *prom_storage.SelectParams, matchers ...*l
 	if err != nil && serverIsUnavailable(err) {
 		r.mu.Lock()
 		defer r.mu.Unlock()
+
+		r.log.Info("attempting read retries", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
+
 		ticker, stop := NewExponentialTicker(TickerConfig{Context: r.ctx, MaxDelay: 30 * time.Second})
 		defer stop()
 		for {
 			select {
 			case <-ticker:
-				r.log.Info("Retrying read", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
 				res, err = r.publicClient.Read(r.ctx, query)
-				if err == nil || !serverIsUnavailable(err) {
+				if err == nil {
+					r.log.Info("read retry successful", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
+					break
+				} else if !serverIsUnavailable(err) {
+					r.log.Info("retry error", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
 					break
 				}
 			}
