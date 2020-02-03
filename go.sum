@@ -14,8 +14,8 @@ code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a h1:QsW5T
 code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a/go.mod h1:1mwOFhAA8/glYCFDxiqKchLJsNtGScQAkd4zEFxgPwA=
 code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a h1:8rqv2w8xEceNwckcF5ONeRt0qBHlh5bnNfFnYTrZbxs=
 code.cloudfoundry.org/rfc5424 v0.0.0-20180905210152-236a6d29298a/go.mod h1:tkZo8GtzBjySJ7USvxm4E36lNQw1D3xM6oKHGqdaAJ4=
-code.cloudfoundry.org/tlsconfig v0.0.0-20200125003142-b5ccaa4fedfc h1:8z9myVbPAX9H3Qf6rmNIoMTutd1PFQYBtAwQmZr+spg=
-code.cloudfoundry.org/tlsconfig v0.0.0-20200125003142-b5ccaa4fedfc/go.mod h1:eTbFJpyXRGuFVyg5+oaj9B2eIbIc+0/kZjH8ftbtdew=
+code.cloudfoundry.org/tlsconfig v0.0.0-20200131000646-bbe0f8da39b3 h1:2Qal+q+tw/DmDOoJBWwDCPE3lIJNj/1o7oMkkb2c5SI=
+code.cloudfoundry.org/tlsconfig v0.0.0-20200131000646-bbe0f8da39b3/go.mod h1:eTbFJpyXRGuFVyg5+oaj9B2eIbIc+0/kZjH8ftbtdew=
 collectd.org v0.3.0 h1:iNBHGw1VvPJxH2B6RiFWFZ+vsjo1lCdRszBeOuwGi00=
 collectd.org v0.3.0/go.mod h1:A/8DzQBkF6abtvrT2j/AU/4tiBgJWYyh0y/oB/4MlWE=
 contrib.go.opencensus.io/exporter/ocagent v0.6.0 h1:Z1n6UAyr0QwM284yUuh5Zd8JlvxUGAhFZcgMJkMPrGM=
