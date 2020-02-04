@@ -16,3 +16,7 @@ manifest: |
     client_id: (( ..cf.uaa.doppler_client_credentials.identity ))
     client_secret: (( ..cf.uaa.doppler_client_credentials.password ))
     internal_addr: https://uaa.service.cf.internal:8443
+  metric_store_client:
+    tls:
+      cert: (((metric_store.certificate)))
+      key: (((metric_store.private_key)))
