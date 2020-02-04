@@ -12,6 +12,10 @@ type Logger struct {
 	log *zap.Logger
 }
 
+func WrapLogger(l *zap.Logger) *Logger {
+	return &Logger{l}
+}
+
 func NewLogger(logLevel, app string) *Logger {
 	cfg := zap.Config{
 		Encoding:         "json",
