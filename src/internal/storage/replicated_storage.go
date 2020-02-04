@@ -10,8 +10,8 @@ import (
 	"strconv"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/storage"
@@ -122,13 +122,18 @@ func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64)
 
 	for i, addr := range r.nodeAddrs {
 		if i != r.localIndex {
-			remoteQuerier, _ := NewRemoteQuerier(
+			remoteQuerier, err := NewRemoteQuerier(
 				ctx,
 				i,
 				addr,
 				r.egressTLSConfig,
 				r.log,
 			)
+
+			if err != nil {
+				r.log.Error("Could not create remote querier", err)
+				continue
+			}
 			queriers[i] = remoteQuerier
 
 			continue

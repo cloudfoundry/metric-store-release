@@ -46,6 +46,7 @@ type Config struct {
 	MetricStoreInternodeTLS MetricStoreInternodeTLS
 
 	RulesPath        string `env:"RULES_PATH, report"`
+	ScrapeConfigPath string `env:"SCRAPE_CONFIG_PATH, report"`
 	AlertmanagerAddr string `env:"ALERTMANAGER_ADDR, report"`
 
 	LogLevel string `env:"LOG_LEVEL,                      report"`

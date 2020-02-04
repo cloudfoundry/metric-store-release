@@ -51,6 +51,7 @@ processes:
     # Alertmanager and Recording Rules Configuration
     ALERTMANAGER_ADDR: "<%= p('alertmanager.addr', '') %>"
     RULES_PATH:        "<%= p('rules_path', '') %>"
+    SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
 
   limits:
     open_files: 65536

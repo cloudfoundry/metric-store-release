@@ -22,9 +22,9 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/batch"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
@@ -190,14 +190,14 @@ func (a *RemoteAppender) createWriter() {
 	batcher.Start()
 }
 
-func (a *RemoteAppender) Add(l labels.Labels, time int64, value float64) (uint64, error) {
+func (a *RemoteAppender) Add(l labels.Labels, timestamp int64, value float64) (uint64, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	point := &rpc.Point{
 		Name:      l.Get(labels.MetricName),
 		Value:     value,
-		Timestamp: time,
+		Timestamp: timestamp,
 		Labels:    l.Map(),
 	}
 	a.points = append(a.points, point)

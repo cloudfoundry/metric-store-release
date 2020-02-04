@@ -62,7 +62,6 @@ func (t *InfluxAdapter) Close() error {
 func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 	pointBuckets := make(map[int64][]models.Point)
 	influxPoints := transform.ToInfluxPoints(points)
-
 	for _, point := range influxPoints {
 		shardStart := getShardStartForTimestamp(point.Time().UnixNano())
 		pointBuckets[shardStart] = append(pointBuckets[shardStart], point)
@@ -83,7 +82,6 @@ func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 func (t *InfluxAdapter) GetPoints(ctx context.Context, measurementName string, start, end int64, matchers []*labels.Matcher) (*transform.SeriesSetBuilder, error) {
 	shardIDs := t.forTimestampRange(start, end)
 	shards := t.influx.ShardGroup(shardIDs)
-
 	fieldSet, dimensionSet, err := shards.FieldDimensions([]string{measurementName})
 	if err != nil {
 		return nil, err

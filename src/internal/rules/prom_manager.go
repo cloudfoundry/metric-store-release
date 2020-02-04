@@ -2,17 +2,16 @@ package rules
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery"
+
 	sd_config "github.com/prometheus/prometheus/discovery/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/prometheus/prometheus/notifier"
@@ -26,12 +25,11 @@ type PromRuleManager struct {
 	evaluationInterval   time.Duration
 	promRuleManager      *rules.Manager
 	promNotifierManager  *notifier.Manager
-	promDiscoveryManager *discovery.Manager
+	promDiscoveryManager *discovery.DiscoveryAgent
 	promRuleFile         string
 	alertmanagerAddr     string
 	log                  *logger.Logger
 	metrics              debug.MetricRegistrar
-	cancel               context.CancelFunc
 }
 
 func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *PromRuleManager {
@@ -58,13 +56,9 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 		Registerer:  rulesManagerRegisterer,
 	})
 
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-
-	promDiscoveryManager := discovery.NewManager(
-		ctx,
+	promDiscoveryManager := discovery.NewDiscoveryAgent(
+		"notify",
 		rulesManagerLog,
-		discovery.Name("notify"),
 	)
 
 	return &PromRuleManager{
@@ -77,7 +71,6 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 		alertmanagerAddr:     alertmanagerAddr,
 		log:                  rulesManagerLog,
 		metrics:              metrics,
-		cancel:               cancel,
 	}
 }
 
@@ -87,8 +80,8 @@ func (r *PromRuleManager) Start() error {
 		return err
 	}
 	r.promRuleManager.Run()
+	r.promDiscoveryManager.Start()
 
-	go r.promDiscoveryManager.Run()
 	go r.promNotifierManager.Run(r.promDiscoveryManager.SyncCh())
 
 	return nil
@@ -97,7 +90,7 @@ func (r *PromRuleManager) Start() error {
 func (r *PromRuleManager) Stop() error {
 	r.promRuleManager.Stop()
 	r.promNotifierManager.Stop()
-	r.cancel()
+	r.promDiscoveryManager.Stop()
 
 	return nil
 }
@@ -140,17 +133,10 @@ func (r *PromRuleManager) Reload() error {
 		return err
 	}
 
-	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
-	for i, v := range cfg.AlertingConfig.AlertmanagerConfigs {
-		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
-		_, err := json.Marshal(v)
-		if err != nil {
-			r.log.Fatal("error parsing alertmanager config", err)
-			return err
-		}
-		discoveredConfig[fmt.Sprintf("config-%d", i)] = v.ServiceDiscoveryConfig
+	err = r.promDiscoveryManager.ApplyAlertmanagerConfig(cfg.AlertingConfig.AlertmanagerConfigs)
+	if err != nil {
+		r.log.Fatal("error parsing alertmanager config", err)
 	}
-	r.promDiscoveryManager.ApplyConfig(discoveredConfig)
 
 	return nil
 }

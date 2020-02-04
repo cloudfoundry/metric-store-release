@@ -17,14 +17,15 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -37,6 +38,7 @@ import (
 var __ *metricstore.MetricStore
 
 var storagePaths = []string{"/tmp/metric-store-node1", "/tmp/metric-store-node2"}
+var firstTimeMilliseconds = int64(0)
 
 type testInstantQuery struct {
 	Query         string
@@ -105,6 +107,7 @@ var _ = Describe("MetricStore", func() {
 		key                  string
 
 		rulesPath         string
+		scrapeConfigPath  string
 		alertmanagerAddr  string
 		localEgressClient prom_versioned_api_client.API
 		peerEgressClient  prom_versioned_api_client.API
@@ -133,6 +136,7 @@ var _ = Describe("MetricStore", func() {
 				"METRIC_STORE_INTERNODE_CERT_PATH=" + tc.cert,
 				"METRIC_STORE_INTERNODE_KEY_PATH=" + tc.key,
 				"RULES_PATH=" + tc.rulesPath,
+				"SCRAPE_CONFIG_PATH=" + tc.scrapeConfigPath,
 				"ALERTMANAGER_ADDR=" + tc.alertmanagerAddr,
 			},
 		)
@@ -162,6 +166,8 @@ var _ = Describe("MetricStore", func() {
 	type WithTestContextOption func(*testContext)
 
 	var setup = func(numNodes int, opts ...WithTestContextOption) (*testContext, func()) {
+		firstTimeSeconds := time.Now().Unix()
+		firstTimeMilliseconds = transform.SecondsToMilliseconds(firstTimeSeconds - 24*60*60)
 		tc := &testContext{
 			numNodes:             numNodes,
 			metricStoreProcesses: make([]*gexec.Session, numNodes),
@@ -219,6 +225,12 @@ var _ = Describe("MetricStore", func() {
 	var WithOptionRulesPath = func(path string) WithTestContextOption {
 		return func(tc *testContext) {
 			tc.rulesPath = path
+		}
+	}
+
+	var WithOptionScrapeConfigPath = func(path string) WithTestContextOption {
+		return func(tc *testContext) {
+			tc.scrapeConfigPath = path
 		}
 	}
 
@@ -315,11 +327,11 @@ var _ = Describe("MetricStore", func() {
 					[]testPoint{
 						{
 							Name:               "metric_name_old",
-							TimeInMilliseconds: 1000,
+							TimeInMilliseconds: firstTimeMilliseconds,
 						},
 						{
 							Name:               "metric_name_new",
-							TimeInMilliseconds: now.UnixNano() / int64(time.Millisecond),
+							TimeInMilliseconds: transform.NanosecondsToMilliseconds(now.UnixNano()),
 						},
 					},
 				)
@@ -343,7 +355,7 @@ var _ = Describe("MetricStore", func() {
 			Eventually(func() error {
 				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
 				return err
-			}, 5).Should(Succeed())
+			}, 15).Should(Succeed())
 
 			Eventually(func() model.LabelValues {
 				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
@@ -382,6 +394,69 @@ var _ = Describe("MetricStore", func() {
 		})
 	})
 
+	Context("Scraping", func() {
+		It("scrapes its own metrics", func() {
+			tmpfile, err := ioutil.TempFile("", "prom_scrape")
+			Expect(err).NotTo(HaveOccurred())
+			defer os.Remove(tmpfile.Name())
+
+			tc, cleanup := setup(
+				1,
+				WithOptionScrapeConfigPath(tmpfile.Name()),
+			)
+			defer cleanup()
+
+			scrape_yml := []byte(`
+global:
+  scrape_interval:     1s
+scrape_configs:
+- job_name: metric_store_health
+  static_configs:
+  - targets:
+    - localhost:` + tc.healthPorts[0],
+			)
+
+			if _, err := tmpfile.Write(scrape_yml); err != nil {
+				log.Fatal(err)
+			}
+			if err := tmpfile.Close(); err != nil {
+				log.Fatal(err)
+			}
+			Eventually(func() int {
+				client, err := shared_api.NewPromHTTPClient(
+					tc.addrs[0],
+					"",
+					tc.tlsConfig,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				rge := v1.Range{Start: time.Now().Add(time.Hour * -1), End: time.Now(), Step: time.Second}
+				value, _, err := client.QueryRange(
+					context.Background(),
+					//"{job=\"metric_store_health\"}",
+					"metric_store_pruned_shards_total",
+					rge,
+				)
+				if err != nil {
+					log.Println("Error: ", err)
+					return 0
+				}
+				var result []int64
+				switch serieses := value.(type) {
+				case model.Matrix:
+					if len(serieses) != 1 {
+						return 0
+					}
+					for _, point := range serieses[0].Values {
+						result = append(result, point.Timestamp.UnixNano())
+					}
+				default:
+					return 0
+				}
+
+				return len(result)
+			}, 20).Should(BeNumerically(">", 0))
+		})
+	})
 	Context("as a cluster of nodes", func() {
 		It("replays data when a node comes back online", func() {
 			tc, cleanup := setup(2)
@@ -392,10 +467,10 @@ var _ = Describe("MetricStore", func() {
 			optimisticallyWritePoints(
 				tc,
 				[]testPoint{
-					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 1},
-					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 2},
-					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 3},
-					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: 4},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: firstTimeMilliseconds + 1},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: firstTimeMilliseconds + 2},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: firstTimeMilliseconds + 3},
+					{Name: MAGIC_MEASUREMENT_PEER_NAME, TimeInMilliseconds: firstTimeMilliseconds + 4},
 				},
 			)
 
@@ -419,7 +494,7 @@ var _ = Describe("MetricStore", func() {
 				value, _, err := client.Query(
 					context.Background(),
 					fmt.Sprintf("%s[60s]", MAGIC_MEASUREMENT_PEER_NAME),
-					time.Unix(1, 0),
+					time.Unix(0, transform.MillisecondsToNanoseconds(firstTimeMilliseconds+5)),
 				)
 				if err != nil {
 					return nil
@@ -441,10 +516,10 @@ var _ = Describe("MetricStore", func() {
 				return result
 			}, 5).Should(
 				And(
-					ContainElement(int64(1*time.Millisecond)),
-					ContainElement(int64(2*time.Millisecond)),
-					ContainElement(int64(3*time.Millisecond)),
-					ContainElement(int64(4*time.Millisecond)),
+					ContainElement(transform.MillisecondsToNanoseconds(firstTimeMilliseconds+1)),
+					ContainElement(transform.MillisecondsToNanoseconds(firstTimeMilliseconds+2)),
+					ContainElement(transform.MillisecondsToNanoseconds(firstTimeMilliseconds+3)),
+					ContainElement(transform.MillisecondsToNanoseconds(firstTimeMilliseconds+4)),
 				),
 			)
 		})
@@ -462,17 +537,16 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name",
 							Value:              99,
-							TimeInMilliseconds: 1500,
+							TimeInMilliseconds: firstTimeMilliseconds,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
 						},
 					},
 				)
-
 				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         "metric_name",
-					TimeInSeconds: "2",
+					TimeInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(value).To(Equal(
@@ -483,7 +557,7 @@ var _ = Describe("MetricStore", func() {
 								"source_id":           "1",
 							},
 							Value:     99.0,
-							Timestamp: 2000,
+							Timestamp: model.Time(firstTimeMilliseconds + 1000),
 						},
 					},
 				))
@@ -499,17 +573,16 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               MAGIC_MEASUREMENT_PEER_NAME,
 							Value:              99,
-							TimeInMilliseconds: 1000,
+							TimeInMilliseconds: firstTimeMilliseconds,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
 						},
 					},
 				)
-
 				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         MAGIC_MEASUREMENT_PEER_NAME,
-					TimeInSeconds: "2",
+					TimeInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(value).To(Equal(
@@ -520,7 +593,7 @@ var _ = Describe("MetricStore", func() {
 								"source_id":           "1",
 							},
 							Value:     99.0,
-							Timestamp: 2000,
+							Timestamp: model.Time(firstTimeMilliseconds + 1000),
 						},
 					},
 				))
@@ -536,7 +609,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name_for_node_0",
 							Value:              99,
-							TimeInMilliseconds: 1000,
+							TimeInMilliseconds: firstTimeMilliseconds,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -544,7 +617,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name_for_node_1",
 							Value:              99,
-							TimeInMilliseconds: 1000,
+							TimeInMilliseconds: firstTimeMilliseconds,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -554,7 +627,7 @@ var _ = Describe("MetricStore", func() {
 
 				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         "metric_name_for_node_0+metric_name_for_node_1",
-					TimeInSeconds: "2",
+					TimeInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(value).To(Equal(
@@ -564,7 +637,7 @@ var _ = Describe("MetricStore", func() {
 								"source_id": "1",
 							},
 							Value:     198.0,
-							Timestamp: 2000,
+							Timestamp: model.Time(firstTimeMilliseconds + 1000),
 						},
 					},
 				))
@@ -582,7 +655,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name",
 							Value:              99,
-							TimeInMilliseconds: 1500,
+							TimeInMilliseconds: firstTimeMilliseconds + 1500,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -590,7 +663,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name",
 							Value:              93,
-							TimeInMilliseconds: 1700,
+							TimeInMilliseconds: firstTimeMilliseconds + 1700,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -598,7 +671,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name",
 							Value:              88,
-							TimeInMilliseconds: 3800,
+							TimeInMilliseconds: firstTimeMilliseconds + 3800,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -606,7 +679,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name",
 							Value:              99,
-							TimeInMilliseconds: 3500,
+							TimeInMilliseconds: firstTimeMilliseconds + 3500,
 							Labels: map[string]string{
 								"source_id": "2",
 							},
@@ -616,8 +689,8 @@ var _ = Describe("MetricStore", func() {
 
 				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name",
-					StartInSeconds: "1",
-					EndInSeconds:   "5",
+					StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
+					EndInSeconds:   transform.MillisecondsToString(firstTimeMilliseconds + 5000),
 					StepDuration:   "2s",
 				})
 				Expect(err).ToNot(HaveOccurred())
@@ -629,8 +702,8 @@ var _ = Describe("MetricStore", func() {
 								"source_id":           "1",
 							},
 							Values: []model.SamplePair{
-								{Value: 93.0, Timestamp: 3000},
-								{Value: 88.0, Timestamp: 5000},
+								{Value: 93.0, Timestamp: model.Time(firstTimeMilliseconds + 3000)},
+								{Value: 88.0, Timestamp: model.Time(firstTimeMilliseconds + 5000)},
 							},
 						},
 						&model.SampleStream{
@@ -639,7 +712,7 @@ var _ = Describe("MetricStore", func() {
 								"source_id":           "2",
 							},
 							Values: []model.SamplePair{
-								{Value: 99.0, Timestamp: 5000},
+								{Value: 99.0, Timestamp: model.Time(firstTimeMilliseconds + 5000)},
 							},
 						},
 					},
@@ -656,7 +729,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name_for_node_1",
 							Value:              99,
-							TimeInMilliseconds: 1000,
+							TimeInMilliseconds: firstTimeMilliseconds,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -666,8 +739,8 @@ var _ = Describe("MetricStore", func() {
 
 				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name_for_node_1",
-					StartInSeconds: "1",
-					EndInSeconds:   "2",
+					StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
+					EndInSeconds:   transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 					StepDuration:   "1s",
 				})
 
@@ -680,8 +753,8 @@ var _ = Describe("MetricStore", func() {
 								"source_id":           "1",
 							},
 							Values: []model.SamplePair{
-								{Value: 99.0, Timestamp: 1000},
-								{Value: 99.0, Timestamp: 2000},
+								{Value: 99.0, Timestamp: model.Time(firstTimeMilliseconds)},
+								{Value: 99.0, Timestamp: model.Time(firstTimeMilliseconds + 1000)},
 							},
 						},
 					},
@@ -698,7 +771,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name_for_node_0",
 							Value:              99,
-							TimeInMilliseconds: 1500,
+							TimeInMilliseconds: firstTimeMilliseconds + 1500,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -706,7 +779,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name_for_node_0",
 							Value:              101,
-							TimeInMilliseconds: 2100,
+							TimeInMilliseconds: firstTimeMilliseconds + 2100,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -714,7 +787,7 @@ var _ = Describe("MetricStore", func() {
 						{
 							Name:               "metric_name_for_node_1",
 							Value:              50,
-							TimeInMilliseconds: 1600,
+							TimeInMilliseconds: firstTimeMilliseconds + 1600,
 							Labels: map[string]string{
 								"source_id": "1",
 							},
@@ -724,8 +797,8 @@ var _ = Describe("MetricStore", func() {
 
 				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name_for_node_0 + metric_name_for_node_1",
-					StartInSeconds: "1",
-					EndInSeconds:   "3",
+					StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
+					EndInSeconds:   transform.MillisecondsToString(firstTimeMilliseconds + 3000),
 					StepDuration:   "1s",
 				})
 				Expect(err).ToNot(HaveOccurred())
@@ -737,8 +810,8 @@ var _ = Describe("MetricStore", func() {
 								"source_id": "1",
 							},
 							Values: []model.SamplePair{
-								{Value: 149.0, Timestamp: 2000},
-								{Value: 151.0, Timestamp: 3000},
+								{Value: 149.0, Timestamp: model.Time(firstTimeMilliseconds + 2000)},
+								{Value: 151.0, Timestamp: model.Time(firstTimeMilliseconds + 3000)},
 							},
 						},
 					},
@@ -846,7 +919,7 @@ var _ = Describe("MetricStore", func() {
 					{
 						Name:               "metric_name",
 						Value:              99,
-						TimeInMilliseconds: 1500,
+						TimeInMilliseconds: firstTimeMilliseconds,
 						Labels: map[string]string{
 							"source_id": "1",
 						},
@@ -856,8 +929,8 @@ var _ = Describe("MetricStore", func() {
 
 			value, err := makeSeriesQuery(tc, testSeriesQuery{
 				Match:          []string{"metric_name"},
-				StartInSeconds: "1",
-				EndInSeconds:   "2",
+				StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
+				EndInSeconds:   transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
@@ -880,7 +953,7 @@ var _ = Describe("MetricStore", func() {
 					{
 						Name:               "metric_name_for_node_1",
 						Value:              99,
-						TimeInMilliseconds: 1000,
+						TimeInMilliseconds: firstTimeMilliseconds,
 						Labels: map[string]string{
 							"source_id": "1",
 						},
@@ -890,8 +963,8 @@ var _ = Describe("MetricStore", func() {
 
 			value, err := makeSeriesQuery(tc, testSeriesQuery{
 				Match:          []string{"metric_name_for_node_1"},
-				StartInSeconds: "1",
-				EndInSeconds:   "2",
+				StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
+				EndInSeconds:   transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
@@ -914,7 +987,7 @@ var _ = Describe("MetricStore", func() {
 					{
 						Name:               "metric_name_for_node_0",
 						Value:              99,
-						TimeInMilliseconds: 1000,
+						TimeInMilliseconds: firstTimeMilliseconds,
 						Labels: map[string]string{
 							"source_id": "1",
 						},
@@ -922,7 +995,7 @@ var _ = Describe("MetricStore", func() {
 					{
 						Name:               "metric_name_for_node_1",
 						Value:              99,
-						TimeInMilliseconds: 1000,
+						TimeInMilliseconds: firstTimeMilliseconds,
 						Labels: map[string]string{
 							"source_id": "1",
 						},
@@ -932,8 +1005,8 @@ var _ = Describe("MetricStore", func() {
 
 			value, err := makeSeriesQuery(tc, testSeriesQuery{
 				Match:          []string{"metric_name_for_node_0", "metric_name_for_node_1"},
-				StartInSeconds: "1",
-				EndInSeconds:   "2",
+				StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
+				EndInSeconds:   transform.MillisecondsToString(firstTimeMilliseconds + 1000),
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(

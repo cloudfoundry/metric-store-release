@@ -16,22 +16,26 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/go-kit/kit/log"
 	"go.uber.org/zap"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
+	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	config_util "github.com/prometheus/common/config"
+	prom_config "github.com/prometheus/prometheus/config"
 	prom_labels "github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/scrape"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
@@ -89,10 +93,13 @@ type MetricStore struct {
 
 	alertmanagerAddr string
 	rulesPath        string
+	scrapeConfigPath string
 	storagePath      string
 	queryLogPath     string
 
 	replicatedStorage prom_storage.Storage
+	scrapeManager     *scrape.Manager
+	discoveryAgent    *discovery.DiscoveryAgent
 }
 
 func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
@@ -242,6 +249,14 @@ func WithRulesPath(rulesPath string) MetricStoreOption {
 	}
 }
 
+// WithScrapeConfigPath sets the path where configuration for alerting scrapeconfig can be
+// found
+func WithScrapeConfigPath(scrapeConfigPath string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.scrapeConfigPath = scrapeConfigPath
+	}
+}
+
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
@@ -283,6 +298,10 @@ func (store *MetricStore) Start() {
 	store.setupDirtyListener()
 	store.setupSanitizedListener()
 
+	if store.scrapeConfigPath != "" && store.nodeIndex == 0 {
+		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
+		go store.runScraping(scrapeStorage)
+	}
 	go store.loadRules(queryEngine)
 }
 
@@ -373,6 +392,24 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 			store.log.Fatal("failed to serve http egress server", err)
 		}
 	}()
+}
+
+func (store *MetricStore) runScraping(storage scrape.Appendable) {
+	scrapeConfig, err := prom_config.LoadFile(store.scrapeConfigPath)
+	if err != nil {
+		panic(err)
+	}
+
+	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
+	store.discoveryAgent.ApplyScrapeConfig(scrapeConfig.ScrapeConfigs)
+	store.discoveryAgent.Start()
+
+	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
+	store.scrapeManager.ApplyConfig(scrapeConfig)
+	err = store.scrapeManager.Run(store.discoveryAgent.SyncCh())
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
@@ -541,7 +578,12 @@ func (store *MetricStore) IngressAddr() string {
 func (store *MetricStore) Close() error {
 	atomic.AddInt64(&store.closing, 1)
 	store.server.Shutdown(context.Background())
-
+	if store.discoveryAgent != nil {
+		store.discoveryAgent.Stop()
+	}
+	if store.scrapeManager != nil {
+		store.scrapeManager.Stop()
+	}
 	// TODO: need to close remote connections
 	// store.replicatedStorage.Close()
 	store.ingressListener.Close()

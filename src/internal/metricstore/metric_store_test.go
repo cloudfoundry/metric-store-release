@@ -17,11 +17,11 @@ import (
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/influxdata/influxql"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
@@ -332,30 +332,32 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("routes points to internode peers", func() {
+		now := time.Now()
 		writePoints(tc, []*rpc.Point{
-			{Timestamp: 1, Name: MAGIC_MEASUREMENT_NAME},
-			{Timestamp: 2, Name: MAGIC_MEASUREMENT_PEER_NAME},
-			{Timestamp: 3, Name: MAGIC_MEASUREMENT_PEER_NAME},
+			{Timestamp: now.UnixNano(), Name: MAGIC_MEASUREMENT_NAME},
+			{Timestamp: now.Add(time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_PEER_NAME},
+			{Timestamp: now.Add(2 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_PEER_NAME},
 		})
 
 		Eventually(tc.peer.GetInternodePoints).Should(HaveLen(2))
-		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(int64(2)))
-		Expect(tc.peer.GetInternodePoints()[1].Timestamp).To(Equal(int64(3)))
+		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(now.Add(time.Second).UnixNano()))
+		Expect(tc.peer.GetInternodePoints()[1].Timestamp).To(Equal(now.Add(2 * time.Second).UnixNano()))
 		Expect(tc.peer.GetLocalOnlyValues()).ToNot(ContainElement(false))
 	})
 
 	It("replays writes to internode connections when they come back online", func() {
 		tc.peer.Stop()
+		now := time.Now()
 		writePoints(tc, []*rpc.Point{
-			{Timestamp: 1, Name: MAGIC_MEASUREMENT_NAME},
-			{Timestamp: 2, Name: MAGIC_MEASUREMENT_PEER_NAME},
-			{Timestamp: 3, Name: MAGIC_MEASUREMENT_PEER_NAME},
+			{Timestamp: now.UnixNano(), Name: MAGIC_MEASUREMENT_NAME},
+			{Timestamp: now.Add(time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_PEER_NAME},
+			{Timestamp: now.Add(2 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_PEER_NAME},
 		})
 		tc.peer.Resume()
 
 		Eventually(tc.peer.GetInternodePoints).Should(HaveLen(2))
-		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(int64(2)))
-		Expect(tc.peer.GetInternodePoints()[1].Timestamp).To(Equal(int64(3)))
+		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(now.Add(time.Second).UnixNano()))
+		Expect(tc.peer.GetInternodePoints()[1].Timestamp).To(Equal(now.Add(2 * time.Second).UnixNano()))
 		Expect(tc.peer.GetLocalOnlyValues()).ToNot(ContainElement(false))
 	})
 

@@ -4,7 +4,6 @@ name: metric-store
 templates:
   bpm.yml.erb: config/bpm.yml
   indicators.yml.erb: config/indicators.yml
-  rules.yml: config/rules.yml
   metric_port.yml.erb: config/metric_port.yml
   metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store.crt.erb: config/certs/metric_store.crt
@@ -15,6 +14,8 @@ templates:
   metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
   metric_store_internode.crt.erb: config/certs/metric_store_internode.crt
   metric_store_internode.key.erb: config/certs/metric_store_internode.key
+  rules.yml: config/rules.yml
+  scrape_config.yml.erb: config/scrape_config.yml
 
 packages:
 - metric-store

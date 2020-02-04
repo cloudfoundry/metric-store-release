@@ -18,7 +18,7 @@ func MillisecondsToTime(ms int64) time.Time {
 }
 
 func MillisecondsToString(ms int64) string {
-	return strconv.FormatFloat(float64(ms)/1000.0, 'f', -1, 64)
+	return strconv.FormatInt(ms/1000, 10)
 }
 
 func NanosecondsToMilliseconds(ns int64) int64 {

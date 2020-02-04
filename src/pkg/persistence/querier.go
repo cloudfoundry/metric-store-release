@@ -34,7 +34,6 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 			End:   time.Now().UnixNano() / int64(time.Millisecond),
 		}
 	}
-
 	if params.End != 0 && params.Start > params.End {
 		return nil, nil, fmt.Errorf("Start (%d) must be before End (%d)", params.Start, params.End)
 	}
