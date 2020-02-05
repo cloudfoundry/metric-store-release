@@ -32,13 +32,10 @@ func NewReplicatedQuerier(
 	}
 }
 
-// TODO: add test for `{source_id="foo"}`
 func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	var err error
-	var metricName string
-
 	clients := routing.NewClients(r.lookup, r.localIndex)
 
+	var metricName string
 	for _, matcher := range matchers {
 		if matcher.Name == labels.MetricName {
 			if matcher.Type != labels.MatchEqual {
@@ -48,13 +45,7 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 		}
 	}
 	// TODO: no metric name, return an error?
-	clientsIndeciesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
-
-	// TODO: does Select(...) even get this type of call any more?
-	// maybe? "{source_id: '...'}"
-	// if len(metricNames) == 0 && len(clientsWithAllMetrics) == 0 {
-	// 	return erp.engine.InstantQuery(ctx, req, erp.localReader)
-	// }
+	clientIndicesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
 
 	if metricContainedLocally {
 		localQuerier, err := r.store.Querier(context.Background(), 0, 0)
@@ -65,9 +56,9 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 		return localQuerier.Select(params, matchers...)
 	}
 
-	routing.Shuffle(clientsIndeciesWithMetric)
+	routing.Shuffle(clientIndicesWithMetric)
 
-	for _, index := range clientsIndeciesWithMetric {
+	for _, index := range clientIndicesWithMetric {
 		remoteQuerier := r.queriers[index]
 		if remoteQuerier != nil {
 			// turns out remoteQuerier can be nil if its address couldn't be resolved, or if duplicate NODE_ADDRESSES were specified, or cosmic rays
@@ -75,7 +66,7 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 		}
 	}
 
-	return nil, nil, err
+	return nil, nil, errors.New("replicated Select failed")
 }
 
 func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
