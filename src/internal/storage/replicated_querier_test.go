@@ -2,6 +2,8 @@ package storage_test
 
 import (
 	"errors"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	prom_storage "github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	. "github.com/onsi/ginkgo"
@@ -38,5 +40,16 @@ var _ = Describe("Querier", func() {
 			}}, errors.New("only strict equality is supported for metric names")),
 		)
 
+	})
+
+	Context("nodeAddrs", func() {
+		It("doesn't nil-ref on duplicate node addresses", func() {
+			nilQuerierIndex := 0
+			localIndex := 1
+
+			lookup := func(hashKey string) []int { return []int{nilQuerierIndex} }
+			querier := storage.NewReplicatedQuerier(testing.NewSpyStorage(nil), localIndex, []prom_storage.Querier{nil}, lookup)
+			Expect(func() {querier.Select(nil)}).NotTo(Panic())
+		})
 	})
 })

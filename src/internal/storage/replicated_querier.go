@@ -69,7 +69,10 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 
 	for _, index := range clientsIndeciesWithMetric {
 		remoteQuerier := r.queriers[index]
-		return remoteQuerier.Select(params, matchers...)
+		if remoteQuerier != nil {
+			// turns out remoteQuerier can be nil if its address couldn't be resolved, or if duplicate NODE_ADDRESSES were specified, or cosmic rays
+			return remoteQuerier.Select(params, matchers...)
+		}
 	}
 
 	return nil, nil, err
