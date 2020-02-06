@@ -48,6 +48,11 @@ var _ = Describe("CF Auth Proxy App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
+			MetricStoreMetricsTLS: app.MetricStoreMetricsTLS{
+				CAPath:   testing.Cert("metric-store-ca.crt"),
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 		}, logger.NewTestLogger(GinkgoWriter))
 		go cfAuthProxy.Run()
 
@@ -62,8 +67,21 @@ var _ = Describe("CF Auth Proxy App", func() {
 
 	It("serves metrics on a metrics endpoint", func() {
 		var body string
+
+		tlsConfig, err := tls.NewMutualTLSClientConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		httpClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+		}
+
 		fn := func() string {
-			resp, err := http.Get("http://" + cfAuthProxy.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + cfAuthProxy.DebugAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}

@@ -300,7 +300,7 @@ func (store *MetricStore) Start() {
 
 	if store.scrapeConfigPath != "" && store.nodeIndex == 0 {
 		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
-		go store.runScraping(scrapeStorage)
+		store.runScraping(scrapeStorage)
 	}
 	go store.loadRules(queryEngine)
 }
@@ -399,17 +399,19 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 	if err != nil {
 		panic(err)
 	}
-
 	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
 	store.discoveryAgent.ApplyScrapeConfig(scrapeConfig.ScrapeConfigs)
 	store.discoveryAgent.Start()
 
 	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
 	store.scrapeManager.ApplyConfig(scrapeConfig)
-	err = store.scrapeManager.Run(store.discoveryAgent.SyncCh())
-	if err != nil {
-		panic(err)
-	}
+
+	go func(discoveryAgent *discovery.DiscoveryAgent) {
+		err = store.scrapeManager.Run(discoveryAgent.SyncCh())
+		if err != nil {
+			panic(err)
+		}
+	}(store.discoveryAgent)
 }
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {

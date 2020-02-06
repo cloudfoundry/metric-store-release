@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,6 +25,11 @@ var _ = Describe("Blackbox App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
+			MetricStoreMetricsTLS: blackbox.MetricStoreMetricsTLS{
+				CAPath:   testing.Cert("metric-store-ca.crt"),
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 		}, logger.NewTestLogger(GinkgoWriter))
 		go bb.Run()
 		Eventually(bb.DebugAddr).ShouldNot(BeEmpty())
@@ -36,8 +41,21 @@ var _ = Describe("Blackbox App", func() {
 
 	It("serves metrics on a metrics endpoint", func() {
 		var body string
+
+		tlsConfig, err := tls.NewMutualTLSClientConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		httpClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+		}
+
 		fn := func() string {
-			resp, err := http.Get("http://" + bb.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + bb.DebugAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}

@@ -20,3 +20,8 @@ manifest: |
     tls:
       cert: (((metric_store.certificate)))
       key: (((metric_store.private_key)))
+  metric_store_metrics:
+    tls:
+      ca_cert: (((metric_store_metrics_server.ca)))
+      cert: (((metric_store_metrics_server.certificate)))
+      key: (((metric_store_metrics_server.private_key)))

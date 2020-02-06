@@ -20,16 +20,17 @@ type UAA struct {
 }
 
 type Config struct {
-	MetricStoreAddr      string `env:"METRIC_STORE_ADDR, required, report"`
-	Addr                 string `env:"ADDR, required, report"`
-	InternalIP           string `env:"INTERNAL_IP, report"`
-	HealthPort           int    `env:"HEALTH_PORT, report"`
-	CertPath             string `env:"EXTERNAL_CERT, required, report"`
-	KeyPath              string `env:"EXTERNAL_KEY, required, report"`
-	SkipCertVerify       bool   `env:"SKIP_CERT_VERIFY, report"`
-	ProxyCAPath          string `env:"PROXY_CA_PATH, required, report"`
-	SecurityEventLog     string `env:"SECURITY_EVENT_LOG, report"`
-	MetricStoreClientTLS MetricStoreClientTLS
+	MetricStoreAddr       string `env:"METRIC_STORE_ADDR, required, report"`
+	Addr                  string `env:"ADDR, required, report"`
+	InternalIP            string `env:"INTERNAL_IP, report"`
+	HealthPort            int    `env:"HEALTH_PORT, report"`
+	CertPath              string `env:"EXTERNAL_CERT, required, report"`
+	KeyPath               string `env:"EXTERNAL_KEY, required, report"`
+	SkipCertVerify        bool   `env:"SKIP_CERT_VERIFY, report"`
+	ProxyCAPath           string `env:"PROXY_CA_PATH, required, report"`
+	SecurityEventLog      string `env:"SECURITY_EVENT_LOG, report"`
+	MetricStoreClientTLS  MetricStoreClientTLS
+	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
 	CAPI CAPI
 	UAA  UAA
@@ -40,6 +41,12 @@ type Config struct {
 type MetricStoreClientTLS struct {
 	CertPath string `env:"METRIC_STORE_CLIENT_CERT_PATH, required, report"`
 	KeyPath  string `env:"METRIC_STORE_CLIENT_KEY_PATH, required, report"`
+}
+
+type MetricStoreMetricsTLS struct {
+	CAPath   string `env:"METRIC_STORE_METRICS_CA_PATH, required, report"`
+	CertPath string `env:"METRIC_STORE_METRICS_CERT_PATH, required, report"`
+	KeyPath  string `env:"METRIC_STORE_METRICS_KEY_PATH, required, report"`
 }
 
 func LoadConfig() *Config {

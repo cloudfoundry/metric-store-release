@@ -1,11 +1,14 @@
 package debug_test
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	shared "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	goprom "github.com/prometheus/client_model/go"
@@ -48,8 +51,28 @@ var _ = Describe("Registrar", func() {
 			}),
 		)
 
-		lis = debug.StartServer("127.0.0.1:0", h.Gatherer(), testLogger)
-		mf = newMetricFetcher(lis.Addr().String())
+		tlsServerConfig, err := shared.NewMutualTLSServerConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		tlsClientConfig, err := shared.NewMutualTLSClientConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		lis = debug.StartServer(
+			"127.0.0.1:0",
+			tlsServerConfig,
+			h.Gatherer(),
+			testLogger,
+		)
+		mf = newMetricFetcher(lis.Addr().String(), tlsClientConfig)
 	})
 
 	AfterEach(func() {
@@ -271,15 +294,23 @@ var _ = Describe("Registrar", func() {
 })
 
 type metricFetcher struct {
-	addr string
+	addr      string
+	tlsConfig *tls.Config
 }
 
-func newMetricFetcher(hostport string) metricFetcher {
-	return metricFetcher{addr: "http://" + hostport + "/metrics"}
+func newMetricFetcher(hostport string, tlsConfig *tls.Config) metricFetcher {
+	return metricFetcher{
+		addr:      "https://" + hostport + "/metrics",
+		tlsConfig: tlsConfig,
+	}
 }
 
 func (mf metricFetcher) fetch(name string) (float64, []*goprom.LabelPair) {
-	resp, err := http.Get(mf.addr)
+	httpClient := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: mf.tlsConfig},
+	}
+
+	resp, err := httpClient.Get(mf.addr)
 	if err != nil {
 		panic(err)
 	}

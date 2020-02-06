@@ -14,3 +14,8 @@ manifest: |
       ca_cert: (((nozzle_to_metric_store_client.ca)))
       cert: (((nozzle_to_metric_store_client.certificate)))
       key: (((nozzle_to_metric_store_client.private_key)))
+  metric_store_metrics:
+    tls:
+      ca_cert: (((metric_store_metrics_server.ca)))
+      cert: (((metric_store_metrics_server.certificate)))
+      key: (((metric_store_metrics_server.private_key)))

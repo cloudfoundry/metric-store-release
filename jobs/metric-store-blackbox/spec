@@ -7,6 +7,9 @@ templates:
   metric_store.crt.erb: config/certs/metric_store.crt
   metric_store.key.erb: config/certs/metric_store.key
   metric_port.yml.erb: config/metric_port.yml
+  metric_store_metrics_ca.crt.erb: config/certs/metric_store_metrics_ca.crt
+  metric_store_metrics.crt.erb: config/certs/metric_store_metrics.crt
+  metric_store_metrics.key.erb: config/certs/metric_store_metrics.key
 
 packages:
 - metric-store-blackbox
@@ -50,3 +53,10 @@ properties:
   cf_blackbox.skip_tls_verify:
     description: "Skip certificate validation when testing HTTP egress"
     default: false
+
+  metric_store_metrics.tls.ca_cert:
+    description: "The Certificate Authority for metric-store metrics mutual TLS."
+  metric_store_metrics.tls.cert:
+    description: "The cert for metric-store metrics mutual TLS."
+  metric_store_metrics.tls.key:
+    description: "The private key for metric-store metrics mutual TLS."

@@ -11,10 +11,10 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox/metricscanner"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/egressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -39,7 +39,16 @@ func NewBlackboxApp(cfg *blackbox.Config, log *logger.Logger) *BlackboxApp {
 }
 
 func (b *BlackboxApp) Run() {
-	b.startDebugServer()
+	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
+		b.cfg.MetricStoreMetricsTLS.CAPath,
+		b.cfg.MetricStoreMetricsTLS.CertPath,
+		b.cfg.MetricStoreMetricsTLS.KeyPath,
+	)
+	if err != nil {
+		b.log.Fatal("unable to create metrics TLS config", err)
+	}
+
+	b.startDebugServer(tlsMetricsConfig)
 	// resolver, _ := naming.NewDNSResolverWithFreq(1 * time.Minute)
 
 	stopChan := make(chan bool)
@@ -137,7 +146,7 @@ func (b *BlackboxApp) Stop() {
 	b.debugLis = nil
 }
 
-func (b *BlackboxApp) startDebugServer() {
+func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 	b.debugMu.Lock()
 	defer b.debugMu.Unlock()
 
@@ -159,6 +168,7 @@ func (b *BlackboxApp) startDebugServer() {
 	b.log.Info("\n serving metrics on", zap.String("debug address", debugAddr))
 	b.debugLis = debug.StartServer(
 		debugAddr,
+		tlsConfig,
 		b.debugRegistrar.Gatherer(),
 		b.log,
 	)

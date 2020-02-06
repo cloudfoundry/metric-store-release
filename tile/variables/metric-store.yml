@@ -47,3 +47,19 @@
   options:
     ca: metric_store_ca
     common_name: localhost
+- name: metric_store_metrics_server
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: metric-store
+    alternative_names:
+    - metric-store
+    extended_key_usage:
+    - server_auth
+- name: metric_store_metrics_client
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: metric-store-client
+    extended_key_usage:
+    - client_auth

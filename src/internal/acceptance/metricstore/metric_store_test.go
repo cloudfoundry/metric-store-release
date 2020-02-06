@@ -135,13 +135,16 @@ var _ = Describe("MetricStore", func() {
 				"METRIC_STORE_INTERNODE_CA_PATH=" + tc.caCert,
 				"METRIC_STORE_INTERNODE_CERT_PATH=" + tc.cert,
 				"METRIC_STORE_INTERNODE_KEY_PATH=" + tc.key,
+				"METRIC_STORE_METRICS_CA_PATH=" + tc.caCert,
+				"METRIC_STORE_METRICS_CERT_PATH=" + tc.cert,
+				"METRIC_STORE_METRICS_KEY_PATH=" + tc.key,
 				"RULES_PATH=" + tc.rulesPath,
 				"SCRAPE_CONFIG_PATH=" + tc.scrapeConfigPath,
 				"ALERTMANAGER_ADDR=" + tc.alertmanagerAddr,
 			},
 		)
 
-		shared.WaitForHealthCheck(tc.healthPorts[index])
+		shared.WaitForHealthCheck(tc.healthPorts[index], tc.tlsConfig)
 		tc.metricStoreProcesses[index] = metricStoreProcess
 	}
 
@@ -176,6 +179,13 @@ var _ = Describe("MetricStore", func() {
 			key:                  shared.Cert("metric-store.key"),
 		}
 
+		for i := 0; i < numNodes; i++ {
+			tc.addrs = append(tc.addrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
+			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
+			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
+			tc.healthPorts = append(tc.healthPorts, strconv.Itoa(shared.GetFreePort()))
+		}
+
 		for _, opt := range opts {
 			opt(tc)
 		}
@@ -184,13 +194,6 @@ var _ = Describe("MetricStore", func() {
 		tc.tlsConfig, err = sharedtls.NewMutualTLSClientConfig(tc.caCert, tc.cert, tc.key, "metric-store")
 		if err != nil {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
-		}
-
-		for i := 0; i < numNodes; i++ {
-			tc.addrs = append(tc.addrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
-			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
-			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
-			tc.healthPorts = append(tc.healthPorts, strconv.Itoa(shared.GetFreePort()))
 		}
 
 		performOnAllNodes(tc, startNode)
@@ -219,6 +222,12 @@ var _ = Describe("MetricStore", func() {
 			for i := 0; i < numNodes; i++ {
 				os.RemoveAll(storagePaths[i])
 			}
+		}
+	}
+
+	var WithOptionHealthPort = func(port int) WithTestContextOption {
+		return func(tc *testContext) {
+			tc.healthPorts[0] = strconv.Itoa(port)
 		}
 	}
 
@@ -396,24 +405,26 @@ var _ = Describe("MetricStore", func() {
 
 	Context("Scraping", func() {
 		It("scrapes its own metrics", func() {
+			healthPort := shared.GetFreePort()
+
 			tmpfile, err := ioutil.TempFile("", "prom_scrape")
 			Expect(err).NotTo(HaveOccurred())
 			defer os.Remove(tmpfile.Name())
 
-			tc, cleanup := setup(
-				1,
-				WithOptionScrapeConfigPath(tmpfile.Name()),
-			)
-			defer cleanup()
-
 			scrape_yml := []byte(`
 global:
-  scrape_interval:     1s
+  scrape_interval: 1s
 scrape_configs:
 - job_name: metric_store_health
+  scheme: https
+  tls_config:
+    ca_file: "` + shared.Cert("metric-store-ca.crt") + `"
+    cert_file: "` + shared.Cert("metric-store.crt") + `"
+    key_file: "` + shared.Cert("metric-store.key") + `"
+    server_name: metric-store
   static_configs:
   - targets:
-    - localhost:` + tc.healthPorts[0],
+    - localhost:` + strconv.Itoa(healthPort),
 			)
 
 			if _, err := tmpfile.Write(scrape_yml); err != nil {
@@ -422,6 +433,13 @@ scrape_configs:
 			if err := tmpfile.Close(); err != nil {
 				log.Fatal(err)
 			}
+			tc, cleanup := setup(
+				1,
+				WithOptionScrapeConfigPath(tmpfile.Name()),
+				WithOptionHealthPort(healthPort),
+			)
+			defer cleanup()
+
 			Eventually(func() int {
 				client, err := shared_api.NewPromHTTPClient(
 					tc.addrs[0],
@@ -457,6 +475,7 @@ scrape_configs:
 			}, 20).Should(BeNumerically(">", 0))
 		})
 	})
+
 	Context("as a cluster of nodes", func() {
 		It("replays data when a node comes back online", func() {
 			tc, cleanup := setup(2)
@@ -1042,7 +1061,11 @@ scrape_configs:
 			},
 		)
 
-		resp, err := http.Get("http://localhost:" + tc.healthPorts[0] + "/metrics")
+		httpClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+		}
+
+		resp, err := httpClient.Get("https://localhost:" + tc.healthPorts[0] + "/metrics")
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 

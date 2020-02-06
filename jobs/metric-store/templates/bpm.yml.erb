@@ -43,6 +43,11 @@ processes:
     METRIC_STORE_INTERNODE_CERT_PATH: "<%= "#{cert_dir}/metric_store_internode.crt" %>"
     METRIC_STORE_INTERNODE_KEY_PATH:  "<%= "#{cert_dir}/metric_store_internode.key" %>"
 
+    # Metric Store Metrics Server Mutual TLS
+    METRIC_STORE_METRICS_CA_PATH:   "<%= "#{cert_dir}/metric_store_metrics_server_ca.crt" %>"
+    METRIC_STORE_METRICS_CERT_PATH: "<%= "#{cert_dir}/metric_store_metrics_server.crt" %>"
+    METRIC_STORE_METRICS_KEY_PATH:  "<%= "#{cert_dir}/metric_store_metrics_server.key" %>"
+
     # Cluster Configuration
     NODE_INDEX:      "<%= index %>"
     NODE_ADDRS:      "<%= store_addrs.join(",") %>"

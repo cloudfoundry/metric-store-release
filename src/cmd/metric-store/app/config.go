@@ -44,6 +44,7 @@ type Config struct {
 	TLS                     sharedtls.TLS
 	MetricStoreServerTLS    MetricStoreServerTLS
 	MetricStoreInternodeTLS MetricStoreInternodeTLS
+	MetricStoreMetricsTLS   MetricStoreMetricsTLS
 
 	RulesPath        string `env:"RULES_PATH, report"`
 	ScrapeConfigPath string `env:"SCRAPE_CONFIG_PATH, report"`
@@ -62,6 +63,12 @@ type MetricStoreInternodeTLS struct {
 	CAPath   string `env:"METRIC_STORE_INTERNODE_CA_PATH, required, report"`
 	CertPath string `env:"METRIC_STORE_INTERNODE_CERT_PATH, required, report"`
 	KeyPath  string `env:"METRIC_STORE_INTERNODE_KEY_PATH, required, report"`
+}
+
+type MetricStoreMetricsTLS struct {
+	CAPath   string `env:"METRIC_STORE_METRICS_CA_PATH, required, report"`
+	CertPath string `env:"METRIC_STORE_METRICS_CERT_PATH, required, report"`
+	KeyPath  string `env:"METRIC_STORE_METRICS_KEY_PATH, required, report"`
 }
 
 // LoadConfig creates Config object from environment variables

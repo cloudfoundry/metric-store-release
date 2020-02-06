@@ -19,3 +19,13 @@ manifest: |
       ca_cert: (((metric_store_internode.ca)))
       cert: (((metric_store_internode.certificate)))
       key: (((metric_store_internode.private_key)))
+  metric_store_metrics_server:
+    tls:
+      ca_cert: (((metric_store_metrics_server.ca)))
+      cert: (((metric_store_metrics_server.certificate)))
+      key: (((metric_store_metrics_server.private_key)))
+  metric_store_metrics_client:
+    tls:
+      ca_cert: (((metric_store_metrics_client.ca)))
+      cert: (((metric_store_metrics_client.certificate)))
+      key: (((metric_store_metrics_client.private_key)))

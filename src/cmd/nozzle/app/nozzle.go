@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"sync"
@@ -10,8 +11,8 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -46,7 +47,16 @@ func (n *NozzleApp) DebugAddr() string {
 
 // Run starts the Nozzle, this is a blocking method call.
 func (n *NozzleApp) Run() {
-	n.startDebugServer()
+	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
+		n.cfg.MetricStoreMetricsTLS.CAPath,
+		n.cfg.MetricStoreMetricsTLS.CertPath,
+		n.cfg.MetricStoreMetricsTLS.KeyPath,
+	)
+	if err != nil {
+		n.log.Fatal("unable to create metrics TLS config", err)
+	}
+
+	n.startDebugServer(tlsMetricsConfig)
 
 	loggregatorTLSConfig, err := loggregator.NewEgressTLSConfig(
 		n.cfg.LogsProviderTLS.LogProviderCA,
@@ -67,7 +77,7 @@ func (n *NozzleApp) Run() {
 		}),
 	)
 
-	metricStoreTLSConfig, err := tls.NewMutualTLSClientConfig(
+	metricStoreTLSConfig, err := sharedtls.NewMutualTLSClientConfig(
 		n.cfg.MetricStoreTLS.CAPath,
 		n.cfg.MetricStoreTLS.CertPath,
 		n.cfg.MetricStoreTLS.KeyPath,
@@ -115,7 +125,7 @@ func (n *NozzleApp) Stop() {
 	n.debugLis = nil
 }
 
-func (n *NozzleApp) startDebugServer() {
+func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 	n.debugMu.Lock()
 	defer n.debugMu.Unlock()
 
@@ -147,6 +157,7 @@ func (n *NozzleApp) startDebugServer() {
 	debugAddr := fmt.Sprintf("localhost:%d", n.cfg.HealthPort)
 	n.debugLis = debug.StartServer(
 		debugAddr,
+		tlsConfig,
 		n.debugRegistrar.Gatherer(),
 		n.log,
 	)

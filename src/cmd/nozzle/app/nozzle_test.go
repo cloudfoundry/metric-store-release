@@ -10,8 +10,9 @@ import (
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -40,6 +41,11 @@ var _ = Describe("Nozzle App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
+			MetricStoreMetricsTLS: app.MetricStoreMetricsTLS{
+				CAPath:   testing.Cert("metric-store-ca.crt"),
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 		}, logger.NewNop())
 		go nozzle.Run()
 
@@ -52,8 +58,21 @@ var _ = Describe("Nozzle App", func() {
 
 	It("serves metrics on a metrics endpoint", func() {
 		var body string
+
+		tlsConfig, err := tls.NewMutualTLSClientConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		httpClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+		}
+
 		fn := func() string {
-			resp, err := http.Get("http://" + nozzle.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + nozzle.DebugAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}

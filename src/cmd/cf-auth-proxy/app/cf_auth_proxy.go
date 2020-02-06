@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -48,7 +49,16 @@ func (c *CFAuthProxyApp) DebugAddr() string {
 
 // Run starts the CFAuthProxyApp, this is a blocking method call.
 func (c *CFAuthProxyApp) Run() {
-	c.startDebugServer()
+	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
+		c.cfg.MetricStoreMetricsTLS.CAPath,
+		c.cfg.MetricStoreMetricsTLS.CertPath,
+		c.cfg.MetricStoreMetricsTLS.KeyPath,
+	)
+	if err != nil {
+		c.log.Fatal("unable to create metrics TLS config", err)
+	}
+
+	c.startDebugServer(tlsMetricsConfig)
 
 	uaaClient := auth.NewUAAClient(
 		c.cfg.UAA.Addr,
@@ -58,7 +68,7 @@ func (c *CFAuthProxyApp) Run() {
 	)
 
 	// try to get our first token key, but bail out if we can't talk to UAA
-	err := uaaClient.RefreshTokenKeys()
+	err = uaaClient.RefreshTokenKeys()
 	if err != nil {
 		c.log.Fatal("failed to fetch token from UAA", err)
 	}
@@ -129,7 +139,7 @@ func (c *CFAuthProxyApp) Stop() {
 	c.debugLis = nil
 }
 
-func (c *CFAuthProxyApp) startDebugServer() {
+func (c *CFAuthProxyApp) startDebugServer(tlsConfig *tls.Config) {
 	c.debugMu.Lock()
 	defer c.debugMu.Unlock()
 
@@ -150,6 +160,7 @@ func (c *CFAuthProxyApp) startDebugServer() {
 	debugAddr := fmt.Sprintf("localhost:%d", c.cfg.HealthPort)
 	c.debugLis = debug.StartServer(
 		debugAddr,
+		tlsConfig,
 		c.debugRegistrar.Gatherer(),
 		c.log,
 	)

@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,9 +13,13 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-func WaitForHealthCheck(healthPort string) {
+func WaitForHealthCheck(healthPort string, tlsConfig *tls.Config) {
 	Eventually(func() error {
-		resp, err := http.Get("http://localhost:" + healthPort + "/debug/vars")
+		client := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+		}
+
+		resp, err := client.Get("https://localhost:" + healthPort + "/debug/vars")
 		if err != nil {
 			return err
 		}

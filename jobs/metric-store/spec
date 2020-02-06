@@ -5,15 +5,21 @@ templates:
   bpm.yml.erb: config/bpm.yml
   indicators.yml.erb: config/indicators.yml
   metric_port.yml.erb: config/metric_port.yml
-  metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store.crt.erb: config/certs/metric_store.crt
   metric_store.key.erb: config/certs/metric_store.key
-  metric_store_server_ca.crt.erb: config/certs/metric_store_server_ca.crt
-  metric_store_server.crt.erb: config/certs/metric_store_server.crt
-  metric_store_server.key.erb: config/certs/metric_store_server.key
-  metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
+  metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
   metric_store_internode.crt.erb: config/certs/metric_store_internode.crt
   metric_store_internode.key.erb: config/certs/metric_store_internode.key
+  metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
+  metric_store_metrics_client.crt.erb: config/certs/metric_store_metrics_client.crt
+  metric_store_metrics_client.key.erb: config/certs/metric_store_metrics_client.key
+  metric_store_metrics_client_ca.crt.erb: config/certs/metric_store_metrics_client_ca.crt
+  metric_store_metrics_server.crt.erb: config/certs/metric_store_metrics_server.crt
+  metric_store_metrics_server.key.erb: config/certs/metric_store_metrics_server.key
+  metric_store_metrics_server_ca.crt.erb: config/certs/metric_store_metrics_server_ca.crt
+  metric_store_server.crt.erb: config/certs/metric_store_server.crt
+  metric_store_server.key.erb: config/certs/metric_store_server.key
+  metric_store_server_ca.crt.erb: config/certs/metric_store_server_ca.crt
   rules.yml: config/rules.yml
   scrape_config.yml.erb: config/scrape_config.yml
 
@@ -40,7 +46,7 @@ properties:
     description: "The port for the metric-store to listen on for ingress"
     default: 8090
   internode_port:
-    description: "TODO ............. "
+    description: "The port for the metric-store to listen on for internode communication"
     default: 8091
 
   health_port:
@@ -79,11 +85,23 @@ properties:
   metric_store_server.tls.key:
     description: "The private key for metric-store TCP server mutual TLS."
   metric_store_internode.tls.ca_cert:
-    description: "The Certificate Authority for metric-store mutual TLS."
+    description: "The Certificate Authority for metric-store internode TCP mutual TLS."
   metric_store_internode.tls.cert:
     description: "The cert for metric-store TCP internode mutual TLS."
   metric_store_internode.tls.key:
     description: "The private key for metric-store TCP internode mutual TLS."
+  metric_store_metrics_server.tls.ca_cert:
+    description: "The Certificate Authority for metric-store metrics mutual TLS server."
+  metric_store_metrics_server.tls.cert:
+    description: "The cert for metric-store metrics mutual TLS server."
+  metric_store_metrics_server.tls.key:
+    description: "The private key for metric-store metrics mutual TLS server."
+  metric_store_metrics_client.tls.ca_cert:
+    description: "The Certificate Authority for metric-store metrics mutual TLS client."
+  metric_store_metrics_client.tls.cert:
+    description: "The cert for metric-store metrics mutual TLS client."
+  metric_store_metrics_client.tls.key:
+    description: "The private key for metric-store metrics mutual TLS client."
 
   alertmanager.addr:
     description: "Address of the alertmanager HTTP API."

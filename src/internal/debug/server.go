@@ -1,6 +1,7 @@
 package debug
 
 import (
+	"crypto/tls"
 	"expvar"
 	"net"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 // StartServer listens and serves the health endpoint HTTP handler on a given
 // address. If the server fails to listen or serve the process will exit with
 // a status code of 1.
-func StartServer(addr string, gatherer prometheus.Gatherer, log *logger.Logger) net.Listener {
+func StartServer(addr string, tlsConfig *tls.Config, gatherer prometheus.Gatherer, log *logger.Logger) net.Listener {
 	router := http.NewServeMux()
 
 	router.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
@@ -31,22 +32,25 @@ func StartServer(addr string, gatherer prometheus.Gatherer, log *logger.Logger) 
 		ReadTimeout:  2 * time.Minute,
 		WriteTimeout: 2 * time.Minute,
 		Handler:      router,
+		TLSConfig:    tlsConfig,
 	}
 
-	lis, err := net.Listen("tcp", addr)
+	insecureConnection, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Error(
-			"unable to setup debug server",
+			"unable to setup debug server insecure connection",
 			err,
 			logger.String("addr", addr),
 		)
 	}
 
+	secureConnection := tls.NewListener(insecureConnection, tlsConfig)
+
 	go func() {
-		log.Info("debug server listening", logger.String("addr", lis.Addr().String()))
-		server.Serve(lis)
+		log.Info("debug server listening", logger.String("addr", secureConnection.Addr().String()))
+		server.Serve(secureConnection)
 		log.Info("debug server closing")
 	}()
 
-	return lis
+	return secureConnection
 }

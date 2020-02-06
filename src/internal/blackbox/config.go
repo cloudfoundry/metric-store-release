@@ -24,10 +24,17 @@ type Config struct {
 	ClientSecret           string `env:"CLIENT_SECRET"`
 	SkipTLSVerify          bool   `env:"SKIP_TLS_VERIFY, report"`
 
-	MetricStoreGrpcAddr string `env:"METRIC_STORE_GRPC_ADDR, required, report"`
-	TLS                 sharedtls.TLS
+	MetricStoreGrpcAddr   string `env:"METRIC_STORE_GRPC_ADDR, required, report"`
+	TLS                   sharedtls.TLS
+	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
 	LogLevel string `env:"LOG_LEVEL,                      report"`
+}
+
+type MetricStoreMetricsTLS struct {
+	CAPath   string `env:"METRIC_STORE_METRICS_CA_PATH, required, report"`
+	CertPath string `env:"METRIC_STORE_METRICS_CERT_PATH, required, report"`
+	KeyPath  string `env:"METRIC_STORE_METRICS_KEY_PATH, required, report"`
 }
 
 func LoadConfig() *Config {

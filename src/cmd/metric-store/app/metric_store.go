@@ -1,6 +1,7 @@
 package app
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"os"
@@ -14,10 +15,10 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/system_stats"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
 )
@@ -53,7 +54,16 @@ func (c *MetricStoreApp) DebugAddr() string {
 
 // Run starts the CFAuthProxyApp, this is a blocking method call.
 func (m *MetricStoreApp) Run() {
-	m.startDebugServer()
+	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
+		m.cfg.MetricStoreMetricsTLS.CAPath,
+		m.cfg.MetricStoreMetricsTLS.CertPath,
+		m.cfg.MetricStoreMetricsTLS.KeyPath,
+	)
+	if err != nil {
+		m.log.Fatal("unable to create metrics TLS config", err)
+	}
+
+	m.startDebugServer(tlsMetricsConfig)
 
 	tlsEgressConfig := &config_util.TLSConfig{
 		CAFile:     m.cfg.TLS.CAPath,
@@ -156,7 +166,7 @@ func (m *MetricStoreApp) Stop() {
 	m.debugLis = nil
 }
 
-func (m *MetricStoreApp) startDebugServer() {
+func (m *MetricStoreApp) startDebugServer(tlsConfig *tls.Config) {
 	m.debugMu.Lock()
 	defer m.debugMu.Unlock()
 
@@ -239,6 +249,7 @@ func (m *MetricStoreApp) startDebugServer() {
 	debugAddr := fmt.Sprintf("localhost:%d", m.cfg.HealthPort)
 	m.debugLis = debug.StartServer(
 		debugAddr,
+		tlsConfig,
 		m.debugRegistrar.Gatherer(),
 		m.log,
 	)
