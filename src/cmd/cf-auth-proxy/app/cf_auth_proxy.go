@@ -83,8 +83,6 @@ func (c *CFAuthProxyApp) Run() {
 	proxy := NewCFAuthProxy(
 		c.cfg.MetricStoreAddr,
 		c.cfg.Addr,
-		c.cfg.CertPath,
-		c.cfg.KeyPath,
 		c.cfg.ProxyCAPath,
 		c.log,
 		WithAuthMiddleware(middlewareProvider.Middleware),
@@ -94,6 +92,10 @@ func (c *CFAuthProxyApp) Run() {
 			c.cfg.MetricStoreClientTLS.CertPath,
 			c.cfg.MetricStoreClientTLS.KeyPath,
 			metricstore.COMMON_NAME,
+		),
+		WithServerTLS(
+			c.cfg.CertPath,
+			c.cfg.KeyPath,
 		),
 	)
 
