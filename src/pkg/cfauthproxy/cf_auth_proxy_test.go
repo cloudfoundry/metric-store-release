@@ -10,142 +10,182 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("CFAuthProxy", func() {
-	It("proxies requests to Metric Store", func() {
-		metricstore := startMetricStore("Hello World!")
-		defer metricstore.Close()
+	Context("while serving TLS", func() {
+		It("proxies requests to Metric Store", func() {
+			metricstore := startMetricStore("Hello World!")
+			defer metricstore.Close()
 
-		proxy := NewCFAuthProxy(
-			AddrFromURL(metricstore.URL),
-			"127.0.0.1:0",
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
-			logger.NewTestLogger(GinkgoWriter),
-			WithClientTLS(
+			proxy := NewCFAuthProxy(
+				AddrFromURL(metricstore.URL),
+				"127.0.0.1:0",
 				testing.Cert("metric-store-ca.crt"),
-				testing.Cert("metric-store.crt"),
-				testing.Cert("metric-store.key"),
-				"metric-store",
-			),
-		)
-		proxy.Start()
+				logger.NewTestLogger(GinkgoWriter),
+				WithServerTLS(
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+				),
+				WithClientTLS(
+					testing.Cert("metric-store-ca.crt"),
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+					"metric-store",
+				),
+			)
+			proxy.Start()
 
-		resp, err := makeTLSReq("https", proxy.Addr())
-		Expect(err).ToNot(HaveOccurred())
+			resp, err := makeTLSReq("https", proxy.Addr())
+			Expect(err).ToNot(HaveOccurred())
 
-		Expect(resp.StatusCode).To(Equal(http.StatusOK))
-		body, _ := ioutil.ReadAll(resp.Body)
-		Expect(body).To(Equal([]byte("Hello World!")))
-	})
-
-	It("returns an error when proxying requests to an insecure metric-store", func() {
-		// suppress tls error in test
-		log.SetOutput(ioutil.Discard)
-
-		testServer := httptest.NewServer(
-			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				w.Write([]byte("Insecure MetricStore not allowed, lol"))
-			}))
-		defer testServer.Close()
-
-		proxy := NewCFAuthProxy(
-			AddrFromURL(testServer.URL),
-			"127.0.0.1:0",
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
-			logger.NewTestLogger(GinkgoWriter),
-		)
-		proxy.Start()
-
-		resp, err := makeTLSReq("https", proxy.Addr())
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(resp.StatusCode).To(Equal(http.StatusBadGateway))
-	})
-
-	It("delegates to the auth middleware", func() {
-		var middlewareCalled bool
-		middleware := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			middlewareCalled = true
-			w.WriteHeader(http.StatusNotFound)
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			body, _ := ioutil.ReadAll(resp.Body)
+			Expect(body).To(Equal([]byte("Hello World!")))
 		})
 
-		proxy := NewCFAuthProxy(
-			"127.0.0.1",
-			"127.0.0.1:0",
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
-			logger.NewTestLogger(GinkgoWriter),
-			WithAuthMiddleware(func(http.Handler) http.Handler {
-				return middleware
-			}),
-		)
-		proxy.Start()
+		It("returns an error when proxying requests to an insecure metric-store", func() {
+			// suppress tls error in test
+			log.SetOutput(ioutil.Discard)
 
-		resp, err := makeTLSReq("https", proxy.Addr())
-		Expect(err).ToNot(HaveOccurred())
+			testServer := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+					w.Write([]byte("Insecure MetricStore not allowed, lol"))
+				}))
+			defer testServer.Close()
 
-		Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
-		Expect(middlewareCalled).To(BeTrue())
-	})
+			proxy := NewCFAuthProxy(
+				AddrFromURL(testServer.URL),
+				"127.0.0.1:0",
+				testing.Cert("metric-store-ca.crt"),
+				logger.NewTestLogger(GinkgoWriter),
+				WithServerTLS(
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+				),
+			)
+			proxy.Start()
 
-	It("delegates to the access middleware", func() {
-		var middlewareCalled bool
-		middleware := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			middlewareCalled = true
-			w.WriteHeader(http.StatusNotFound)
+			resp, err := makeTLSReq("https", proxy.Addr())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusBadGateway))
 		})
 
-		proxy := NewCFAuthProxy(
-			"127.0.0.1",
-			"127.0.0.1:0",
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
-			logger.NewTestLogger(GinkgoWriter),
-			WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
-				return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234", logger.NewTestLogger(GinkgoWriter))
-			}),
-		)
-		proxy.Start()
+		It("delegates to the auth middleware", func() {
+			var middlewareCalled bool
+			middleware := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				middlewareCalled = true
+				w.WriteHeader(http.StatusNotFound)
+			})
 
-		resp, err := makeTLSReq("https", proxy.Addr())
-		Expect(err).ToNot(HaveOccurred())
+			proxy := NewCFAuthProxy(
+				"127.0.0.1",
+				"127.0.0.1:0",
+				testing.Cert("metric-store-ca.crt"),
+				logger.NewTestLogger(GinkgoWriter),
+				WithServerTLS(
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+				),
+				WithAuthMiddleware(func(http.Handler) http.Handler {
+					return middleware
+				}),
+			)
+			proxy.Start()
 
-		Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
-		Expect(middlewareCalled).To(BeTrue())
+			resp, err := makeTLSReq("https", proxy.Addr())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+			Expect(middlewareCalled).To(BeTrue())
+		})
+
+		It("delegates to the access middleware", func() {
+			var middlewareCalled bool
+			middleware := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				middlewareCalled = true
+				w.WriteHeader(http.StatusNotFound)
+			})
+
+			proxy := NewCFAuthProxy(
+				"127.0.0.1",
+				"127.0.0.1:0",
+				testing.Cert("metric-store-ca.crt"),
+				logger.NewTestLogger(GinkgoWriter),
+				WithServerTLS(
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+				),
+				WithAccessMiddleware(func(http.Handler) *auth.AccessHandler {
+					return auth.NewAccessHandler(middleware, auth.NewNullAccessLogger(), "0.0.0.0", "1234", logger.NewTestLogger(GinkgoWriter))
+				}),
+			)
+			proxy.Start()
+
+			resp, err := makeTLSReq("https", proxy.Addr())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+			Expect(middlewareCalled).To(BeTrue())
+		})
+
+		It("does not accept unencrypted connections", func() {
+			testServer := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {}),
+			)
+			proxy := NewCFAuthProxy(
+				AddrFromURL(testServer.URL),
+				"localhost:0",
+				testing.Cert("metric-store-ca.crt"),
+				logger.NewTestLogger(GinkgoWriter),
+				WithServerTLS(
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+				),
+			)
+			proxy.Start()
+
+			resp, err := makeTLSReq("http", proxy.Addr())
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
 	})
 
-	It("does not accept unencrypted connections", func() {
-		testServer := httptest.NewServer(
-			http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {}),
-		)
-		proxy := NewCFAuthProxy(
-			AddrFromURL(testServer.URL),
-			"localhost:0",
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			testing.Cert("metric-store-ca.crt"),
-			logger.NewTestLogger(GinkgoWriter),
-		)
-		proxy.Start()
+	Context("while not serving TLS", func() {
+		It("proxies requests to Metric Store", func() {
+			metricstore := startMetricStore("Hello World!")
+			defer metricstore.Close()
 
-		resp, err := makeTLSReq("http", proxy.Addr())
-		Expect(err).NotTo(HaveOccurred())
+			proxy := NewCFAuthProxy(
+				AddrFromURL(metricstore.URL),
+				"127.0.0.1:0",
+				testing.Cert("metric-store-ca.crt"),
+				logger.NewTestLogger(GinkgoWriter),
+				WithClientTLS(
+					testing.Cert("metric-store-ca.crt"),
+					testing.Cert("metric-store.crt"),
+					testing.Cert("metric-store.key"),
+					"metric-store",
+				),
+			)
+			proxy.Start()
 
-		Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+			resp, err := makeTLSReq("http", proxy.Addr())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			body, _ := ioutil.ReadAll(resp.Body)
+			Expect(body).To(Equal([]byte("Hello World!")))
+		})
 	})
 })
 

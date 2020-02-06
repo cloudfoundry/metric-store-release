@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"time"
 
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 )
 
 type CFAuthProxy struct {
@@ -20,6 +20,7 @@ type CFAuthProxy struct {
 
 	metricStoreURL  *url.URL
 	addr            string
+	serveTLS        bool
 	certPath        string
 	keyPath         string
 	caPath          string
@@ -31,12 +32,10 @@ type CFAuthProxy struct {
 	log *logger.Logger
 }
 
-func NewCFAuthProxy(metricStoreAddr, addr, certPath, keyPath, caPath string, log *logger.Logger, opts ...CFAuthProxyOption) *CFAuthProxy {
+func NewCFAuthProxy(metricStoreAddr, addr, caPath string, log *logger.Logger, opts ...CFAuthProxyOption) *CFAuthProxy {
 	p := &CFAuthProxy{
-		addr:     addr,
-		certPath: certPath,
-		keyPath:  keyPath,
-		caPath:   caPath,
+		addr:   addr,
+		caPath: caPath,
 		authMiddleware: func(h http.Handler) http.Handler {
 			return h
 		},
@@ -96,6 +95,14 @@ func WithClientTLS(caCert, cert, key, cn string) CFAuthProxyOption {
 	}
 }
 
+func WithServerTLS(cert, key string) CFAuthProxyOption {
+	return func(p *CFAuthProxy) {
+		p.serveTLS = true
+		p.certPath = cert
+		p.keyPath = key
+	}
+}
+
 // Start starts the HTTP listener and serves the HTTP server. If the
 // CFAuthProxy was initialized with the WithCFAuthProxyBlock option this
 // method will block.
@@ -107,6 +114,15 @@ func (p *CFAuthProxy) Start() {
 
 	p.ln = ln
 
+	if p.serveTLS {
+		p.startTLS(ln)
+		return
+	}
+
+	p.start(ln)
+}
+
+func (p *CFAuthProxy) startTLS(ln net.Listener) {
 	tlsConfig, err := sharedtls.NewGenericTLSConfig()
 	if err != nil {
 		p.log.Fatal("failed to create TLS config", err)
@@ -124,6 +140,22 @@ func (p *CFAuthProxy) Start() {
 
 	go func() {
 		err = server.ServeTLS(ln, p.certPath, p.keyPath)
+		p.log.Fatal("server exiting", err)
+	}()
+}
+
+func (p *CFAuthProxy) start(ln net.Listener) {
+	server := http.Server{
+		Handler: p.accessMiddleware(p.authMiddleware(p.reverseProxy())),
+	}
+
+	if p.blockOnStart {
+		err := server.Serve(ln)
+		p.log.Fatal("server exiting", err)
+	}
+
+	go func() {
+		err := server.Serve(ln)
 		p.log.Fatal("server exiting", err)
 	}()
 }
