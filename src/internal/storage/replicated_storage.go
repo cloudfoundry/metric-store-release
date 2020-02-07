@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"strconv"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
@@ -30,6 +31,7 @@ type ReplicatedStorage struct {
 	handoffStoragePath string
 	lookup             routing.Lookup
 	localStore         prom_storage.Storage
+	queryTimeout       time.Duration
 
 	internodeTLSConfig *tls.Config
 	egressTLSConfig    *config_util.TLSConfig
@@ -43,6 +45,7 @@ func NewReplicatedStorage(
 	replicationFactor uint,
 	internodeTLSConfig *tls.Config,
 	egressTLSConfig *config_util.TLSConfig,
+	queryTimeout time.Duration,
 	opts ...ReplicatedOption,
 ) prom_storage.Storage {
 	storage := &ReplicatedStorage{
@@ -57,6 +60,7 @@ func NewReplicatedStorage(
 		appenders:          make([]prom_storage.Appender, len(internodeAddrs)),
 		internodeTLSConfig: internodeTLSConfig,
 		egressTLSConfig:    egressTLSConfig,
+		queryTimeout:       queryTimeout,
 	}
 
 	for _, opt := range opts {
@@ -118,6 +122,10 @@ func (r *ReplicatedStorage) createAppenders() error {
 }
 
 func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64) (storage.Querier, error) {
+	var cancel func()
+	ctx, cancel = context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+
 	queriers := make([]prom_storage.Querier, len(r.nodeAddrs))
 
 	for i, addr := range r.nodeAddrs {
@@ -147,6 +155,7 @@ func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64)
 	}
 
 	return NewReplicatedQuerier(
+		ctx,
 		r.localStore,
 		r.localIndex,
 		queriers,

@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"context"
 	"errors"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -20,7 +21,7 @@ var _ = Describe("Querier", func() {
 			"returns an error if given a query that uses a matcher other than = on __name__",
 			func(in []*labels.Matcher, out error) {
 
-				querier := storage.NewReplicatedQuerier(nil, 0, nil, nil,
+				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, nil, nil,
 					logger.NewTestLogger(GinkgoWriter))
 				_, _, err := querier.Select(nil, in...)
 				Expect(err).To(Equal(out))
@@ -47,7 +48,7 @@ var _ = Describe("Querier", func() {
 	Context("Select", func() {
 		var createTestSubject = func(localQuerier, remoteQuerier prom_storage.Querier) *storage.ReplicatedQuerier {
 			var lookup = func(_ string) []int { return []int{1, 2, 3} }
-			return storage.NewReplicatedQuerier(testing.NewSpyStorage(localQuerier), 0,
+			return storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
 				[]prom_storage.Querier{localQuerier, remoteQuerier, remoteQuerier, remoteQuerier}, lookup, logger.NewTestLogger(GinkgoWriter))
 		}
 
@@ -72,7 +73,7 @@ var _ = Describe("Querier", func() {
 
 				lookup := func(_ string) []int { return []int{0, 1} }
 
-				subject := storage.NewReplicatedQuerier(testing.NewSpyStorage(localQuerier), 0,
+				subject := storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
 					[]prom_storage.Querier{localQuerier, remoteQuerier}, lookup, logger.NewTestLogger(GinkgoWriter))
 
 				var attempts int

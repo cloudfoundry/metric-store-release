@@ -25,7 +25,7 @@ type RemoteQuerier struct {
 }
 
 func NewRemoteQuerier(
-	context context.Context,
+	ctx context.Context,
 	index int,
 	addr string,
 	egressTLSConfig *config_util.TLSConfig,
@@ -62,7 +62,7 @@ func NewRemoteQuerier(
 	}
 
 	querier := &RemoteQuerier{
-		ctx:           context,
+		ctx:           ctx,
 		index:         index,
 		addr:          addr,
 		publicClient:  publicClient,

@@ -270,6 +270,7 @@ func (store *MetricStore) Start() {
 		store.replicationFactor,
 		store.internodeTLSClientConfig,
 		store.egressTLSConfig,
+		store.queryTimeout,
 		storage.WithReplicatedLogger(store.log),
 		storage.WithReplicatedHandoffStoragePath(store.handoffStoragePath),
 		storage.WithReplicatedMetrics(store.metrics),

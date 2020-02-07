@@ -16,6 +16,7 @@ import (
 )
 
 type ReplicatedQuerier struct {
+	ctx        context.Context
 	store      prom_storage.Storage
 	lookup     routing.Lookup
 	localIndex int
@@ -24,6 +25,7 @@ type ReplicatedQuerier struct {
 }
 
 func NewReplicatedQuerier(
+	ctx context.Context,
 	localStore prom_storage.Storage,
 	localIndex int,
 	queriers []prom_storage.Querier,
@@ -31,6 +33,7 @@ func NewReplicatedQuerier(
 	log *logger.Logger,
 ) *ReplicatedQuerier {
 	return &ReplicatedQuerier{
+		ctx:        ctx,
 		store:      localStore,
 		localIndex: localIndex,
 		queriers:   queriers,
@@ -55,7 +58,7 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 	nodesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
 
 	if metricContainedLocally {
-		localQuerier, err := r.store.Querier(context.TODO(), 0, 0)
+		localQuerier, err := r.store.Querier(r.ctx, 0, 0)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -79,7 +82,7 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(nodes []int, params *prom_stor
 	r.log.Info("unable to contact nodes to read. attempting retries",
 		logger.String("nodes", fmt.Sprintf("%v", nodes)))
 
-	ticker, stop := NewExponentialTicker(TickerConfig{Context: context.TODO(), MaxDelay: 30 * time.Second})
+	ticker, stop := NewExponentialTicker(TickerConfig{Context: r.ctx, MaxDelay: 30 * time.Second})
 	defer stop()
 
 	for {
