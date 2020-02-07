@@ -2,15 +2,12 @@ package storage
 
 import (
 	"context"
-	"errors"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -25,7 +22,6 @@ type RemoteQuerier struct {
 	publicClient  *remote.Client
 	privateClient prom_api_client.API
 	log           *logger.Logger
-	mu            sync.Mutex
 }
 
 func NewRemoteQuerier(
@@ -83,46 +79,10 @@ func (r *RemoteQuerier) Select(params *prom_storage.SelectParams, matchers ...*l
 	}
 
 	res, err := r.publicClient.Read(r.ctx, query)
-	if err != nil && serverIsUnavailable(err) {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-
-		r.log.Info("attempting read retries", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
-
-		ticker, stop := NewExponentialTicker(TickerConfig{Context: r.ctx, MaxDelay: 30 * time.Second})
-		defer stop()
-		for {
-			select {
-			case <-ticker:
-				res, err = r.publicClient.Read(r.ctx, query)
-				if err == nil {
-					r.log.Info("read retry successful", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
-					break
-				} else if !serverIsUnavailable(err) {
-					r.log.Info("retry error", logger.String("address", r.addr), logger.Int("node index", int64(r.index)))
-					break
-				}
-			}
-		}
-	}
 	if err != nil {
 		return nil, nil, err
 	}
 	return remote.FromQueryResult(res), nil, nil
-}
-
-func serverIsUnavailable(err error) bool {
-	var opError *net.OpError
-
-	// necessary until promclient upgrades from pkg/errors
-	for err != nil {
-		cause, ok := err.(interface{ Cause() error })
-		if !ok {
-			break
-		}
-		err = cause.Cause()
-	}
-	return errors.As(err, &opError)
 }
 
 func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {

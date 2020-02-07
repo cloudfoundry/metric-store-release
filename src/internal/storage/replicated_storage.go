@@ -151,6 +151,7 @@ func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64)
 		r.localIndex,
 		queriers,
 		r.lookup,
+		r.log,
 	), nil
 }
 

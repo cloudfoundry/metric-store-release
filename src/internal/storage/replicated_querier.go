@@ -3,8 +3,12 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"net"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -16,6 +20,7 @@ type ReplicatedQuerier struct {
 	lookup     routing.Lookup
 	localIndex int
 	queriers   []prom_storage.Querier
+	log        *logger.Logger
 }
 
 func NewReplicatedQuerier(
@@ -23,12 +28,14 @@ func NewReplicatedQuerier(
 	localIndex int,
 	queriers []prom_storage.Querier,
 	lookup routing.Lookup,
+	log *logger.Logger,
 ) *ReplicatedQuerier {
 	return &ReplicatedQuerier{
 		store:      localStore,
 		localIndex: localIndex,
 		queriers:   queriers,
 		lookup:     lookup,
+		log:        log,
 	}
 }
 
@@ -45,28 +52,87 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 		}
 	}
 	// TODO: no metric name, return an error?
-	clientIndicesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
+	nodesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
 
 	if metricContainedLocally {
-		localQuerier, err := r.store.Querier(context.Background(), 0, 0)
+		localQuerier, err := r.store.Querier(context.TODO(), 0, 0)
 		if err != nil {
 			return nil, nil, err
 		}
-
 		return localQuerier.Select(params, matchers...)
 	}
 
-	routing.Shuffle(clientIndicesWithMetric)
+	return r.queryWithRetries(nodesWithMetric, params, matchers...)
+}
 
-	for _, index := range clientIndicesWithMetric {
+func (r *ReplicatedQuerier) queryWithRetries(nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	result, warnings, err := r.queryWithNodeFailover(nodes, params, matchers...)
+
+	if isConnectionError(err) {
+		return r.retryQueryWithBackoff(nodes, params, matchers...)
+	} else {
+		return result, warnings, err
+	}
+}
+
+func (r *ReplicatedQuerier) retryQueryWithBackoff(nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	r.log.Info("unable to contact nodes to read. attempting retries",
+		logger.String("nodes", fmt.Sprintf("%v", nodes)))
+
+	ticker, stop := NewExponentialTicker(TickerConfig{Context: context.TODO(), MaxDelay: 30 * time.Second})
+	defer stop()
+
+	for {
+		select {
+		case <-ticker:
+			result, warnings, err := r.queryWithNodeFailover(nodes, params, matchers...)
+			if err == nil {
+				r.log.Info("read retry successful")
+				return result, warnings, nil
+			} else if !isConnectionError(err) {
+				r.log.Info("retry stopped on error", logger.Error(err))
+				return nil, warnings, err
+			}
+		}
+	}
+}
+
+func (r *ReplicatedQuerier) queryWithNodeFailover(nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	routing.Shuffle(nodes)
+
+	var result prom_storage.SeriesSet
+	var warnings prom_storage.Warnings
+	var err error
+	for _, index := range nodes {
 		remoteQuerier := r.queriers[index]
-		if remoteQuerier != nil {
-			// turns out remoteQuerier can be nil if its address couldn't be resolved, or if duplicate NODE_ADDRESSES were specified, or cosmic rays
-			return remoteQuerier.Select(params, matchers...)
+		if remoteQuerier == nil {
+			continue
+		}
+
+		result, warnings, err = remoteQuerier.Select(params, matchers...)
+		if !isConnectionError(err) {
+			return result, warnings, err
 		}
 	}
 
-	return nil, nil, errors.New("replicated Select failed")
+	if err == nil {
+		err = fmt.Errorf("metric does not exist on available nodes (%v)", nodes)
+	}
+	return nil, nil, err
+}
+
+func isConnectionError(err error) bool {
+	var opError *net.OpError
+
+	// necessary until promclient upgrades from pkg/errors
+	for err != nil {
+		cause, ok := err.(interface{ Cause() error })
+		if !ok {
+			break
+		}
+		err = cause.Cause()
+	}
+	return errors.As(err, &opError)
 }
 
 func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {

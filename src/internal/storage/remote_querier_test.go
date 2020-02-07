@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
@@ -22,7 +21,7 @@ import (
 )
 
 var _ = Describe("Remote Querier", func() {
-	Describe("retry", func() {
+	Describe("connection", func() {
 		listenForSecureQueries := func(insecureConnection net.Listener) chan int {
 			tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
 				testing.Cert("metric-store-ca.crt"),
@@ -71,33 +70,6 @@ var _ = Describe("Remote Querier", func() {
 			})
 			Expect(calls).To(Receive())
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("retries on connection error", func() {
-			insecureConnection, err := net.Listen("tcp", ":0")
-			Expect(err).ToNot(HaveOccurred())
-			insecureConnection.Close()
-
-			internalAddr := insecureConnection.Addr().String()
-			go func() {
-				querier, err := storage.NewRemoteQuerier(context.Background(), 0, internalAddr, defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
-				Expect(err).ToNot(HaveOccurred())
-				querier.Select(nil, &labels.Matcher{
-					Name:  "__name__",
-					Type:  labels.MatchEqual,
-					Value: "irrelevantapp",
-				})
-			}()
-
-			time.Sleep(10 * time.Millisecond)
-
-			insecureConnection, err = net.Listen("tcp", internalAddr)
-			defer insecureConnection.Close()
-			Expect(err).ToNot(HaveOccurred())
-
-			calls := listenForSecureQueries(insecureConnection)
-
-			Eventually(calls).Should(Receive())
 		})
 
 		It("respects context", func() {
