@@ -12,9 +12,11 @@ function print_usage {
     echo "usage: test [subcommand] [go test args]"
     echo
     echo -e "\033[1mSubcommands:\033[0m"
-    echo "   all               Run all the tests, excluding linters (default)"
+    echo "   all               Run all the tests, excluding linters"
+    echo "   acceptance        Run just the acceptance tests"
     echo "   cleaners          Run tools that clean the code base"
-    echo "   unit              Run the unit tests"
+    echo "   fast              Run a subset of quick tests"
+    echo "   unit              Run the default set of tests (default)"
 }
 
 function print_checkpoint {
@@ -42,7 +44,7 @@ function check_output {
 
 function exit_on_failure {
     if [[ $1 -ne 0 ]]; then
-        red "SUITE FAILURE"
+        red "BITTER SUITE FAILURE"
         exit $1
     fi
 }
@@ -106,6 +108,30 @@ function run_unit {
     $@
 }
 
+function run_acceptance {
+  TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 30"
+  tests=$(go list -mod=vendor ./... | grep acceptance)
+
+  print_checkpoint "Running Acceptance Tests"
+  go test -mod=vendor $tests \
+    ${TEST_OPTIONS} \
+    $@
+
+}
+
+function run_fast {
+  TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 2"
+  exclude="acceptance pkg/auth internal/rules"
+  tests=$(go list -mod=vendor ./... | grep -v "${exclude// /\|}")
+
+  print_checkpoint "Running Fast Tests"
+  for skipped in $(echo ${exclude}); do
+      echo -e "skipping '${skipped}':\n$(find . -name '*_suite_test.go' -exec dirname \{\} \; | grep ${skipped})\n"
+  done
+
+  go test -mod=vendor $tests ${TEST_OPTIONS} $@
+}
+
 function run_all {
     check_output run_cleaners
     check_output run_unit $@
@@ -123,7 +149,7 @@ function parse_argc {
             print_usage
             exit 0
             ;;
-        all|unit|cleaners)
+        acceptance|all|cleaners|fast|unit)
             command=run_$arg
             ;;
         *)
