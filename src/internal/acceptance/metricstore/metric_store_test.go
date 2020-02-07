@@ -1,6 +1,7 @@
 package metricstore_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -1307,10 +1308,10 @@ groups:
 
 		rulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
 
-		_, err := rulesClient.CreateManager("cpu_manager", spyAlertManagerCpu.Addr())
-		Expect(err).ToNot(HaveOccurred())
+		_, apiErr := rulesClient.CreateManager("cpu_manager", spyAlertManagerCpu.Addr())
+		Expect(apiErr).ToNot(HaveOccurred())
 
-		_, err = rulesClient.UpsertRuleGroup(
+		_, apiErr = rulesClient.UpsertRuleGroup(
 			"cpu_manager",
 			rulesclient.RuleGroup{
 				Name:     "test-group-cpu",
@@ -1323,12 +1324,12 @@ groups:
 				},
 			},
 		)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(apiErr).ToNot(HaveOccurred())
 
-		_, err = rulesClient.CreateManager("memory_manager", spyAlertManagerMemory.Addr())
-		Expect(err).ToNot(HaveOccurred())
+		_, apiErr = rulesClient.CreateManager("memory_manager", spyAlertManagerMemory.Addr())
+		Expect(apiErr).ToNot(HaveOccurred())
 
-		_, err = rulesClient.UpsertRuleGroup(
+		_, apiErr = rulesClient.UpsertRuleGroup(
 			"memory_manager",
 			rulesclient.RuleGroup{
 				Name:     "test-group-memory",
@@ -1341,12 +1342,14 @@ groups:
 				},
 			},
 		)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(apiErr).ToNot(HaveOccurred())
 
 		client, err := ingressclient.NewIngressClient(
 			tc.ingressAddrs[0],
 			tc.tlsConfig,
 		)
+		Expect(err).ToNot(HaveOccurred())
+
 		points := []*rpc.Point{
 			{
 				Name:      "memory",
@@ -1464,5 +1467,47 @@ groups:
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(totalRuleCount, 10*time.Second).Should(Equal(1))
+	})
+
+	It("Returns consistent status codes regardless of which node is targeted", func() {
+		tc, cleanup := setup(2)
+		defer cleanup()
+
+		waitForApi(tc)
+
+		c := &http.Client{
+			Timeout:   5 * time.Second,
+			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+		}
+
+		payload := []byte(`
+{
+  "data": {
+    "id": "` + MAGIC_MANAGER_NAME + `"
+  }
+}`)
+		respLocal, err := c.Post(
+			"https://"+tc.addrs[0]+"/rules/manager",
+			"application/json",
+			bytes.NewReader(payload),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(respLocal.StatusCode).To(Equal(http.StatusCreated))
+
+		respLocal, err = c.Post(
+			"https://"+tc.addrs[0]+"/rules/manager",
+			"application/json",
+			bytes.NewReader(payload),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(respLocal.StatusCode).To(Equal(http.StatusConflict))
+
+		respRemote, err := c.Post(
+			"https://"+tc.addrs[1]+"/rules/manager",
+			"application/json",
+			bytes.NewReader(payload),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(respRemote.StatusCode).To(Equal(http.StatusConflict))
 	})
 })

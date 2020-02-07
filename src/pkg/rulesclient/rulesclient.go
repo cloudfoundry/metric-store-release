@@ -89,15 +89,7 @@ func (c *RulesClient) destroy(path string) (resp *http.Response, err error) {
 	return resp, err
 }
 
-type ErrorNotCreated struct {
-	Title string
-}
-
-func (e *ErrorNotCreated) Error() string {
-	return e.Title
-}
-
-func (c *RulesClient) CreateManager(managerId, alertmanagerAddr string) (*Manager, error) {
+func (c *RulesClient) CreateManager(managerId, alertmanagerAddr string) (*Manager, *ApiError) {
 	manager := Manager{
 		Id:              managerId,
 		AlertManagerUrl: alertmanagerAddr,
@@ -107,97 +99,103 @@ func (c *RulesClient) CreateManager(managerId, alertmanagerAddr string) (*Manage
 	}
 	payload, err := json.Marshal(data)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusBadRequest, err)
 	}
 
 	resp, err := c.post("/rules/manager", payload)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusInternalServerError, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, c.createError(resp)
+		return nil, extractFirstError(resp)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusInternalServerError, err)
 	}
 
 	responseBody := ManagerData{}
 	err = json.Unmarshal(body, &responseBody)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusInternalServerError, err)
 	}
 
 	return &responseBody.Data, nil
 }
 
-func (c *RulesClient) UpsertRuleGroup(managerId string, ruleGroup RuleGroup) (*RuleGroup, error) {
+func (c *RulesClient) UpsertRuleGroup(managerId string, ruleGroup RuleGroup) (*RuleGroup, *ApiError) {
 	data := RuleGroupData{
 		Data: ruleGroup,
 	}
 	payload, err := json.Marshal(data)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusBadRequest, err)
 	}
 
 	resp, err := c.post("/rules/manager/"+managerId+"/group", payload)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusInternalServerError, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, c.createError(resp)
+		return nil, extractFirstError(resp)
 	}
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusInternalServerError, err)
 	}
 
 	responseBody := RuleGroupData{}
 	json.Unmarshal(body, &responseBody)
 	err = json.Unmarshal(body, &responseBody)
 	if err != nil {
-		return nil, err
+		return nil, apiError(http.StatusInternalServerError, err)
 	}
 
 	return &responseBody.Data, nil
 }
 
-func (c *RulesClient) DeleteManager(managerId string) error {
+func (c *RulesClient) DeleteManager(managerId string) *ApiError {
 	resp, err := c.destroy("/rules/manager/" + managerId)
 	if err != nil {
-		return err
+		return apiError(http.StatusInternalServerError, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		return c.createError(resp)
+		return extractFirstError(resp)
 	}
 
 	return nil
 }
 
-func (c *RulesClient) createError(resp *http.Response) error {
+func extractFirstError(resp *http.Response) *ApiError {
 	var apiErrors *ApiErrors
+	title := ""
+	status := 0
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return apiError(http.StatusBadRequest, err)
 	}
 
 	err = json.Unmarshal(body, &apiErrors)
 	if err != nil {
-		return err
+		return apiError(http.StatusBadRequest, err)
 	}
 
-	title := ""
 	if len(apiErrors.Errors) > 0 {
 		title = apiErrors.Errors[0].Title
+		status = apiErrors.Errors[0].Status
 	}
-	return &ErrorNotCreated{Title: title}
+	return &ApiError{Status: status, Title: title}
+}
+
+func apiError(status int, err error) *ApiError {
+	return &ApiError{Status: status, Title: err.Error()}
 }

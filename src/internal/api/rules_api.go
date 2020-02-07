@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	"github.com/go-kit/kit/log/level"
 	"github.com/google/uuid"
@@ -70,7 +70,7 @@ func (api *RulesAPI) Register(r *route.Router) {
 		}.ServeHTTP
 	}
 	r.Post("/manager", wrap(api.createManager))
-	r.Post("/manager/:manager_id/group", wrap(api.createRuleGroup))
+	r.Post("/manager/:manager_id/group", wrap(api.upsertRuleGroup))
 	r.Del("/manager/:manager_id", wrap(api.deleteManager))
 }
 
@@ -113,6 +113,8 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		return apiFuncResult{nil, returnErr}
 	}
 
+	// TODO: if upsert starts returning 202, then maybe this should for
+	// the same reason
 	return apiFuncResult{managerData, nil}
 }
 
@@ -124,13 +126,28 @@ func (api *RulesAPI) deleteManager(r *http.Request) apiFuncResult {
 
 	err := api.ruleManager.DeleteManager(managerId)
 	if err != nil {
-		return apiFuncResult{nil, &apiError{http.StatusNotFound, err}}
+		var returnErr *apiError
+
+		switch err {
+		case rules.ManagerNotExistsError:
+			returnErr = &apiError{
+				http.StatusNotFound,
+				fmt.Errorf("Could not delete ruleManager, a ruleManager with name %s does not exist", managerId),
+			}
+		default:
+			returnErr = &apiError{
+				http.StatusInternalServerError,
+				err,
+			}
+		}
+
+		return apiFuncResult{nil, returnErr}
 	}
 
 	return apiFuncResult{}
 }
 
-func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
+func (api *RulesAPI) upsertRuleGroup(r *http.Request) apiFuncResult {
 	defer r.Body.Close()
 
 	ctx := r.Context()
@@ -167,6 +184,8 @@ func (api *RulesAPI) createRuleGroup(r *http.Request) apiFuncResult {
 		return apiFuncResult{nil, returnErr}
 	}
 
+	// TODO: return 201 for create, 200 for update (not just 201 always)
+	// or maybe 202 for all cases?
 	return apiFuncResult{ruleGroupData, nil}
 }
 

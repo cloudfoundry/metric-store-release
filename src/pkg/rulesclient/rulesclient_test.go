@@ -71,8 +71,9 @@ var _ = Describe("RulesClient", func() {
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
 			_, err := client.CreateManager("", "")
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(&ErrorNotCreated{
-				Title: "Error Occurred",
+			Expect(err).To(MatchError(&ApiError{
+				Status: http.StatusConflict,
+				Title:  "Error Occurred",
 			}))
 		})
 
@@ -113,7 +114,7 @@ var _ = Describe("RulesClient", func() {
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
 
 			tc.rulesApi.NextRequestError(&testing.RulesApiHttpError{
-				Status: http.StatusConflict,
+				Status: http.StatusNotFound,
 				Title:  "Error Occurred",
 			})
 
@@ -121,8 +122,9 @@ var _ = Describe("RulesClient", func() {
 				Name: "groupOne",
 			})
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(&ErrorNotCreated{
-				Title: "Error Occurred",
+			Expect(err).To(MatchError(&ApiError{
+				Status: http.StatusNotFound,
+				Title:  "Error Occurred",
 			}))
 		})
 
@@ -171,8 +173,9 @@ var _ = Describe("RulesClient", func() {
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
 			err := client.DeleteManager("app-metrics")
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(&ErrorNotCreated{
-				Title: "Error Occurred",
+			Expect(err).To(MatchError(&ApiError{
+				Status: http.StatusNotFound,
+				Title:  "Error Occurred",
 			}))
 		})
 

@@ -41,16 +41,47 @@ func NewRemoteRuleManager(addr string, tlsConfig *tls.Config) *RemoteRuleManager
 
 func (r *RemoteRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
 	_, err := r.rulesClient.CreateManager(managerId, alertmanagerAddr)
-	return err
+
+	if err != nil {
+		switch err.Status {
+		case http.StatusConflict:
+			return ManagerExistsError
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *RemoteRuleManager) DeleteManager(managerId string) error {
-	return r.rulesClient.DeleteManager(managerId)
+	err := r.rulesClient.DeleteManager(managerId)
+
+	if err != nil {
+		switch err.Status {
+		case http.StatusNotFound:
+			return ManagerNotExistsError
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *RemoteRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
 	_, err := r.rulesClient.UpsertRuleGroup(managerId, *ruleGroup)
-	return err
+
+	if err != nil {
+		switch err.Status {
+		case http.StatusNotFound:
+			return ManagerNotExistsError
+		default:
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *RemoteRuleManager) RuleGroups() []*rules.Group {

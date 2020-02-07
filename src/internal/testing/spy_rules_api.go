@@ -30,7 +30,8 @@ type RulesApiResponse struct {
 }
 
 type RulesApiError struct {
-	Title string `json:"title"`
+	Title  string `json:"title"`
+	Status int    `json:"status"`
 }
 
 func NewRulesApiSpy(tlsConfig *tls.Config) (*RulesApiSpy, error) {
@@ -110,7 +111,10 @@ func (a *RulesApiSpy) writeError(rw http.ResponseWriter) bool {
 	rw.WriteHeader(apiErr.Status)
 
 	errors := []RulesApiError{
-		{Title: apiErr.Title},
+		{
+			Title:  apiErr.Title,
+			Status: apiErr.Status,
+		},
 	}
 	apiResponse := RulesApiResponse{
 		Errors: errors,
@@ -151,8 +155,11 @@ func (a *RulesApiSpy) Start() error {
 
 	mux := mux.NewRouter()
 	mux.HandleFunc("/rules/manager", a.createManager)
+	mux.HandleFunc("/private/rules/manager", a.createManager)
 	mux.HandleFunc("/rules/manager/{manager_id}/group", a.upsertGroup)
+	mux.HandleFunc("/private/rules/manager/{manager_id}/group", a.upsertGroup)
 	mux.HandleFunc("/rules/manager/{manager_id}", a.deleteManager)
+	mux.HandleFunc("/private/rules/manager/{manager_id}", a.deleteManager)
 	a.server = &http.Server{Handler: mux, Addr: secureConnection.Addr().String()}
 
 	go a.server.Serve(secureConnection)

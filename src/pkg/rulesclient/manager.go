@@ -13,6 +13,10 @@ type ApiError struct {
 	Title  string `json:"title"`
 }
 
+func (a *ApiError) Error() string {
+	return a.Title
+}
+
 type ManagerData struct {
 	Data Manager `json:"data"`
 }
