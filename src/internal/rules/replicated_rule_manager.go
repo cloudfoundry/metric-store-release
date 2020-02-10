@@ -36,42 +36,42 @@ func NewReplicatedRuleManager(localRuleManager RuleManager, localIndex int, addr
 }
 
 func (r *ReplicatedRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
-	var err error
+	var lastError error
 
 	for _, nodeIndex := range r.lookup(managerId) {
-		err = r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerAddr)
+		err := r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerAddr)
 		if err != nil {
-			return err
+			lastError = err
 		}
 	}
 
-	return nil
+	return lastError
 }
 
 func (r *ReplicatedRuleManager) DeleteManager(managerId string) error {
-	var err error
+	var lastError error
 
 	for _, nodeIndex := range r.lookup(managerId) {
-		err = r.ruleManagers[nodeIndex].DeleteManager(managerId)
+		err := r.ruleManagers[nodeIndex].DeleteManager(managerId)
 		if err != nil {
-			return err
+			lastError = err
 		}
 	}
 
-	return nil
+	return lastError
 }
 
 func (r *ReplicatedRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
-	var err error
+	var lastError error
 
 	for _, nodeIndex := range r.lookup(managerId) {
-		err = r.ruleManagers[nodeIndex].UpsertRuleGroup(managerId, ruleGroup)
+		err := r.ruleManagers[nodeIndex].UpsertRuleGroup(managerId, ruleGroup)
 		if err != nil {
-			return err
+			lastError = err
 		}
 	}
 
-	return nil
+	return lastError
 }
 
 // TODO: dedup rules

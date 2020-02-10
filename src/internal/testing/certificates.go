@@ -5,8 +5,11 @@ package testing
 //go:generate rm -rf certs/
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 	"log"
+
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 )
 
 func Cert(filename string) string {
@@ -48,6 +51,35 @@ func Cert(filename string) string {
 // > openssl x509 -req -in localhost.csr -CA ms_ca.crt -CAkey ms_ca.key -CAcreateserial -out localhost.crt -days 3652 -sha256
 //
 // 4. copy the contents of localhost.crt and localhost.key into the variables below
+
+func MutualTLSServerConfig() *tls.Config {
+	tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
+		Cert("metric-store-ca.crt"),
+		Cert("metric-store.crt"),
+		Cert("metric-store.key"),
+	)
+
+	if err != nil {
+		panic("could not create MutualTLSServerConfig")
+	}
+
+	return tlsConfig
+}
+
+func MutualTLSClientConfig() *tls.Config {
+	tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
+		Cert("metric-store-ca.crt"),
+		Cert("metric-store.crt"),
+		Cert("metric-store.key"),
+		"metric-store",
+	)
+
+	if err != nil {
+		panic("could not create MutualTLSClientConfig")
+	}
+
+	return tlsConfig
+}
 
 var localhostCert = []byte(`-----BEGIN CERTIFICATE-----
 MIIDtTCCAZ0CFE14m61re9QIQ2+DtWzIU0624/NsMA0GCSqGSIb3DQEBCwUAMBox

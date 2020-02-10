@@ -12,15 +12,19 @@ type RuleManagerSpy struct {
 	rules                map[string]*rulesclient.RuleGroup
 	alertmanagers        []*url.URL
 	droppedAlertmanagers []*url.URL
+	methodsCalled        chan string
 }
 
 func NewRuleManagerSpy() *RuleManagerSpy {
 	return &RuleManagerSpy{
-		rules: make(map[string]*rulesclient.RuleGroup),
+		rules:         make(map[string]*rulesclient.RuleGroup),
+		methodsCalled: make(chan string, 10),
 	}
 }
 
 func (r *RuleManagerSpy) CreateManager(managerId, alertmanagerAddr string) error {
+	r.methodsCalled <- "CreateManager"
+
 	if _, exists := r.rules[managerId]; exists {
 		return rules.ManagerExistsError
 	}
@@ -39,6 +43,8 @@ func (r *RuleManagerSpy) CreateManager(managerId, alertmanagerAddr string) error
 }
 
 func (r *RuleManagerSpy) DeleteManager(managerId string) error {
+	r.methodsCalled <- "DeleteManager"
+
 	if _, exists := r.rules[managerId]; !exists {
 		return rules.ManagerNotExistsError
 	}
@@ -58,7 +64,22 @@ func (r *RuleManagerSpy) ManagerIds() []string {
 	return managerIds
 }
 
+func (r *RuleManagerSpy) MethodsCalled() []string {
+	var methods []string
+
+	for {
+		select {
+		case method := <-r.methodsCalled:
+			methods = append(methods, method)
+		default:
+			return methods
+		}
+	}
+}
+
 func (r *RuleManagerSpy) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
+	r.methodsCalled <- "UpsertRuleGroup"
+
 	if _, exists := r.rules[managerId]; !exists {
 		return rules.ManagerNotExistsError
 	}
