@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/prometheus/pkg/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 	"net"
+	"time"
 )
 
 var _ = Describe("Querier", func() {
@@ -20,9 +21,9 @@ var _ = Describe("Querier", func() {
 		DescribeTable(
 			"returns an error if given a query that uses a matcher other than = on __name__",
 			func(in []*labels.Matcher, out error) {
-
-				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, nil, nil,
-					logger.NewTestLogger(GinkgoWriter))
+				factory := func(_ context.Context) []prom_storage.Querier { return nil }
+				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, factory, 5*time.Second,
+					nil, logger.NewTestLogger(GinkgoWriter))
 				_, _, err := querier.Select(nil, in...)
 				Expect(err).To(Equal(out))
 			},
@@ -47,15 +48,16 @@ var _ = Describe("Querier", func() {
 
 	Context("Select", func() {
 		var createTestSubject = func(localQuerier, remoteQuerier prom_storage.Querier) *storage.ReplicatedQuerier {
-			var lookup = func(_ string) []int { return []int{1, 2, 3} }
+			lookup := func(_ string) []int { return []int{1, 2, 3} }
+			factory := func(_ context.Context) []prom_storage.Querier { return []prom_storage.Querier{localQuerier, remoteQuerier, remoteQuerier, remoteQuerier} }
 			return storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
-				[]prom_storage.Querier{localQuerier, remoteQuerier, remoteQuerier, remoteQuerier}, lookup, logger.NewTestLogger(GinkgoWriter))
+				factory, 5*time.Second, lookup, logger.NewTestLogger(GinkgoWriter))
 		}
 
 		Context("happy path", func() {
 			It("doesn't nil-ref on duplicate node addresses", func() {
 				subject := createTestSubject(nil,nil)
-				Expect(func() { subject.Select(nil) }).NotTo(Panic())
+				Expect(func() { _, _, _ = subject.Select(nil) }).NotTo(Panic())
 			})
 
 			It("calls remote node", func() {
@@ -74,7 +76,8 @@ var _ = Describe("Querier", func() {
 				lookup := func(_ string) []int { return []int{0, 1} }
 
 				subject := storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
-					[]prom_storage.Querier{localQuerier, remoteQuerier}, lookup, logger.NewTestLogger(GinkgoWriter))
+					func(_ context.Context) []prom_storage.Querier { return []prom_storage.Querier{localQuerier, remoteQuerier} },
+					5*time.Second, lookup, logger.NewTestLogger(GinkgoWriter))
 
 				var attempts int
 				Consistently(func() bool {
@@ -161,7 +164,7 @@ func (q *spyQuerier) Select(*prom_storage.SelectParams, ...*labels.Matcher) (pro
 	return nil, nil, err
 }
 
-func (*spyQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {
+func (*spyQuerier) LabelValues(_ string) ([]string, prom_storage.Warnings, error) {
 	panic("implement me")
 }
 

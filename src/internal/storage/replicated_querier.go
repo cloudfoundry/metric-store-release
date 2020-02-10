@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	config_util "github.com/prometheus/common/config"
 	"net"
 	"sort"
 	"strings"
@@ -16,33 +17,64 @@ import (
 )
 
 type ReplicatedQuerier struct {
-	ctx        context.Context
-	store      prom_storage.Storage
-	lookup     routing.Lookup
-	localIndex int
-	queriers   []prom_storage.Querier
-	log        *logger.Logger
+	ctx          context.Context
+	store        prom_storage.Storage
+	lookup       routing.Lookup
+	localIndex   int
+	factory      QuerierFactory
+	queryTimeout time.Duration
+	log          *logger.Logger
 }
 
-func NewReplicatedQuerier(
-	ctx context.Context,
-	localStore prom_storage.Storage,
-	localIndex int,
-	queriers []prom_storage.Querier,
-	lookup routing.Lookup,
-	log *logger.Logger,
-) *ReplicatedQuerier {
+type QuerierFactory func(ctx context.Context) []prom_storage.Querier
+
+func ReplicatedQuerierFactory(localStore prom_storage.Storage, localIndex int, nodeAddrs []string, egressTLSConfig *config_util.TLSConfig, log *logger.Logger) QuerierFactory {
+	return func(ctx context.Context) []prom_storage.Querier {
+		queriers := make([]prom_storage.Querier, len(nodeAddrs))
+
+		for i, addr := range nodeAddrs {
+			if i != localIndex {
+				remoteQuerier, err := NewRemoteQuerier(
+					ctx,
+					i,
+					addr,
+					egressTLSConfig,
+					log,
+				)
+
+				if err != nil {
+					log.Error("Could not create remote querier", err)
+					continue
+				}
+				queriers[i] = remoteQuerier
+
+				continue
+			}
+
+			localQuerier, _ := localStore.Querier(ctx, 0, 0)
+			queriers[i] = localQuerier
+		}
+		return queriers
+	}
+}
+
+func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, localIndex int, factory QuerierFactory,
+	queryTimeout time.Duration, lookup routing.Lookup, log *logger.Logger, ) *ReplicatedQuerier {
 	return &ReplicatedQuerier{
 		ctx:        ctx,
 		store:      localStore,
 		localIndex: localIndex,
-		queriers:   queriers,
+		factory:   factory,
+		queryTimeout: queryTimeout,
 		lookup:     lookup,
 		log:        log,
 	}
 }
 
 func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	ctx, cancel := context.WithTimeout(r.ctx, r.queryTimeout)
+	defer cancel()
+
 	clients := routing.NewClients(r.lookup, r.localIndex)
 
 	var metricName string
@@ -58,37 +90,37 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 	nodesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
 
 	if metricContainedLocally {
-		localQuerier, err := r.store.Querier(r.ctx, 0, 0)
+		localQuerier, err := r.store.Querier(ctx, 0, 0)
 		if err != nil {
 			return nil, nil, err
 		}
 		return localQuerier.Select(params, matchers...)
 	}
 
-	return r.queryWithRetries(nodesWithMetric, params, matchers...)
+	return r.queryWithRetries(ctx, nodesWithMetric, params, matchers...)
 }
 
-func (r *ReplicatedQuerier) queryWithRetries(nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	result, warnings, err := r.queryWithNodeFailover(nodes, params, matchers...)
+func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	result, warnings, err := r.queryWithNodeFailover(ctx, nodes, params, matchers...)
 
 	if isConnectionError(err) {
-		return r.retryQueryWithBackoff(nodes, params, matchers...)
+		return r.retryQueryWithBackoff(ctx, nodes, params, matchers...)
 	} else {
 		return result, warnings, err
 	}
 }
 
-func (r *ReplicatedQuerier) retryQueryWithBackoff(nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	r.log.Info("unable to contact nodes to read. attempting retries",
 		logger.String("nodes", fmt.Sprintf("%v", nodes)))
 
-	ticker, stop := NewExponentialTicker(TickerConfig{Context: r.ctx, MaxDelay: 30 * time.Second})
+	ticker, stop := NewExponentialTicker(TickerConfig{Context: ctx, MaxDelay: 30 * time.Second})
 	defer stop()
 
 	for {
 		select {
 		case <-ticker:
-			result, warnings, err := r.queryWithNodeFailover(nodes, params, matchers...)
+			result, warnings, err := r.queryWithNodeFailover(ctx, nodes, params, matchers...)
 			if err == nil {
 				r.log.Info("read retry successful")
 				return result, warnings, nil
@@ -100,14 +132,15 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(nodes []int, params *prom_stor
 	}
 }
 
-func (r *ReplicatedQuerier) queryWithNodeFailover(nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	routing.Shuffle(nodes)
+	queriers := r.factory(ctx)
 
 	var result prom_storage.SeriesSet
 	var warnings prom_storage.Warnings
 	var err error
 	for _, index := range nodes {
-		remoteQuerier := r.queriers[index]
+		remoteQuerier := queriers[index]
 		if remoteQuerier == nil {
 			continue
 		}
@@ -141,7 +174,7 @@ func isConnectionError(err error) bool {
 func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
 	labelNamesMap := make(map[string]struct{})
 
-	for _, querier := range r.queriers {
+	for _, querier := range r.factory(r.ctx) {
 		labelNames, _, _ := querier.LabelNames()
 		for _, labelName := range labelNames {
 			labelNamesMap[labelName] = struct{}{}
@@ -160,7 +193,7 @@ func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error
 func (r *ReplicatedQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {
 	var results [][]string
 
-	for _, querier := range r.queriers {
+	for _, querier := range r.factory(r.ctx) {
 		labelValues, _, _ := querier.LabelValues(name)
 		results = append(results, labelValues)
 	}

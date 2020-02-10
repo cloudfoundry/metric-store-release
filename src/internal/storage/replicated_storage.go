@@ -121,44 +121,14 @@ func (r *ReplicatedStorage) createAppenders() error {
 	return nil
 }
 
-func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64) (storage.Querier, error) {
-	//var cancel func()
-	//ctx, cancel = context.WithTimeout(ctx, r.queryTimeout)
-	//defer cancel()
-
-	queriers := make([]prom_storage.Querier, len(r.nodeAddrs))
-
-	for i, addr := range r.nodeAddrs {
-		if i != r.localIndex {
-			remoteQuerier, err := NewRemoteQuerier(
-				ctx,
-				i,
-				addr,
-				r.egressTLSConfig,
-				r.log,
-			)
-
-			if err != nil {
-				r.log.Error("Could not create remote querier", err)
-				continue
-			}
-			queriers[i] = remoteQuerier
-
-			continue
-		}
-
-		localQuerier, err := r.localStore.Querier(ctx, 0, 0)
-		if err != nil {
-			return nil, err
-		}
-		queriers[i] = localQuerier
-	}
-
+func (r *ReplicatedStorage) Querier(ctx context.Context, _, _ int64) (storage.Querier, error) {
+	factory := ReplicatedQuerierFactory(r.localStore, r.localIndex, r.nodeAddrs, r.egressTLSConfig, r.log)
 	return NewReplicatedQuerier(
 		ctx,
 		r.localStore,
 		r.localIndex,
-		queriers,
+		factory,
+		r.queryTimeout,
 		r.lookup,
 		r.log,
 	), nil
