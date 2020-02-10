@@ -10,30 +10,32 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/config"
 
-	sd_config "github.com/prometheus/prometheus/discovery/config"
+	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
+
+	sd_config "github.com/prometheus/prometheus/discovery/config"
 )
 
 type PromRuleManager struct {
-	id                   string
-	evaluationInterval   time.Duration
-	promRuleManager      *rules.Manager
-	promNotifierManager  *notifier.Manager
-	promDiscoveryManager *discovery.DiscoveryAgent
-	promRuleFile         string
-	alertmanagerAddr     string
-	log                  *logger.Logger
-	metrics              debug.MetricRegistrar
+	id                     string
+	evaluationInterval     time.Duration
+	promRuleManager        *rules.Manager
+	promNotifierManager    *notifier.Manager
+	promDiscoveryManager   *discovery.DiscoveryAgent
+	promRuleFile           string
+	alertmanagerAddr       string
+	log                    *logger.Logger
+	metrics                debug.MetricRegistrar
+	rulesManagerRegisterer *Registerer
 }
 
 func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *PromRuleManager {
-	rulesManagerRegisterer := prometheus.WrapRegistererWith(
+	rulesManagerRegisterer := NewRegisterer(
 		prometheus.Labels{"manager_id": managerId},
 		metrics.Registerer(),
 	)
@@ -62,15 +64,16 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 	)
 
 	return &PromRuleManager{
-		id:                   managerId,
-		evaluationInterval:   evaluationInterval,
-		promRuleManager:      promRuleManager,
-		promNotifierManager:  promNotifierManager,
-		promDiscoveryManager: promDiscoveryManager,
-		promRuleFile:         promRuleFile,
-		alertmanagerAddr:     alertmanagerAddr,
-		log:                  rulesManagerLog,
-		metrics:              metrics,
+		id:                     managerId,
+		evaluationInterval:     evaluationInterval,
+		promRuleManager:        promRuleManager,
+		rulesManagerRegisterer: rulesManagerRegisterer,
+		promNotifierManager:    promNotifierManager,
+		promDiscoveryManager:   promDiscoveryManager,
+		promRuleFile:           promRuleFile,
+		alertmanagerAddr:       alertmanagerAddr,
+		log:                    rulesManagerLog,
+		metrics:                metrics,
 	}
 }
 
@@ -91,7 +94,7 @@ func (r *PromRuleManager) Stop() error {
 	r.promRuleManager.Stop()
 	r.promNotifierManager.Stop()
 	r.promDiscoveryManager.Stop()
-
+	r.rulesManagerRegisterer.UnregisterAll()
 	return nil
 }
 

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,7 +39,7 @@ import (
 // Sentinel to detect build failures early
 var __ *metricstore.MetricStore
 
-var storagePaths = []string{"/tmp/metric-store-node1", "/tmp/metric-store-node2"}
+var storagePaths = []string{"/tmp/metric-store-node1", "/tmp/metric-store-node2", "/tmp/metric-store-node3"}
 var firstTimeMilliseconds = int64(0)
 
 type testInstantQuery struct {
@@ -112,6 +113,7 @@ var _ = Describe("MetricStore", func() {
 		alertmanagerAddr  string
 		localEgressClient prom_versioned_api_client.API
 		peerEgressClient  prom_versioned_api_client.API
+		replicationFactor int
 	}
 
 	var startNode = func(tc *testContext, index int) {
@@ -142,6 +144,7 @@ var _ = Describe("MetricStore", func() {
 				"RULES_PATH=" + tc.rulesPath,
 				"SCRAPE_CONFIG_PATH=" + tc.scrapeConfigPath,
 				"ALERTMANAGER_ADDR=" + tc.alertmanagerAddr,
+				"REPLICATION_FACTOR=" + strconv.Itoa(tc.replicationFactor),
 			},
 		)
 
@@ -178,6 +181,7 @@ var _ = Describe("MetricStore", func() {
 			caCert:               shared.Cert("metric-store-ca.crt"),
 			cert:                 shared.Cert("metric-store.crt"),
 			key:                  shared.Cert("metric-store.key"),
+			replicationFactor:    1,
 		}
 
 		for i := 0; i < numNodes; i++ {
@@ -223,6 +227,12 @@ var _ = Describe("MetricStore", func() {
 			for i := 0; i < numNodes; i++ {
 				os.RemoveAll(storagePaths[i])
 			}
+		}
+	}
+
+	var WithReplicationFactor = func(replicationFactor int) WithTestContextOption {
+		return func(tc *testContext) {
+			tc.replicationFactor = replicationFactor
 		}
 	}
 
@@ -1509,5 +1519,51 @@ groups:
 		)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(respRemote.StatusCode).To(Equal(http.StatusConflict))
+	})
+
+	It("Unregisters Rule metric collectors when the manager is deleted", func() {
+		tc, cleanup := setup(3, WithReplicationFactor(2))
+		defer cleanup()
+
+		waitForApi(tc)
+
+		localRulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
+
+		fileExistsOnNodes := func(paths []string, managerName string) int {
+			count := 0
+			for _, storagePath := range paths {
+				rulesPath := path.Join(storagePath, "rules")
+				managerPath := path.Join(rulesPath, managerName)
+
+				_, err := os.Stat(managerPath)
+				if os.IsNotExist(err) == false {
+					count = count + 1
+				}
+			}
+			return count
+		}
+
+		fileExistsOnZeroNodes := func() bool {
+			return fileExistsOnNodes(storagePaths, MAGIC_MANAGER_NAME) == 0
+		}
+
+		fileExistsOnTwoNodes := func() bool {
+			return fileExistsOnNodes(storagePaths, MAGIC_MANAGER_NAME) == 2
+		}
+
+		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(fileExistsOnTwoNodes).Should(BeTrue())
+
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(fileExistsOnTwoNodes).Should(BeTrue())
+
+		err = localRulesClient.DeleteManager(MAGIC_MANAGER_NAME)
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(fileExistsOnZeroNodes).Should(BeTrue())
+
+		_, err = localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(fileExistsOnTwoNodes).Should(BeTrue())
 	})
 })
