@@ -122,9 +122,9 @@ func (r *ReplicatedStorage) createAppenders() error {
 }
 
 func (r *ReplicatedStorage) Querier(ctx context.Context, mint int64, maxt int64) (storage.Querier, error) {
-	var cancel func()
-	ctx, cancel = context.WithTimeout(ctx, r.queryTimeout)
-	defer cancel()
+	//var cancel func()
+	//ctx, cancel = context.WithTimeout(ctx, r.queryTimeout)
+	//defer cancel()
 
 	queriers := make([]prom_storage.Querier, len(r.nodeAddrs))
 
