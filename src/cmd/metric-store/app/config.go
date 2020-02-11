@@ -50,7 +50,7 @@ type Config struct {
 	ScrapeConfigPath string `env:"SCRAPE_CONFIG_PATH, report"`
 	AlertmanagerAddr string `env:"ALERTMANAGER_ADDR, report"`
 
-	LogLevel string `env:"LOG_LEVEL,                      report"`
+	LogLevel string `env:"LOG_LEVEL, report"`
 }
 
 type MetricStoreServerTLS struct {

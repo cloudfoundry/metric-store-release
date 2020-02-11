@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -174,7 +173,6 @@ func (m *MetricStoreApp) startDebugServer(tlsConfig *tls.Config) {
 		m.log,
 		"metric-store",
 		debug.WithDefaultRegistry(),
-		debug.WithConstLabels(map[string]string{"nodeIndex": strconv.Itoa(m.cfg.NodeIndex)}),
 		debug.WithCounter(debug.MetricStoreIngressPointsTotal, prometheus.CounterOpts{
 			Help: "Number of points ingressed by metric-store",
 		}),

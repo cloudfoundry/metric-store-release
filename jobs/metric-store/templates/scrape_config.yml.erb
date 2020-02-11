@@ -1,6 +1,16 @@
 <%
   cert_dir = "/var/vcap/jobs/metric-store/config/certs"
+
+  ms = link("metric-store")
+  metric_store_nozzle = link("metric-store-nozzle")
+  metric_store_cf_auth_proxy = link("metric-store-cf-auth-proxy")
+
+  sorted_instances = ms.instances.sort_by {|i| i.address}
+  index = sorted_instances.index(
+      sorted_instances.find {|i| i.id == spec.id}
+  )
 %>
+---
 global:
   #scrape_interval:     60s
 scrape_configs:
@@ -14,3 +24,10 @@ scrape_configs:
     static_configs:
       - targets:
         - 127.0.0.1:<%= p('health_port') %>
+        - 127.0.0.1:<%= metric_store_nozzle.p('health_port') %>
+        - 127.0.0.1:<%= metric_store_cf_auth_proxy.p('health_port') %>
+      - labels:
+        - id: <%= spec.id %>
+        - ip: <%= spec.ip %>
+        - deployment: <%= spec.deployment %>
+        - nodeIndex: <%= index %>

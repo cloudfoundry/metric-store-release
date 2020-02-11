@@ -22,6 +22,7 @@ provides:
   type: metric-store-cf-auth-proxy
   properties:
   - proxy_port
+  - health_port
 
 consumes:
 - name: metric-store

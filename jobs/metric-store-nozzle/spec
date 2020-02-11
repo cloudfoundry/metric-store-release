@@ -21,6 +21,8 @@ packages:
 provides:
 - name: metric-store-nozzle
   type: metric-store-nozzle
+  properties:
+  - health_port
 
 consumes:
 - name: reverse_log_proxy
