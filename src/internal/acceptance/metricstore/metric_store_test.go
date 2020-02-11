@@ -41,6 +41,7 @@ var __ *metricstore.MetricStore
 
 var storagePaths = []string{"/tmp/metric-store-node1", "/tmp/metric-store-node2", "/tmp/metric-store-node3"}
 var firstTimeMilliseconds = int64(0)
+var claimedPorts []int
 
 type testInstantQuery struct {
 	Query         string
@@ -116,6 +117,30 @@ var _ = Describe("MetricStore", func() {
 		replicationFactor int
 	}
 
+	var portAvailable = func(port int) bool {
+		for _, claimedPort := range claimedPorts {
+			if port == claimedPort {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	var getFreePort = func(tc *testContext) int {
+		maxTries := 20
+
+		for i := 1; i <= maxTries; i++ {
+			port := shared.GetFreePort()
+			if portAvailable(port) {
+				claimedPorts = append(claimedPorts, port)
+				return port
+			}
+		}
+
+		panic("could not find avilable port")
+	}
+
 	var startNode = func(tc *testContext, index int) {
 		metricStoreProcess := shared.StartGoProcess(
 			"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store",
@@ -185,10 +210,10 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		for i := 0; i < numNodes; i++ {
-			tc.addrs = append(tc.addrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
-			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
-			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", shared.GetFreePort()))
-			tc.healthPorts = append(tc.healthPorts, strconv.Itoa(shared.GetFreePort()))
+			tc.addrs = append(tc.addrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
+			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
+			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
+			tc.healthPorts = append(tc.healthPorts, strconv.Itoa(getFreePort(tc)))
 		}
 
 		for _, opt := range opts {
