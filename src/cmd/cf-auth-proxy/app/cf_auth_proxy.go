@@ -6,7 +6,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
@@ -96,7 +98,6 @@ func (c *CFAuthProxyApp) Run() {
 		c.cfg.ProxyCAPath,
 		c.log,
 		WithAuthMiddleware(middlewareProvider.Middleware),
-		WithCFAuthProxyBlock(),
 		WithClientTLS(
 			c.cfg.ProxyCAPath,
 			c.cfg.MetricStoreClientTLS.CertPath,
@@ -130,6 +131,20 @@ func (c *CFAuthProxyApp) Run() {
 	}
 
 	proxy.Start()
+
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		c.log.Info("received signal", logger.String("signal", sig.String()))
+		c.Stop()
+		close(done)
+	}()
+
+	<-done
 }
 
 // Stop stops all the subprocesses for the application.

@@ -4,7 +4,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
@@ -114,6 +117,20 @@ func (n *NozzleApp) Run() {
 	)
 
 	nozzle.Start()
+
+	sigs := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		n.log.Info("received signal", logger.String("signal", sig.String()))
+		n.Stop()
+		close(done)
+	}()
+
+	<-done
 }
 
 // Stop stops all the subprocesses for the application.
