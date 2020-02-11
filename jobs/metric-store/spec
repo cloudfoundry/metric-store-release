@@ -37,6 +37,10 @@ provides:
 consumes:
 - name: metric-store
   type: metric-store
+- name: metric-store-nozzle
+  type: metric-store-nozzle
+- name: metric-store-cf-auth-proxy
+  type: metric-store-cf-auth-proxy
 
 properties:
   port:
