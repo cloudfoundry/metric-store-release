@@ -299,7 +299,7 @@ func (store *MetricStore) Start() {
 	store.setupDirtyListener()
 	store.setupSanitizedListener()
 
-	if store.scrapeConfigPath != "" && store.nodeIndex == 0 {
+	if store.scrapeConfigPath != "" {
 		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
 		store.runScraping(scrapeStorage)
 	}
