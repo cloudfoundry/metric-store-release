@@ -150,6 +150,9 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		n.log,
 		"metric-store-nozzle",
 		debug.WithDefaultRegistry(),
+		debug.WithConstLabels(map[string]string{
+			"source_id": "nozzle",
+		}),
 		debug.WithCounter(debug.NozzleIngressEnvelopesTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes ingressed by the nozzle",
 		}),

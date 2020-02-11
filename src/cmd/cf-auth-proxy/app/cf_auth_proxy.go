@@ -164,6 +164,9 @@ func (c *CFAuthProxyApp) startDebugServer(tlsConfig *tls.Config) {
 		c.log,
 		"metric_store_cf_auth_proxy",
 		debug.WithDefaultRegistry(),
+		debug.WithConstLabels(map[string]string{
+			"source_id": "cf-auth-proxy",
+		}),
 		debug.WithHistogram(debug.AuthProxyRequestDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Duration in seconds of requests made to the auth proxy",
 			Buckets: []float64{.001, .01, .05, .1, .2, 1, 2, 5, 10, 30},

@@ -14,7 +14,7 @@
 global:
   #scrape_interval:     60s
 scrape_configs:
-  - job_name: metric_store
+  - job_name: metric-store
     scheme: https
     tls_config:
       ca_file:  "<%= "#{cert_dir}/metric_store_metrics_client_ca.crt" %>"
