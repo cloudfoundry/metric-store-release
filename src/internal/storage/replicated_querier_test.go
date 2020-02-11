@@ -3,16 +3,19 @@ package storage_test
 import (
 	"context"
 	"errors"
+	"net"
+	"time"
+
+	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/pkg/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
-	"net"
-	"time"
 )
 
 var _ = Describe("Querier", func() {
@@ -21,7 +24,7 @@ var _ = Describe("Querier", func() {
 		DescribeTable(
 			"returns an error if given a query that uses a matcher other than = on __name__",
 			func(in []*labels.Matcher, out error) {
-				factory := func(_ context.Context) []prom_storage.Querier { return nil }
+				factory := &testFactory{}
 				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, factory, 5*time.Second,
 					nil, logger.NewTestLogger(GinkgoWriter))
 				_, _, err := querier.Select(nil, in...)
@@ -49,20 +52,23 @@ var _ = Describe("Querier", func() {
 	Context("Select", func() {
 		var createTestSubject = func(localQuerier, remoteQuerier prom_storage.Querier) *storage.ReplicatedQuerier {
 			lookup := func(_ string) []int { return []int{1, 2, 3} }
-			factory := func(_ context.Context) []prom_storage.Querier { return []prom_storage.Querier{localQuerier, remoteQuerier, remoteQuerier, remoteQuerier} }
+
+			factory := &testFactory{
+				queriers: []prom_storage.Querier{remoteQuerier, remoteQuerier, remoteQuerier},
+			}
 			return storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
 				factory, 5*time.Second, lookup, logger.NewTestLogger(GinkgoWriter))
 		}
 
 		Context("happy path", func() {
 			It("doesn't nil-ref on duplicate node addresses", func() {
-				subject := createTestSubject(nil,nil)
+				subject := createTestSubject(nil, nil)
 				Expect(func() { _, _, _ = subject.Select(nil) }).NotTo(Panic())
 			})
 
 			It("calls remote node", func() {
 				spy := newSpyQuerier()
-				subject := createTestSubject(nil,spy)
+				subject := createTestSubject(nil, spy)
 				var err error
 				_, _, err = subject.Select(nil)
 				Expect(err).NotTo(HaveOccurred())
@@ -76,7 +82,7 @@ var _ = Describe("Querier", func() {
 				lookup := func(_ string) []int { return []int{0, 1} }
 
 				subject := storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
-					func(_ context.Context) []prom_storage.Querier { return []prom_storage.Querier{localQuerier, remoteQuerier} },
+					&testFactory{queriers: []prom_storage.Querier{localQuerier, remoteQuerier}},
 					5*time.Second, lookup, logger.NewTestLogger(GinkgoWriter))
 
 				var attempts int
@@ -132,8 +138,63 @@ var _ = Describe("Querier", func() {
 				})
 			})
 		})
+
+		Context("ReplicatedQuerierFactory", func() {
+			defaultQuerierConfig := &config_util.TLSConfig{
+				CAFile:     testing.Cert("metric-store-ca.crt"),
+				CertFile:   testing.Cert("metric-store.crt"),
+				KeyFile:    testing.Cert("metric-store.key"),
+				ServerName: metricstore.COMMON_NAME,
+			}
+			It("returns all nodes when no indexes are specified", func() {
+				expected := []string{"localhost:1234", "localhost:2345", "localhost:3456"}
+				subject := storage.NewReplicatedQuerierFactory(
+					testing.NewSpyStorage(newSpyQuerier()), 0, expected,
+					defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
+				Expect(subject.Build(context.Background())).To(HaveLen(3))
+			})
+			It("filters nodes", func() {
+				expected := []string{"localhost:1234", "localhost:2345", "localhost:3456"}
+				subject := storage.NewReplicatedQuerierFactory(testing.NewSpyStorage(newSpyQuerier()), 0,
+					expected, defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
+				Expect(subject.Build(context.Background(), 1, 2)).To(HaveLen(2))
+			})
+			It("filters nodes for which queriers cannot be created", func() {
+				expected := []string{"localhost:1234", "badurl", "localhost:2345"}
+				subject := storage.NewReplicatedQuerierFactory(testing.NewSpyStorage(newSpyQuerier()), 0,
+					expected, defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
+				Expect(subject.Build(context.Background())).To(HaveLen(2))
+			})
+			It("fetches a local querier from the store", func() {
+				expected := []string{"localhost:1234", "localhost:2345"}
+				spy := newSpyQuerier()
+				subject := storage.NewReplicatedQuerierFactory(testing.NewSpyStorage(spy), 0, expected,
+					defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
+				Expect(subject.Build(context.Background())).To(And(
+					HaveLen(2),
+					ContainElement(spy),
+				))
+			})
+			It("fetches a local querier from the store", func() {
+				expected := []string{"localhost:1234", "localhost:2345"}
+				subject := storage.NewReplicatedQuerierFactory(testing.NewSpyStorage(nil), 0, expected,
+					defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
+				Expect(subject.Build(context.Background())).To(And(
+					HaveLen(1),
+					Not(ContainElement(BeNil())),
+				))
+			})
+		})
 	})
 })
+
+type testFactory struct {
+	queriers []prom_storage.Querier
+}
+
+func (t *testFactory) Build(ctx context.Context, nodeIndexes ...int) []prom_storage.Querier {
+	return t.queriers
+}
 
 type spyQuerier struct {
 	callCount    int

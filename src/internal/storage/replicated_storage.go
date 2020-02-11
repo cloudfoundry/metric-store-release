@@ -48,7 +48,7 @@ func NewReplicatedStorage(
 	queryTimeout time.Duration,
 	opts ...ReplicatedOption,
 ) prom_storage.Storage {
-	storage := &ReplicatedStorage{
+	store := &ReplicatedStorage{
 		log:                logger.NewNop(),
 		metrics:            &debug.NullRegistrar{},
 		localStore:         localStore,
@@ -64,15 +64,16 @@ func NewReplicatedStorage(
 	}
 
 	for _, opt := range opts {
-		opt(storage)
+		opt(store)
 	}
 
-	routingTable, _ := routing.NewRoutingTable(storage.nodeAddrs, storage.replicationFactor)
-	storage.lookup = routingTable.Lookup
+	routingTable, _ := routing.NewRoutingTable(store.nodeAddrs, store.replicationFactor)
+	store.lookup = routingTable.Lookup
 
-	storage.createAppenders()
+	// TODO handle this error
+	_ = store.createAppenders()
 
-	return storage
+	return store
 }
 
 type ReplicatedOption func(*ReplicatedStorage)
@@ -122,7 +123,8 @@ func (r *ReplicatedStorage) createAppenders() error {
 }
 
 func (r *ReplicatedStorage) Querier(ctx context.Context, _, _ int64) (storage.Querier, error) {
-	factory := ReplicatedQuerierFactory(r.localStore, r.localIndex, r.nodeAddrs, r.egressTLSConfig, r.log)
+	factory := NewReplicatedQuerierFactory(r.localStore, r.localIndex,
+		r.nodeAddrs, r.egressTLSConfig, r.log)
 	return NewReplicatedQuerier(
 		ctx,
 		r.localStore,

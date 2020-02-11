@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	config_util "github.com/prometheus/common/config"
 	"net"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	config_util "github.com/prometheus/common/config"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -17,57 +18,85 @@ import (
 )
 
 type ReplicatedQuerier struct {
-	ctx          context.Context
-	store        prom_storage.Storage
-	lookup       routing.Lookup
-	localIndex   int
-	factory      QuerierFactory
-	queryTimeout time.Duration
-	log          *logger.Logger
+	ctx            context.Context
+	store          prom_storage.Storage
+	lookup         routing.Lookup
+	localIndex     int
+	querierFactory QuerierFactory
+	queryTimeout   time.Duration
+	log            *logger.Logger
 }
 
-type QuerierFactory func(ctx context.Context) []prom_storage.Querier
+type QuerierFactory interface {
+	Build(ctx context.Context, nodeIndexes ...int) []prom_storage.Querier
+}
 
-func ReplicatedQuerierFactory(localStore prom_storage.Storage, localIndex int, nodeAddrs []string, egressTLSConfig *config_util.TLSConfig, log *logger.Logger) QuerierFactory {
-	return func(ctx context.Context) []prom_storage.Querier {
-		queriers := make([]prom_storage.Querier, len(nodeAddrs))
-
-		for i, addr := range nodeAddrs {
-			if i != localIndex {
-				remoteQuerier, err := NewRemoteQuerier(
-					ctx,
-					i,
-					addr,
-					egressTLSConfig,
-					log,
-				)
-
-				if err != nil {
-					log.Error("Could not create remote querier", err)
-					continue
-				}
-				queriers[i] = remoteQuerier
-
-				continue
-			}
-
-			localQuerier, _ := localStore.Querier(ctx, 0, 0)
-			queriers[i] = localQuerier
-		}
-		return queriers
+func NewReplicatedQuerierFactory(localStore prom_storage.Storage,
+	localIndex int, nodeAddrs []string, egressTLSConfig *config_util.TLSConfig,
+	log *logger.Logger) *ReplicatedQuerierFactory {
+	return &ReplicatedQuerierFactory{
+		localStore:      localStore,
+		localIndex:      localIndex,
+		nodeAddrs:       nodeAddrs,
+		egressTLSConfig: egressTLSConfig,
+		log:             log,
 	}
 }
 
+type ReplicatedQuerierFactory struct {
+	localStore      prom_storage.Storage
+	localIndex      int
+	nodeAddrs       []string
+	egressTLSConfig *config_util.TLSConfig
+	log             *logger.Logger
+}
+
+func (factory *ReplicatedQuerierFactory) Build(ctx context.Context, nodeIndexes ...int) []prom_storage.Querier {
+	var queriers []prom_storage.Querier
+
+	if nodeIndexes == nil {
+		for i := range factory.nodeAddrs {
+			nodeIndexes = append(nodeIndexes, i)
+		}
+	}
+
+	for _, i := range nodeIndexes {
+		if i == factory.localIndex {
+			localQuerier, err := factory.localStore.Querier(ctx, 0, 0)
+			if localQuerier == nil || err != nil {
+				factory.log.Error("Could not create local querier", err)
+			} else {
+				queriers = append(queriers, localQuerier)
+			}
+		} else {
+			remoteQuerier, err := NewRemoteQuerier(
+				ctx,
+				i,
+				factory.nodeAddrs[i],
+				factory.egressTLSConfig,
+				factory.log,
+			)
+
+			if err == nil {
+				queriers = append(queriers, remoteQuerier)
+			} else {
+				factory.log.Error("Could not create remote querier", err)
+			}
+		}
+	}
+	return queriers
+}
+
 func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, localIndex int, factory QuerierFactory,
-	queryTimeout time.Duration, lookup routing.Lookup, log *logger.Logger, ) *ReplicatedQuerier {
+	queryTimeout time.Duration, lookup routing.Lookup, log *logger.Logger) *ReplicatedQuerier {
 	return &ReplicatedQuerier{
-		ctx:        ctx,
-		store:      localStore,
-		localIndex: localIndex,
-		factory:   factory,
-		queryTimeout: queryTimeout,
-		lookup:     lookup,
-		log:        log,
+		ctx:            ctx,
+		store:          localStore,
+		localIndex:     localIndex,
+		querierFactory: factory,
+		queryTimeout:   queryTimeout,
+		lookup:         lookup,
+		log:            log,
 	}
 }
 
@@ -134,13 +163,13 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []i
 
 func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	routing.Shuffle(nodes)
-	queriers := r.factory(ctx)
+	queriers := r.querierFactory.Build(ctx, nodes...)
 
 	var result prom_storage.SeriesSet
 	var warnings prom_storage.Warnings
 	var err error
-	for _, index := range nodes {
-		remoteQuerier := queriers[index]
+
+	for _, remoteQuerier := range queriers {
 		if remoteQuerier == nil {
 			continue
 		}
@@ -174,7 +203,7 @@ func isConnectionError(err error) bool {
 func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
 	labelNamesMap := make(map[string]struct{})
 
-	for _, querier := range r.factory(r.ctx) {
+	for _, querier := range r.querierFactory.Build(r.ctx) {
 		labelNames, _, _ := querier.LabelNames()
 		for _, labelName := range labelNames {
 			labelNamesMap[labelName] = struct{}{}
@@ -193,7 +222,7 @@ func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error
 func (r *ReplicatedQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {
 	var results [][]string
 
-	for _, querier := range r.factory(r.ctx) {
+	for _, querier := range r.querierFactory.Build(r.ctx) {
 		labelValues, _, _ := querier.LabelValues(name)
 		results = append(results, labelValues)
 	}
