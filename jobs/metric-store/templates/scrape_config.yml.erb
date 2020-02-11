@@ -26,8 +26,8 @@ scrape_configs:
         - 127.0.0.1:<%= p('health_port') %>
         - 127.0.0.1:<%= metric_store_nozzle.p('health_port') %>
         - 127.0.0.1:<%= metric_store_cf_auth_proxy.p('health_port') %>
-      - labels:
-        id: <%= spec.id %>
-        ip: <%= spec.ip %>
-        deployment: <%= spec.deployment %>
-        nodeIndex: <%= index %>
+        labels:
+          id: <%= spec.id %>
+          ip: <%= spec.ip %>
+          deployment: <%= spec.deployment %>
+          nodeIndex: <%= index %>
