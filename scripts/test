@@ -121,8 +121,8 @@ function run_acceptance {
 
 function run_fast {
   TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 2"
-  exclude="acceptance pkg/auth internal/rules"
-  tests=$(go list -mod=vendor ./... | grep -v "${exclude// /\|}")
+  exclude="pkg/auth internal/rules acceptance performance"
+  tests=$(find ./src -name '*_suite_test.go' -exec dirname \{\} \; | egrep -v "/${exclude// /\|}/")
 
   print_checkpoint "Running Fast Tests"
   for skipped in $(echo ${exclude}); do
