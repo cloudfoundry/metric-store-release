@@ -138,7 +138,7 @@ var _ = Describe("MetricStore", func() {
 			}
 		}
 
-		panic("could not find avilable port")
+		panic("could not find available port")
 	}
 
 	var startNode = func(tc *testContext, index int) {
@@ -1146,6 +1146,8 @@ groups:
 			tc.ingressAddrs[0],
 			tc.tlsConfig,
 		)
+		Expect(err).NotTo(HaveOccurred())
+
 		pointTimestamp := time.Now().UnixNano()
 		points := []*rpc.Point{
 			{
@@ -1296,6 +1298,8 @@ groups:
 			tc.ingressAddrs[0],
 			tc.tlsConfig,
 		)
+		Expect(err).NotTo(HaveOccurred())
+
 		points := []*rpc.Point{
 			{
 				Name:      "metric_store_test_metric",

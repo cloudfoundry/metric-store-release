@@ -21,9 +21,10 @@ type PromRuleManagers struct {
 	evaluationInterval time.Duration
 	log                *logger.Logger
 	metrics            debug.MetricRegistrar
+	queryTimeout       time.Duration
 }
 
-func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInterval time.Duration, log *logger.Logger, metrics debug.MetricRegistrar) *PromRuleManagers {
+func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInterval time.Duration, log *logger.Logger, metrics debug.MetricRegistrar, queryTimeout time.Duration) *PromRuleManagers {
 	return &PromRuleManagers{
 		store:              store,
 		engine:             engine,
@@ -31,11 +32,13 @@ func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInt
 		log:                log,
 		metrics:            metrics,
 		promRuleManagers:   make(map[string]*PromRuleManager),
+		queryTimeout:       queryTimeout,
 	}
 }
 
 func (r *PromRuleManagers) Create(managerId, promRuleFile, alertmanagerAddr string) error {
-	promRuleManager := NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr, r.evaluationInterval, r.store, r.engine, r.log, r.metrics)
+	promRuleManager := NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr, r.evaluationInterval, r.store,
+		r.engine, r.log, r.metrics, r.queryTimeout)
 	r.add(managerId, promRuleManager)
 	return promRuleManager.Start()
 }
@@ -139,8 +142,12 @@ func sendAlerts(s *notifier.Manager) rules.NotifyFunc {
 	}
 }
 
-func wrappedEngineQueryFunc(engine *promql.Engine, q storage.Queryable) rules.QueryFunc {
+func wrappedEngineQueryFunc(engine *promql.Engine, q storage.Queryable, queryTimeout time.Duration) rules.QueryFunc {
 	return func(ctx context.Context, qs string, t time.Time) (promql.Vector, error) {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, queryTimeout)
+		defer cancel()
+
 		vector, err := rules.EngineQueryFunc(engine, q)(ctx, qs, t)
 		if err != nil {
 			return nil, err

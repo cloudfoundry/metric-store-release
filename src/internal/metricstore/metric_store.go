@@ -293,6 +293,7 @@ func (store *MetricStore) Start() {
 		time.Duration(promql.DefaultEvaluationInterval)*time.Millisecond,
 		store.log,
 		store.metrics,
+		store.queryTimeout,
 	)
 
 	store.setupRouting(queryEngine)

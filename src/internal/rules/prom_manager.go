@@ -34,7 +34,7 @@ type PromRuleManager struct {
 	rulesManagerRegisterer *Registerer
 }
 
-func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar) *PromRuleManager {
+func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar, queryTimeout time.Duration) *PromRuleManager {
 	rulesManagerRegisterer := NewRegisterer(
 		prometheus.Labels{"manager_id": managerId},
 		metrics.Registerer(),
@@ -50,7 +50,7 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 	promRuleManager := rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store,
 		TSDB:        store,
-		QueryFunc:   wrappedEngineQueryFunc(engine, store),
+		QueryFunc:   wrappedEngineQueryFunc(engine, store, queryTimeout),
 		NotifyFunc:  sendAlerts(promNotifierManager),
 		Context:     context.Background(),
 		ExternalURL: &url.URL{},

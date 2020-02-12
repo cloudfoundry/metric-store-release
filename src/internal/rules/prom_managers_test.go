@@ -65,6 +65,7 @@ groups:
 				5*time.Second,
 				logger.NewTestLogger(GinkgoWriter),
 				spyMetrics,
+				2*time.Second,
 			)
 			ruleManagers.Create("app-metrics", tmpfile.Name(), alertmanager.Addr())
 
@@ -94,6 +95,7 @@ groups:
 				5*time.Second,
 				logger.NewTestLogger(GinkgoWriter),
 				spyMetrics,
+				2*time.Second,
 			)
 			ruleManagers.Create("app-metrics", tmpfile.Name(), "")
 
@@ -134,6 +136,7 @@ groups:
 				5*time.Second,
 				logger.NewTestLogger(GinkgoWriter),
 				spyMetrics,
+				2*time.Second,
 			)
 
 			ruleManagers.Create("manager-1", tmpfile1.Name(), alertmanager.Addr())
