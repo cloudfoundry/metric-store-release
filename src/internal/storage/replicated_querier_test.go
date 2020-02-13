@@ -59,13 +59,13 @@ var _ = Describe("Querier", func() {
 
 	Context("Select", func() {
 		var createTestSubject = func(localQuerier, remoteQuerier prom_storage.Querier) *storage.ReplicatedQuerier {
-			lookup := func(_ string) []int { return []int{1, 2, 3} }
+			router := &mockRouting{ lookupNodes: []int{1, 2, 3} }
 
 			factory := &testFactory{
 				queriers: []prom_storage.Querier{remoteQuerier, remoteQuerier, remoteQuerier},
 			}
 			return storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
-				factory, 5*time.Second, lookup, logger.NewTestLogger(GinkgoWriter))
+				factory, 5*time.Second, router, logger.NewTestLogger(GinkgoWriter))
 		}
 
 		Context("happy path", func() {
@@ -88,11 +88,11 @@ var _ = Describe("Querier", func() {
 				localQuerier := newSpyQuerier()
 				remoteQuerier := newSpyQuerier()
 
-				lookup := func(_ string) []int { return []int{0, 1} }
+				router := &mockRouting{ lookupNodes: []int{0, 1} }
 
 				subject := storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
 					&testFactory{queriers: []prom_storage.Querier{localQuerier, remoteQuerier}},
-					5*time.Second, lookup, logger.NewTestLogger(GinkgoWriter))
+					5*time.Second, router, logger.NewTestLogger(GinkgoWriter))
 
 				var attempts int
 				Consistently(func() bool {
@@ -196,6 +196,18 @@ var _ = Describe("Querier", func() {
 		})
 	})
 })
+
+type mockRouting struct {
+	lookupNodes []int
+}
+
+func (r *mockRouting) IsLocal(metricName string) bool {
+	return false
+}
+
+func (r *mockRouting) Lookup(item string) []int {
+	return r.lookupNodes
+}
 
 type testFactory struct {
 	queriers []prom_storage.Querier

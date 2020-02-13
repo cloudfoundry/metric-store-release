@@ -29,7 +29,7 @@ type ReplicatedStorage struct {
 	replicationFactor  uint
 	appenders          []prom_storage.Appender
 	handoffStoragePath string
-	lookup             routing.Lookup
+	routingTable       *routing.RoutingTable
 	localStore         prom_storage.Storage
 	queryTimeout       time.Duration
 
@@ -67,8 +67,7 @@ func NewReplicatedStorage(
 		opt(store)
 	}
 
-	routingTable, _ := routing.NewRoutingTable(store.nodeAddrs, store.replicationFactor)
-	store.lookup = routingTable.Lookup
+	store.routingTable, _ = routing.NewRoutingTable(localIndex, store.nodeAddrs, store.replicationFactor)
 
 	// TODO handle this error
 	_ = store.createAppenders()
@@ -131,7 +130,7 @@ func (r *ReplicatedStorage) Querier(ctx context.Context, _, _ int64) (storage.Qu
 		r.localIndex,
 		factory,
 		r.queryTimeout,
-		r.lookup,
+		r.routingTable,
 		r.log,
 	), nil
 }
@@ -143,7 +142,7 @@ func (r *ReplicatedStorage) StartTime() (int64, error) {
 func (r *ReplicatedStorage) Appender() (storage.Appender, error) {
 	return NewReplicatedAppender(
 		r.appenders,
-		r.lookup,
+		r.routingTable.Lookup,
 		WithReplicatedAppenderLogger(r.log),
 		WithReplicatedAppenderMetrics(r.metrics),
 	), nil

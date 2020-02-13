@@ -27,7 +27,7 @@ func NewReplicatedRuleManager(localRuleManager RuleManager, localIndex int, addr
 		tlsConfig:        tlsConfig,
 	}
 
-	routingTable, _ := routing.NewRoutingTable(addrs, replicationFactor)
+	routingTable, _ := routing.NewRoutingTable(localIndex, addrs, replicationFactor)
 	replicatedRuleManager.lookup = routingTable.Lookup
 
 	replicatedRuleManager.createRuleManagers()

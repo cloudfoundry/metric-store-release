@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("RoutingTable", func() {
 	It("returns the correct index for the node", func() {
-		r, err := routing.NewRoutingTable([]string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 1)
+		r, err := routing.NewRoutingTable(0, []string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 1)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Explanation of hash outputs:
@@ -23,7 +23,7 @@ var _ = Describe("RoutingTable", func() {
 	})
 
 	It("returns the correct index with overlapping nodes", func() {
-		r, err := routing.NewRoutingTable([]string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 3)
+		r, err := routing.NewRoutingTable(0,[]string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 3)
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(r.Lookup("200")).To(ConsistOf(3, 2, 1))
@@ -31,10 +31,10 @@ var _ = Describe("RoutingTable", func() {
 	})
 
 	It("returns an error if replication factor is invalid", func() {
-		_, err := routing.NewRoutingTable([]string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 0)
+		_, err := routing.NewRoutingTable(0,[]string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 0)
 		Expect(err).To(HaveOccurred())
 
-		_, err = routing.NewRoutingTable([]string{"10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 5)
+		_, err = routing.NewRoutingTable(0,[]string{ "10.0.1.1", "10.0.1.2", "10.0.1.3", "10.0.1.4"}, 5)
 		Expect(err).To(HaveOccurred())
 	})
 })

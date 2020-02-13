@@ -22,7 +22,7 @@ type ReplicatedQuerier struct {
 
 	store          prom_storage.Storage
 
-	lookup         routing.Lookup
+	routingTable   Routing
 	localIndex     int
 
 	querierFactory QuerierFactory
@@ -90,14 +90,14 @@ func listIndexes(nodeAddrs []string) []int {
 }
 
 func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, localIndex int, factory QuerierFactory,
-	queryTimeout time.Duration, lookup routing.Lookup, log *logger.Logger) *ReplicatedQuerier {
+	queryTimeout time.Duration, routingTable Routing, log *logger.Logger) *ReplicatedQuerier {
 	return &ReplicatedQuerier{
 		ctx:            ctx,
 		store:          localStore,
 		localIndex:     localIndex,
 		querierFactory: factory,
 		queryTimeout:   queryTimeout,
-		lookup:         lookup,
+		routingTable:   routingTable,
 		log:            log,
 	}
 }
@@ -106,16 +106,12 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 	ctx, cancel := context.WithTimeout(r.ctx, r.queryTimeout)
 	defer cancel()
 
-	clients := routing.NewClients(r.lookup, r.localIndex)
-
 	metricName, err := r.extractMetricName(matchers)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nodesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
-
-	if metricContainedLocally {
+	if r.routingTable.IsLocal(metricName) {
 		localQuerier, err := r.store.Querier(ctx, 0, 0)
 		if err != nil {
 			return nil, nil, err
@@ -123,7 +119,7 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 		return localQuerier.Select(params, matchers...)
 	}
 
-	return r.queryWithRetries(ctx, nodesWithMetric, params, matchers...)
+	return r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), params, matchers...)
 }
 
 func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (string, error) {
