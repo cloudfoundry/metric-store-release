@@ -19,9 +19,12 @@ import (
 
 type ReplicatedQuerier struct {
 	ctx            context.Context
+
 	store          prom_storage.Storage
+
 	lookup         routing.Lookup
 	localIndex     int
+
 	querierFactory QuerierFactory
 	queryTimeout   time.Duration
 	log            *logger.Logger
@@ -105,16 +108,11 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 
 	clients := routing.NewClients(r.lookup, r.localIndex)
 
-	var metricName string
-	for _, matcher := range matchers {
-		if matcher.Name == labels.MetricName {
-			if matcher.Type != labels.MatchEqual {
-				return nil, nil, errors.New("only strict equality is supported for metric names")
-			}
-			metricName = matcher.Value
-		}
+	metricName, err := r.extractMetricName(matchers)
+	if err != nil {
+		return nil, nil, err
 	}
-	// TODO: no metric name, return an error?
+
 	nodesWithMetric, metricContainedLocally := clients.MetricDistribution(metricName)
 
 	if metricContainedLocally {
@@ -126,6 +124,18 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 	}
 
 	return r.queryWithRetries(ctx, nodesWithMetric, params, matchers...)
+}
+
+func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (string, error) {
+	for _, matcher := range matchers {
+		if matcher.Name == labels.MetricName {
+			if matcher.Type != labels.MatchEqual {
+				return "", errors.New("only strict equality is supported for metric names")
+			}
+			return matcher.Value, nil
+		}
+	}
+	return "", errors.New("no metric name present")
 }
 
 func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {

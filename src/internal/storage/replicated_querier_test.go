@@ -19,6 +19,14 @@ import (
 )
 
 var _ = Describe("Querier", func() {
+	var simpleQuery *labels.Matcher
+
+	BeforeEach(func() {
+		var err error
+		simpleQuery, err = labels.NewMatcher(labels.MatchEqual, labels.MetricName, "cpu")
+		Expect(err).NotTo(HaveOccurred())
+
+	})
 	// Many of the tests for querier are in store_test.go
 	Describe("Select()", func() {
 		DescribeTable(
@@ -69,8 +77,9 @@ var _ = Describe("Querier", func() {
 			It("calls remote node", func() {
 				spy := newSpyQuerier()
 				subject := createTestSubject(nil, spy)
+
 				var err error
-				_, _, err = subject.Select(nil)
+				_, _, err = subject.Select(nil, simpleQuery)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
@@ -89,7 +98,7 @@ var _ = Describe("Querier", func() {
 				Consistently(func() bool {
 					attempts++
 					var err error
-					_, _, err = subject.Select(nil)
+					_, _, err = subject.Select(nil, simpleQuery)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(remoteQuerier.callCount).To(Equal(0))
 					return localQuerier.callCount == attempts
@@ -102,7 +111,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(errors.New("expected"), 3)
 				subject := createTestSubject(nil, spy)
 				var err error
-				_, _, err = subject.Select(nil)
+				_, _, err = subject.Select(nil, simpleQuery)
 				Expect(err).To(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
@@ -111,7 +120,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 3)
 				subject := createTestSubject(nil, spy)
 				var err error
-				_, _, err = subject.Select(nil)
+				_, _, err = subject.Select(nil, simpleQuery)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(BeNumerically(">=", 3))
 			})
@@ -120,7 +129,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 1)
 				subject := createTestSubject(nil, spy)
 				var err error
-				_, _, err = subject.Select(nil)
+				_, _, err = subject.Select(nil, simpleQuery)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(2))
 			})
@@ -131,7 +140,7 @@ var _ = Describe("Querier", func() {
 					localQuerier := newSpyQuerier()
 					subject := createTestSubject(localQuerier, spy)
 					var err error
-					_, _, err = subject.Select(nil)
+					_, _, err = subject.Select(nil, simpleQuery)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spy.callCount).To(Equal(8))
 					Expect(localQuerier.callCount).To(Equal(0))
