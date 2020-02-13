@@ -55,36 +55,35 @@ func (factory *ReplicatedQuerierFactory) Build(ctx context.Context, nodeIndexes 
 	var queriers []prom_storage.Querier
 
 	if nodeIndexes == nil {
-		for i := range factory.nodeAddrs {
-			nodeIndexes = append(nodeIndexes, i)
-		}
+		nodeIndexes = listIndexes(factory.nodeAddrs)
 	}
 
 	for _, i := range nodeIndexes {
-		if i == factory.localIndex {
-			localQuerier, err := factory.localStore.Querier(ctx, 0, 0)
-			if localQuerier == nil || err != nil {
-				factory.log.Error("Could not create local querier", err)
-			} else {
-				queriers = append(queriers, localQuerier)
-			}
-		} else {
-			remoteQuerier, err := NewRemoteQuerier(
-				ctx,
-				i,
-				factory.nodeAddrs[i],
-				factory.egressTLSConfig,
-				factory.log,
-			)
+		querier, err := factory.createQuerier(i, ctx)
 
-			if err == nil {
-				queriers = append(queriers, remoteQuerier)
-			} else {
-				factory.log.Error("Could not create remote querier", err)
-			}
+		if querier == nil || err != nil {
+			factory.log.Error("Could not create querier", err)
+		} else {
+			queriers = append(queriers, querier)
 		}
 	}
 	return queriers
+}
+
+func (factory *ReplicatedQuerierFactory) createQuerier(i int, ctx context.Context) (prom_storage.Querier, error) {
+	if i == factory.localIndex {
+		return factory.localStore.Querier(ctx, 0, 0)
+	} else {
+		return NewRemoteQuerier(ctx, i, factory.nodeAddrs[i], factory.egressTLSConfig, factory.log)
+	}
+}
+
+func listIndexes(nodeAddrs []string) []int {
+	var nodeIndexes []int
+	for i := range nodeAddrs {
+		nodeIndexes = append(nodeIndexes, i)
+	}
+	return nodeIndexes
 }
 
 func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, localIndex int, factory QuerierFactory,
