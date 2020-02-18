@@ -10,7 +10,6 @@ import (
 	// the go linter in some instances removes it
 
 	"bytes"
-	"crypto/tls"
 	"encoding/gob"
 	"fmt"
 	"os"
@@ -47,24 +46,21 @@ type RemoteAppender struct {
 	points []*rpc.Point
 
 	targetNodeIndex string
-	remoteAddr      string
 	nodeBuffer      *diodes.OneToOne
+	connection      *leanstreams.Connection
 
-	// internodeConn chan *leanstreams.TCPClient
-	TLSConfig          *tls.Config
 	handoffStoragePath string
 }
 
 // TODO: remove addr and tlsconfig, replace with connection
 // then, these connections can be managed by MS
-func NewRemoteAppender(targetNodeIndex string, remoteAddr string, tlsConfig *tls.Config, opts ...RemoteAppenderOption) prom_storage.Appender {
+func NewRemoteAppender(targetNodeIndex string, connection *leanstreams.Connection, opts ...RemoteAppenderOption) prom_storage.Appender {
 	appender := &RemoteAppender{
 		log:                logger.NewNop(),
 		metrics:            &debug.NullRegistrar{},
 		points:             []*rpc.Point{},
 		targetNodeIndex:    targetNodeIndex,
-		remoteAddr:         remoteAddr,
-		TLSConfig:          tlsConfig,
+		connection:         connection,
 		handoffStoragePath: "/tmp/metric-store/handoff",
 	}
 
@@ -105,49 +101,24 @@ func WithRemoteAppenderMetrics(metrics debug.MetricRegistrar) RemoteAppenderOpti
 }
 
 func (a *RemoteAppender) createWriter() {
-	// defer store.connectionGroup.Done()
-
-	cfg := &leanstreams.TCPClientConfig{
-		MaxMessageSize: MAX_INTERNODE_PAYLOAD_SIZE_IN_BYTES,
-		Address:        a.remoteAddr,
-		TLSConfig:      a.TLSConfig,
-	}
-
-	var tcpClient *leanstreams.TCPClient
-	var err error
-
-	for {
-		tcpClient, err = leanstreams.DialTCP(cfg)
-		if err != nil {
-			// waiting for remote node to start listening
-
-			// TODO: do this better
-			time.Sleep(100 * time.Millisecond)
-
-			continue
-		}
-
-		break
-	}
-	// a.internodeConn <- tcpClient
+	a.connection.Connect()
 
 	nodeHandoffStoragePath := fmt.Sprintf("%s/%s", a.handoffStoragePath, a.targetNodeIndex)
-	err = os.MkdirAll(nodeHandoffStoragePath, os.ModePerm)
+	err := os.MkdirAll(nodeHandoffStoragePath, os.ModePerm)
 	if err != nil {
-		// a.log.Fatal("failed to create handoff storage directory", err, logger.String("path", nodeHandoffStoragePath))
 		a.log.Panic("failed to create handoff storage directory", logger.Error(err), logger.String("path", nodeHandoffStoragePath))
 	}
 
 	writeReplayer := handoff.NewWriteReplayer(
 		nodeHandoffStoragePath,
-		tcpClient,
+		a.connection.Client(),
 		a.metrics,
 		a.targetNodeIndex,
 		handoff.WithWriteReplayerLogger(a.log),
 	)
+	// TODO: call close on writereplayer
 	err = writeReplayer.Open()
 	if err != nil {
-		// a.log.Fatal("failed to open handoff storage", err, logger.String("path", nodeHandoffStoragePath))
 		a.log.Panic("failed to open handoff storage", logger.Error(err), logger.String("path", nodeHandoffStoragePath))
 	}
 
@@ -163,7 +134,8 @@ func (a *RemoteAppender) createWriter() {
 			return
 		}
 
-		bytesWritten, err := tcpClient.Write(payload.Bytes())
+		client := a.connection.Client()
+		bytesWritten, err := client.Write(payload.Bytes())
 		if err != nil {
 			err = writeReplayer.Write(points)
 			if err != nil {

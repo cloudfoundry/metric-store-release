@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	NULL_DISK_FREE_PERCENT_TARGET = -1
-	NULL_RETENTION_PERIOD         = -1
-	NULL_EXPIRY_FREQUENCY         = -1
-	NULL_METRICS_EMIT_DURATION    = -1
-	UNKNOWN_DISK_FREE_PERCENT     = 100
+	UNCONFIGURED_DISK_FREE_PERCENT_TARGET = -1
+	UNCONFIGURED_RETENTION_PERIOD         = -1
+	UNCONFIGURED_EXPIRY_FREQUENCY         = -1
+	UNCONFIGURED_METRICS_EMIT_DURATION    = -1
+	UNKNOWN_DISK_FREE_PERCENT             = 100
 )
 
 type RetentionConfig struct {
@@ -153,7 +153,7 @@ func (store *Store) start() {
 func (store *Store) periodicExpiry() {
 	store.deleteExpiredData()
 
-	if store.expiryConfig.ExpiryFrequency > NULL_EXPIRY_FREQUENCY {
+	if store.expiryConfig.ExpiryFrequency > UNCONFIGURED_EXPIRY_FREQUENCY {
 		for range time.Tick(store.expiryConfig.ExpiryFrequency) {
 			store.deleteExpiredData()
 		}
@@ -163,7 +163,7 @@ func (store *Store) periodicExpiry() {
 func (store *Store) periodicMetrics() {
 	store.emitStorageDurationMetric()
 
-	if store.metricsEmitDuration > NULL_METRICS_EMIT_DURATION {
+	if store.metricsEmitDuration > UNCONFIGURED_METRICS_EMIT_DURATION {
 		for range time.Tick(store.metricsEmitDuration) {
 			store.emitStorageDurationMetric()
 		}
@@ -171,13 +171,13 @@ func (store *Store) periodicMetrics() {
 }
 
 func (store *Store) deleteExpiredData() {
-	if store.expiryConfig.RetentionPeriod > NULL_RETENTION_PERIOD {
+	if store.expiryConfig.RetentionPeriod > UNCONFIGURED_RETENTION_PERIOD {
 		cutoff := time.Now().Add(-store.expiryConfig.RetentionPeriod)
 		store.log.Debug("expiring old data", logger.String("older than", cutoff.Format(time.RFC3339)))
 		store.deleteOlderThan(cutoff)
 	}
 
-	if store.expiryConfig.DiskFreePercentTarget > NULL_DISK_FREE_PERCENT_TARGET {
+	if store.expiryConfig.DiskFreePercentTarget > UNCONFIGURED_DISK_FREE_PERCENT_TARGET {
 		diskFree, err := store.diskFreeReporter()
 		if err != nil {
 			store.log.Error("error reporting disk free", err)

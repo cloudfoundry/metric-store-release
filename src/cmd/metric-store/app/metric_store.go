@@ -150,6 +150,7 @@ func (m *MetricStoreApp) Run() {
 		sig := <-sigs
 		m.log.Info("received signal", logger.String("signal", sig.String()))
 		store.Close()
+		persistentStore.Close()
 		m.Stop()
 		close(done)
 	}()

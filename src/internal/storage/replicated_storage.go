@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	config_util "github.com/prometheus/common/config"
@@ -35,6 +36,8 @@ type ReplicatedStorage struct {
 
 	internodeTLSConfig *tls.Config
 	egressTLSConfig    *config_util.TLSConfig
+
+	internodeConnections []*leanstreams.Connection
 }
 
 func NewReplicatedStorage(
@@ -98,10 +101,12 @@ func WithReplicatedMetrics(metrics debug.MetricRegistrar) ReplicatedOption {
 func (r *ReplicatedStorage) createAppenders() error {
 	for nodeIndex, addr := range r.internodeAddrs {
 		if nodeIndex != r.localIndex {
+			connection := leanstreams.NewConnection(addr, r.internodeTLSConfig, MAX_INTERNODE_PAYLOAD_SIZE_IN_BYTES)
+			r.internodeConnections = append(r.internodeConnections, connection)
+
 			remoteAppender := NewRemoteAppender(
 				strconv.Itoa(nodeIndex),
-				addr,
-				r.internodeTLSConfig,
+				connection,
 				WithRemoteAppenderHandoffStoragePath(r.handoffStoragePath),
 				WithRemoteAppenderLogger(r.log),
 				WithRemoteAppenderMetrics(r.metrics),
@@ -149,5 +154,10 @@ func (r *ReplicatedStorage) Appender() (storage.Appender, error) {
 }
 
 func (r *ReplicatedStorage) Close() error {
+	for _, connection := range r.internodeConnections {
+		// TODO: err
+		_ = connection.Close()
+	}
+
 	return nil
 }

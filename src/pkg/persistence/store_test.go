@@ -79,11 +79,11 @@ var _ = Describe("Persistent Store", func() {
 		}
 
 		config := &testConfig{
-			RetentionPeriod:       NULL_RETENTION_PERIOD,
-			ExpiryFrequency:       NULL_EXPIRY_FREQUENCY,
-			DiskFreePercentTarget: NULL_DISK_FREE_PERCENT_TARGET,
+			RetentionPeriod:       UNCONFIGURED_RETENTION_PERIOD,
+			ExpiryFrequency:       UNCONFIGURED_EXPIRY_FREQUENCY,
+			DiskFreePercentTarget: UNCONFIGURED_DISK_FREE_PERCENT_TARGET,
 			DiskFreeReporter:      func() (float64, error) { return 0, nil },
-			MetricsEmitDuration:   NULL_METRICS_EMIT_DURATION,
+			MetricsEmitDuration:   UNCONFIGURED_METRICS_EMIT_DURATION,
 		}
 		for _, opt := range opts {
 			opt(config)

@@ -589,7 +589,7 @@ func (store *MetricStore) Close() error {
 		store.scrapeManager.Stop()
 	}
 	// TODO: need to close remote connections
-	// store.replicatedStorage.Close()
+	store.replicatedStorage.Close()
 	store.ingressListener.Close()
 	store.internodeListener.Close()
 	return nil

@@ -18,12 +18,12 @@ import (
 )
 
 type ReplicatedQuerier struct {
-	ctx            context.Context
+	ctx context.Context
 
-	store          prom_storage.Storage
+	store prom_storage.Storage
 
-	routingTable   Routing
-	localIndex     int
+	routingTable Routing
+	localIndex   int
 
 	querierFactory QuerierFactory
 	queryTimeout   time.Duration
