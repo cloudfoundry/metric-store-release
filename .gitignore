@@ -25,3 +25,6 @@ src/github.com/mdempsky/unconvert
 src/golang.org/x/tools
 deployment-vars.yml
 scripts/certs/
+
+# metadata
+tags
