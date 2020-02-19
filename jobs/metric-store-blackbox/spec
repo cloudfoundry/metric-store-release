@@ -14,6 +14,12 @@ templates:
 packages:
 - metric-store-blackbox
 
+provides:
+- name: metric-store-blackbox
+  type: metric-store-blackbox
+  properties:
+  - health_port
+
 consumes:
 - name: metric-store
   type: metric-store

@@ -59,3 +59,25 @@ scrape_configs:
           ip: <%= spec.ip %>
           deployment: <%= spec.deployment %>
           nodeIndex: <%= index %>
+
+<%
+if index == 0 && if_link("metric-store-blackbox")
+  metric_store_blackbox = link("metric-store-blackbox")
+%>
+  - job_name: metric-store-blackbox
+    scheme: https
+    tls_config:
+      ca_file:  "<%= "#{cert_dir}/metric_store_metrics_client_ca.crt" %>"
+      cert_file: "<%= "#{cert_dir}/metric_store_metrics_client.crt" %>"
+      key_file: "<%= "#{cert_dir}/metric_store_metrics_client.key" %>"
+      server_name: metric-store
+    static_configs:
+      <% metric_store_blackbox.instances.each do |blackbox| %>
+      - targets:
+        - <%= blackbox.address %>:<%= blackbox.p('health_port') %>
+        labels:
+          id: <%= blackbox.id %>
+          ip: <%= blackbox.address %>
+          index: <%= blackbox.index %>
+      <% end %>
+<% end %>

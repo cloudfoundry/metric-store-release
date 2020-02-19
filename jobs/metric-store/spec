@@ -40,6 +40,9 @@ consumes:
   type: metric-store-nozzle
 - name: metric-store-cf-auth-proxy
   type: metric-store-cf-auth-proxy
+- name: metric-store-blackbox
+  type: metric-store-blackbox
+  optional: true
 
 properties:
   port:
