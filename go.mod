@@ -18,7 +18,7 @@ require (
 	github.com/go-kit/kit v0.9.0
 	github.com/golang/protobuf v1.3.2
 	github.com/google/uuid v1.1.1
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.7.4
 	github.com/influxdata/flux v0.59.4 // indirect
 	github.com/influxdata/influxdb v1.7.9
 	github.com/influxdata/influxql v1.0.1
