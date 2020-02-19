@@ -22,7 +22,6 @@ releases:
   - $( release "bpm" )
   - $( release "metric-store" )
   - $( release "routing" )
-  - $( release "loggregator-agent" )
 
 job_types:
   - $( instance_group "metric-store" )
@@ -45,5 +44,3 @@ variables:
   - $( bosh_variable "metric_store_metrics_server" )
   - $( bosh_variable "metric_store_metrics_client" )
   - $( bosh_variable "nozzle_to_metric_store_client" )
-  - $( bosh_variable "metric_scraper_ca" )
-  - $( bosh_variable "loggregator_agent_metrics_tls" )
