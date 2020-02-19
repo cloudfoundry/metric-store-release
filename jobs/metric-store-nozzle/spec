@@ -10,7 +10,6 @@ templates:
   metric_store_client_ca.crt.erb: config/certs/metric_store_client_ca.crt
   metric_store_client.crt.erb: config/certs/metric_store_client.crt
   metric_store_client.key.erb: config/certs/metric_store_client.key
-  metric_port.yml.erb: config/metric_port.yml
   metric_store_metrics_ca.crt.erb: config/certs/metric_store_metrics_ca.crt
   metric_store_metrics.crt.erb: config/certs/metric_store_metrics.crt
   metric_store_metrics.key.erb: config/certs/metric_store_metrics.key
