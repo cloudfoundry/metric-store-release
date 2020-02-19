@@ -61,8 +61,8 @@ scrape_configs:
           nodeIndex: <%= index %>
 
 <%
-if index == 0 && if_link("metric-store-blackbox")
-  metric_store_blackbox = link("metric-store-blackbox")
+if_link("metric-store-blackbox") do |metric_store_blackbox|
+  if index == 0
 %>
   - job_name: metric-store-blackbox
     scheme: https
@@ -80,4 +80,5 @@ if index == 0 && if_link("metric-store-blackbox")
           ip: <%= blackbox.address %>
           index: <%= blackbox.index %>
       <% end %>
+  <% end %>
 <% end %>
