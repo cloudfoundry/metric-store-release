@@ -7,6 +7,7 @@ import (
 
 	"context"
 	"crypto/tls"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -38,6 +39,7 @@ type ReplicatedStorage struct {
 	egressTLSConfig    *config_util.TLSConfig
 
 	internodeConnections []*leanstreams.Connection
+	replayerClosers      []chan struct{}
 }
 
 func NewReplicatedStorage(
@@ -103,10 +105,13 @@ func (r *ReplicatedStorage) createAppenders() error {
 		if nodeIndex != r.localIndex {
 			connection := leanstreams.NewConnection(addr, r.internodeTLSConfig, MAX_INTERNODE_PAYLOAD_SIZE_IN_BYTES)
 			r.internodeConnections = append(r.internodeConnections, connection)
+			done := make(chan struct{})
+			r.replayerClosers = append(r.replayerClosers, done)
 
 			remoteAppender := NewRemoteAppender(
 				strconv.Itoa(nodeIndex),
 				connection,
+				done,
 				WithRemoteAppenderHandoffStoragePath(r.handoffStoragePath),
 				WithRemoteAppenderLogger(r.log),
 				WithRemoteAppenderMetrics(r.metrics),
@@ -154,10 +159,20 @@ func (r *ReplicatedStorage) Appender() (storage.Appender, error) {
 }
 
 func (r *ReplicatedStorage) Close() error {
-	for _, connection := range r.internodeConnections {
-		// TODO: err
-		_ = connection.Close()
+	for _, closer := range r.replayerClosers {
+		close(closer)
 	}
 
+	var closeErrors []error
+	for _, connection := range r.internodeConnections {
+		err := connection.Close()
+		if err != nil {
+			closeErrors = append(closeErrors, err)
+		}
+	}
+
+	if len(closeErrors) > 0 {
+		return fmt.Errorf("failed to close %d of %d internode connections: %v", len(closeErrors), len(r.internodeConnections), closeErrors)
+	}
 	return nil
 }

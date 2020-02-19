@@ -2,6 +2,7 @@ package rules
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -51,6 +52,21 @@ func (r *PromRuleManagers) Delete(managerId string) error {
 
 	promRuleManager.Stop()
 	delete(r.promRuleManagers, managerId)
+	return nil
+}
+
+func (r *PromRuleManagers) DeleteAll() error {
+	var deleteErrors []error
+	for managerId := range r.promRuleManagers {
+		err := r.Delete(managerId)
+		if err != nil {
+			deleteErrors = append(deleteErrors, err)
+		}
+	}
+	if len(deleteErrors) > 0 {
+		return fmt.Errorf("unable to delete %d of %d rule managers: %v", len(deleteErrors), len(r.promRuleManagers), deleteErrors)
+	}
+
 	return nil
 }
 

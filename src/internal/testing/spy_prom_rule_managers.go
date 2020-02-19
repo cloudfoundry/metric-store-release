@@ -54,6 +54,10 @@ func (p *PromRuleManagersSpy) DroppedAlertmanagers() []*url.URL {
 	panic("not implemented") // TODO: Implement
 }
 
+func (p *PromRuleManagersSpy) DeleteAll() error {
+	panic("not implemented") // TODO: Implement
+}
+
 func (p *PromRuleManagersSpy) ManagerIds() []string {
 	var managerIds []string
 

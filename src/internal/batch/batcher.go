@@ -18,6 +18,7 @@ type Batcher struct {
 	output            chan []*rpc.Point
 	writer            func([]*rpc.Point)
 	droppedMetricFunc func(int)
+	done              chan struct{}
 }
 
 func NewBatcher(
@@ -25,6 +26,7 @@ func NewBatcher(
 	maxSizeInBytes int,
 	input *diodes.OneToOne,
 	writer func([]*rpc.Point),
+	done chan struct{},
 	droppedMetricFunc func(int),
 ) *Batcher {
 	batcher := &Batcher{
@@ -33,12 +35,11 @@ func NewBatcher(
 		input:             input,
 		output:            make(chan []*rpc.Point, CHANNEL_SIZE),
 		writer:            writer,
+		done:              done,
 		droppedMetricFunc: droppedMetricFunc,
 	}
 
-	// for i := 0; i < 2*runtime.NumCPU(); i++ {
 	go batcher.pointWriter()
-	// }
 
 	return batcher
 }
@@ -68,6 +69,9 @@ func (b *Batcher) Start() {
 			}
 
 			select {
+			case <-b.done:
+				b.writeToChannelOrDiscard(points)
+				return
 			case <-t.C:
 				if len(points) > 0 {
 					points = b.writeToChannelOrDiscard(points)

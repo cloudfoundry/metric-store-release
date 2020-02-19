@@ -33,7 +33,8 @@ var _ = Describe("WriteReplayer", func() {
 
 		n := handoff.NewWriteReplayer(dir, spyClient, spyMetrics, "0")
 
-		err = n.Open()
+		done := make(chan struct{})
+		err = n.Open(done)
 		Expect(err).ToNot(HaveOccurred())
 
 		err = n.Write(batch)
@@ -59,14 +60,22 @@ var _ = Describe("WriteReplayer", func() {
 			Eventually(spyMetrics.Fetch(metrics.MetricStoreReplayerReplayedBytesTotal)).Should(BeNumerically(">", 0))
 		})
 
-		By("shutting down the write replayer", func() {
-			err = n.Close()
-			Expect(err).ToNot(HaveOccurred())
+	})
 
-			// Confirm that purging works ok.
-			err = n.Purge()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dir).ToNot(BeADirectory())
-		})
+	It("closes when the done channel is closed", func() {
+		dir, err := ioutil.TempDir("", "node_processor_test")
+		Expect(err).ToNot(HaveOccurred())
+
+		spyMetrics := shared.NewSpyMetricRegistrar()
+		spyClient := testing.NewSpyTCPClient()
+
+		n := handoff.NewWriteReplayer(dir, spyClient, spyMetrics, "0")
+
+		done := make(chan struct{})
+		err = n.Open(done)
+		Expect(err).ToNot(HaveOccurred())
+
+		close(done)
+		Eventually(func() error { return n.Write(nil) }).Should(HaveOccurred())
 	})
 })

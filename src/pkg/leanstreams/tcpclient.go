@@ -104,6 +104,7 @@ func (c *TCPClient) Open() error {
 	if err != nil {
 		return err
 	}
+	// TODO: consider adding a timeout
 	secureConnection, err := tls.Dial("tcp", tcpAddr.String(), c.tlsConfig)
 	if err != nil {
 		return err
@@ -115,7 +116,7 @@ func (c *TCPClient) Open() error {
 // Reopen allows you to close and re-establish a connection to the existing Address
 // without needing to create a whole new TCPWriter object.
 func (c *TCPClient) Reopen() error {
-	if err := c.close(); err != nil {
+	if err := c.closeSocket(); err != nil {
 		return err
 	}
 
@@ -126,19 +127,18 @@ func (c *TCPClient) Reopen() error {
 	return nil
 }
 
-// TODO: redocument
-// Close will immediately call close on the connection to the remote endpoint. Per
-// the golang source code for the netFD object, this call uses a special mutex to
-// control access to the underlying pool of readers/writers. This call should be
-// threadsafe, so that any other threads writing will finish, or be blocked, when
-// this is invoked.
+// Close will wait until any Open calls finish, then call close on the
+// connection to the remote endpoint. Per the golang source code for the netFD
+// object, this call uses a special mutex to control access to the underlying
+// pool of readers/writers. This call should be threadsafe, so that any other
+// threads writing will finish, or be blocked, when this is invoked.
 func (c *TCPClient) Close() error {
 	close(c.done)
 
-	return c.close()
+	return c.closeSocket()
 }
 
-func (c *TCPClient) close() error {
+func (c *TCPClient) closeSocket() error {
 	c.Lock()
 	defer c.Unlock()
 
@@ -187,12 +187,12 @@ func (c *TCPClient) write(data []byte) (int, error) {
 		bytesWritten, writeError = c.socket.Write(c.outgoingDataBuffer[totalBytesWritten:])
 
 		if writeError != nil {
-			c.close()
+			c.closeSocket()
 		} else {
 			_, writeError = c.socket.Write(emptyBuffer)
 			if writeError != nil {
 				fmt.Printf("Error writing: %s\n", writeError)
-				c.close()
+				c.closeSocket()
 			} else {
 				totalBytesWritten += bytesWritten
 			}

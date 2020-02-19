@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -16,9 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("PromRuleManagers", func() {
-	var createRuleFile = func(alertmanagerAddr, prefix string) (*os.File, func()) {
-		yml := []byte(`
+var createRuleFile = func(alertmanagerAddr, prefix string) string {
+	yml := []byte(`
 # ALERTMANAGER_URL ` + alertmanagerAddr + `
 groups:
 - name: ` + prefix + `-group
@@ -28,46 +27,62 @@ groups:
   - record: ` + prefix + `Record
     expr: metric_store_test_metric
 `)
-		tmpfile, err := ioutil.TempFile("", prefix)
-		Expect(err).NotTo(HaveOccurred())
-		if _, err := tmpfile.Write(yml); err != nil {
-			log.Fatal(err)
-		}
-		if err := tmpfile.Close(); err != nil {
-			log.Fatal(err)
-		}
-		return tmpfile, func() {
-			os.Remove(tmpfile.Name())
-		}
+	tmpfile, err := ioutil.TempFile("", prefix)
+	Expect(err).NotTo(HaveOccurred())
+	if _, err := tmpfile.Write(yml); err != nil {
+		log.Fatal(err)
 	}
+	if err := tmpfile.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	cleanups = append(cleanups, func() { os.Remove(tmpfile.Name()) })
+	return tmpfile.Name()
+}
+
+var spyMetrics *testing.SpyMetricRegistrar
+var alertmanager *testing.AlertManagerSpy
+var tempStorage testing.TempStorage
+var ruleManagers *PromRuleManagers
+var cleanups []func()
+
+var _ = Describe("PromRuleManagers", func() {
+	BeforeEach(func() {
+		cleanups = []func(){}
+
+		alertmanager = testing.NewAlertManagerSpy()
+		alertmanager.Start()
+		cleanups = append(cleanups, alertmanager.Stop)
+
+		tempStorage = testing.NewTempStorage()
+		cleanups = append(cleanups, tempStorage.Cleanup)
+
+		spyMetrics = shared.NewSpyMetricRegistrar()
+		persistentStore := persistence.NewStore(
+			tempStorage.Path(),
+			spyMetrics,
+		)
+
+		ruleManagers = NewRuleManagers(
+			persistentStore,
+			testing.NewQueryEngine(),
+			5*time.Second,
+			logger.NewTestLogger(GinkgoWriter),
+			spyMetrics,
+			2*time.Second,
+		)
+
+	})
+
+	AfterEach(func() {
+		for _, c := range cleanups {
+			c()
+		}
+	})
 
 	Describe("#Create", func() {
 		It("creates a rule manager from a given file", func() {
-			alertmanager := testing.NewAlertManagerSpy()
-			alertmanager.Start()
-			defer alertmanager.Stop()
-
-			tmpfile, cleanup := createRuleFile(alertmanager.Addr(), "app_metrics")
-			defer cleanup()
-
-			tempStorage := testing.NewTempStorage()
-			defer tempStorage.Cleanup()
-
-			spyMetrics := shared.NewSpyMetricRegistrar()
-			persistentStore := persistence.NewStore(
-				tempStorage.Path(),
-				spyMetrics,
-			)
-
-			ruleManagers := NewRuleManagers(
-				persistentStore,
-				testing.NewQueryEngine(),
-				5*time.Second,
-				logger.NewTestLogger(GinkgoWriter),
-				spyMetrics,
-				2*time.Second,
-			)
-			ruleManagers.Create("app-metrics", tmpfile.Name(), alertmanager.Addr())
+			ruleManagers.Create("appmetrics", createRuleFile("", "appmetrics"), alertmanager.Addr())
 
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(1))
 			Expect(len(ruleManagers.AlertingRules())).To(Equal(1))
@@ -77,32 +92,27 @@ groups:
 
 	Describe("#Delete", func() {
 		It("deletes a rule manager", func() {
-			tmpfile, cleanup := createRuleFile("", "app_metrics")
-			defer cleanup()
-
-			tempStorage := testing.NewTempStorage()
-			defer tempStorage.Cleanup()
-
-			spyMetrics := shared.NewSpyMetricRegistrar()
-			persistentStore := persistence.NewStore(
-				tempStorage.Path(),
-				spyMetrics,
-			)
-
-			ruleManagers := NewRuleManagers(
-				persistentStore,
-				testing.NewQueryEngine(),
-				5*time.Second,
-				logger.NewTestLogger(GinkgoWriter),
-				spyMetrics,
-				2*time.Second,
-			)
-			ruleManagers.Create("app-metrics", tmpfile.Name(), "")
-
+			ruleManagers.Create("appmetrics", createRuleFile("", "appmetrics"), alertmanager.Addr())
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(1))
 			Expect(len(ruleManagers.AlertingRules())).To(Equal(1))
 
-			ruleManagers.Delete("app-metrics")
+			ruleManagers.Delete("appmetrics")
+
+			Expect(len(ruleManagers.RuleGroups())).To(Equal(0))
+			Expect(len(ruleManagers.AlertingRules())).To(Equal(0))
+		})
+	})
+
+	Describe("#DeleteAll", func() {
+		It("deletes all rule managers", func() {
+			ruleManagers.Create("manager1", createRuleFile("", "manager1"), alertmanager.Addr())
+			ruleManagers.Create("manager2", createRuleFile("", "manager2"), alertmanager.Addr())
+			ruleManagers.Create("manager3", createRuleFile("", "manager3"), alertmanager.Addr())
+
+			Expect(len(ruleManagers.RuleGroups())).To(Equal(3))
+			Expect(len(ruleManagers.AlertingRules())).To(Equal(3))
+
+			ruleManagers.DeleteAll()
 
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(0))
 			Expect(len(ruleManagers.AlertingRules())).To(Equal(0))
@@ -111,36 +121,8 @@ groups:
 
 	Describe("#Alertmanagers", func() {
 		It("Returns unique alertmanagers", func() {
-			alertmanager := testing.NewAlertManagerSpy()
-			alertmanager.Start()
-			defer alertmanager.Stop()
-
-			tmpfile1, cleanup1 := createRuleFile(alertmanager.Addr(), "first_manager")
-			defer cleanup1()
-
-			tmpfile2, cleanup2 := createRuleFile(alertmanager.Addr(), "second_manager")
-			defer cleanup2()
-
-			tempStorage := testing.NewTempStorage()
-			defer tempStorage.Cleanup()
-
-			spyMetrics := shared.NewSpyMetricRegistrar()
-			persistentStore := persistence.NewStore(
-				tempStorage.Path(),
-				spyMetrics,
-			)
-
-			ruleManagers := NewRuleManagers(
-				persistentStore,
-				testing.NewQueryEngine(),
-				5*time.Second,
-				logger.NewTestLogger(GinkgoWriter),
-				spyMetrics,
-				2*time.Second,
-			)
-
-			ruleManagers.Create("manager-1", tmpfile1.Name(), alertmanager.Addr())
-			ruleManagers.Create("manager-2", tmpfile2.Name(), alertmanager.Addr())
+			ruleManagers.Create("manager1", createRuleFile("", "manager1"), alertmanager.Addr())
+			ruleManagers.Create("manager2", createRuleFile("", "manager2"), alertmanager.Addr())
 
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(2))
 			Expect(len(ruleManagers.AlertingRules())).To(Equal(2))

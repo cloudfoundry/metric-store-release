@@ -50,11 +50,11 @@ type RemoteAppender struct {
 	connection      *leanstreams.Connection
 
 	handoffStoragePath string
+
+	done chan struct{}
 }
 
-// TODO: remove addr and tlsconfig, replace with connection
-// then, these connections can be managed by MS
-func NewRemoteAppender(targetNodeIndex string, connection *leanstreams.Connection, opts ...RemoteAppenderOption) prom_storage.Appender {
+func NewRemoteAppender(targetNodeIndex string, connection *leanstreams.Connection, done chan struct{}, opts ...RemoteAppenderOption) prom_storage.Appender {
 	appender := &RemoteAppender{
 		log:                logger.NewNop(),
 		metrics:            &debug.NullRegistrar{},
@@ -62,6 +62,7 @@ func NewRemoteAppender(targetNodeIndex string, connection *leanstreams.Connectio
 		targetNodeIndex:    targetNodeIndex,
 		connection:         connection,
 		handoffStoragePath: "/tmp/metric-store/handoff",
+		done:               done,
 	}
 
 	for _, opt := range opts {
@@ -116,8 +117,7 @@ func (a *RemoteAppender) createWriter() {
 		a.targetNodeIndex,
 		handoff.WithWriteReplayerLogger(a.log),
 	)
-	// TODO: call close on writereplayer
-	err = writeReplayer.Open()
+	err = writeReplayer.Open(a.done)
 	if err != nil {
 		a.log.Panic("failed to open handoff storage", logger.Error(err), logger.String("path", nodeHandoffStoragePath))
 	}
@@ -155,6 +155,7 @@ func (a *RemoteAppender) createWriter() {
 		MAX_BATCH_SIZE_IN_BYTES,
 		a.nodeBuffer,
 		writer,
+		a.done,
 		func(count int) {
 			a.metrics.Add(metrics.MetricStoreDroppedPointsTotal, float64(count), a.targetNodeIndex)
 		},

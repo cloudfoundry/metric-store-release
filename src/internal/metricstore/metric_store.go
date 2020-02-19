@@ -69,7 +69,7 @@ type MetricStore struct {
 	closing                  int64
 
 	localStore        prom_storage.Storage
-	promRuleManagers  *rules.PromRuleManagers
+	promRuleManagers  rules.RuleManagers
 	replicationFactor uint
 	queryTimeout      time.Duration
 
@@ -126,9 +126,6 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 	for _, o := range opts {
 		o(store)
 	}
-
-	// TODO: bring this back
-	// store.internodeConns = make(chan *leanstreams.TCPClient, len(store.internodeAddrs))
 
 	if len(store.nodeAddrs) == 0 {
 		store.nodeAddrs = []string{store.addr}
@@ -588,7 +585,7 @@ func (store *MetricStore) Close() error {
 	if store.scrapeManager != nil {
 		store.scrapeManager.Stop()
 	}
-	// TODO: need to close remote connections
+	store.promRuleManagers.DeleteAll()
 	store.replicatedStorage.Close()
 	store.ingressListener.Close()
 	store.internodeListener.Close()

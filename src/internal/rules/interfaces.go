@@ -25,6 +25,7 @@ type RuleManager interface {
 type RuleManagers interface {
 	Create(managerId string, managerFile string, alertmanagerAddr string) error
 	Delete(managerId string) error
+	DeleteAll() error
 	Reload() error
 	RuleGroups() []*rules.Group
 	AlertingRules() []*rules.AlertingRule

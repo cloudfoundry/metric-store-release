@@ -58,7 +58,6 @@ type WriteReplayer struct {
 	targetNodeIndex  string
 
 	mu   sync.RWMutex
-	wg   sync.WaitGroup
 	done chan struct{}
 
 	queue  *Queue
@@ -114,7 +113,7 @@ func WithWriteReplayerMaxQueueSize(maxSize int64) WriteReplayerOption {
 // Open opens the WriteReplayer. It will read and write data present in dir, and
 // start transmitting data to the node. A WriteReplayer must be opened before it
 // can accept hinted data.
-func (w *WriteReplayer) Open() error {
+func (w *WriteReplayer) Open(done chan struct{}) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -122,7 +121,7 @@ func (w *WriteReplayer) Open() error {
 		// Already open.
 		return nil
 	}
-	w.done = make(chan struct{})
+	w.done = done
 
 	// Create the queue directory if it doesn't already exist.
 	if err := os.MkdirAll(w.dir, 0700); err != nil {
@@ -139,41 +138,18 @@ func (w *WriteReplayer) Open() error {
 	}
 	w.queue = queue
 
-	w.wg.Add(1)
 	go w.run()
 
 	return nil
 }
 
-// Close closes the WriteReplayer, terminating all data tranmission to the node.
+// close closes the WriteReplayer, terminating all data tranmission to the node.
 // When closed it will not accept hinted-handoff data.
-func (w *WriteReplayer) Close() error {
+func (w *WriteReplayer) close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-
-	if w.done == nil {
-		// Already closed.
-		return nil
-	}
-
-	close(w.done)
-	w.wg.Wait()
-	w.done = nil
 
 	return w.queue.Close()
-}
-
-// Purge deletes all hinted-handoff data under management by a WriteReplayer.
-// The WriteReplayer should be in the closed state before calling this function.
-func (w *WriteReplayer) Purge() error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	if w.done != nil {
-		return fmt.Errorf("write replayer is open")
-	}
-
-	return os.RemoveAll(w.dir)
 }
 
 func (w *WriteReplayer) Write(points []*rpc.Point) error {
@@ -207,7 +183,7 @@ func (w *WriteReplayer) Write(points []*rpc.Point) error {
 // run attempts to send any existing hinted handoff data to the target node. It also purges
 // any hinted handoff data older than the configured time.
 func (w *WriteReplayer) run() {
-	defer w.wg.Done()
+	defer w.close()
 
 	currInterval := w.RetryInterval
 	if currInterval > w.RetryMaxInterval {
