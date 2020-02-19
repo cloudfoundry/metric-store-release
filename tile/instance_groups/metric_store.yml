@@ -5,7 +5,6 @@ templates:
   - $( job "metric-store" )
   - $( job "metric-store-nozzle" )
   - $( job "metric-store-cf-auth-proxy" )
-  - $( job "prom_scraper" )
   - $( job "loggregator_agent" )
   - $( job "route_registrar" )
   - $( job "bpm" )

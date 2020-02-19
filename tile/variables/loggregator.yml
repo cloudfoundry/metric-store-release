@@ -10,10 +10,3 @@
     common_name: loggregator_agent
     extended_key_usage:
     - server_auth
-- name: prom_scraper_metrics_tls
-  type: certificate
-  options:
-    ca: metric_scraper_ca
-    common_name: prom_scraper_metrics
-    extended_key_usage:
-    - server_auth
