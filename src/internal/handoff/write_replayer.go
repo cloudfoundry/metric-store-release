@@ -62,19 +62,19 @@ type WriteReplayer struct {
 	done chan struct{}
 
 	queue  *Queue
-	client TCPCLient
+	client tcpClient
 
 	log     *logger.Logger
 	metrics debug.MetricRegistrar
 }
 
-type TCPCLient interface {
+type tcpClient interface {
 	Write(data []byte) (int, error)
 }
 
 // NewWriteReplayer returns a new WriteReplayer for the given node, using dir for
 // the hinted-handoff data.
-func NewWriteReplayer(dir string, c TCPCLient, metrics debug.MetricRegistrar, targetNodeIndex string, opts ...WriteReplayerOption) *WriteReplayer {
+func NewWriteReplayer(dir string, c tcpClient, metrics debug.MetricRegistrar, targetNodeIndex string, opts ...WriteReplayerOption) *WriteReplayer {
 	w := &WriteReplayer{
 		PurgeInterval:    DefaultPurgeInterval,
 		RetryInterval:    DefaultRetryInterval,
