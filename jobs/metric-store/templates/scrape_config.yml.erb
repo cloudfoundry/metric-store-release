@@ -74,7 +74,7 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
     static_configs:
       <% metric_store_blackbox.instances.each do |blackbox| %>
       - targets:
-        - <%= blackbox.address %>:<%= blackbox.p('health_port') %>
+        - <%= blackbox.address %>:<%= metric_store_blackbox.p('health_port') %>
         labels:
           id: <%= blackbox.id %>
           ip: <%= blackbox.address %>
