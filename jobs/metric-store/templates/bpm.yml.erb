@@ -7,23 +7,22 @@
   # GOAL - order instances with one per AZ so sequential nodes span AZs
   # given: [ { 1, "west" }, { 2, "west" }, { 3, "east" }, { 4, "east" }, { 5, "europe" } ]
   # want: [ 1, 3, 5, 2, 4 ]
-  addresses_grouped_by_az = ms.instances.
+  instances_grouped_by_az = ms.instances.
     group_by(&:az).
     values.
     sort_by {|g| [g.size, g.first.az]}.
     reverse.
     map {|g| g.sort_by(&:address)}
 
-  sorted_addrs = addresses_grouped_by_az.shift.
-    zip(*addresses_grouped_by_az).
+  ordered_instances = instances_grouped_by_az.shift.
+    zip(*instances_grouped_by_az).
     flatten.
-    compact.
-    map(&:address)
+    compact
 
-  store_addrs = sorted_addrs.map {|i| "#{i.address}:#{p('port')}"}
-  internode_addrs = sorted_addrs.map {|i| "#{i.address}:#{p('internode_port')}"}
-  index = sorted_addrs.index(
-    sorted_addrs.find {|i| i.id == spec.id}
+  store_addrs = ordered_instances.map {|i| "#{i.address}:#{p('port')}"}
+  internode_addrs = ordered_instances.map {|i| "#{i.address}:#{p('internode_port')}"}
+  index = ordered_instances.index(
+    ordered_instances.find {|i| i.id == spec.id}
   )
 %>
 ---
