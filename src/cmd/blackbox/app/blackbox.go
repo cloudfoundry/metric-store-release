@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox/metricscanner"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
@@ -59,8 +58,6 @@ func (b *BlackboxApp) Run() {
 	}
 
 	b.StartCalculators(egressClient, stopChan)
-	// not sure exactly what we want from this
-	//b.StartMetricScanner(egressClient)
 
 	<-stopChan
 }
@@ -108,20 +105,6 @@ func (b *BlackboxApp) StartReliabilityCalculator(tlsConfig *tls.Config, egressCl
 	}
 	go rc.EmitReliabilityMetrics(ingressClient, stopChan)
 	go rc.CalculateReliability(egressClient, stopChan)
-}
-
-func (b *BlackboxApp) StartMetricScanner(egressClient blackbox.QueryableClient) {
-	go func() {
-		b.log.Info("metric scanner: starting")
-		t := time.NewTicker(15 * time.Minute)
-		scanner := metricscanner.NewMetricScanner(egressClient, b.debugRegistrar, b.log)
-		for range t.C {
-			err := scanner.TestCurrentMetrics()
-			if err != nil {
-				b.log.Error("metric scanner: couldn't get current metrics", err)
-			}
-		}
-	}()
 }
 
 // DebugAddr returns the address (host and port) that the debug server is bound
