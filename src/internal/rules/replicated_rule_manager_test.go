@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("Rules", func() {
 	Describe("#CreateManager", func() {
-		It("creates a manager on all nodes, regardless if one fails", func() {
+		It("creates a manager on respective nodes, regardless if one fails", func() {
 			localRuleManager := testing.NewRuleManagerSpy()
 			localRuleManager.CreateManager("app-metrics", "")
 
@@ -30,7 +30,7 @@ var _ = Describe("Rules", func() {
 				Title:  "error",
 			})
 
-			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", "url-not-used", spyRulesApi.Addr()}, 2, tlsClientConfig)
+			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", spyRulesApi.Addr(), "url-not-used"}, 2, tlsClientConfig)
 			err = ruleManager.CreateManager("app-metrics", "")
 			Expect(err).To(HaveOccurred())
 
@@ -60,7 +60,7 @@ var _ = Describe("Rules", func() {
 			Expect(localRuleManager.MethodsCalled()).To(ContainElement("DeleteManager"))
 		})
 
-		It("deletes a manager on all nodes, regardless if one fails", func() {
+		It("deletes a manager on respective nodes, regardless if one fails", func() {
 			localRuleManager := testing.NewRuleManagerSpy()
 			tlsServerConfig := testing.MutualTLSServerConfig()
 			tlsClientConfig := testing.MutualTLSClientConfig()
@@ -74,7 +74,7 @@ var _ = Describe("Rules", func() {
 				Title:  "error",
 			})
 
-			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", "url-not-used", spyRulesApi.Addr()}, 2, tlsClientConfig)
+			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", spyRulesApi.Addr(), "url-not-used"}, 2, tlsClientConfig)
 
 			err = ruleManager.DeleteManager("app-metrics")
 			Expect(err).To(HaveOccurred())
@@ -103,7 +103,7 @@ var _ = Describe("Rules", func() {
 			Expect(localRuleManager.MethodsCalled()).To(ContainElement("UpsertRuleGroup"))
 		})
 
-		It("upserts a rule group on all nodes, regardless if one fails", func() {
+		It("upserts a rule group on respective nodes, regardless if one fails", func() {
 			localRuleManager := testing.NewRuleManagerSpy()
 			tlsServerConfig := testing.MutualTLSServerConfig()
 			tlsClientConfig := testing.MutualTLSClientConfig()
@@ -117,7 +117,7 @@ var _ = Describe("Rules", func() {
 				Title:  "error",
 			})
 
-			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", "url-not-used", spyRulesApi.Addr()}, 2, tlsClientConfig)
+			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", spyRulesApi.Addr(), "url-not-used"}, 2, tlsClientConfig)
 
 			err = ruleManager.UpsertRuleGroup("app-metrics", &rulesclient.RuleGroup{
 				Name: "app-metrics-rule-group",
