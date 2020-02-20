@@ -147,7 +147,7 @@ func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 			Help: "Number of metrics retrieved by benchmark query against blackbox_performance_canary"}),
 	)
 
-	debugAddr := fmt.Sprintf("localhost:%d", b.cfg.HealthPort)
+	debugAddr := fmt.Sprintf(":%d", b.cfg.HealthPort)
 	b.log.Info("\n serving metrics on", zap.String("debug address", debugAddr))
 	b.debugLis = debug.StartServer(
 		debugAddr,
