@@ -19,6 +19,7 @@ provides:
   type: metric-store-blackbox
   properties:
   - health_port
+  - deployment
 
 consumes:
 - name: metric-store
@@ -46,6 +47,8 @@ properties:
   health_port:
     description: "The port for the Blackbox to bind a health endpoint"
     default: 6066
+  deployment:
+    description: "The deployment name for the Blackbox, used to tag metrics"
 
   cf_blackbox.enabled:
     description: "Test HTTP egress which uses CF-based UAA authentication"
