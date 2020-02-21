@@ -79,7 +79,7 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
           id: <%= blackbox.id %>
           ip: <%= blackbox.address %>
           index: <%= blackbox.index %>
-          deployment: <%= metric_store_blackbox.p('deployment') %>
+          deployment: <%= metric_store_blackbox.p('deployment', 'unknown') %>
       <% end %>
   <% end %>
 <% end %>
