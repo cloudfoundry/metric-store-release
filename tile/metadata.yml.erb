@@ -13,6 +13,10 @@ provides_product_versions:
 - name: metric-store
   version: $( version )
 
+requires_product_versions:
+- name: cf
+  version: '>= 2.6'
+
 stemcell_criteria:
   os: ubuntu-xenial
   version: '<%= stemcell_version %>'
