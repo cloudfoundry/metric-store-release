@@ -133,16 +133,7 @@ func (c *mockClient) Query(context.Context, string, time.Time) (model.Value, pro
 	}
 
 	ts := 0
-	for i := 0; i <= 200; i++ {
-		points = append(points, model.SamplePair{
-			Timestamp: model.Time(int64(ts + i*1000)),
-			Value:     10.0,
-		})
-	}
-
-	// TODO: What did 201 ever do to you?
-
-	for i := 202; i < (responseCount + 1); i++ {
+	for i := 0; i < responseCount; i++ {
 		points = append(points, model.SamplePair{
 			Timestamp: model.Time(int64(ts + i*1000)),
 			Value:     10.0,
@@ -169,5 +160,5 @@ func (c *mockUnresponsiveClient) Query(context.Context, string, time.Time) (mode
 }
 
 func (c *mockUnresponsiveClient) LabelValues(context.Context, string) (model.LabelValues, prom_http_client.Warnings, error) {
-	return nil, nil, nil
+	panic("unimplemented")
 }
