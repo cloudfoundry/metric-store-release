@@ -40,6 +40,7 @@ require (
 	github.com/tinylib/msgp v1.1.1 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	go.uber.org/zap v1.13.0
+	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	google.golang.org/grpc v1.24.0
