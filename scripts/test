@@ -102,7 +102,7 @@ function run_unit {
   rm ${race_log}
   echo "No races found"
 
-  print_checkpoint "Running Unit Tests"
+  print_checkpoint "Running Tests"
   go test -mod=vendor $tests \
     ${TEST_OPTIONS} \
     $@
