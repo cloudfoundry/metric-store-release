@@ -108,8 +108,3 @@ properties:
     description: "The cert for metric-store metrics mutual TLS client."
   metric_store_metrics_client.tls.key:
     description: "The private key for metric-store metrics mutual TLS client."
-
-  alertmanager.addr:
-    description: "Address of the alertmanager HTTP API."
-  rules_path:
-    description: "Path to the rules file for recording rules or alertmanager."

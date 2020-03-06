@@ -124,8 +124,6 @@ func (m *MetricStoreApp) Run() {
 		metricstore.WithAddr(m.cfg.Addr),
 		metricstore.WithIngressAddr(m.cfg.IngressAddr),
 		metricstore.WithInternodeAddr(m.cfg.InternodeAddr),
-		metricstore.WithAlertmanagerAddr(m.cfg.AlertmanagerAddr),
-		metricstore.WithRulesPath(m.cfg.RulesPath),
 		metricstore.WithScrapeConfigPath(m.cfg.ScrapeConfigPath),
 		metricstore.WithClustered(
 			m.cfg.NodeIndex,

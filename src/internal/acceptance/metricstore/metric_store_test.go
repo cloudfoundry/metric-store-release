@@ -168,7 +168,6 @@ var _ = Describe("MetricStore", func() {
 				"METRIC_STORE_METRICS_KEY_PATH=" + tc.key,
 				"RULES_PATH=" + tc.rulesPath,
 				"SCRAPE_CONFIG_PATH=" + tc.scrapeConfigPath,
-				"ALERTMANAGER_ADDR=" + tc.alertmanagerAddr,
 				"REPLICATION_FACTOR=" + strconv.Itoa(tc.replicationFactor),
 			},
 		)
@@ -267,21 +266,9 @@ var _ = Describe("MetricStore", func() {
 		}
 	}
 
-	var WithOptionRulesPath = func(path string) WithTestContextOption {
-		return func(tc *testContext) {
-			tc.rulesPath = path
-		}
-	}
-
 	var WithOptionScrapeConfigPath = func(path string) WithTestContextOption {
 		return func(tc *testContext) {
 			tc.scrapeConfigPath = path
-		}
-	}
-
-	var WithOptionAlertManagerAddr = func(addr string) WithTestContextOption {
-		return func(tc *testContext) {
-			tc.alertmanagerAddr = addr
 		}
 	}
 
@@ -1113,34 +1100,29 @@ scrape_configs:
 		Expect(body).To(ContainSubstring("go_threads"))
 	})
 
-	It("processes recording rules to record metrics", func() {
-		rules_yml := []byte(`
----
-groups:
-- name: example
-  interval: 1s
-  rules:
-  - record: testRecordingRule
-    expr: avg(metric_store_test_metric) by (node)
-    labels:
-      foo: bar
-`)
-
-		tmpfile, err := ioutil.TempFile("", "rules_yml")
-		Expect(err).NotTo(HaveOccurred())
-		defer os.Remove(tmpfile.Name())
-		if _, err := tmpfile.Write(rules_yml); err != nil {
-			log.Fatal(err)
-		}
-		if err := tmpfile.Close(); err != nil {
-			log.Fatal(err)
-		}
-
-		tc, cleanup := setup(
-			1,
-			WithOptionRulesPath(tmpfile.Name()),
-		)
+	It("Adds recording rules via API and records metrics", func() {
+		tc, cleanup := setup(1)
 		defer cleanup()
+
+		localRulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
+		_, apiErr := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		Expect(apiErr).ToNot(HaveOccurred())
+
+		_, apiErr = localRulesClient.UpsertRuleGroup(
+			MAGIC_MANAGER_NAME,
+			rulesclient.RuleGroup{
+				Name:     "example",
+				Interval: rulesclient.Duration(time.Minute),
+				Rules: []rulesclient.Rule{{
+					Record: "testRecordingRule",
+					Expr:   "avg(metric_store_test_metric) by (node)",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				}},
+			},
+		)
+		Expect(apiErr).ToNot(HaveOccurred())
 
 		client, err := ingressclient.NewIngressClient(
 			tc.ingressAddrs[0],
@@ -1253,82 +1235,7 @@ groups:
 
 			return true
 		}
-		Eventually(checkForRecordedMetric, 5).Should(BeTrue())
-	})
-
-	It("processes alerting rules to trigger alerts", func() {
-		rules_yml := []byte(`
----
-groups:
-- name: example
-  interval: 1s
-  rules:
-  - alert: HighNumberOfTestMetrics
-    expr: metric_store_test_metric > 2
-    for: 1s
-    labels:
-      severity: page
-    annotations:
-      summary: High Test Metric Count
-      description: this is a good thing
-`)
-
-		tmpfile, err := ioutil.TempFile("", "rules_yml")
-		Expect(err).NotTo(HaveOccurred())
-		defer os.Remove(tmpfile.Name())
-		if _, err := tmpfile.Write(rules_yml); err != nil {
-			log.Fatal(err)
-		}
-		if err := tmpfile.Close(); err != nil {
-			log.Fatal(err)
-		}
-
-		spyAlertManager := testing.NewAlertManagerSpy()
-		spyAlertManager.Start()
-
-		tc, cleanup := setup(
-			1,
-			WithOptionRulesPath(tmpfile.Name()),
-			WithOptionAlertManagerAddr(spyAlertManager.Addr()),
-		)
-		defer cleanup()
-		defer spyAlertManager.Stop()
-
-		client, err := ingressclient.NewIngressClient(
-			tc.ingressAddrs[0],
-			tc.tlsConfig,
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		points := []*rpc.Point{
-			{
-				Name:      "metric_store_test_metric",
-				Timestamp: time.Now().UnixNano(),
-				Value:     1,
-				Labels: map[string]string{
-					"node": "1",
-				},
-			},
-			{
-				Name:      "metric_store_test_metric",
-				Timestamp: time.Now().UnixNano(),
-				Value:     2,
-				Labels: map[string]string{
-					"node": "2",
-				},
-			},
-			{
-				Name:      "metric_store_test_metric",
-				Timestamp: time.Now().UnixNano(),
-				Value:     3,
-				Labels: map[string]string{
-					"node": "3",
-				},
-			},
-		}
-		err = client.Write(points)
-
-		Eventually(spyAlertManager.AlertsReceived, 20).Should(BeNumerically(">", 0))
+		Eventually(checkForRecordedMetric, 65).Should(BeTrue())
 	})
 
 	It("processes alerting rules to trigger alerts for multiple tenants", func() {

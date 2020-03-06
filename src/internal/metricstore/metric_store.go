@@ -91,8 +91,6 @@ type MetricStore struct {
 	// externally and instead will store all of it.
 	internodeAddrs []string
 
-	alertmanagerAddr string
-	rulesPath        string
 	scrapeConfigPath string
 	storagePath      string
 	queryLogPath     string
@@ -175,13 +173,6 @@ func WithInternodeAddr(internodeAddr string) MetricStoreOption {
 	}
 }
 
-// WithAlertmanagerAddr configures the address where an alertmanager is.
-func WithAlertmanagerAddr(alertmanagerAddr string) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.alertmanagerAddr = alertmanagerAddr
-	}
-}
-
 // WithClustered enables the MetricStore to route data to peer nodes. It hashes
 // each point by Name and SourceId and routes data that does not belong on the node
 // to the correct node. NodeAddrs is a slice of node addresses where the slice
@@ -235,14 +226,6 @@ func WithHandoffStoragePath(handoffStoragePath string) MetricStoreOption {
 func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.queryTimeout = queryTimeout
-	}
-}
-
-// WithRulesPath sets the path where configuration for alerting rules can be
-// found
-func WithRulesPath(rulesPath string) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.rulesPath = rulesPath
 	}
 }
 
@@ -414,10 +397,6 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 }
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
-	if store.rulesPath != "" {
-		store.promRuleManagers.Create("default", store.rulesPath, store.alertmanagerAddr)
-	}
-
 	rulesDir := path.Join(store.storagePath, "rules")
 	files, err := ioutil.ReadDir(rulesDir)
 	if err != nil {

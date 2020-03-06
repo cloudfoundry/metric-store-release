@@ -67,9 +67,7 @@ processes:
     NODE_ADDRS:      "<%= store_addrs.join(",") %>"
     INTERNODE_ADDRS: "<%= internode_addrs.join(",") %>"
 
-    # Alertmanager and Recording Rules Configuration
-    ALERTMANAGER_ADDR: "<%= p('alertmanager.addr', '') %>"
-    RULES_PATH:        "<%= p('rules_path', '') %>"
+    # Config for Prometheus metric scrapers
     SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
 
   limits:
