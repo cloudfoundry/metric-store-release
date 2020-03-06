@@ -47,9 +47,14 @@ func NewCFAuthProxy(metricStoreAddr, addr, caPath string, log *logger.Logger, op
 		o(p)
 	}
 
-	// Force communication with Metric Store to happen via HTTPS
+	// If CA is given force communication with Metric Store to happen via HTTPS.
+	// Otherwise, allow HTTP communication (K8s service mesh handles TLS).
 	var err error
-	p.metricStoreURL, err = url.Parse(fmt.Sprintf("https://%s", metricStoreAddr))
+	if p.caPath != "" {
+		p.metricStoreURL, err = url.Parse(fmt.Sprintf("https://%s", metricStoreAddr))
+	} else {
+		p.metricStoreURL, err = url.Parse(fmt.Sprintf("http://%s", metricStoreAddr))
+	}
 	if err != nil {
 		p.log.Fatal("failed to parse metric-store address", err)
 	}
@@ -168,12 +173,16 @@ func (p *CFAuthProxy) Addr() string {
 func (p *CFAuthProxy) reverseProxy() *httputil.ReverseProxy {
 	proxy := httputil.NewSingleHostReverseProxy(p.metricStoreURL)
 
-	defaultTLSConfig, err := sharedtls.NewTLSClientConfig(
-		p.caPath,
-		"metric-store",
-	)
-	if err != nil {
-		p.log.Fatal("failed to create reverse proxy TLS config", err)
+	var defaultTLSConfig *tls.Config
+	if p.caPath != "" {
+		var err error
+		defaultTLSConfig, err = sharedtls.NewTLSClientConfig(
+			p.caPath,
+			"metric-store",
+		)
+		if err != nil {
+			p.log.Fatal("failed to create reverse proxy TLS config", err)
+		}
 	}
 
 	// Aside from the Root CA for the gateway, these values are defaults
