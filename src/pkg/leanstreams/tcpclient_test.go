@@ -47,7 +47,7 @@ var (
 
 	listenConfig = TCPListenerConfig{
 		MaxMessageSize: 2048,
-		EnableLogging:  true,
+		Logger:         log.New(os.Stdout, "leanstreams", log.LstdFlags),
 		Address:        FormatAddress("", strconv.Itoa(5033)),
 		Callback:       exampleCallback,
 		TLSConfig:      tlsServerConfig,
@@ -55,7 +55,7 @@ var (
 
 	listenConfig2 = TCPListenerConfig{
 		MaxMessageSize: 2048,
-		EnableLogging:  true,
+		Logger:         log.New(os.Stdout, "leanstreams", log.LstdFlags),
 		Address:        FormatAddress("", strconv.Itoa(5034)),
 		Callback:       exampleCallback,
 		TLSConfig:      tlsServerConfig,
@@ -63,7 +63,7 @@ var (
 
 	listenConfig3 = TCPListenerConfig{
 		MaxMessageSize: 2048,
-		EnableLogging:  true,
+		Logger:         log.New(os.Stdout, "leanstreams", log.LstdFlags),
 		Address:        FormatAddress("", strconv.Itoa(5035)),
 		Callback:       exampleCallback,
 		TLSConfig:      tlsServerConfig,
@@ -164,7 +164,7 @@ func TestDialTCPUntilConnected(t *testing.T) {
 
 	serverConfig := TCPListenerConfig{
 		MaxMessageSize: 2048,
-		EnableLogging:  true,
+		Logger:         log.New(os.Stdout, "leanstreams", log.LstdFlags),
 		Address:        FormatAddress("", strconv.Itoa(5036)),
 		Callback:       exampleCallback,
 		TLSConfig:      tlsServerConfig,
@@ -199,7 +199,7 @@ func TestDialTCPUntilConnectedTimeout(t *testing.T) {
 
 	serverConfig := TCPListenerConfig{
 		MaxMessageSize: 2048,
-		EnableLogging:  true,
+		Logger:         log.New(os.Stdout, "leanstreams", log.LstdFlags),
 		Address:        FormatAddress("", strconv.Itoa(5037)),
 		Callback:       exampleCallback,
 		TLSConfig:      tlsServerConfig,

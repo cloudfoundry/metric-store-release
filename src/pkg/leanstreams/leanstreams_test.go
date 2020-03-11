@@ -90,7 +90,7 @@ var _ = Describe("Leanstreams", func() {
 		maxMessageSize := 100
 		listenConfig := TCPListenerConfig{
 			MaxMessageSize: maxMessageSize,
-			EnableLogging:  true,
+			Logger:         log.New(GinkgoWriter, "leanstreams", log.LstdFlags),
 			Address:        ":0",
 			Callback:       tc.Callback,
 			TLSConfig:      tlsServerConfig,
