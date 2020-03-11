@@ -19,6 +19,7 @@ type TCPClient struct {
 	tlsConfig      *tls.Config
 	headerByteSize int
 	MaxMessageSize int
+	logger         Logger
 
 	// For processing incoming data
 	incomingHeaderBuffer []byte
@@ -41,6 +42,8 @@ type TCPClientConfig struct {
 	Address string
 
 	TLSConfig *tls.Config
+
+	Logger Logger
 }
 
 func newTCPClient(cfg *TCPClientConfig) *TCPClient {
@@ -191,7 +194,9 @@ func (c *TCPClient) write(data []byte) (int, error) {
 		} else {
 			_, writeError = c.socket.Write(emptyBuffer)
 			if writeError != nil {
-				fmt.Printf("Error writing: %s\n", writeError)
+				if c.logger != nil {
+					c.logger.Printf("Error writing: %s", writeError)
+				}
 				c.closeSocket()
 			} else {
 				totalBytesWritten += bytesWritten

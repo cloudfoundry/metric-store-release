@@ -2,7 +2,6 @@ package leanstreams
 
 import (
 	"crypto/tls"
-	"log"
 	"net"
 	"sync"
 )
@@ -18,7 +17,7 @@ type ListenCallback func([]byte) error
 // protocolbuffer data without having to write a ton of boilerplate
 type TCPListener struct {
 	socket          net.Listener
-	enableLogging   bool
+	logger          Logger
 	callback        ListenCallback
 	shutdownChannel chan struct{}
 	shutdownGroup   *sync.WaitGroup
@@ -32,6 +31,10 @@ type TCPListener struct {
 	countMu sync.Mutex
 }
 
+type Logger interface {
+	Printf(v string, args ...interface{})
+}
+
 // TCPListenerConfig representss the information needed to begin listening for
 // incoming messages.
 type TCPListenerConfig struct {
@@ -39,7 +42,8 @@ type TCPListenerConfig struct {
 	// header size does not match this configuration
 	MaxMessageSize int
 	// Controls the ability to enable logging errors occurring in the library
-	EnableLogging bool
+	Logger Logger
+
 	// The local address to listen for incoming connections on. Typically, you exclude
 	// the ip, and just provide port, ie: ":5031"
 	Address string
@@ -67,7 +71,7 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 	}
 
 	btl := &TCPListener{
-		enableLogging:   cfg.EnableLogging,
+		logger:          cfg.Logger,
 		callback:        cfg.Callback,
 		shutdownChannel: make(chan struct{}),
 		shutdownGroup:   &sync.WaitGroup{},
@@ -92,8 +96,8 @@ func (t *TCPListener) blockListen() error {
 		c, err := t.socket.Accept()
 
 		if err != nil {
-			if t.enableLogging {
-				log.Printf("Error attempting to accept connection: %s", err)
+			if t.logger != nil {
+				t.logger.Printf("Error attempting to accept connection: %s", err)
 			}
 			// Stole this approach from http://zhen.org/blog/graceful-shutdown-of-go-net-dot-listeners/
 			// Benefits of a channel for the simplicity of use, but don't have to even check it
@@ -233,8 +237,8 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 	for {
 		msgLen, err := conn.Read(dataBuffer)
 		if err != nil {
-			if t.enableLogging {
-				log.Printf("Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
+			if t.logger != nil {
+				t.logger.Printf("Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
 			}
 			conn.Close()
 			t.countMu.Lock()
@@ -248,8 +252,8 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 			continue
 		}
 
-		if err = t.callback(dataBuffer[:msgLen]); err != nil && t.enableLogging {
-			log.Printf("Error in Callback: %s", err.Error())
+		if err = t.callback(dataBuffer[:msgLen]); err != nil && t.logger != nil {
+			t.logger.Printf("Error in Callback: %s", err.Error())
 			// TODO if it's a protobuffs error, it means we likely had an issue and can't
 			// deserialize data? Should we kill the connection and have the client start over?
 			// At this point, there isn't a reliable recovery mechanic for the server
