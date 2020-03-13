@@ -108,11 +108,20 @@ func (c *TCPClient) Open() error {
 		return err
 	}
 	// TODO: consider adding a timeout
-	secureConnection, err := tls.Dial("tcp", tcpAddr.String(), c.tlsConfig)
-	if err != nil {
-		return err
+	var conn net.Conn
+	if c.tlsConfig != nil {
+		conn, err = tls.Dial("tcp", tcpAddr.String(), c.tlsConfig)
+		if err != nil {
+			return err
+		}
+	} else {
+		conn, err = net.Dial("tcp", tcpAddr.String())
+		if err != nil {
+			return err
+		}
 	}
-	c.socket = secureConnection
+
+	c.socket = conn
 	return err
 }
 
