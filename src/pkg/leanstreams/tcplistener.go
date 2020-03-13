@@ -138,14 +138,20 @@ func (t *TCPListener) openSocket() error {
 	if err != nil {
 		return err
 	}
-	insecureConnection, err := net.ListenTCP("tcp", tcpAddr)
+
+	var conn net.Listener
+
+	conn, err = net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		return err
 	}
-	secureConnection := tls.NewListener(insecureConnection, t.tlsConfig)
 
-	t.socket = secureConnection
-	t.Address = insecureConnection.Addr().String()
+	if t.tlsConfig != nil {
+		conn = tls.NewListener(conn, t.tlsConfig)
+	}
+
+	t.socket = conn
+	t.Address = conn.Addr().String()
 	return err
 }
 
