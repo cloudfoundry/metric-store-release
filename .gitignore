@@ -8,6 +8,7 @@ releases/**/*.tgz
 .final_builds/packages/**/*.tgz
 .DS_Store
 .idea
+.vscode
 *.swp
 *~
 *#
