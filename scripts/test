@@ -153,7 +153,7 @@ function parse_argc {
             command=run_$arg
             ;;
         *)
-            echo "Invalid command: $arg\n"
+            echo "Invalid command: $arg"
             print_usage
             exit 1
             ;;
