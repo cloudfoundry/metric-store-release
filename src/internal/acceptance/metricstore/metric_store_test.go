@@ -28,7 +28,11 @@ import (
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
+	prom_config "github.com/prometheus/prometheus/config"
+	sd_config "github.com/prometheus/prometheus/discovery/config"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
 
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
@@ -109,9 +113,7 @@ var _ = Describe("MetricStore", func() {
 		cert                 string
 		key                  string
 
-		rulesPath         string
 		scrapeConfigPath  string
-		alertmanagerAddr  string
 		localEgressClient prom_versioned_api_client.API
 		peerEgressClient  prom_versioned_api_client.API
 		replicationFactor int
@@ -166,7 +168,6 @@ var _ = Describe("MetricStore", func() {
 				"METRIC_STORE_METRICS_CA_PATH=" + tc.caCert,
 				"METRIC_STORE_METRICS_CERT_PATH=" + tc.cert,
 				"METRIC_STORE_METRICS_KEY_PATH=" + tc.key,
-				"RULES_PATH=" + tc.rulesPath,
 				"SCRAPE_CONFIG_PATH=" + tc.scrapeConfigPath,
 				"REPLICATION_FACTOR=" + strconv.Itoa(tc.replicationFactor),
 			},
@@ -1105,7 +1106,7 @@ scrape_configs:
 		defer cleanup()
 
 		localRulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
-		_, apiErr := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		_, apiErr := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, nil)
 		Expect(apiErr).ToNot(HaveOccurred())
 
 		_, apiErr = localRulesClient.UpsertRuleGroup(
@@ -1242,11 +1243,11 @@ scrape_configs:
 		tc, cleanup := setup(1)
 		defer cleanup()
 
-		spyAlertManagerCpu := testing.NewAlertManagerSpy()
+		spyAlertManagerCpu := testing.NewAlertManagerSpy(tc.tlsConfig)
 		spyAlertManagerCpu.Start()
 		defer spyAlertManagerCpu.Stop()
 
-		spyAlertManagerMemory := testing.NewAlertManagerSpy()
+		spyAlertManagerMemory := testing.NewAlertManagerSpy(tc.tlsConfig)
 		spyAlertManagerMemory.Start()
 		defer spyAlertManagerMemory.Stop()
 
@@ -1254,7 +1255,33 @@ scrape_configs:
 
 		rulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
 
-		_, apiErr := rulesClient.CreateManager("cpu_manager", spyAlertManagerCpu.Addr())
+		_, apiErr := rulesClient.CreateManager(
+			"cpu_manager",
+			&prom_config.AlertmanagerConfigs{{
+				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
+					StaticConfigs: []*targetgroup.Group{
+						{
+							Targets: []model.LabelSet{
+								{
+									"__address__": model.LabelValue(spyAlertManagerCpu.Addr()),
+								},
+							},
+						},
+					},
+				},
+				Scheme:     "https",
+				Timeout:    10000000000,
+				APIVersion: prom_config.AlertmanagerAPIVersionV2,
+				HTTPClientConfig: config.HTTPClientConfig{
+					TLSConfig: config.TLSConfig{
+						CAFile:     tc.caCert,
+						CertFile:   tc.cert,
+						KeyFile:    tc.key,
+						ServerName: "metric-store",
+					},
+				},
+			}},
+		)
 		Expect(apiErr).ToNot(HaveOccurred())
 
 		_, apiErr = rulesClient.UpsertRuleGroup(
@@ -1272,7 +1299,33 @@ scrape_configs:
 		)
 		Expect(apiErr).ToNot(HaveOccurred())
 
-		_, apiErr = rulesClient.CreateManager("memory_manager", spyAlertManagerMemory.Addr())
+		_, apiErr = rulesClient.CreateManager(
+			"memory_manager",
+			&prom_config.AlertmanagerConfigs{{
+				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
+					StaticConfigs: []*targetgroup.Group{
+						{
+							Targets: []model.LabelSet{
+								{
+									"__address__": model.LabelValue(spyAlertManagerMemory.Addr()),
+								},
+							},
+						},
+					},
+				},
+				Scheme:     "https",
+				Timeout:    10000000000,
+				APIVersion: prom_config.AlertmanagerAPIVersionV2,
+				HTTPClientConfig: config.HTTPClientConfig{
+					TLSConfig: config.TLSConfig{
+						CAFile:     tc.caCert,
+						CertFile:   tc.cert,
+						KeyFile:    tc.key,
+						ServerName: "metric-store",
+					},
+				},
+			}},
+		)
 		Expect(apiErr).ToNot(HaveOccurred())
 
 		_, apiErr = rulesClient.UpsertRuleGroup(
@@ -1344,16 +1397,42 @@ scrape_configs:
 		Eventually(spyAlertManagerMemory.AlertsReceived, 80).Should(BeNumerically(">", 0))
 	})
 
-	It("Adds rules via API and persists rules across restarts", func() {
+	It("Adds rule managers via API and persists rule managers across restarts", func() {
 		tc, cleanup := setup(2)
 		defer cleanup()
+
+		spyAlertManager := testing.NewAlertManagerSpy(tc.tlsConfig)
+		spyAlertManager.Start()
+		defer spyAlertManager.Stop()
 
 		waitForApi(tc)
 
 		localRulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
 		peerRulesClient := rulesclient.NewRulesClient(tc.addrs[1], tc.tlsConfig)
 
-		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME,
+			&prom_config.AlertmanagerConfigs{{
+				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
+					StaticConfigs: []*targetgroup.Group{
+						{
+							Targets: []model.LabelSet{
+								{
+									"__address__": model.LabelValue(spyAlertManager.Addr()),
+									"__scheme__":  "https",
+								},
+							},
+						},
+					},
+				},
+				Timeout:    10000000000,
+				APIVersion: prom_config.AlertmanagerAPIVersionV2,
+				HTTPClientConfig: config.HTTPClientConfig{
+					TLSConfig: config.TLSConfig{
+						InsecureSkipVerify: true,
+					},
+				},
+			}},
+		)
 		Expect(err).ToNot(HaveOccurred())
 
 		_, err = peerRulesClient.UpsertRuleGroup(
@@ -1371,7 +1450,7 @@ scrape_configs:
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = localRulesClient.CreateManager(MAGIC_MANAGER_PEER_NAME, "")
+		_, err = localRulesClient.CreateManager(MAGIC_MANAGER_PEER_NAME, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		_, err = peerRulesClient.UpsertRuleGroup(
@@ -1399,6 +1478,14 @@ scrape_configs:
 		}
 		Eventually(totalRuleCount, 5*time.Second).Should(Equal(2))
 
+		totalAlertManagers := func() int {
+			localAlertmanagers, err := tc.localEgressClient.AlertManagers(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+
+			return len(localAlertmanagers.Active) + len(localAlertmanagers.Dropped)
+		}
+		Eventually(totalAlertManagers, 5*time.Second).Should(Equal(1))
+
 		stopNode(tc, 0)
 		startNode(tc, 0)
 
@@ -1408,11 +1495,13 @@ scrape_configs:
 		}, 5).Should(Succeed())
 
 		Eventually(totalRuleCount, 5*time.Second).Should(Equal(2))
+		Eventually(totalAlertManagers, 5*time.Second).Should(Equal(1))
 
-		err = localRulesClient.DeleteManager(MAGIC_MANAGER_PEER_NAME)
+		err = peerRulesClient.DeleteManager(MAGIC_MANAGER_NAME)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(totalRuleCount, 10*time.Second).Should(Equal(1))
+		Eventually(totalAlertManagers, 5*time.Second).Should(Equal(0))
 	})
 
 	It("Returns consistent status codes regardless of which node is targeted", func() {
@@ -1468,7 +1557,7 @@ scrape_configs:
 		fileExistsOnNodes := func(paths []string, managerName string) int {
 			count := 0
 			for _, storagePath := range paths {
-				rulesPath := path.Join(storagePath, "rules")
+				rulesPath := path.Join(storagePath, "rule_managers")
 				managerPath := path.Join(rulesPath, managerName)
 
 				_, err := os.Stat(managerPath)
@@ -1487,7 +1576,7 @@ scrape_configs:
 			return fileExistsOnNodes(storagePaths, MAGIC_MANAGER_NAME) == 2
 		}
 
-		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(fileExistsOnTwoNodes).Should(BeTrue())
 
@@ -1498,7 +1587,7 @@ scrape_configs:
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(fileExistsOnZeroNodes).Should(BeTrue())
 
-		_, err = localRulesClient.CreateManager(MAGIC_MANAGER_NAME, "")
+		_, err = localRulesClient.CreateManager(MAGIC_MANAGER_NAME, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(fileExistsOnTwoNodes).Should(BeTrue())
 	})

@@ -75,17 +75,16 @@ func (a *RulesApiSpy) getNextError() *RulesApiHttpError {
 
 func (a *RulesApiSpy) createManager(rw http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	body, _ := ioutil.ReadAll(r.Body)
 
 	atomic.AddInt64(a.requestsReceived, 1)
 	a.lastRequestPathChan <- r.URL.String()
 
-	var receivedManagerData rulesclient.ManagerData
-	json.Unmarshal(body, &receivedManagerData)
+	managerConfig, _ := rulesclient.ManagerConfigFromJSON(r.Body)
+	payload, _ := managerConfig.ToJSON()
 
 	if !a.writeError(rw) {
 		rw.WriteHeader(http.StatusCreated)
-		rw.Write(body)
+		rw.Write(payload)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/rules"
 )
 
@@ -35,11 +36,11 @@ func NewReplicatedRuleManager(localRuleManager RuleManager, localIndex int, addr
 	return replicatedRuleManager
 }
 
-func (r *ReplicatedRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
+func (r *ReplicatedRuleManager) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) error {
 	var lastError error
 
 	for _, nodeIndex := range r.lookup(managerId) {
-		err := r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerAddr)
+		err := r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerConfigs)
 		if err != nil {
 			lastError = err
 		}

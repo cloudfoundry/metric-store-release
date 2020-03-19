@@ -1,7 +1,7 @@
 package rulesclient
 
 import (
-	"github.com/cloudfoundry/metric-store-release/src/pkg/validate"
+	prom_config "github.com/prometheus/prometheus/config"
 )
 
 type ApiErrors struct {
@@ -17,15 +17,7 @@ func (a *ApiError) Error() string {
 	return a.Title
 }
 
-type ManagerData struct {
-	Data Manager `json:"data"`
-}
-
-type Manager struct {
-	Id              string `json:"id"`
-	AlertManagerUrl string `json:"alertmanager_url"`
-}
-
-func (m *Manager) Validate() error {
-	return validate.AlertmanagerUrl(m.AlertManagerUrl)
+type Manager interface {
+	Id() string
+	AlertManagers() *prom_config.AlertmanagerConfigs
 }

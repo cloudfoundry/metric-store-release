@@ -10,6 +10,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/rules"
 )
 
@@ -39,8 +40,8 @@ func NewRemoteRuleManager(addr string, tlsConfig *tls.Config) *RemoteRuleManager
 	}
 }
 
-func (r *RemoteRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
-	_, err := r.rulesClient.CreateManager(managerId, alertmanagerAddr)
+func (r *RemoteRuleManager) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) error {
+	_, err := r.rulesClient.CreateManager(managerId, alertmanagerConfigs)
 
 	if err != nil {
 		switch err.Status {

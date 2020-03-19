@@ -27,6 +27,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
 
@@ -63,8 +64,8 @@ type testContext struct {
 	maxTimeInMilliseconds int64
 }
 
-func (tc *testContext) CreateRuleManager(managerId, alertmanagerAddr string) {
-	_, err := tc.rulesClient.CreateManager(managerId, alertmanagerAddr)
+func (tc *testContext) CreateRuleManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) {
+	_, err := tc.rulesClient.CreateManager(managerId, alertManagers)
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -184,8 +185,8 @@ var _ = Describe("MetricStore", func() {
 		tc, innerCleanup := setupWithPersistentStore(persistentStore, storagePath)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
 
-		tc.alertManager1 = testing.NewAlertManagerSpy()
-		tc.alertManager2 = testing.NewAlertManagerSpy()
+		tc.alertManager1 = testing.NewAlertManagerSpy(tc.tlsConfig)
+		tc.alertManager2 = testing.NewAlertManagerSpy(tc.tlsConfig)
 		tc.alertManager1.Start()
 		tc.alertManager2.Start()
 		tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsConfig)
@@ -364,13 +365,10 @@ var _ = Describe("MetricStore", func() {
 	Describe("Rules API", func() {
 		Describe("/rules/manager endpoint", func() {
 			It("Creates a rules manager with the provided ID", func() {
-				manager, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, "")
+				managerConfig, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, nil)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(manager).To(Equal(&rulesclient.Manager{
-					Id:              MAGIC_MEASUREMENT_NAME,
-					AlertManagerUrl: "",
-				}))
+				Expect(managerConfig.Id()).To(Equal(MAGIC_MEASUREMENT_NAME))
 			})
 		})
 
@@ -391,7 +389,7 @@ var _ = Describe("MetricStore", func() {
 
 			Context("when a rule manager exists", func() {
 				BeforeEach(func() {
-					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, "")
+					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
 				})
 
 				It("Creates a rule group", func() {

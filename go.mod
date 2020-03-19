@@ -45,6 +45,7 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	google.golang.org/grpc v1.24.0
 	gopkg.in/yaml.v2 v2.2.8
+	sigs.k8s.io/yaml v1.1.0
 )
 
 replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.7.9-0.20191029173138-5bd71457cbd5

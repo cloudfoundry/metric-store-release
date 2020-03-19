@@ -1,8 +1,8 @@
 package testing
 
 import (
+	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,12 +15,14 @@ type AlertManagerSpy struct {
 	server            *httptest.Server
 	alertsReceived    *int64
 	lastAlertReceived string
+	tlsConfig         *tls.Config
 }
 
-func NewAlertManagerSpy() *AlertManagerSpy {
+func NewAlertManagerSpy(tlsConfig *tls.Config) *AlertManagerSpy {
 	return &AlertManagerSpy{
 		alertsReceived:    new(int64),
 		lastAlertReceived: "",
+		tlsConfig:         tlsConfig,
 	}
 }
 
@@ -46,7 +48,9 @@ func (a *AlertManagerSpy) receive(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (a *AlertManagerSpy) Start() {
-	a.server = httptest.NewServer(http.HandlerFunc(a.receive))
+	a.server = httptest.NewUnstartedServer(http.HandlerFunc(a.receive))
+	a.server.TLS = a.tlsConfig
+	a.server.StartTLS()
 }
 
 func (a *AlertManagerSpy) Stop() {
@@ -55,5 +59,5 @@ func (a *AlertManagerSpy) Stop() {
 
 func (a *AlertManagerSpy) Addr() string {
 	addr, _ := url.Parse(a.server.URL)
-	return fmt.Sprintf("localhost:%s", addr.Port())
+	return addr.Host
 }

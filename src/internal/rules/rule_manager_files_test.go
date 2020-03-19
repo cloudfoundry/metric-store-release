@@ -10,29 +10,29 @@ import (
 
 var _ = Describe("RuleManagerFile", func() {
 	Describe("Delete", func() {
-		It("deletes the file for a manager", func() {
+		It("deletes the directory for a manager", func() {
 			tempStorage := testing.NewTempStorage()
 			defer tempStorage.Cleanup()
 
-			ruleManagerFile := NewRuleManagerFile(tempStorage.Path())
+			ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())
 
-			_, err := ruleManagerFile.Create("app-metrics", "")
+			_, err := ruleManagerFiles.Create("app-metrics", nil)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(tempStorage.FileNames()).To(ConsistOf("app-metrics"))
+			Expect(tempStorage.Directories()).To(ConsistOf("app-metrics"))
 
-			Expect(ruleManagerFile.Delete("app-metrics")).To(Succeed())
-			Expect(tempStorage.FileNames()).To(BeEmpty())
+			Expect(ruleManagerFiles.Delete("app-metrics")).To(Succeed())
+			Expect(tempStorage.Directories()).To(BeEmpty())
 		})
 
 		It("errors if manager file doesn't exist", func() {
 			tempStorage := testing.NewTempStorage()
 			defer tempStorage.Cleanup()
 
-			ruleManagerFile := NewRuleManagerFile(tempStorage.Path())
+			ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())
 
-			Expect(tempStorage.FileNames()).To(BeEmpty())
+			Expect(tempStorage.Directories()).To(BeEmpty())
 
-			err := ruleManagerFile.Delete("app-metrics")
+			err := ruleManagerFiles.Delete("app-metrics")
 			Expect(err).To(MatchError(ManagerNotExistsError))
 		})
 	})

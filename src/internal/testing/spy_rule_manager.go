@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	prom_config "github.com/prometheus/prometheus/config"
 	prom_rules "github.com/prometheus/prometheus/rules"
 )
 
@@ -22,7 +23,7 @@ func NewRuleManagerSpy() *RuleManagerSpy {
 	}
 }
 
-func (r *RuleManagerSpy) CreateManager(managerId, alertmanagerAddr string) error {
+func (r *RuleManagerSpy) CreateManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) error {
 	r.methodsCalled <- "CreateManager"
 
 	if _, exists := r.rules[managerId]; exists {
@@ -31,12 +32,24 @@ func (r *RuleManagerSpy) CreateManager(managerId, alertmanagerAddr string) error
 
 	r.rules[managerId] = nil
 
-	if alertmanagerAddr != "" {
-		url, err := url.Parse(alertmanagerAddr)
-		if err != nil {
-			return err
+	if alertManagers != nil {
+		ams := alertManagers.ToMap()
+		for _, am := range ams {
+			for _, sc := range am.ServiceDiscoveryConfig.StaticConfigs {
+				for _, t := range sc.Targets {
+					addr := string(t["__address__"])
+					if scheme, ok := t["__scheme__"]; ok {
+						addr = string(scheme) + "://" + addr
+					}
+
+					u, err := url.Parse(addr)
+					if err != nil {
+						return err
+					}
+					r.alertmanagers = append(r.alertmanagers, u)
+				}
+			}
 		}
-		r.alertmanagers = append(r.alertmanagers, url)
 	}
 
 	return nil

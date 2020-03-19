@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
+	prom_config "github.com/prometheus/prometheus/config"
 	prom_rules "github.com/prometheus/prometheus/rules"
 )
 
@@ -17,7 +18,7 @@ func NewPromRuleManagersSpy() *PromRuleManagersSpy {
 	}
 }
 
-func (p *PromRuleManagersSpy) Create(managerId string, _ string, _ string) error {
+func (p *PromRuleManagersSpy) Create(managerId string, _ string, _ *prom_config.AlertmanagerConfigs) error {
 	p.managerIds[managerId] = struct{}{}
 	return nil
 }

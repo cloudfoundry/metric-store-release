@@ -13,6 +13,7 @@ import (
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	prom_config "github.com/prometheus/prometheus/config"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -109,10 +110,10 @@ var _ = Describe("Rules API", func() {
 			Expect(resp.StatusCode).To(Equal(201))
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
 
-			managerData := rulesclient.ManagerData{}
-			json.NewDecoder(resp.Body).Decode(&managerData)
+			managerConfig, err := rulesclient.ManagerConfigFromJSON(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
 
-			Expect(managerData.Data.Id).To(Equal("app-metrics"))
+			Expect(managerConfig.Id()).To(Equal("app-metrics"))
 			Expect(tc.ruleManager.ManagerIds()).To(ConsistOf("app-metrics"))
 		})
 
@@ -129,11 +130,56 @@ var _ = Describe("Rules API", func() {
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).ToNot(HaveOccurred())
 
-			managerData := rulesclient.ManagerData{}
-			json.NewDecoder(resp.Body).Decode(&managerData)
+			managerConfig, err := rulesclient.ManagerConfigFromJSON(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
 
-			Expect(managerData.Data.Id).NotTo(BeEmpty())
+			Expect(managerConfig.Id()).NotTo(BeEmpty())
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
+		})
+
+		It("creates an alert manager", func() {
+			tc, teardown := setup()
+			defer teardown()
+
+			payload := []byte(`
+{
+	"data": {
+		"id": "app-metrics",
+		"alertmanagers": [{
+			"scheme": "https",
+			"static_configs": [{
+				"targets": [
+					"localhost:1234"
+				]
+			}]
+		}]
+	}
+}`)
+
+			resp, err := tc.Post("/rules/manager", payload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(201))
+
+			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
+
+			managerConfig, err := rulesclient.ManagerConfigFromJSON(resp.Body)
+			Expect(err).NotTo(HaveOccurred())
+
+			alertManagerConfigs := []*prom_config.AlertmanagerConfig{}
+			for _, am := range managerConfig.AlertManagers().ToMap() {
+				alertManagerConfigs = append(alertManagerConfigs, am)
+			}
+			Expect(len(alertManagerConfigs)).To(Equal(1))
+
+			alertManagerConfig := alertManagerConfigs[0]
+			Expect(alertManagerConfig.Scheme).To(Equal("https"))
+			Expect(len(alertManagerConfig.ServiceDiscoveryConfig.StaticConfigs)).To(Equal(1))
+
+			staticConfig := alertManagerConfig.ServiceDiscoveryConfig.StaticConfigs[0]
+			Expect(len(staticConfig.Targets)).To(Equal(1))
+
+			target := staticConfig.Targets[0]
+			Expect(string(target["__address__"])).To(Equal("localhost:1234"))
 		})
 
 		It("returns an error when invalid json is posted", func() {
@@ -165,7 +211,13 @@ var _ = Describe("Rules API", func() {
 			payload := []byte(`
 {
 	"data": {
-		"alertmanager_url": "http://localhost:1234"
+		"alertmanagers": [{
+			"static_configs": [{
+				"targets": [
+					"http://localhost:1234"
+				]
+			}]
+		}]
 	}
 }`)
 
@@ -184,7 +236,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.CreateManager("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", nil)
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -213,7 +265,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.CreateManager("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", nil)
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -244,7 +296,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.CreateManager("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", nil)
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -268,7 +320,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.CreateManager("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", nil)
 			Expect(len(tc.ruleManager.ManagerIds())).To(Equal(1))
 
 			payload := []byte(`
@@ -323,7 +375,7 @@ var _ = Describe("Rules API", func() {
 			tc, teardown := setup()
 			defer teardown()
 
-			tc.ruleManager.CreateManager("app-metrics", "")
+			tc.ruleManager.CreateManager("app-metrics", nil)
 
 			resp, err := tc.Delete("/rules/manager/app-metrics")
 			Expect(err).ToNot(HaveOccurred())

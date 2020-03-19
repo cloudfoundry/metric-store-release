@@ -9,6 +9,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
@@ -37,9 +38,18 @@ func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInt
 	}
 }
 
-func (r *PromRuleManagers) Create(managerId, promRuleFile, alertmanagerAddr string) error {
-	promRuleManager := NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr, r.evaluationInterval, r.store,
-		r.engine, r.log, r.metrics, r.queryTimeout)
+func (r *PromRuleManagers) Create(managerId, promRuleFile string, alertManagers *prom_config.AlertmanagerConfigs) error {
+	promRuleManager := NewPromRuleManager(
+		managerId,
+		promRuleFile,
+		alertManagers,
+		r.evaluationInterval,
+		r.store,
+		r.engine,
+		r.log,
+		r.metrics,
+		r.queryTimeout,
+	)
 	r.add(managerId, promRuleManager)
 	return promRuleManager.Start()
 }
@@ -87,6 +97,7 @@ func (r *PromRuleManagers) Reload() error {
 	return nil
 }
 
+// implements prometheus api v1 rulesRetriever interface
 func (r *PromRuleManagers) RuleGroups() []*rules.Group {
 	var groups []*rules.Group
 
@@ -97,6 +108,7 @@ func (r *PromRuleManagers) RuleGroups() []*rules.Group {
 	return groups
 }
 
+// implements prometheus api v1 rulesRetriever interface
 func (r *PromRuleManagers) AlertingRules() []*rules.AlertingRule {
 	var alertingRules []*rules.AlertingRule
 
@@ -107,6 +119,7 @@ func (r *PromRuleManagers) AlertingRules() []*rules.AlertingRule {
 	return alertingRules
 }
 
+// implements prometheus api v1 alertmanagerRetriever interface
 func (r *PromRuleManagers) Alertmanagers() []*url.URL {
 	alertmanagers := make(map[string]*url.URL)
 	var uniqueAlertmanagers []*url.URL
@@ -124,6 +137,7 @@ func (r *PromRuleManagers) Alertmanagers() []*url.URL {
 	return uniqueAlertmanagers
 }
 
+// implements prometheus api v1 alertmanagerRetriever interface
 func (r *PromRuleManagers) DroppedAlertmanagers() []*url.URL {
 	var alertmanagers []*url.URL
 

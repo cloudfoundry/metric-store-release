@@ -322,7 +322,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.extAddr = store.lis.Addr().String()
 	}
 
-	rulesStoragePath := path.Join(store.storagePath, "rules")
+	rulesStoragePath := path.Join(store.storagePath, "rule_managers")
 	err = os.Mkdir(rulesStoragePath, os.ModePerm)
 	if err != nil && !os.IsExist(err) {
 		store.log.Fatal("failed to create rules storage dir", err)
@@ -397,24 +397,29 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 }
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
-	rulesDir := path.Join(store.storagePath, "rules")
-	files, err := ioutil.ReadDir(rulesDir)
+	rulesDir := path.Join(store.storagePath, "rule_managers")
+	directories, err := ioutil.ReadDir(rulesDir)
 	if err != nil {
 		store.log.Error("no rules are available", err)
 		return
 	}
 
-	rulesManagerFile := rules.NewRuleManagerFile(rulesDir)
+	ruleManagerFile := rules.NewRuleManagerFiles(rulesDir)
 
-	for _, ruleFile := range files {
-		managerId := ruleFile.Name()
-		promRulesFile, alertmanagerAddr, err := rulesManagerFile.Load(managerId)
+	for _, directory := range directories {
+		// TODO: skip files
+		// if !directory.IsDir() {
+		// 	continue
+		// }
+
+		managerId := directory.Name()
+		promRulesFile, alertManagers, err := ruleManagerFile.Load(managerId)
 		if err != nil {
 			store.log.Error("could not parse rule file", err, logger.String("file", managerId))
 			continue
 		}
 
-		store.promRuleManagers.Create(managerId, promRulesFile, alertmanagerAddr)
+		store.promRuleManagers.Create(managerId, promRulesFile, alertManagers)
 	}
 }
 

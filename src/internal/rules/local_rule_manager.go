@@ -4,32 +4,33 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/rules"
 )
 
 type LocalRuleManager struct {
-	rulesManagerFile *RuleManagerFile
-	promRuleManagers RuleManagers
+	rulesManagerFiles *RuleManagerFiles
+	promRuleManagers  RuleManagers
 }
 
 func NewLocalRuleManager(storagePath string, promRuleManagers RuleManagers) *LocalRuleManager {
 	return &LocalRuleManager{
-		rulesManagerFile: NewRuleManagerFile(storagePath),
-		promRuleManagers: promRuleManagers,
+		rulesManagerFiles: NewRuleManagerFiles(storagePath),
+		promRuleManagers:  promRuleManagers,
 	}
 }
 
-func (l *LocalRuleManager) CreateManager(managerId, alertmanagerAddr string) error {
-	managerFile, err := l.rulesManagerFile.Create(managerId, alertmanagerAddr)
+func (l *LocalRuleManager) CreateManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) error {
+	rulesFilePath, err := l.rulesManagerFiles.Create(managerId, alertManagers)
 	if err != nil {
 		return err
 	}
 
-	return l.promRuleManagers.Create(managerId, managerFile, alertmanagerAddr)
+	return l.promRuleManagers.Create(managerId, rulesFilePath, alertManagers)
 }
 
 func (l *LocalRuleManager) DeleteManager(managerId string) error {
-	err := l.rulesManagerFile.Delete(managerId)
+	err := l.rulesManagerFiles.Delete(managerId)
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (l *LocalRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulescli
 		return err
 	}
 
-	err = l.rulesManagerFile.UpsertRuleGroup(managerId, promRuleGroup)
+	err = l.rulesManagerFiles.UpsertRuleGroup(managerId, promRuleGroup)
 	if err != nil {
 		return err
 	}

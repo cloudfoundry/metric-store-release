@@ -6,12 +6,18 @@ import (
 	"os"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/influxdata/influxql"
+	"github.com/prometheus/common/config"
+	"github.com/prometheus/common/model"
+	prom_config "github.com/prometheus/prometheus/config"
+	sd_config "github.com/prometheus/prometheus/discovery/config"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
@@ -38,8 +44,17 @@ groups:
 `)
 			defer teardown()
 
-			promManager := NewPromRuleManager("manager", deps.ruleFile.Name(), "",
-				time.Second, deps.store, deps.queryEngine, logger.NewTestLogger(GinkgoWriter), deps.spyMetrics, 2*time.Second)
+			promManager := NewPromRuleManager(
+				"manager",
+				deps.ruleFile.Name(),
+				nil,
+				time.Second,
+				deps.store,
+				deps.queryEngine,
+				logger.NewTestLogger(GinkgoWriter),
+				deps.spyMetrics,
+				2*time.Second,
+			)
 			err := promManager.Start()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -57,9 +72,41 @@ groups:
 		})
 
 		It("Sends an alert when an alertmanager configured", func() {
-			alertSpy := testing.NewAlertManagerSpy()
+			caCert := shared.Cert("metric-store-ca.crt")
+			cert := shared.Cert("metric-store.crt")
+			key := shared.Cert("metric-store.key")
+			tlsConfig, err := sharedtls.NewMutualTLSClientConfig(caCert, cert, key, "metric-store")
+			Expect(err).ToNot(HaveOccurred())
+
+			alertSpy := testing.NewAlertManagerSpy(tlsConfig)
 			alertSpy.Start()
 			defer alertSpy.Stop()
+
+			// TODO: add method to alertspy to return config
+			alertManagers := &prom_config.AlertmanagerConfigs{{
+				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
+					StaticConfigs: []*targetgroup.Group{
+						{
+							Targets: []model.LabelSet{
+								{
+									"__address__": model.LabelValue(alertSpy.Addr()),
+								},
+							},
+						},
+					},
+				},
+				Scheme:     "https",
+				Timeout:    10000000000,
+				APIVersion: prom_config.AlertmanagerAPIVersionV2,
+				HTTPClientConfig: config.HTTPClientConfig{
+					TLSConfig: config.TLSConfig{
+						CAFile:     caCert,
+						CertFile:   cert,
+						KeyFile:    key,
+						ServerName: "metric-store",
+					},
+				},
+			}}
 
 			deps, teardown := setupDependencies(`
 groups:
@@ -70,9 +117,18 @@ groups:
 `)
 			defer teardown()
 
-			promManager := NewPromRuleManager("manager", deps.ruleFile.Name(), alertSpy.Addr(),
-				time.Second, deps.store, deps.queryEngine, logger.NewTestLogger(GinkgoWriter), deps.spyMetrics, 2*time.Second)
-			err := promManager.Start()
+			promManager := NewPromRuleManager(
+				"manager",
+				deps.ruleFile.Name(),
+				alertManagers,
+				time.Second,
+				deps.store,
+				deps.queryEngine,
+				logger.NewTestLogger(GinkgoWriter),
+				deps.spyMetrics,
+				2*time.Second,
+			)
+			err = promManager.Start()
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(alertSpy.AlertsReceived, 10).Should(BeNumerically(">", 0))
@@ -90,7 +146,7 @@ groups:
 `)
 			defer os.Remove(tmpfile.Name())
 
-			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil, logger.NewTestLogger(GinkgoWriter),
+			promManager := NewPromRuleManager("manager", tmpfile.Name(), nil, time.Second, nil, nil, logger.NewTestLogger(GinkgoWriter),
 				shared.NewSpyMetricRegistrar(), 2*time.Second)
 
 			err := promManager.Reload()
@@ -113,7 +169,7 @@ groups:
 `)
 			defer os.Remove(tmpfile.Name())
 
-			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil,
+			promManager := NewPromRuleManager("manager", tmpfile.Name(), nil, time.Second, nil, nil,
 				logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar(), 2*time.Second)
 
 			err := promManager.Reload()
@@ -127,7 +183,7 @@ groups:
 		})
 
 		It("Returns an error when the file doesn't exist", func() {
-			promManager := NewPromRuleManager("manager", "badfile.yml", "localhost", time.Second, nil, nil,
+			promManager := NewPromRuleManager("manager", "badfile.yml", nil, time.Second, nil, nil,
 				logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar(), 2*time.Second)
 
 			err := promManager.Reload()
@@ -142,7 +198,7 @@ yaml
 `)
 			defer os.Remove(tmpfile.Name())
 
-			promManager := NewPromRuleManager("manager", tmpfile.Name(), "localhost", time.Second, nil, nil,
+			promManager := NewPromRuleManager("manager", tmpfile.Name(), nil, time.Second, nil, nil,
 				logger.NewTestLogger(GinkgoWriter), shared.NewSpyMetricRegistrar(), 2*time.Second)
 
 			err := promManager.Reload()

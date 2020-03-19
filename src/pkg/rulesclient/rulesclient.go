@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	prom_config "github.com/prometheus/prometheus/config"
 )
 
 type RulesClient struct {
@@ -89,15 +90,9 @@ func (c *RulesClient) destroy(path string) (resp *http.Response, err error) {
 	return resp, err
 }
 
-func (c *RulesClient) CreateManager(managerId, alertmanagerAddr string) (*Manager, *ApiError) {
-	manager := Manager{
-		Id:              managerId,
-		AlertManagerUrl: alertmanagerAddr,
-	}
-	data := ManagerData{
-		Data: manager,
-	}
-	payload, err := json.Marshal(data)
+func (c *RulesClient) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) (Manager, *ApiError) {
+	managerConfig := NewManagerConfig(managerId, alertmanagerConfigs)
+	payload, err := managerConfig.ToJSON()
 	if err != nil {
 		return nil, apiError(http.StatusBadRequest, err)
 	}
@@ -112,18 +107,11 @@ func (c *RulesClient) CreateManager(managerId, alertmanagerAddr string) (*Manage
 		return nil, extractFirstError(resp)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	modifiedManagerConfig, err := ManagerConfigFromJSON(resp.Body)
 	if err != nil {
 		return nil, apiError(http.StatusInternalServerError, err)
 	}
-
-	responseBody := ManagerData{}
-	err = json.Unmarshal(body, &responseBody)
-	if err != nil {
-		return nil, apiError(http.StatusInternalServerError, err)
-	}
-
-	return &responseBody.Data, nil
+	return modifiedManagerConfig, nil
 }
 
 func (c *RulesClient) UpsertRuleGroup(managerId string, ruleGroup RuleGroup) (*RuleGroup, *ApiError) {

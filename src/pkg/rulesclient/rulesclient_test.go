@@ -51,13 +51,13 @@ var _ = Describe("RulesClient", func() {
 			tc := setup()
 
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
-			manager, err := client.CreateManager("app-metrics", "")
+			manager, err := client.CreateManager("app-metrics", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(tc.rulesApi.RequestsReceived()).To(Equal(1))
 
 			Expect(manager).ToNot(BeNil())
-			Expect(manager.Id).To(Equal("app-metrics"))
+			Expect(manager.Id()).To(Equal("app-metrics"))
 		})
 
 		It("returns an error when manager creation failed", func() {
@@ -69,7 +69,7 @@ var _ = Describe("RulesClient", func() {
 			})
 
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
-			_, err := client.CreateManager("", "")
+			_, err := client.CreateManager("", nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(&ApiError{
 				Status: http.StatusConflict,
@@ -87,7 +87,7 @@ var _ = Describe("RulesClient", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			client := NewRulesClient("localhost:10", tlsConfig)
-			_, err = client.CreateManager("app-metrics", "")
+			_, err = client.CreateManager("app-metrics", nil)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -97,7 +97,7 @@ var _ = Describe("RulesClient", func() {
 			tc := setup()
 
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
-			_, err := client.CreateManager("app-metrics", "")
+			_, err := client.CreateManager("app-metrics", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			ruleGroup, err := client.UpsertRuleGroup("app-metrics", RuleGroup{
@@ -150,7 +150,7 @@ var _ = Describe("RulesClient", func() {
 			tc := setup()
 
 			client := NewRulesClient(tc.rulesApi.Addr(), tc.tlsConfig)
-			_, err := client.CreateManager("app-metrics", "")
+			_, err := client.CreateManager("app-metrics", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(tc.rulesApi.RequestsReceived()).To(Equal(1))

@@ -4,6 +4,7 @@ import (
 	"net/url"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/rules"
 )
 
@@ -13,7 +14,7 @@ const (
 )
 
 type RuleManager interface {
-	CreateManager(managerId, alertmanagerAddr string) error
+	CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) error
 	DeleteManager(managerId string) error
 	UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error
 	RuleGroups() []*rules.Group
@@ -23,7 +24,7 @@ type RuleManager interface {
 }
 
 type RuleManagers interface {
-	Create(managerId string, managerFile string, alertmanagerAddr string) error
+	Create(managerId string, managerFile string, alertManagers *prom_config.AlertmanagerConfigs) error
 	Delete(managerId string) error
 	DeleteAll() error
 	Reload() error
@@ -37,11 +38,11 @@ type PromManagerWrapper interface {
 	Start() error
 	Reload() error
 
-	// prometheus api v1 rulesRetriever
+	// implements prometheus api v1 rulesRetriever interface
 	RuleGroups() []*rules.Group
 	AlertingRules() []*rules.AlertingRule
 
-	// prometheus api v1 alertmanagerRetriever
+	// implements prometheus api v1 alertmanagerRetriever interface
 	Alertmanagers() []*url.URL
 	DroppedAlertmanagers() []*url.URL
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	"github.com/go-kit/kit/log/level"
-	"github.com/google/uuid"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/util/httputil"
@@ -29,8 +28,10 @@ func NewRulesAPI(ruleManager rules.RuleManager, log *logger.Logger) *RulesAPI {
 
 type errorType string
 
+type responseData interface{}
+
 type apiFuncResult struct {
-	data interface{}
+	data responseData
 	err  *apiError
 }
 
@@ -77,23 +78,21 @@ func (api *RulesAPI) Register(r *route.Router) {
 func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 	defer r.Body.Close()
 
-	var managerData rulesclient.ManagerData
-
-	err := json.NewDecoder(r.Body).Decode(&managerData)
+	managerConfig, err := rulesclient.ManagerConfigFromJSON(r.Body)
 	if err != nil {
 		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
 	}
 
-	if managerData.Data.Id == "" {
-		managerData.Data.Id = uuid.New().String()
+	if managerConfig.Id() == "" {
+		managerConfig.GenerateId()
 	}
 
-	err = managerData.Data.Validate()
+	err = managerConfig.Validate()
 	if err != nil {
 		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
 	}
 
-	err = api.ruleManager.CreateManager(managerData.Data.Id, managerData.Data.AlertManagerUrl)
+	err = api.ruleManager.CreateManager(managerConfig.Id(), managerConfig.AlertManagers())
 	if err != nil {
 		var returnErr *apiError
 
@@ -101,7 +100,7 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		case rules.ManagerExistsError:
 			returnErr = &apiError{
 				http.StatusConflict,
-				fmt.Errorf("Could not create ruleManager, a ruleManager with name %s already exists", managerData.Data.Id),
+				fmt.Errorf("Could not create ruleManager, a ruleManager with name %s already exists", managerConfig.Id()),
 			}
 		default:
 			returnErr = &apiError{
@@ -115,7 +114,7 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 
 	// TODO: if upsert starts returning 202, then maybe this should for
 	// the same reason
-	return apiFuncResult{managerData, nil}
+	return apiFuncResult{managerConfig, nil}
 }
 
 func (api *RulesAPI) deleteManager(r *http.Request) apiFuncResult {
@@ -191,7 +190,16 @@ func (api *RulesAPI) upsertRuleGroup(r *http.Request) apiFuncResult {
 
 func (api *RulesAPI) respond(w http.ResponseWriter, data interface{}) {
 	json := jsoniter.ConfigCompatibleWithStandardLibrary
-	b, err := json.Marshal(data)
+
+	var err error
+	var payload []byte
+
+	switch responseData := data.(type) {
+	case *rulesclient.ManagerConfig:
+		payload, err = responseData.ToJSON()
+	default:
+		payload, err = json.Marshal(responseData)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -199,7 +207,7 @@ func (api *RulesAPI) respond(w http.ResponseWriter, data interface{}) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if n, err := w.Write(b); err != nil {
+	if n, err := w.Write(payload); err != nil {
 		level.Error(api.log).Log("msg", "error writing response", "bytesWritten", n, "err", err)
 	}
 }

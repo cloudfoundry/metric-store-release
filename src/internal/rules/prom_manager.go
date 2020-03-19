@@ -9,16 +9,13 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/model"
 
 	"github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
+	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/notifier"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/rules"
 	"github.com/prometheus/prometheus/storage"
-
-	sd_config "github.com/prometheus/prometheus/discovery/config"
 )
 
 type PromRuleManager struct {
@@ -28,13 +25,13 @@ type PromRuleManager struct {
 	promNotifierManager    *notifier.Manager
 	promDiscoveryManager   *discovery.DiscoveryAgent
 	promRuleFile           string
-	alertmanagerAddr       string
+	alertManagers          *prom_config.AlertmanagerConfigs
 	log                    *logger.Logger
 	metrics                debug.MetricRegistrar
 	rulesManagerRegisterer *Registerer
 }
 
-func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar, queryTimeout time.Duration) *PromRuleManager {
+func NewPromRuleManager(managerId, promRuleFile string, alertManagers *prom_config.AlertmanagerConfigs, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar, queryTimeout time.Duration) *PromRuleManager {
 	rulesManagerRegisterer := NewRegisterer(
 		prometheus.Labels{"manager_id": managerId},
 		metrics.Registerer(),
@@ -71,7 +68,7 @@ func NewPromRuleManager(managerId, promRuleFile, alertmanagerAddr string, evalua
 		promNotifierManager:    promNotifierManager,
 		promDiscoveryManager:   promDiscoveryManager,
 		promRuleFile:           promRuleFile,
-		alertmanagerAddr:       alertmanagerAddr,
+		alertManagers:          alertManagers,
 		log:                    rulesManagerLog,
 		metrics:                metrics,
 	}
@@ -104,30 +101,12 @@ func (r *PromRuleManager) Reload() error {
 		return err
 	}
 
-	if r.alertmanagerAddr == "" {
+	if r.alertManagers == nil {
 		return nil
 	}
-
 	cfg := &config.Config{
 		AlertingConfig: config.AlertingConfig{
-			AlertmanagerConfigs: config.AlertmanagerConfigs{
-				{
-					ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-						StaticConfigs: []*targetgroup.Group{
-							{
-								Targets: []model.LabelSet{
-									{
-										"__address__": model.LabelValue(r.alertmanagerAddr),
-									},
-								},
-							},
-						},
-					},
-					Scheme:     "http",
-					Timeout:    10000000000,
-					APIVersion: config.AlertmanagerAPIVersionV2,
-				},
-			},
+			AlertmanagerConfigs: *r.alertManagers,
 		},
 	}
 

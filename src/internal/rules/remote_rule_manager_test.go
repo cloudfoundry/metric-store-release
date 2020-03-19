@@ -55,7 +55,7 @@ var _ = Describe("RemoteRuleManager", func() {
 
 			remoteRuleManager := NewRemoteRuleManager(tc.rulesApiSpy.Addr(), tc.tlsClientConfig)
 
-			err := remoteRuleManager.CreateManager("app-metrics", "")
+			err := remoteRuleManager.CreateManager("app-metrics", nil)
 
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -69,7 +69,7 @@ var _ = Describe("RemoteRuleManager", func() {
 			tc.rulesApiSpy.NextRequestError(&testing.RulesApiHttpError{
 				Status: 409,
 			})
-			err := remoteRuleManager.CreateManager("app-metrics", "")
+			err := remoteRuleManager.CreateManager("app-metrics", nil)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(ManagerExistsError))
@@ -84,7 +84,7 @@ var _ = Describe("RemoteRuleManager", func() {
 			tc.rulesApiSpy.NextRequestError(&testing.RulesApiHttpError{
 				Status: 404,
 			})
-			err := remoteRuleManager.CreateManager("app-metrics", "")
+			err := remoteRuleManager.CreateManager("app-metrics", nil)
 
 			Expect(err).To(HaveOccurred())
 			Expect(err).NotTo(Equal(ManagerExistsError))
