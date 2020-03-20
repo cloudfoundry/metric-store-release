@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
@@ -347,6 +348,10 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("replays writes to internode connections when they come back online", func() {
+		if runtime.GOOS == "darwin" {
+			Skip("doesn't work on Mac OS")
+		}
+
 		tc.peer.Stop()
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{

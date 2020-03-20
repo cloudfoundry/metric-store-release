@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -429,6 +430,9 @@ var _ = Describe("MetricStore", func() {
 
 	Context("Scraping", func() {
 		It("scrapes its own metrics", func() {
+			if runtime.GOOS == "darwin" {
+				Skip("doesn't work on Mac OS")
+			}
 			healthPort := shared.GetFreePort()
 
 			tmpfile, err := ioutil.TempFile("", "prom_scrape")
@@ -502,6 +506,9 @@ scrape_configs:
 
 	Context("as a cluster of nodes", func() {
 		It("replays data when a node comes back online", func() {
+			if runtime.GOOS == "darwin" {
+				Skip("doesn't work on Mac OS")
+			}
 			tc, cleanup := setup(2)
 			defer cleanup()
 

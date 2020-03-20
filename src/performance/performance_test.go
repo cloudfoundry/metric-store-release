@@ -24,6 +24,9 @@ const (
 
 var _ = Describe("Performance", func() {
 	Measure("runs faster", func(b Benchmarker) {
+		if runtime.GOOS == "darwin" {
+			Skip("doesn't work on Mac OS")
+		}
 		_, filename, _, _ := runtime.Caller(0)
 		storagePath := path.Join(path.Dir(filename), "./data")
 

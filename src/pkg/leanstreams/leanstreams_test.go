@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
+	"runtime"
 	"sync"
 	"time"
 
@@ -199,6 +200,10 @@ var _ = Describe("Leanstreams", func() {
 
 	Context("When the listeners read buffer is overrun", func() {
 		It("recovers and continues to write to a connection", func() {
+			if runtime.GOOS == "darwin" {
+				Skip("doesn't work on Mac OS")
+			}
+
 			tc, cleanup := setup()
 			defer cleanup()
 
@@ -220,6 +225,10 @@ var _ = Describe("Leanstreams", func() {
 
 	Context("When the connection is closed", func() {
 		It("The server resumes listening and the client reopens when writing", func() {
+			if runtime.GOOS == "darwin" {
+				Skip("doesn't work on Mac OS")
+			}
+
 			tc, cleanup := setup()
 			defer cleanup()
 

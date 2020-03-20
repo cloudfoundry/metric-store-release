@@ -2,6 +2,7 @@ package ingressclient_test
 
 import (
 	"crypto/tls"
+	"runtime"
 
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -56,6 +57,10 @@ var _ = Describe("IngressClient", func() {
 	})
 
 	It("errors if writing fails", func() {
+		if runtime.GOOS == "darwin" {
+			Skip("doesn't work on Mac OS")
+		}
+
 		point := &rpc.Point{
 			Name:      "input",
 			Timestamp: 20,

@@ -44,7 +44,7 @@ func newTemporaryDir() string {
 var whitespaceMatcher = regexp.MustCompile(`\s+`)
 
 func getDiskFreeFromDf(path string) float64 {
-	cmd := exec.Command("df", "--portability", path)
+	cmd := exec.Command("df", "-P", path)
 	dfStdout, err := cmd.StdoutPipe()
 	Expect(err).ToNot(HaveOccurred())
 	defer dfStdout.Close()
