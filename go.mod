@@ -20,7 +20,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/influxdata/flux v0.59.4 // indirect
-	github.com/influxdata/influxdb v1.7.9
+	github.com/influxdata/influxdb v1.7.10
 	github.com/influxdata/influxql v1.1.0
 	github.com/influxdata/roaring v0.4.12 // indirect
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
