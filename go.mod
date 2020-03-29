@@ -39,7 +39,7 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/tinylib/msgp v1.1.1 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
-	go.uber.org/zap v1.13.0
+	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
 	golang.org/x/sys v0.0.0-20200327173247-9dae0f8f5775
