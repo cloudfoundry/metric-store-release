@@ -253,7 +253,7 @@ github.com/influxdata/influxdb/tsdb/index
 github.com/influxdata/influxdb/tsdb/index/inmem
 github.com/influxdata/influxdb/tsdb/index/tsi1
 github.com/influxdata/influxdb/tsdb/internal
-# github.com/influxdata/influxql v1.0.1
+# github.com/influxdata/influxql v1.1.0
 github.com/influxdata/influxql
 github.com/influxdata/influxql/internal
 # github.com/influxdata/roaring v0.4.12
