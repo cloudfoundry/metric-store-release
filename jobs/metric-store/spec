@@ -38,8 +38,10 @@ consumes:
   type: metric-store
 - name: metric-store-nozzle
   type: metric-store-nozzle
+  optional: true
 - name: metric-store-cf-auth-proxy
   type: metric-store-cf-auth-proxy
+  optional: true
 - name: metric-store-blackbox
   type: metric-store-blackbox
   optional: true

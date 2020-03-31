@@ -1,0 +1,42 @@
+---
+name: metric-store
+product_version: $( version )
+minimum_version_for_upgrade: '0.0.0.0'
+metadata_version: '2.2'
+label: Metric Store
+description: Metric Store provides a persistent & queryable storage layer for platform and application metrics.
+rank: 1
+service_broker: false
+icon_image: $( icon )
+
+provides_product_versions:
+  - name: metric-store
+    version: $( version )
+
+#requires_product_versions:
+#  - name: pivotal-container-service
+#    version: '>= 1.6.1'
+
+stemcell_criteria:
+  os: ubuntu-xenial
+  version: '621.61'
+  requires_cpi: false
+
+releases:
+  - $( release "bpm" )
+  - $( release "metric-store" )
+
+job_types:
+  - $( instance_group "metric-store" )
+
+pre_delete_errands: []
+
+variables:
+  - $( bosh_variable "metric_store_ca" )
+  - $( bosh_variable "metric_store" )
+  - $( bosh_variable "metric_store_proxy_tls" )
+  - $( bosh_variable "metric_store_internode" )
+  - $( bosh_variable "metric_store_server" )
+  - $( bosh_variable "metric_store_metrics_server" )
+  - $( bosh_variable "metric_store_metrics_client" )
+  - $( bosh_variable "nozzle_to_metric_store_client" )

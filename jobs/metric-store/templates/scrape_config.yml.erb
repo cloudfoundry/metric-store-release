@@ -2,8 +2,7 @@
   cert_dir = "/var/vcap/jobs/metric-store/config/certs"
 
   ms = link("metric-store")
-  metric_store_nozzle = link("metric-store-nozzle")
-  metric_store_cf_auth_proxy = link("metric-store-cf-auth-proxy")
+
 
   sorted_instances = ms.instances.sort_by {|i| i.address}
   index = sorted_instances.index(
@@ -12,7 +11,7 @@
 %>
 ---
 global:
-  #scrape_interval:     60s
+#scrape_interval:     60s
 scrape_configs:
   - job_name: metric-store
     scheme: https
@@ -23,12 +22,16 @@ scrape_configs:
       server_name: metric-store
     static_configs:
       - targets:
-        - 127.0.0.1:<%= p('health_port') %>
+          - 127.0.0.1:<%= p('health_port') %>
         labels:
           id: <%= spec.id %>
           ip: <%= spec.ip %>
           deployment: <%= spec.deployment %>
           nodeIndex: <%= index %>
+
+    <%
+  if_link("metric-store-nozzle") do |metric_store_nozzle|
+%>
   - job_name: metric-store-nozzle
     scheme: https
     tls_config:
@@ -38,12 +41,14 @@ scrape_configs:
       server_name: metric-store
     static_configs:
       - targets:
-        - 127.0.0.1:<%= metric_store_nozzle.p('health_port') %>
+          - 127.0.0.1:<%= metric_store_nozzle.p('health_port') %>
         labels:
           id: <%= spec.id %>
           ip: <%= spec.ip %>
           deployment: <%= spec.deployment %>
           nodeIndex: <%= index %>
+    <% end %>
+    <% if_link("metric-store-cf-auth-proxy") do |metric_store_cf_auth_proxy| %>
   - job_name: metric-store-cf-auth-proxy
     scheme: https
     tls_config:
@@ -53,14 +58,14 @@ scrape_configs:
       server_name: metric-store
     static_configs:
       - targets:
-        - 127.0.0.1:<%= metric_store_cf_auth_proxy.p('health_port') %>
+          - 127.0.0.1:<%= metric_store_cf_auth_proxy.p('health_port') %>
         labels:
           id: <%= spec.id %>
           ip: <%= spec.ip %>
           deployment: <%= spec.deployment %>
           nodeIndex: <%= index %>
-
-<%
+    <% end %>
+    <%
 if_link("metric-store-blackbox") do |metric_store_blackbox|
   if index == 0
 %>
@@ -72,14 +77,14 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
       key_file: "<%= "#{cert_dir}/metric_store_metrics_client.key" %>"
       server_name: metric-store
     static_configs:
-      <% metric_store_blackbox.instances.each do |blackbox| %>
+        <% metric_store_blackbox.instances.each do |blackbox| %>
       - targets:
-        - <%= blackbox.address %>:<%= metric_store_blackbox.p('health_port') %>
+          - <%= blackbox.address %>:<%= metric_store_blackbox.p('health_port') %>
         labels:
           id: <%= blackbox.id %>
           ip: <%= blackbox.address %>
           index: <%= blackbox.index %>
           deployment: <%= metric_store_blackbox.p('deployment', 'unknown') %>
-      <% end %>
-  <% end %>
-<% end %>
+    <% end %>
+    <% end %>
+    <% end %>
