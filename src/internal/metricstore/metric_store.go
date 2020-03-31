@@ -10,7 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"sync/atomic"
 	"time"
 
@@ -322,7 +322,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.extAddr = store.lis.Addr().String()
 	}
 
-	rulesStoragePath := path.Join(store.storagePath, "rule_managers")
+	rulesStoragePath := filepath.Join(store.storagePath, "rule_managers")
 	err = os.Mkdir(rulesStoragePath, os.ModePerm)
 	if err != nil && !os.IsExist(err) {
 		store.log.Fatal("failed to create rules storage dir", err)
@@ -397,7 +397,7 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 }
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
-	rulesDir := path.Join(store.storagePath, "rule_managers")
+	rulesDir := filepath.Join(store.storagePath, "rule_managers")
 	directories, err := ioutil.ReadDir(rulesDir)
 	if err != nil {
 		store.log.Error("no rules are available", err)

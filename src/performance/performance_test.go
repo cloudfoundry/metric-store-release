@@ -2,7 +2,7 @@ package performance_test
 
 import (
 	"context"
-	"path"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -28,7 +28,7 @@ var _ = Describe("Performance", func() {
 			Skip("doesn't work on Mac OS")
 		}
 		_, filename, _, _ := runtime.Caller(0)
-		storagePath := path.Join(path.Dir(filename), "./data")
+		storagePath := filepath.Join(filepath.Dir(filename), "./data")
 
 		spyPersistentStoreMetrics := shared.NewSpyMetricRegistrar()
 		persistentStore := persistence.NewStore(

@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -1564,8 +1564,8 @@ scrape_configs:
 		fileExistsOnNodes := func(paths []string, managerName string) int {
 			count := 0
 			for _, storagePath := range paths {
-				rulesPath := path.Join(storagePath, "rule_managers")
-				managerPath := path.Join(rulesPath, managerName)
+				rulesPath := filepath.Join(storagePath, "rule_managers")
+				managerPath := filepath.Join(rulesPath, managerName)
 
 				_, err := os.Stat(managerPath)
 				if os.IsNotExist(err) == false {
