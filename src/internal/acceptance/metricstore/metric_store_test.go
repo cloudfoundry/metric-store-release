@@ -1281,7 +1281,7 @@ scrape_configs:
 				APIVersion: prom_config.AlertmanagerAPIVersionV2,
 				HTTPClientConfig: config.HTTPClientConfig{
 					TLSConfig: config.TLSConfig{
-						CAFile:     tc.caCert,
+						CAFile:     string(testing.MustAsset("metric-store-ca.crt")),
 						CertFile:   tc.cert,
 						KeyFile:    tc.key,
 						ServerName: "metric-store",

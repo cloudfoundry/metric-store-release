@@ -1,16 +1,18 @@
 package rules
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
+	"regexp"
 
 	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 	"gopkg.in/yaml.v2"
 )
 
-// TODO: rename file (and test file); pluralize
+var certificateRegexp = regexp.MustCompile(`^-----BEGIN .+?-----([\s\S]*)-----END .+?-----\s?$`)
 
 type ManagerStoreError string
 
@@ -39,6 +41,10 @@ func (f *RuleManagerFiles) Create(managerId string, alertManagers *prom_config.A
 	}
 
 	err = f.writeRules(managerId, nil)
+	if err != nil {
+		return "", err
+	}
+	err = f.writeCerts(managerId, alertManagers)
 	if err != nil {
 		return "", err
 	}
@@ -125,6 +131,48 @@ func (f *RuleManagerFiles) writeRules(managerId string, ruleGroup *rulefmt.RuleG
 	return ioutil.WriteFile(managerFilePath, outBytes, os.ModePerm)
 }
 
+func (f *RuleManagerFiles) writeCerts(managerId string, alertmanagers *prom_config.AlertmanagerConfigs) error {
+	if alertmanagers == nil {
+		return nil
+	}
+	var err error
+
+	for index, alertmanager := range alertmanagers.ToMap() {
+		filePath := f.caCertFilePath(managerId, index)
+		alertmanager.HTTPClientConfig.TLSConfig.CAFile, err = f.extractCertificate(filePath, alertmanager.HTTPClientConfig.TLSConfig.CAFile)
+		if err != nil {
+			return err
+		}
+
+		filePath = f.certFilePath(managerId, index)
+		alertmanager.HTTPClientConfig.TLSConfig.CertFile, err = f.extractCertificate(filePath, alertmanager.HTTPClientConfig.TLSConfig.CertFile)
+		if err != nil {
+			return err
+		}
+
+		filePath = f.keyFilePath(managerId, index)
+		alertmanager.HTTPClientConfig.TLSConfig.KeyFile, err = f.extractCertificate(filePath, alertmanager.HTTPClientConfig.TLSConfig.KeyFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (f *RuleManagerFiles) extractCertificate(path, cert string) (string, error) {
+	if certificateRegexp.MatchString(cert) {
+		err := ioutil.WriteFile(path, []byte(cert), os.ModePerm)
+		if err != nil {
+			return cert, err
+		}
+
+		return path, nil
+	}
+
+	return cert, nil
+}
+
 func (f *RuleManagerFiles) remove(managerId string) error {
 	managerDirectoryPath := f.ruleManagerDirectoryPath(managerId)
 	return os.RemoveAll(managerDirectoryPath)
@@ -146,13 +194,25 @@ func (f *RuleManagerFiles) rulesManagerExists(managerId string) (bool, error) {
 }
 
 func (f *RuleManagerFiles) ruleManagerDirectoryPath(managerId string) string {
-	return path.Join(f.rulesStoragePath, managerId)
+	return filepath.Join(f.rulesStoragePath, managerId)
 }
 
 func (f *RuleManagerFiles) rulesFilePath(managerId string) string {
-	return path.Join(f.ruleManagerDirectoryPath(managerId), "rules.yml")
+	return filepath.Join(f.ruleManagerDirectoryPath(managerId), "rules.yml")
 }
 
 func (f *RuleManagerFiles) alertManagerFilePath(managerId string) string {
-	return path.Join(f.ruleManagerDirectoryPath(managerId), "alertmanager.yml")
+	return filepath.Join(f.ruleManagerDirectoryPath(managerId), "alertmanager.yml")
+}
+
+func (f *RuleManagerFiles) caCertFilePath(managerId, index string) string {
+	return filepath.Join(f.ruleManagerDirectoryPath(managerId), fmt.Sprintf("alertmanager-%s-ca.crt", index))
+}
+
+func (f *RuleManagerFiles) certFilePath(managerId, index string) string {
+	return filepath.Join(f.ruleManagerDirectoryPath(managerId), fmt.Sprintf("alertmanager-%s.crt", index))
+}
+
+func (f *RuleManagerFiles) keyFilePath(managerId, index string) string {
+	return filepath.Join(f.ruleManagerDirectoryPath(managerId), fmt.Sprintf("alertmanager-%s.key", index))
 }

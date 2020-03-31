@@ -3,6 +3,7 @@ package testing
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 type TempStorage struct {
@@ -46,6 +47,22 @@ func (s TempStorage) Directories() []string {
 
 func (s TempStorage) FileNames() []string {
 	files, err := ioutil.ReadDir(s.path)
+	if err != nil {
+		panic(err)
+	}
+
+	fileNames := []string{}
+	for _, file := range files {
+		if !file.IsDir() {
+			fileNames = append(fileNames, file.Name())
+		}
+	}
+
+	return fileNames
+}
+
+func (s TempStorage) Directory(p string) []string {
+	files, err := ioutil.ReadDir(filepath.Join(s.path, p))
 	if err != nil {
 		panic(err)
 	}
