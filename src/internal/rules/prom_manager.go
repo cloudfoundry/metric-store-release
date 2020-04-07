@@ -111,13 +111,14 @@ func (r *PromRuleManager) Reload() error {
 	}
 
 	if err := r.promNotifierManager.ApplyConfig(cfg); err != nil {
-		r.log.Fatal("error Applying the config", err)
+		r.log.Error("error Applying the config", err)
 		return err
 	}
 
 	err = r.promDiscoveryManager.ApplyAlertmanagerConfig(cfg.AlertingConfig.AlertmanagerConfigs)
 	if err != nil {
-		r.log.Fatal("error parsing alertmanager config", err)
+		r.log.Error("error parsing alertmanager config", err)
+		return err
 	}
 
 	return nil

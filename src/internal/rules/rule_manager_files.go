@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -138,6 +140,19 @@ func (f *RuleManagerFiles) writeCerts(managerId string, alertmanagers *prom_conf
 	var err error
 
 	for index, alertmanager := range alertmanagers.ToMap() {
+		err = validateCACert(alertmanager.HTTPClientConfig.TLSConfig.CAFile)
+		if err != nil {
+			return err
+		}
+
+		err = validateCertAndKey(
+			alertmanager.HTTPClientConfig.TLSConfig.CertFile,
+			alertmanager.HTTPClientConfig.TLSConfig.KeyFile,
+		)
+		if err != nil {
+			return err
+		}
+
 		filePath := f.caCertFilePath(managerId, index)
 		alertmanager.HTTPClientConfig.TLSConfig.CAFile, err = f.extractCertificate(filePath, alertmanager.HTTPClientConfig.TLSConfig.CAFile)
 		if err != nil {
@@ -171,6 +186,24 @@ func (f *RuleManagerFiles) extractCertificate(path, cert string) (string, error)
 	}
 
 	return cert, nil
+}
+
+func validateCACert(caCert string) error {
+	if certificateRegexp.MatchString(caCert) {
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM([]byte(caCert)) {
+			return fmt.Errorf("unable to use specified CA cert %s", caCert)
+		}
+	}
+	return nil
+}
+
+func validateCertAndKey(cert, key string) error {
+	if certificateRegexp.MatchString(cert) || certificateRegexp.MatchString(key) {
+		_, err := tls.X509KeyPair([]byte(cert), []byte(key))
+		return err
+	}
+	return nil
 }
 
 func (f *RuleManagerFiles) remove(managerId string) error {
