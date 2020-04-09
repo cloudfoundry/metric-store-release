@@ -106,81 +106,10 @@ var _ = Describe("RuleManagerFile", func() {
 				Expect(alertManager.HTTPClientConfig.TLSConfig.CertFile).To(Equal(certFilePath))
 				Expect(alertManager.HTTPClientConfig.TLSConfig.KeyFile).To(Equal(keyFilePath))
 
-				alertmanagerConfigFilePath := filepath.Join(tempStorage.Path(), "app-metrics", "alertmanager.yml")
-				data, err = ioutil.ReadFile(alertmanagerConfigFilePath)
+				alertManagerConfigFilePath := filepath.Join(tempStorage.Path(), "app-metrics", "alertmanager.yml")
+				data, err = ioutil.ReadFile(alertManagerConfigFilePath)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(data)).NotTo(ContainSubstring("-----BEGIN"))
-			})
-
-			It("returns an err when the CACert is invalid", func() {
-				tempStorage := testing.NewTempStorage()
-				defer tempStorage.Cleanup()
-
-				ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())
-
-				alertManagers := &prom_config.AlertmanagerConfigs{
-					{
-						Scheme: "https",
-						HTTPClientConfig: config_util.HTTPClientConfig{
-							TLSConfig: config_util.TLSConfig{
-								CAFile: "-----BEGIN foo-----GARBAGE-----END foo-----",
-							},
-						},
-					},
-				}
-				_, err := ruleManagerFiles.Create("app-metrics", alertManagers)
-				Expect(err).To(HaveOccurred())
-
-				ruleManagerFileNames := tempStorage.Directory("app-metrics")
-				Expect(ruleManagerFileNames).NotTo(ContainElement("alertmanager-config-0-ca.crt"))
-			})
-
-			It("returns an err when the CertFile is invalid", func() {
-				tempStorage := testing.NewTempStorage()
-				defer tempStorage.Cleanup()
-
-				ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())
-
-				alertManagers := &prom_config.AlertmanagerConfigs{
-					{
-						Scheme: "https",
-						HTTPClientConfig: config_util.HTTPClientConfig{
-							TLSConfig: config_util.TLSConfig{
-								CertFile: "-----BEGIN foo-----GARBAGE-----END foo-----",
-								KeyFile:  string(testing.MustAsset("metric-store.key")),
-							},
-						},
-					},
-				}
-				_, err := ruleManagerFiles.Create("app-metrics", alertManagers)
-				Expect(err).To(HaveOccurred())
-
-				ruleManagerFileNames := tempStorage.Directory("app-metrics")
-				Expect(ruleManagerFileNames).NotTo(ContainElement("alertmanager-config-0.crt"))
-			})
-
-			It("returns an err when the KeyFile is invalid", func() {
-				tempStorage := testing.NewTempStorage()
-				defer tempStorage.Cleanup()
-
-				ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())
-
-				alertManagers := &prom_config.AlertmanagerConfigs{
-					{
-						Scheme: "https",
-						HTTPClientConfig: config_util.HTTPClientConfig{
-							TLSConfig: config_util.TLSConfig{
-								CertFile: string(testing.MustAsset("metric-store.crt")),
-								KeyFile:  "-----BEGIN foo-----GARBAGE-----END foo-----",
-							},
-						},
-					},
-				}
-				_, err := ruleManagerFiles.Create("app-metrics", alertManagers)
-				Expect(err).To(HaveOccurred())
-
-				ruleManagerFileNames := tempStorage.Directory("app-metrics")
-				Expect(ruleManagerFileNames).NotTo(ContainElement("alertmanager-config-0.key"))
 			})
 		})
 	})

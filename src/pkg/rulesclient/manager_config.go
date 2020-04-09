@@ -1,7 +1,10 @@
 package rulesclient
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"github.com/google/uuid"
@@ -44,6 +47,39 @@ func (m *ManagerConfig) AlertManagers() *prom_config.AlertmanagerConfigs {
 }
 
 func (m *ManagerConfig) Validate() error {
+	for _, alertmanager := range m.alertmanagers.ToMap() {
+		err := validateCACert(alertmanager.HTTPClientConfig.TLSConfig.CAFile)
+		if err != nil {
+			return err
+		}
+
+		err = validateCertAndKey(
+			alertmanager.HTTPClientConfig.TLSConfig.CertFile,
+			alertmanager.HTTPClientConfig.TLSConfig.KeyFile,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateCACert(caCert string) error {
+	if CertificateRegexp.MatchString(caCert) {
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM([]byte(caCert)) {
+			return fmt.Errorf("unable to use specified CA cert %s", caCert)
+		}
+	}
+	return nil
+}
+
+func validateCertAndKey(cert, key string) error {
+	if CertificateRegexp.MatchString(cert) || CertificateRegexp.MatchString(key) {
+		_, err := tls.X509KeyPair([]byte(cert), []byte(key))
+		return err
+	}
 	return nil
 }
 

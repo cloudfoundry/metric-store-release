@@ -1,20 +1,15 @@
 package rules
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"regexp"
-
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/rulefmt"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 )
-
-var certificateRegexp = regexp.MustCompile(`^-----BEGIN .+?-----([\s\S]*)-----END .+?-----\s?$`)
 
 type ManagerStoreError string
 
@@ -140,19 +135,6 @@ func (f *RuleManagerFiles) writeCerts(managerId string, alertmanagers *prom_conf
 	var err error
 
 	for index, alertmanager := range alertmanagers.ToMap() {
-		err = validateCACert(alertmanager.HTTPClientConfig.TLSConfig.CAFile)
-		if err != nil {
-			return err
-		}
-
-		err = validateCertAndKey(
-			alertmanager.HTTPClientConfig.TLSConfig.CertFile,
-			alertmanager.HTTPClientConfig.TLSConfig.KeyFile,
-		)
-		if err != nil {
-			return err
-		}
-
 		filePath := f.caCertFilePath(managerId, index)
 		alertmanager.HTTPClientConfig.TLSConfig.CAFile, err = f.extractCertificate(filePath, alertmanager.HTTPClientConfig.TLSConfig.CAFile)
 		if err != nil {
@@ -176,7 +158,7 @@ func (f *RuleManagerFiles) writeCerts(managerId string, alertmanagers *prom_conf
 }
 
 func (f *RuleManagerFiles) extractCertificate(path, cert string) (string, error) {
-	if certificateRegexp.MatchString(cert) {
+	if rulesclient.CertificateRegexp.MatchString(cert) {
 		err := ioutil.WriteFile(path, []byte(cert), os.ModePerm)
 		if err != nil {
 			return cert, err
@@ -186,24 +168,6 @@ func (f *RuleManagerFiles) extractCertificate(path, cert string) (string, error)
 	}
 
 	return cert, nil
-}
-
-func validateCACert(caCert string) error {
-	if certificateRegexp.MatchString(caCert) {
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM([]byte(caCert)) {
-			return fmt.Errorf("unable to use specified CA cert %s", caCert)
-		}
-	}
-	return nil
-}
-
-func validateCertAndKey(cert, key string) error {
-	if certificateRegexp.MatchString(cert) || certificateRegexp.MatchString(key) {
-		_, err := tls.X509KeyPair([]byte(cert), []byte(key))
-		return err
-	}
-	return nil
 }
 
 func (f *RuleManagerFiles) remove(managerId string) error {

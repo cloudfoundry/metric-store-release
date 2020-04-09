@@ -6,11 +6,32 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	prom_config "github.com/prometheus/prometheus/config"
 )
+
+var CertificateRegexp = regexp.MustCompile(`^-----BEGIN .+?-----([\s\S]*)-----END .+?-----\s?$`)
+
+type ApiErrors struct {
+	Errors []ApiError `json:"errors"`
+}
+
+type ApiError struct {
+	Status int    `json:"status"`
+	Title  string `json:"title"`
+}
+
+func (a *ApiError) Error() string {
+	return a.Title
+}
+
+type Manager interface {
+	Id() string
+	AlertManagers() *prom_config.AlertmanagerConfigs
+}
 
 type RulesClient struct {
 	httpClient *http.Client
