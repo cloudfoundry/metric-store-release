@@ -20,13 +20,18 @@ func NewLocalRuleManager(storagePath string, promRuleManagers RuleManagers) *Loc
 	}
 }
 
-func (l *LocalRuleManager) CreateManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) error {
+func (l *LocalRuleManager) CreateManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) (*Manager, error) {
 	rulesFilePath, err := l.rulesManagerFiles.Create(managerId, alertManagers)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return l.promRuleManagers.Create(managerId, rulesFilePath, alertManagers)
+	err = l.promRuleManagers.Create(managerId, rulesFilePath, alertManagers)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewManager(managerId, alertManagers), nil
 }
 
 func (l *LocalRuleManager) DeleteManager(managerId string) error {

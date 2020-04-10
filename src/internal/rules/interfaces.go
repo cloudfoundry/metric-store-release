@@ -14,7 +14,7 @@ const (
 )
 
 type RuleManager interface {
-	CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) error
+	CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) (*Manager, error)
 	DeleteManager(managerId string) error
 	UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error
 	RuleGroups() []*rules.Group

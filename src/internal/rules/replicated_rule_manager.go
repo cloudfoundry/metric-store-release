@@ -36,17 +36,15 @@ func NewReplicatedRuleManager(localRuleManager RuleManager, localIndex int, addr
 	return replicatedRuleManager
 }
 
-func (r *ReplicatedRuleManager) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) error {
-	var lastError error
+func (r *ReplicatedRuleManager) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) (*Manager, error) {
+	var manager *Manager
+	var err error
 
 	for _, nodeIndex := range r.lookup(managerId) {
-		err := r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerConfigs)
-		if err != nil {
-			lastError = err
-		}
+		manager, err = r.ruleManagers[nodeIndex].CreateManager(managerId, alertmanagerConfigs)
 	}
 
-	return lastError
+	return manager, err
 }
 
 func (r *ReplicatedRuleManager) DeleteManager(managerId string) error {

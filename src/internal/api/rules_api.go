@@ -92,7 +92,8 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 		return apiFuncResult{nil, &apiError{http.StatusBadRequest, err}}
 	}
 
-	err = api.ruleManager.CreateManager(managerConfig.Id(), managerConfig.AlertManagers())
+	manager, err := api.ruleManager.CreateManager(managerConfig.Id(), managerConfig.AlertManagers())
+
 	if err != nil {
 		var returnErr *apiError
 
@@ -114,7 +115,7 @@ func (api *RulesAPI) createManager(r *http.Request) apiFuncResult {
 
 	// TODO: if upsert starts returning 202, then maybe this should for
 	// the same reason
-	return apiFuncResult{managerConfig, nil}
+	return apiFuncResult{rulesclient.NewManagerConfig(manager.Id(), manager.AlertManagers()), nil}
 }
 
 func (api *RulesAPI) deleteManager(r *http.Request) apiFuncResult {

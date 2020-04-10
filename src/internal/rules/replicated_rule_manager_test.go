@@ -25,7 +25,7 @@ var _ = Describe("Rules", func() {
 			localRuleManager := testing.NewRuleManagerSpy()
 
 			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060"}, 1, nil)
-			err := ruleManager.CreateManager("app-metrics", nil)
+			_, err := ruleManager.CreateManager("app-metrics", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(localRuleManager.MethodsCalled()).To(ContainElement("CreateManager"))
 		})
@@ -47,7 +47,7 @@ var _ = Describe("Rules", func() {
 			})
 
 			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060", spyRulesApi.Addr(), "url-not-used"}, 2, tlsClientConfig)
-			err = ruleManager.CreateManager("app-metrics", nil)
+			_, err = ruleManager.CreateManager("app-metrics", nil)
 			Expect(err).To(HaveOccurred())
 
 			Expect(localRuleManager.MethodsCalled()).To(ContainElement("CreateManager"))
@@ -178,9 +178,9 @@ var _ = Describe("Rules", func() {
 				},
 			}}
 			localRuleManager := testing.NewRuleManagerSpy()
-			err = localRuleManager.CreateManager("app-metrics", alertManagerConfigs)
+			_, err = localRuleManager.CreateManager("app-metrics", alertManagerConfigs)
 			Expect(err).ToNot(HaveOccurred())
-			err = localRuleManager.CreateManager("healthwatch", alertManagerConfigs)
+			_, err = localRuleManager.CreateManager("healthwatch", alertManagerConfigs)
 			Expect(err).ToNot(HaveOccurred())
 
 			ruleManager := NewReplicatedRuleManager(localRuleManager, 0, []string{"localhost:6060"}, 1, nil)

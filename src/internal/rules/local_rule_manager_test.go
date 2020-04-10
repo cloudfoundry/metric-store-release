@@ -48,7 +48,8 @@ var _ = Describe("LocalRuleManager", func() {
 				Timeout:    10000000000,
 				APIVersion: prom_config.AlertmanagerAPIVersionV2,
 			}}
-			Expect(localRuleManager.CreateManager("createTest", alertManagers)).To(Succeed())
+			_, err := localRuleManager.CreateManager("createTest", alertManagers)
+			Expect(err).NotTo(HaveOccurred())
 
 			alertUrl, _ := url.Parse("https://127.0.0.1:1234/api/v2/alerts")
 			Eventually(localRuleManager.Alertmanagers, 10).Should(ConsistOf([]*url.URL{alertUrl}))
@@ -64,11 +65,13 @@ var _ = Describe("LocalRuleManager", func() {
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()
 			localRuleManager := NewLocalRuleManager(tempStorage.Path(), spyPromRuleManagers)
 
-			Expect(localRuleManager.CreateManager("app-metrics", nil)).To(Succeed())
+			_, err := localRuleManager.CreateManager("app-metrics", nil)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(spyPromRuleManagers.ManagerIds()).To(ConsistOf("app-metrics"))
 			Expect(tempStorage.Directories()).To(ConsistOf("app-metrics"))
 
-			Expect(localRuleManager.DeleteManager("app-metrics")).To(Succeed())
+			err = localRuleManager.DeleteManager("app-metrics")
+			Expect(err).NotTo(HaveOccurred())
 			Expect(spyPromRuleManagers.ManagerIds()).To(BeEmpty())
 			Expect(tempStorage.FileNames()).To(BeEmpty())
 		})
@@ -81,7 +84,8 @@ var _ = Describe("LocalRuleManager", func() {
 			localRuleManager := NewLocalRuleManager(tempStorage.Path(), spyPromRuleManagers)
 
 			Expect(tempStorage.FileNames()).To(BeEmpty())
-			Expect(localRuleManager.DeleteManager("app-metrics")).ToNot(Succeed())
+			err := localRuleManager.DeleteManager("app-metrics")
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("errors if manager id doesn't exist", func() {
@@ -91,11 +95,13 @@ var _ = Describe("LocalRuleManager", func() {
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()
 			localRuleManager := NewLocalRuleManager(tempStorage.Path(), spyPromRuleManagers)
 
-			Expect(localRuleManager.CreateManager("app-metrics", nil)).To(Succeed())
+			_, err := localRuleManager.CreateManager("app-metrics", nil)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(spyPromRuleManagers.ManagerIds()).To(ConsistOf("app-metrics"))
 
 			spyPromRuleManagers.Delete("app-metrics")
-			Expect(localRuleManager.DeleteManager("app-metrics")).ToNot(Succeed())
+			err = localRuleManager.DeleteManager("app-metrics")
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

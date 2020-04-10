@@ -1246,6 +1246,31 @@ scrape_configs:
 		Eventually(checkForRecordedMetric, 65).Should(BeTrue())
 	})
 
+	It("replaces inline certs with a file on remote nodes", func() {
+		tc, cleanup := setup(2)
+		defer cleanup()
+
+		waitForApi(tc)
+
+		rulesClient := rulesclient.NewRulesClient(tc.addrs[0], tc.tlsConfig)
+
+		resp, apiErr := rulesClient.CreateManager(
+			MAGIC_MANAGER_PEER_NAME,
+			&prom_config.AlertmanagerConfigs{{
+				Scheme:     "https",
+				APIVersion: prom_config.AlertmanagerAPIVersionV2,
+				HTTPClientConfig: config.HTTPClientConfig{
+					TLSConfig: config.TLSConfig{
+						CAFile: string(testing.MustAsset("metric-store-ca.crt")),
+					},
+				},
+			}},
+		)
+		Expect(apiErr).ToNot(HaveOccurred())
+		amc := resp.AlertManagers().ToMap()["config-0"]
+		Expect(amc.HTTPClientConfig.TLSConfig.CAFile).To(BeARegularFile())
+	})
+
 	It("processes alerting rules to trigger alerts for multiple tenants", func() {
 		tc, cleanup := setup(1)
 		defer cleanup()

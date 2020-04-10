@@ -14,6 +14,26 @@ import (
 	"github.com/prometheus/prometheus/rules"
 )
 
+type Manager struct {
+	id            string
+	alertManagers *prom_config.AlertmanagerConfigs
+}
+
+func NewManager(id string, alertManagers *prom_config.AlertmanagerConfigs) *Manager {
+	return &Manager{
+		id:            id,
+		alertManagers: alertManagers,
+	}
+}
+
+func (m *Manager) Id() string {
+	return m.id
+}
+
+func (m *Manager) AlertManagers() *prom_config.AlertmanagerConfigs {
+	return m.alertManagers
+}
+
 type RemoteRuleManager struct {
 	rulesClient *rulesclient.RulesClient
 	apiClient   prom_versioned_api_client.API
@@ -40,19 +60,19 @@ func NewRemoteRuleManager(addr string, tlsConfig *tls.Config) *RemoteRuleManager
 	}
 }
 
-func (r *RemoteRuleManager) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) error {
-	_, err := r.rulesClient.CreateManager(managerId, alertmanagerConfigs)
+func (r *RemoteRuleManager) CreateManager(managerId string, alertmanagerConfigs *prom_config.AlertmanagerConfigs) (*Manager, error) {
+	resp, err := r.rulesClient.CreateManager(managerId, alertmanagerConfigs)
 
 	if err != nil {
 		switch err.Status {
 		case http.StatusConflict:
-			return ManagerExistsError
+			return nil, ManagerExistsError
 		default:
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return NewManager(resp.Id(), resp.AlertManagers()), nil
 }
 
 func (r *RemoteRuleManager) DeleteManager(managerId string) error {

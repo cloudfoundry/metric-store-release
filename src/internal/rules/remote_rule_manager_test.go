@@ -55,7 +55,7 @@ var _ = Describe("RemoteRuleManager", func() {
 
 			remoteRuleManager := NewRemoteRuleManager(tc.rulesApiSpy.Addr(), tc.tlsClientConfig)
 
-			err := remoteRuleManager.CreateManager("app-metrics", nil)
+			_, err := remoteRuleManager.CreateManager("app-metrics", nil)
 
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -69,10 +69,10 @@ var _ = Describe("RemoteRuleManager", func() {
 			tc.rulesApiSpy.NextRequestError(&testing.RulesApiHttpError{
 				Status: 409,
 			})
-			err := remoteRuleManager.CreateManager("app-metrics", nil)
+			_, err := remoteRuleManager.CreateManager("app-metrics", nil)
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(ManagerExistsError))
+			Expect(err).To(MatchError(ManagerExistsError))
 		})
 
 		It("returns api error by default", func() {
@@ -84,10 +84,10 @@ var _ = Describe("RemoteRuleManager", func() {
 			tc.rulesApiSpy.NextRequestError(&testing.RulesApiHttpError{
 				Status: 404,
 			})
-			err := remoteRuleManager.CreateManager("app-metrics", nil)
+			_, err := remoteRuleManager.CreateManager("app-metrics", nil)
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).NotTo(Equal(ManagerExistsError))
+			Expect(err).NotTo(MatchError(ManagerExistsError))
 		})
 	})
 
@@ -114,7 +114,7 @@ var _ = Describe("RemoteRuleManager", func() {
 			err := remoteRuleManager.DeleteManager("app-metrics")
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(ManagerNotExistsError))
+			Expect(err).To(MatchError(ManagerNotExistsError))
 		})
 
 		It("returns api error by default", func() {
@@ -129,7 +129,7 @@ var _ = Describe("RemoteRuleManager", func() {
 			err := remoteRuleManager.DeleteManager("app-metrics")
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).NotTo(Equal(ManagerNotExistsError))
+			Expect(err).NotTo(MatchError(ManagerNotExistsError))
 		})
 	})
 
@@ -156,7 +156,7 @@ var _ = Describe("RemoteRuleManager", func() {
 			err := remoteRuleManager.UpsertRuleGroup("app-metrics", &rulesclient.RuleGroup{})
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(Equal(ManagerNotExistsError))
+			Expect(err).To(MatchError(ManagerNotExistsError))
 		})
 
 		It("returns api error by default", func() {
@@ -171,7 +171,7 @@ var _ = Describe("RemoteRuleManager", func() {
 			err := remoteRuleManager.UpsertRuleGroup("app-metrics", &rulesclient.RuleGroup{})
 
 			Expect(err).To(HaveOccurred())
-			Expect(err).NotTo(Equal(ManagerNotExistsError))
+			Expect(err).NotTo(MatchError(ManagerNotExistsError))
 		})
 	})
 })

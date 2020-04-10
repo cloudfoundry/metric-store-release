@@ -23,11 +23,11 @@ func NewRuleManagerSpy() *RuleManagerSpy {
 	}
 }
 
-func (r *RuleManagerSpy) CreateManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) error {
+func (r *RuleManagerSpy) CreateManager(managerId string, alertManagers *prom_config.AlertmanagerConfigs) (*rules.Manager, error) {
 	r.methodsCalled <- "CreateManager"
 
 	if _, exists := r.rules[managerId]; exists {
-		return rules.ManagerExistsError
+		return nil, rules.ManagerExistsError
 	}
 
 	r.rules[managerId] = nil
@@ -44,7 +44,7 @@ func (r *RuleManagerSpy) CreateManager(managerId string, alertManagers *prom_con
 
 					u, err := url.Parse(addr)
 					if err != nil {
-						return err
+						return nil, err
 					}
 					r.alertmanagers = append(r.alertmanagers, u)
 				}
@@ -52,7 +52,7 @@ func (r *RuleManagerSpy) CreateManager(managerId string, alertManagers *prom_con
 		}
 	}
 
-	return nil
+	return rules.NewManager(managerId, alertManagers), nil
 }
 
 func (r *RuleManagerSpy) DeleteManager(managerId string) error {
