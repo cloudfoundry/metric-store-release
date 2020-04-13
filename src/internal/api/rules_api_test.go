@@ -107,6 +107,7 @@ var _ = Describe("Rules API", func() {
 
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(201))
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
 
@@ -129,6 +130,7 @@ var _ = Describe("Rules API", func() {
 
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).ToNot(HaveOccurred())
+			defer resp.Body.Close()
 
 			managerConfig, err := rulesclient.ManagerConfigFromJSON(resp.Body)
 			Expect(err).ToNot(HaveOccurred())
@@ -158,6 +160,7 @@ var _ = Describe("Rules API", func() {
 
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(201))
 
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/json"))
@@ -193,6 +196,7 @@ var _ = Describe("Rules API", func() {
 
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(400))
 
 			apiErrors := rulesclient.ApiErrors{}
@@ -223,6 +227,7 @@ var _ = Describe("Rules API", func() {
 
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(400))
 
 			apiErrors := rulesclient.ApiErrors{}
@@ -248,6 +253,7 @@ var _ = Describe("Rules API", func() {
 
 			resp, err := tc.Post("/rules/manager", payload)
 			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(409))
 
 			apiErrors := rulesclient.ApiErrors{}
