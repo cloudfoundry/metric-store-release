@@ -3,7 +3,8 @@ apiVersion: indicatorprotocol.io/v1
 kind: IndicatorDocument
 
 metadata:
-  deployment: <%= spec.deployment %>
+  labels:
+    deployment: <%= spec.deployment %>
 
 spec:
   product:
