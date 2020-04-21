@@ -3,6 +3,11 @@
 
   ms = link("metric-store")
   rlp = link('reverse_log_proxy')
+
+  sorted_instances = ms.instances.sort_by {|i| i.address}
+  index = sorted_instances.index(
+      sorted_instances.find {|i| i.id == spec.id}
+  )
 %>
 ---
 processes:
@@ -17,8 +22,11 @@ processes:
     # Diode size for timer metrics aggregation
     TIMER_ROLLUP_BUFFER_SIZE: "<%= p('timer_rollup_buffer_size') %>"
 
+    # Cluster Configuration
+    NODE_INDEX: "<%= index %>"
+
     # Logs Provider
-    LOGS_PROVIDER_ADDR:           "<%= "#{rlp.address}:#{rlp.p('reverse_log_proxy.egress.port')}" %>"
+    LOGS_PROVIDER_ADDR:      "<%= "#{rlp.address}:#{rlp.p('reverse_log_proxy.egress.port')}" %>"
     LOGS_PROVIDER_CA_PATH:   "<%= "#{cert_dir}/logs_provider_ca.crt" %>"
     LOGS_PROVIDER_CERT_PATH: "<%= "#{cert_dir}/logs_provider.crt" %>"
     LOGS_PROVIDER_KEY_PATH:  "<%= "#{cert_dir}/logs_provider.key" %>"

@@ -3,10 +3,9 @@ package app
 import (
 	"log"
 
-	envstruct "code.cloudfoundry.org/go-envstruct"
+	"code.cloudfoundry.org/go-envstruct"
 )
 
-// Config is the configuration for a MetricStore.
 type Config struct {
 	LogProviderAddr string `env:"LOGS_PROVIDER_ADDR, required, report"`
 	LogsProviderTLS LogsProviderTLS
@@ -19,9 +18,9 @@ type Config struct {
 	HealthPort            int    `env:"HEALTH_PORT, report"`
 	ShardId               string `env:"SHARD_ID, required, report"`
 	TimerRollupBufferSize uint   `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
-	NodeIndex             int    `env:"NODE_INDEX, report"`
+	NodeIndex             int    `env:"NODE_INDEX, required, report"`
 
-	LogLevel string `env:"LOG_LEVEL,                      report"`
+	LogLevel string `env:"LOG_LEVEL, report"`
 }
 
 type MetricStoreClientTLS struct {
@@ -30,7 +29,6 @@ type MetricStoreClientTLS struct {
 	KeyPath  string `env:"METRIC_STORE_CLIENT_KEY_PATH, required, report"`
 }
 
-// LogsProviderTLS is the LogsProviderTLS configuration for a MetricStore.
 type LogsProviderTLS struct {
 	LogProviderCA   string `env:"LOGS_PROVIDER_CA_PATH, required, report"`
 	LogProviderCert string `env:"LOGS_PROVIDER_CERT_PATH, required, report"`
