@@ -26,10 +26,16 @@ releases:
   - $( release "bpm" )
   - $( release "metric-store" )
 
+form_types:
+  - $( form "pks_cluster_discovery_config" )
+
 job_types:
   - $( instance_group "metric-store" )
 
 pre_delete_errands: []
+
+property_blueprints:
+  - $( property "pks_cluster_discovery" )
 
 variables:
   - $( bosh_variable "metric_store_ca" )

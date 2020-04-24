@@ -39,12 +39,16 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/tinylib/msgp v1.1.1 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
+	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
 	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
 	golang.org/x/sys v0.0.0-20200331124033-c3d80250170d
 	google.golang.org/grpc v1.24.0
 	gopkg.in/yaml.v2 v2.2.8
+	k8s.io/api v0.0.0-20190813020757-36bff7324fb7
+	k8s.io/apimachinery v0.0.0-20190809020650-423f5d784010
+	k8s.io/client-go v0.0.0-20190620085101-78d2af792bab
 	sigs.k8s.io/yaml v1.2.0
 )
 

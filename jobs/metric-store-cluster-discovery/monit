@@ -1,0 +1,5 @@
+check process metric-store-cluster-discovery
+  with pidfile /var/vcap/sys/run/bpm/metric-store-cluster-discovery/metric-store-cluster-discovery.pid
+  start program "/var/vcap/jobs/bpm/bin/bpm start metric-store-cluster-discovery"
+  stop program "/var/vcap/jobs/bpm/bin/bpm stop metric-store-cluster-discovery"
+  group vcap

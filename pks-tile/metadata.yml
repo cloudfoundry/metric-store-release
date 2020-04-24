@@ -11,7 +11,7 @@ icon_image: $( icon )
 
 provides_product_versions:
   - name: metric-store
-    version: $( version )
+    version: 1.1.8
 
 #requires_product_versions:
 #  - name: pivotal-container-service
@@ -19,17 +19,23 @@ provides_product_versions:
 
 stemcell_criteria:
   os: ubuntu-xenial
-  version: '621.61'
+  version: '621.64'
   requires_cpi: false
 
 releases:
   - $( release "bpm" )
   - $( release "metric-store" )
 
+form_types:
+  - $( form "pks_cluster_discovery_config" )
+
 job_types:
   - $( instance_group "metric-store" )
 
 pre_delete_errands: []
+
+property_blueprints:
+  - $( property "pks_cluster_discovery" )
 
 variables:
   - $( bosh_variable "metric_store_ca" )
@@ -40,3 +46,4 @@ variables:
   - $( bosh_variable "metric_store_metrics_server" )
   - $( bosh_variable "metric_store_metrics_client" )
   - $( bosh_variable "nozzle_to_metric_store_client" )
+

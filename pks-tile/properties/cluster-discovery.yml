@@ -1,0 +1,64 @@
+- name: pks_cluster_discovery
+  type: selector
+  configurable: true
+  default: disabled
+  option_templates:
+    - name: disabled
+      select_value: disabled
+      named_manifests:
+        - name: pks_cluster_discovery
+          manifest: |
+            enabled: false
+    - name: enabled
+      select_value: enabled
+      named_manifests:
+        - name: pks_cluster_discovery
+          manifest: |
+            enabled: true
+            health_port: (( .properties.pks_cluster_discovery.enabled.cluster_discovery_scrape_port.value ))
+            discovery_frequency_seconds: (( .properties.pks_cluster_discovery.enabled.discovery_frequency_seconds.value ))
+            pks:
+              addr: https://(( ..pivotal-container-service.properties.pks_api_hostname.value)):9021
+              ca_cert: "(( .properties.pks_cluster_discovery.enabled.pks_ca.value ))"
+              server_name: (( ..pivotal-container-service.properties.pks_api_hostname.value))
+              skip_ssl_validation: ((.properties.pks_cluster_discovery.enabled.pks_skip_ssl_validation.value))
+            uaa:
+              addr: https://(( ..pivotal-container-service.properties.pks_api_hostname.value)):8443
+              client_id: admin
+              client_secret: (( ..pivotal-container-service.properties.pks_uaa_management_admin_client.value ))
+              ca_cert: "(( .properties.pks_cluster_discovery.enabled.pks_ca.value ))"
+      property_blueprints:
+        - name: pks_ca
+          type: ca_certificate
+          configurable: true
+          optional: true
+
+        - name: discovery_frequency_seconds
+          type: integer
+          configurable: true
+          default: 600
+          constraints:
+            min: 60
+
+        - name: pks_skip_ssl_validation
+          type: boolean
+          configurable: true
+          default: false
+
+        - name: cluster_discovery_scrape_port
+          type: integer
+          configurable: true
+          default: 9096
+          constraints:
+            min: 1024
+            max: 65535
+
+        - name: enabled
+          type: boolean
+          configurable: true
+          default: false
+
+        - name: disabled
+          type: boolean
+          configurable: true
+          default: true

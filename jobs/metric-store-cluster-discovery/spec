@@ -1,0 +1,54 @@
+---
+name: metric-store-cluster-discovery
+templates:
+  bpm.yml.erb: config/bpm.yml
+  metrics.crt.erb: config/certs/metrics.crt
+  metrics.key.erb: config/certs/metrics.key
+  metrics_ca.crt.erb: config/certs/metrics_ca.crt
+  pks_ca.crt.erb: config/certs/pks_ca.crt
+  uaa_ca.crt.erb: config/certs/uaa_ca.crt
+
+packages:
+- metric-store-cluster-discovery
+
+provides:
+- name: metric-store-cluster-discovery
+  type: metric-store-cluster-discovery
+  properties:
+  - cluster_discovery.health_port
+  - storage_path
+
+consumes:
+
+properties:
+  storage_path:
+    description: "Where to store Prometheus ScrapeConfigs"
+
+  cluster_discovery.health_port:
+    description: "The port to bind a health endpoint"
+    default: 6065
+  cluster_discovery.pks.addr:
+    description: "PKS API endpoint"
+  cluster_discovery.pks.skip_ssl_validation:
+    description: "Whether to accept invalid certs for PKS API"
+    default: false
+  cluster_discovery.pks.server_name:
+    description: "Server name for the PKS API certificate"
+  cluster_discovery.pks.ca_cert:
+    description: "The certificate authority for the PKS API endpoint"
+
+  cluster_discovery.uaa.client_id:
+    description: "The client id to authenticate to UAA"
+  cluster_discovery.uaa.client_secret:
+    description: "The client secret to authenticate to UAA"
+  cluster_discovery.uaa.addr:
+    description: "The endpoint used for the UAA API"
+  cluster_discovery.uaa.ca_cert:
+    description: "The certificate authority for the UAA API endpoint"
+
+  metrics.tls.ca_cert:
+    description: "The certificate authority for cluster-discovery metrics mutual TLS."
+  metrics.tls.cert:
+    description: "The certificate for cluster-discovery metrics mutual TLS."
+  metrics.tls.key:
+    description: "The private key for cluster-discovery metrics mutual TLS."

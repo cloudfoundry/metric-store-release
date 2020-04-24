@@ -1,0 +1,10 @@
+---
+name: metric-store-cluster-discovery
+
+dependencies:
+- golang-1.13-linux
+
+files:
+- cmd/**/*.go
+- pkg/**/*.go
+- internal/**/*.go

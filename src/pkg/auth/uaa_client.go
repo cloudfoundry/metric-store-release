@@ -7,8 +7,11 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"regexp"
 	"strings"
@@ -23,17 +26,20 @@ import (
 
 type UAAClient struct {
 	httpClient             HTTPClient
-	uaa                    *url.URL
+	url                    *url.URL
 	log                    *logger.Logger
 	publicKeys             sync.Map
 	minimumRefreshInterval time.Duration
 	lastQueryTime          int64
+
+	client       string
+	clientSecret string
 }
 
 func NewUAAClient(
 	uaaAddr string,
 	httpClient HTTPClient,
-	m debug.MetricRegistrar,
+	m debug.MetricRegistrar, // TODO remove unused
 	log *logger.Logger,
 	opts ...UAAOption,
 ) *UAAClient {
@@ -44,8 +50,8 @@ func NewUAAClient(
 
 	u.Path = "token_keys"
 
-	c := &UAAClient{
-		uaa:                    u,
+	uaa := &UAAClient{
+		url:                    u,
 		httpClient:             httpClient,
 		log:                    log,
 		publicKeys:             sync.Map{},
@@ -53,59 +59,121 @@ func NewUAAClient(
 	}
 
 	for _, opt := range opts {
-		opt(c)
+		opt(uaa)
 	}
 
-	return c
+	return uaa
 }
 
-type UAAOption func(c *UAAClient)
+type UAAOption func(uaa *UAAClient)
 
 func WithMinimumRefreshInterval(interval time.Duration) UAAOption {
-	return func(c *UAAClient) {
-		c.minimumRefreshInterval = interval
+	return func(uaa *UAAClient) {
+		uaa.minimumRefreshInterval = interval
 	}
 }
 
-func (c *UAAClient) RefreshTokenKeys() error {
-	lastQueryTime := atomic.LoadInt64(&c.lastQueryTime)
-	nextAllowedRefreshTime := time.Unix(0, lastQueryTime).Add(c.minimumRefreshInterval)
+func WithClientCredentials(client, secret string) UAAOption {
+	return func(uaa *UAAClient) {
+		uaa.client = client
+		uaa.clientSecret = secret
+	}
+}
+
+func (uaa *UAAClient) GetAuthHeader() (string, error) {
+	if uaa.client == "" || uaa.clientSecret == "" {
+		return "", fmt.Errorf("must provide client and secret to get auth header")
+	}
+	tokenType, accessToken, err := uaa.getAuthToken()
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s %s", tokenType, accessToken), err
+}
+
+type uaaTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+}
+
+func (uaa *UAAClient) getAuthToken() (tokenType, token string, err error) {
+	bodyTemplate := `client_id=%s&client_secret=%s&grant_type=client_credentials&response_type=token`
+	body := fmt.Sprintf(bodyTemplate, uaa.client, uaa.clientSecret)
+
+	endpoint := fmt.Sprintf("https://%s:%s/oauth/token", uaa.url.Hostname(), uaa.url.Port())
+	tokenRequest, err := http.NewRequest("POST", endpoint, strings.NewReader(body))
+	if err != nil {
+		return "", "", err
+	}
+
+	tokenRequest.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	tokenRequest.Header.Add("Accept", "application/json")
+
+	dump, err := httputil.DumpRequestOut(tokenRequest, true)
+	uaa.log.Debug("tokenRequest", zap.ByteString("tokenRequest", dump))
+
+	responseBody, err := uaa.doRequest(tokenRequest)
+	if err != nil {
+		return "", "", err
+	}
+
+	uaaToken := &uaaTokenResponse{}
+	err = json.Unmarshal(responseBody, uaaToken)
+	if err != nil {
+		return "", "", err
+	}
+
+	return uaaToken.TokenType, uaaToken.AccessToken, nil
+
+}
+
+func (uaa *UAAClient) doRequest(req *http.Request) ([]byte, error) {
+	resp, err := uaa.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected response code %d", resp.StatusCode)
+	}
+
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
+}
+
+func (uaa *UAAClient) RefreshTokenKeys() error {
+	lastQueryTime := atomic.LoadInt64(&uaa.lastQueryTime)
+	nextAllowedRefreshTime := time.Unix(0, lastQueryTime).Add(uaa.minimumRefreshInterval)
 	if time.Now().Before(nextAllowedRefreshTime) {
-		c.log.Info(
+		uaa.log.Info(
 			"UAA TokenKey refresh throttled",
-			logger.String("refresh interval", c.minimumRefreshInterval.String()),
+			logger.String("refresh interval", uaa.minimumRefreshInterval.String()),
 			logger.String("retry in", time.Until(nextAllowedRefreshTime).Round(time.Millisecond).String()),
 		)
 		return nil
 	}
-	atomic.CompareAndSwapInt64(&c.lastQueryTime, lastQueryTime, time.Now().UnixNano())
+	atomic.CompareAndSwapInt64(&uaa.lastQueryTime, lastQueryTime, time.Now().UnixNano())
 
-	req, err := http.NewRequest("GET", c.uaa.String(), nil)
+	req, err := http.NewRequest("GET", uaa.url.String(), nil)
 	if err != nil {
-		c.log.Panic("failed to create request to UAA", logger.Error(err))
+		uaa.log.Panic("failed to create request to UAA", logger.Error(err))
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.httpClient.Do(req)
-
+	resp, err := uaa.doRequest(req)
 	if err != nil {
-		return fmt.Errorf("failed to get token keys from UAA: %s", err)
+		return err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("got an invalid status code talking to UAA %v", resp.Status)
-	}
-	defer resp.Body.Close()
-
-	tokenKeys, err := unmarshalTokenKeys(resp.Body)
+	tokenKeys, err := unmarshalTokenKeys(resp)
 	if err != nil {
 		return err
 	}
 
 	currentKeyIds := make(map[string]struct{})
 
-	c.publicKeys.Range(func(keyId, publicKey interface{}) bool {
+	uaa.publicKeys.Range(func(keyId, publicKey interface{}) bool {
 		currentKeyIds[keyId.(string)] = struct{}{}
 		return true
 	})
@@ -134,15 +202,15 @@ func (c *UAAClient) RefreshTokenKeys() error {
 		// if you manually delete the UAA signing key from Credhub, UAA will
 		// generate a new key with the same (default) keyId, which is something
 		// along the lines of `key-1`
-		c.publicKeys.Store(tokenKey.KeyId, publicKey)
+		uaa.publicKeys.Store(tokenKey.KeyID, publicKey)
 
 		// update list of previously-known keys so that we can prune them
 		// if UAA no longer considers them valid
-		delete(currentKeyIds, tokenKey.KeyId)
+		delete(currentKeyIds, tokenKey.KeyID)
 	}
 
-	for keyId := range currentKeyIds {
-		c.publicKeys.Delete(keyId)
+	for keyID := range currentKeyIds {
+		uaa.publicKeys.Delete(keyID)
 	}
 
 	return nil
@@ -164,7 +232,7 @@ func (e UnknownTokenKeyError) Error() string {
 	return fmt.Sprintf("using unknown token key: %s", e.Kid)
 }
 
-func (c *UAAClient) Read(token string) (Oauth2ClientContext, error) {
+func (uaa *UAAClient) Read(token string) (Oauth2ClientContext, error) {
 	if token == "" {
 		return Oauth2ClientContext{}, errors.New("missing token")
 	}
@@ -174,9 +242,9 @@ func (c *UAAClient) Read(token string) (Oauth2ClientContext, error) {
 			return AlgorithmError{Alg: headers["alg"].(string)}
 		}
 
-		keyId := headers["kid"].(string)
+		keyID := headers["kid"].(string)
 
-		publicKey, err := c.loadOrFetchPublicKey(keyId)
+		publicKey, err := uaa.loadOrFetchPublicKey(keyID)
 		if err != nil {
 			return err
 		}
@@ -193,7 +261,7 @@ func (c *UAAClient) Read(token string) (Oauth2ClientContext, error) {
 			// which generally means we've tried to decode a token with the
 			// wrong private key. just in case UAA has rolled the key, but
 			// kept the same keyId, let's renew our keys.
-			go c.RefreshTokenKeys()
+			go uaa.RefreshTokenKeys()
 		}
 
 		return Oauth2ClientContext{}, fmt.Errorf("failed to decode token: %s", err.Error())
@@ -222,20 +290,20 @@ func (c *UAAClient) Read(token string) (Oauth2ClientContext, error) {
 	}, err
 }
 
-func (c *UAAClient) loadOrFetchPublicKey(keyId string) (*rsa.PublicKey, error) {
-	publicKey, ok := c.publicKeys.Load(keyId)
+func (uaa *UAAClient) loadOrFetchPublicKey(keyID string) (*rsa.PublicKey, error) {
+	publicKey, ok := uaa.publicKeys.Load(keyID)
 	if ok {
 		return (publicKey.(*rsa.PublicKey)), nil
 	}
 
-	c.RefreshTokenKeys()
+	uaa.RefreshTokenKeys()
 
-	publicKey, ok = c.publicKeys.Load(keyId)
+	publicKey, ok = uaa.publicKeys.Load(keyID)
 	if ok {
 		return (publicKey.(*rsa.PublicKey)), nil
 	}
 
-	return nil, UnknownTokenKeyError{Kid: keyId}
+	return nil, UnknownTokenKeyError{Kid: keyID}
 }
 
 var bearerRE = regexp.MustCompile(`(?i)^bearer\s+`)
@@ -246,7 +314,7 @@ func trimBearer(authToken string) string {
 
 // TODO: move key processing to a method of tokenKey
 type tokenKey struct {
-	KeyId string `json:"kid"`
+	KeyID string `json:"kid"`
 	Value string `json:"value"`
 }
 
@@ -254,9 +322,9 @@ type tokenKeys struct {
 	Keys []tokenKey `json:"keys"`
 }
 
-func unmarshalTokenKeys(r io.Reader) ([]tokenKey, error) {
+func unmarshalTokenKeys(r []byte) ([]tokenKey, error) {
 	var dtks tokenKeys
-	if err := json.NewDecoder(r).Decode(&dtks); err != nil {
+	if err := json.Unmarshal(r, &dtks); err != nil {
 		return []tokenKey{}, fmt.Errorf("unable to decode json token keys from UAA: %s", err)
 	}
 

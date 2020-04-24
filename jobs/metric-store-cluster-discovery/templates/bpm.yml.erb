@@ -1,0 +1,26 @@
+<%
+  cert_dir = "/var/vcap/jobs/metric-store-cluster-discovery/config/certs"
+%>
+---
+processes:
+  - name: metric-store-cluster-discovery
+    persistent_disk: true
+    executable: /var/vcap/packages/metric-store-cluster-discovery/metric-store-cluster-discovery
+    env:
+      STORAGE_PATH: "<%= p('storage_path') %>"
+      HEALTH_PORT: "<%= p('cluster_discovery.health_port') %>"
+
+      PKS_CA_PATH: "<%= "#{cert_dir}/pks_ca.crt" %>"
+      PKS_API_ADDR: "<%= p('cluster_discovery.pks.addr') %>"
+      PKS_UAA_ADDR: "<%= p('cluster_discovery.uaa.addr') %>"
+      PKS_UAA_CA_PATH: "<%= "#{cert_dir}/uaa_ca.crt" %>"
+      PKS_SERVER_NAME: "<%= p('cluster_discovery.pks.server_name') %>"
+      PKS_UAA_CLIENT: "<%= p('cluster_discovery.uaa.client_id') %>"
+      PKS_UAA_CLIENT_SECRET: "<%= p('cluster_discovery.uaa.client_secret') %>"
+      PKS_SKIP_SSL_VALIDATION: "<%= p('cluster_discovery.pks.skip_ssl_validation') %>"
+
+      # Metrics Server Mutual TLS
+      METRICS_CA_PATH: "<%= "#{cert_dir}/metrics_ca.crt" %>"
+      METRICS_CERT_PATH: "<%= "#{cert_dir}/metrics.crt" %>"
+      METRICS_KEY_PATH: "<%= "#{cert_dir}/metrics.key" %>"
+

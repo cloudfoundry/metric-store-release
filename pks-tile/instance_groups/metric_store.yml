@@ -3,6 +3,7 @@ resource_label: Metric Store
 description: Metric Store VM
 templates:
   - $( job "metric-store" )
+  - $( job "metric-store-cluster-discovery" )
   - $( job "bpm" )
 
 resource_definitions:
@@ -53,3 +54,18 @@ instance_definition:
   constraints:
     min: 1
     max: 9
+
+property_blueprints:
+  - name: cluster_discovery_server_mtls
+    type: rsa_cert_credentials
+    configurable: false
+    default:
+      domains:
+        - pksclusterdiscovery
+
+  - name: cluster_discovery_client_mtls
+    type: rsa_cert_credentials
+    configurable: false
+    default:
+      domains:
+        - prometheus

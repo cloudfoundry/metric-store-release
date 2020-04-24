@@ -40,6 +40,13 @@ func NewTLSClientConfig(caPath, commonName string) (*tls.Config, error) {
 	)
 }
 
+func NewTLSServerConfig(certPath, keyPath string) (*tls.Config, error) {
+	return tlsconfig.Build(
+		tlsconfig.WithInternalServiceDefaults(),
+		tlsconfig.WithIdentityFromFile(certPath, keyPath),
+	).Server()
+}
+
 func NewGenericTLSConfig() (*tls.Config, error) {
 	return tlsconfig.Build(
 		tlsconfig.WithInternalServiceDefaults(),

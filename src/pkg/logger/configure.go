@@ -3,6 +3,7 @@ package logger
 import (
 	"io"
 	"log"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -33,7 +34,7 @@ func NewLogger(logLevel, app string) *Logger {
 	}
 
 	var logOption zapcore.Level
-	switch logLevel {
+	switch strings.ToLower(logLevel) {
 	case "debug":
 		logOption = zap.DebugLevel
 		cfg.EncoderConfig.CallerKey = "caller"
