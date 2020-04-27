@@ -1,0 +1,84 @@
+#!/bin/bash
+
+ROOT=$(git rev-parse --show-toplevel)
+CONFIG_FILE=$(dirname "$0")/golangci.yml
+
+function bold_blue() {
+  echo -e "\033[1;34m$1\033[0m"
+}
+
+function print_usage() {
+  echo "usage: lint [subcommand] [args]"
+  echo
+  echo -e "\033[1mSubcommands:\033[0m"
+  echo "   all               run lint report on project"
+  echo "   new               run lint on current changes"
+  echo "   origin            run lint on changes since last push (default)"
+  echo "   rev               run lint on changes since arg"
+  echo "       rev args      commit sha/branch/tag"
+}
+
+function parse_argc() {
+  command=run_origin
+  if [[ $# -eq 0 ]]; then
+    return
+  fi
+
+  arg=$1
+  case "$arg" in
+  -h | -help | --help | help)
+    print_usage
+    exit 0
+    ;;
+  all | new | origin | rev)
+    command=run_$arg
+    ;;
+  *)
+    echo "Invalid command: $arg"
+    print_usage
+    exit 1
+    ;;
+  esac
+}
+
+function run_common() {
+  golangci-lint run -c "${CONFIG_DIR}" --out-format tab $@
+}
+
+function run_all() {
+  bold_blue "Linting Project"
+  run_common $@
+}
+
+function run_new() {
+  bold_blue "Linting Uncommitted Changes"
+  run_common -n
+}
+
+function run_origin() {
+  bold_blue "Linting Unpushed Changes"
+  run_common --new-from-rev origin/develop
+}
+
+function run_rev() {
+  bold_blue "Linting Changes since $@"
+  # shellcheck disable=SC2068
+  run_common --new-from-rev $@
+}
+
+function main() {
+  parse_argc $1
+
+  if [[ $# -gt 0 ]]; then
+    shift
+  fi
+
+  pushd "${ROOT}" >/dev/null
+  # shellcheck disable=SC2068
+  "$command" $@
+  popd >/dev/null
+  bold_blue "Lint Done"
+}
+
+# shellcheck disable=SC2068
+main $@
