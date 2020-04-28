@@ -105,7 +105,7 @@ func (discovery *ClusterDiscovery) Start() {
 }
 
 func (discovery *ClusterDiscovery) run() {
-	discovery.updateScrapeConfig()
+	discovery.UpdateScrapeConfig()
 
 	t := time.NewTicker(discovery.refreshInterval)
 	for {
@@ -114,12 +114,12 @@ func (discovery *ClusterDiscovery) run() {
 			t.Stop()
 			return
 		case <-t.C:
-			discovery.updateScrapeConfig()
+			discovery.UpdateScrapeConfig()
 		}
 	}
 }
 
-func (discovery *ClusterDiscovery) updateScrapeConfig() {
+func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 	authHeader, err := discovery.auth.GetAuthHeader()
 	if err != nil {
 		discovery.log.Error("getting auth header", err)
@@ -244,7 +244,7 @@ func kubernetesNodesScrapeConfig(cluster *pks.Cluster, store scrapeStore) *prome
 }
 
 func kubernetesAPIServersScrapeConfig(cluster *pks.Cluster, store scrapeStore) *prometheusConfig.ScrapeConfig {
-var _ = `
+	var _ = `
 - job_name: "cluster1-kubernetes-apiservers"
   kubernetes_sd_configs:
   - role: "endpoints"

@@ -1,15 +1,26 @@
 package cluster_discovery_test
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
+	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	"github.com/prometheus/common/model"
+	prometheusConfig "github.com/prometheus/prometheus/config"
+	kubernetesDiscovery "github.com/prometheus/prometheus/discovery/kubernetes"
+	"github.com/prometheus/prometheus/pkg/relabel"
 	"go.uber.org/atomic"
+	"gopkg.in/yaml.v2"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 type certificateMock struct {
@@ -107,213 +118,140 @@ func (spy *storeSpy) LoadScrapeConfig() ([]byte, error) {
 	return spy.loadedScrapeConfig, nil
 }
 
-// TODO fix data races
 var _ = Describe("Cluster Discovery", func() {
-	//	var certificateClient *certificateMock
-	//	var certificateStore *storeSpy
-	//
-	//	var runScrape = func() prometheusConfig.Config {
-	//		mockAuth := &mockAuthClient{}
-	//		if certificateStore == nil {
-	//			certificateStore = &storeSpy{}
-	//		}
-	//		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	//		Expect(err).To(Not(HaveOccurred()))
-	//		certificateClient = &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
-	//		discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth)
-	//		discovery.Start()
-	//		defer discovery.Stop()
-	//
-	//		var expected prometheusConfig.Config
-	//
-	//		getScrapeConfig := func() []byte {
-	//			return certificateStore.scrapeConfig
-	//		}
-	//		Eventually(getScrapeConfig, 5).ShouldNot(BeNil())
-	//		Expect(yaml.NewDecoder(bytes.NewReader(getScrapeConfig())).Decode(&expected)).To(Succeed())
-	//		return expected
-	//	}
-	//
-	//	Describe("Start", func() {
-	//		It("runs repeatedly", func() {
-	//			mockAuth := &mockAuthClient{}
-	//			certificateStore = &storeSpy{}
-	//			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	//			Expect(err).To(Not(HaveOccurred()))
-	//			certificateClient = &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
-	//			discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth,
-	//				cluster_discovery.WithRefreshInterval(time.Millisecond),
-	//			)
-	//
-	//			discovery.Start()
-	//
-	//			Eventually(mockAuth.calls.Load).Should(BeNumerically(">", 1))
-	//		})
-	//
-	//		It("stops", func() {
-	//			mockAuth := &mockAuthClient{}
-	//			certificateStore = &storeSpy{}
-	//			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	//			Expect(err).To(Not(HaveOccurred()))
-	//			certificateClient = &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
-	//			discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth,
-	//				cluster_discovery.WithRefreshInterval(time.Millisecond),
-	//			)
-	//
-	//			discovery.Start()
-	//			Eventually(mockAuth.calls.Load).Should(BeNumerically(">", 1))
-	//			discovery.Stop()
-	//			runsAtStop := mockAuth.calls.Load()
-	//			Consistently(mockAuth.calls.Load).Should(BeNumerically("<=", runsAtStop+1))
-	//		})
-	//	})
-	//
-	//	Describe("Existing working scrape configs are skipped", func() {
-	//		XIt("Checks the existing scrape configs for a cluster", func() {
-	//			certificateStore = &storeSpy{}
-	//			certificateStore.loadedScrapeConfig = []byte(`scrape_configs:
-	//- job_name: cluster1-kubernetes-nodes
-	//  honor_timestamps: false
-	//  kubernetes_sd_configs:
-	//  - api_server: //somehost:12345
-	//    role: node
-	//    tls_config:
-	//      ca_file: /tmp/scraper/cluster1/ca.pem
-	//      cert_file: /tmp/scraper/cluster1/cert.pem
-	//      key_file: /tmp/scraper/private.key
-	//      insecure_skip_verify: false
-	//  tls_config:
-	//    ca_file: /tmp/scraper/cluster1/ca.pem
-	//    cert_file: /tmp/scraper/cluster1/cert.pem
-	//    key_file: /tmp/scraper/private.key
-	//    insecure_skip_verify: false
-	//  relabel_configs:
-	//  - regex: __meta_kubernetes_node_label_(.+)
-	//    action: labelmap
-	//  - target_label: __address__
-	//    replacement: somehost:12345
-	//  - source_labels: [__meta_kubernetes_node_name]
-	//    regex: (.+)
-	//    target_label: __metrics_path__
-	//    replacement: /api/v1/nodes/$1/proxy/metrics`)
-	//
-	//			runScrape()
-	//			Expect(certificateClient.generatedCSRs.Load()).To(Equal(0))
-	//		})
-	//
-	//	})
-	//
-	//	Describe("ScrapeConfig for node in a cluster", func() {
-	//
-	//		var getJobConfig = func(jobName string, config prometheusConfig.Config) *prometheusConfig.ScrapeConfig {
-	//			Expect(config.ScrapeConfigs).ToNot(BeEmpty())
-	//			for _, scrapeConfig := range config.ScrapeConfigs {
-	//				if scrapeConfig.JobName == jobName {
-	//					return scrapeConfig
-	//				}
-	//			}
-	//			Fail("No scrape config found for name" + jobName)
-	//			return nil
-	//		}
-	//
-	//		It("creates a base ScrapeConfig", func() {
-	//			scrapeConfig := getJobConfig("cluster1-kubernetes-nodes", runScrape())
-	//
-	//			sdConfig := scrapeConfig.ServiceDiscoveryConfig.KubernetesSDConfigs[0]
-	//			Expect(sdConfig.Role).To(Equal(kubernetesDiscovery.Role("node")))
-	//			Expect(sdConfig.APIServer.String()).To(Equal("//somehost:12345"))
-	//		})
-	//
-	//		It("creates a ScrapeConfig for nodes in a cluster", func() {
-	//			scrapeConfig := getJobConfig("cluster1-kubernetes-nodes", runScrape())
-	//
-	//			Expect(scrapeConfig.RelabelConfigs).To(HaveLen(3))
-	//			Expect(scrapeConfig.RelabelConfigs).To(MatchAllElements(
-	//				func(element interface{}) string {
-	//					return element.(*relabel.Config).TargetLabel
-	//				},
-	//				Elements{
-	//					"": PointTo(MatchFields(IgnoreExtras, Fields{
-	//						"Regex":  Equal(relabel.MustNewRegexp("__meta_kubernetes_node_label_(.+)")),
-	//						"Action": Equal(relabel.LabelMap),
-	//					})),
-	//					"__address__": PointTo(MatchFields(IgnoreExtras, Fields{
-	//						"Replacement": Equal("somehost:12345"),
-	//					})),
-	//					"__metrics_path__": PointTo(MatchFields(IgnoreExtras, Fields{
-	//						"SourceLabels": Equal(model.LabelNames{
-	//							"__meta_kubernetes_node_name",
-	//						}),
-	//						"Regex":       Equal(relabel.MustNewRegexp("(.+)")),
-	//						"Replacement": Equal("/api/v1/nodes/$1/proxy/metrics"),
-	//					})),
-	//				}),
-	//			)
-	//		})
-	//
-	//		It("configures TLS", func() {
-	//			clusterName := "cluster1"
-	//			jobName := clusterName + "-kubernetes-nodes"
-	//			scrapeConfig := getJobConfig(jobName, runScrape())
-	//
-	//			Expect(string(certificateStore.certs["cluster1"])).To(Equal("signed-certificate"))
-	//			Expect(certificateStore.caCerts["cluster1"]).To(Equal([]byte("certdata")))
-	//			Expect(certificateStore.privateKeys["cluster1"]).To(Equal(certificateClient.PrivateKey()))
-	//
-	//			tlsConfig := scrapeConfig.HTTPClientConfig.TLSConfig
-	//			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
-	//			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
-	//			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
-	//
-	//			tlsConfig = scrapeConfig.ServiceDiscoveryConfig.KubernetesSDConfigs[0].HTTPClientConfig.TLSConfig
-	//			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
-	//			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
-	//			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
-	//		})
-	//
-	//		XIt("generates cert files from k8s signing role")
-	//
-	//		// Open Questions
-	//		// Cert lifecycle:
-	//		// - cert expiration
-	//		// - certs on restart/recreate
-	//		// - cert distribution across nodes
-	//		// - service discovery config vs scrape config
-	//		// - istio / any other exceptions?
-	//		// cluster topo changes
-	//		// - source of truth
-	//		// - synchronization
-	//		// Deduplication / divvying work
-	//
-	//		/*- job_name: "cluster1-kubernetes-nodes"
-	//		  kubernetes_sd_configs:
-	//		  - role: "node"
-	//		    api_server: "https://localhost:$k8sApiPort"
-	//		    tls_config:
-	//		      ca_file: "/tmp/cluster1_ca.pem"
-	//		      cert_file: "/tmp/cluster1_cert.pem"
-	//		      key_file: "/tmp/cluster1_cert.key"
-	//		      insecure_skip_verify: false
-	//		  scheme: "https"
-	//		  tls_config:
-	//		    ca_file: "/tmp/cluster1_ca.pem"
-	//		    cert_file: "/tmp/cluster1_cert.pem"
-	//		    key_file: "/tmp/cluster1_cert.key"
-	//		    insecure_skip_verify: false
-	//		  relabel_configs:
-	//		  - action: "labelmap"
-	//		    regex: "__meta_kubernetes_node_label_(.+)"
-	//		  - target_label: "__address__"
-	//		    replacement: "localhost:$k8sApiPort"
-	//		  - source_labels:
-	//		    - "__meta_kubernetes_node_name"
-	//		    regex: "(.+)"
-	//		    target_label: "__metrics_path__"
-	//		    replacement: "/api/v1/nodes/$1/proxy/metrics"
-	//		` //*/
-	//	})
-	//
-	//	XIt("cluster level metrics")
+	type testContext struct {
+		certificateStore  storeSpy
+		certificateClient certificateMock
+	}
+
+	var setup = func() *testContext {
+		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		Expect(err).To(Not(HaveOccurred()))
+
+		tc := &testContext{
+			certificateClient: certificateMock{
+				certificateString: "scraperCertData",
+				privateKey:        privateKey,
+			},
+		}
+		return tc
+	}
+
+	var runScrape = func(tc *testContext) prometheusConfig.Config {
+		mockAuth := &mockAuthClient{}
+		discovery := cluster_discovery.New(&tc.certificateStore,
+			&mockClusterProvider{certClient: &tc.certificateClient},
+			mockAuth)
+		discovery.UpdateScrapeConfig()
+
+		var expected prometheusConfig.Config
+
+		Expect(yaml.NewDecoder(bytes.NewReader(tc.certificateStore.scrapeConfig)).Decode(&expected)).To(Succeed())
+		return expected
+	}
+
+	Describe("Start", func() {
+		It("runs repeatedly", func() {
+			mockAuth := &mockAuthClient{}
+			certificateStore := &storeSpy{}
+			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			Expect(err).To(Not(HaveOccurred()))
+			certificateClient := &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
+			discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth,
+				cluster_discovery.WithRefreshInterval(time.Millisecond),
+			)
+
+			discovery.Start()
+
+			Eventually(mockAuth.calls.Load).Should(BeNumerically(">", 1))
+		})
+
+		It("stops", func() {
+			mockAuth := &mockAuthClient{}
+			certificateStore := &storeSpy{}
+			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			Expect(err).To(Not(HaveOccurred()))
+			certificateClient := &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
+			discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth,
+				cluster_discovery.WithRefreshInterval(time.Millisecond),
+			)
+
+			discovery.Start()
+			Eventually(mockAuth.calls.Load).Should(BeNumerically(">", 1))
+			discovery.Stop()
+			runsAtStop := mockAuth.calls.Load()
+			Consistently(mockAuth.calls.Load).Should(BeNumerically("<=", runsAtStop+1))
+		})
+	})
+
+	Describe("ScrapeConfig for node in a cluster", func() {
+		var getJobConfig = func(jobName string, config prometheusConfig.Config) *prometheusConfig.ScrapeConfig {
+			Expect(config.ScrapeConfigs).ToNot(BeEmpty())
+			for _, scrapeConfig := range config.ScrapeConfigs {
+				if scrapeConfig.JobName == jobName {
+					return scrapeConfig
+				}
+			}
+			Fail("No scrape config found for name" + jobName)
+			return nil
+		}
+
+		It("creates a base ScrapeConfig", func() {
+			scrapeConfig := getJobConfig("cluster1-kubernetes-nodes", runScrape(setup()))
+
+			sdConfig := scrapeConfig.ServiceDiscoveryConfig.KubernetesSDConfigs[0]
+			Expect(sdConfig.Role).To(Equal(kubernetesDiscovery.Role("node")))
+			Expect(sdConfig.APIServer.String()).To(Equal("//somehost:12345"))
+		})
+
+		It("creates a ScrapeConfig for nodes in a cluster", func() {
+			scrapeConfig := getJobConfig("cluster1-kubernetes-nodes", runScrape(setup()))
+
+			Expect(scrapeConfig.RelabelConfigs).To(HaveLen(3))
+			Expect(scrapeConfig.RelabelConfigs).To(MatchAllElements(
+				func(element interface{}) string {
+					return element.(*relabel.Config).TargetLabel
+				},
+				Elements{
+					"": PointTo(MatchFields(IgnoreExtras, Fields{
+						"Regex":  Equal(relabel.MustNewRegexp("__meta_kubernetes_node_label_(.+)")),
+						"Action": Equal(relabel.LabelMap),
+					})),
+					"__address__": PointTo(MatchFields(IgnoreExtras, Fields{
+						"Replacement": Equal("somehost:12345"),
+					})),
+					"__metrics_path__": PointTo(MatchFields(IgnoreExtras, Fields{
+						"SourceLabels": Equal(model.LabelNames{
+							"__meta_kubernetes_node_name",
+						}),
+						"Regex":       Equal(relabel.MustNewRegexp("(.+)")),
+						"Replacement": Equal("/api/v1/nodes/$1/proxy/metrics"),
+					})),
+				}),
+			)
+		})
+
+		It("configures TLS", func() {
+			clusterName := "cluster1"
+			jobName := clusterName + "-kubernetes-nodes"
+			tc := setup()
+			scrapeConfig := getJobConfig(jobName, runScrape(tc))
+
+			Expect(string(tc.certificateStore.certs["cluster1"])).To(Equal("signed-certificate"))
+			Expect(tc.certificateStore.caCerts["cluster1"]).To(Equal([]byte("certdata")))
+			Expect(tc.certificateStore.privateKeys["cluster1"]).To(Equal(tc.certificateClient.PrivateKey()))
+
+			tlsConfig := scrapeConfig.HTTPClientConfig.TLSConfig
+			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
+			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
+			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
+
+			tlsConfig = scrapeConfig.ServiceDiscoveryConfig.KubernetesSDConfigs[0].HTTPClientConfig.TLSConfig
+			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
+			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
+			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
+		})
+	})
 })
 
 type mockClusterProvider struct {
