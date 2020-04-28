@@ -19,5 +19,6 @@ linters-settings:
 linters:
   enable:
     - funlen
+    - godox
   disable-all: true
   fast: false
