@@ -24,7 +24,10 @@ type TCPListener struct {
 	ConnConfig      *TCPServerConfig
 	tlsConfig       *tls.Config
 	Address         string
-	connectionCount int
+
+	connectionCount           int
+	connectionCountMetricName string
+	metrics                   MetricRegistrar
 
 	groupMu sync.Mutex
 	blockMu sync.Mutex
@@ -33,6 +36,10 @@ type TCPListener struct {
 
 type Logger interface {
 	Printf(v string, args ...interface{})
+}
+
+type MetricRegistrar interface {
+	Set(name string, value float64, labels ...string)
 }
 
 // TCPListenerConfig representss the information needed to begin listening for
@@ -52,7 +59,9 @@ type TCPListenerConfig struct {
 	// inside the callback
 	Callback ListenCallback
 
-	TLSConfig *tls.Config
+	TLSConfig           *tls.Config
+	MetricRegistrar     MetricRegistrar
+	ConnCountMetricName string
 }
 
 // ListenTCP creates a TCPListener, and opens it's local connection to
@@ -71,14 +80,16 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 	}
 
 	btl := &TCPListener{
-		logger:          cfg.Logger,
-		callback:        cfg.Callback,
-		shutdownChannel: make(chan struct{}),
-		shutdownGroup:   &sync.WaitGroup{},
-		ConnConfig:      &connCfg,
-		tlsConfig:       cfg.TLSConfig,
-		Address:         "",
-		connectionCount: 0,
+		logger:                    cfg.Logger,
+		callback:                  cfg.Callback,
+		shutdownChannel:           make(chan struct{}),
+		shutdownGroup:             &sync.WaitGroup{},
+		ConnConfig:                &connCfg,
+		tlsConfig:                 cfg.TLSConfig,
+		Address:                   "",
+		connectionCount:           0,
+		connectionCountMetricName: cfg.ConnCountMetricName,
+		metrics:                   cfg.MetricRegistrar,
 	}
 
 	if err := btl.openSocket(); err != nil {
@@ -123,10 +134,17 @@ func (t *TCPListener) blockListen() error {
 
 		t.countMu.Lock()
 		t.connectionCount += 1
+		t.updateConnectionCountMetric(t.connectionCount)
 		t.countMu.Unlock()
 
 		// Hand this off and immediately listen for more
 		go t.readLoop(conn)
+	}
+}
+
+func (t *TCPListener) updateConnectionCountMetric(n int) {
+	if t.metrics != nil && t.connectionCountMetricName != "" {
+		t.metrics.Set(t.connectionCountMetricName, float64(n))
 	}
 }
 
@@ -165,6 +183,7 @@ func (t *TCPListener) reopenSocket() error {
 
 	t.countMu.Lock()
 	t.connectionCount = 0
+	t.updateConnectionCountMetric(t.connectionCount)
 	t.countMu.Unlock()
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", t.Address)
@@ -195,6 +214,7 @@ func (t *TCPListener) Close() {
 
 	t.countMu.Lock()
 	t.connectionCount = 0
+	t.updateConnectionCountMetric(t.connectionCount)
 	t.countMu.Unlock()
 }
 
@@ -249,6 +269,7 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 			conn.Close()
 			t.countMu.Lock()
 			t.connectionCount -= 1
+			t.updateConnectionCountMetric(t.connectionCount)
 			t.countMu.Unlock()
 			return
 		}
