@@ -17,9 +17,14 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	serverConnCount = "server_connection_count"
+)
+
 type leanstreamsTestContext struct {
-	Listener *TCPListener
-	Client   *TCPClient
+	Listener        *TCPListener
+	Client          *TCPClient
+	MetricRegistrar *testing.SpyMetricRegistrar
 
 	MessageCommentsReceived []string
 	sync.Mutex
@@ -91,13 +96,17 @@ var _ = Describe("Leanstreams", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 
+		tc.MetricRegistrar = testing.NewSpyMetricRegistrar()
+
 		maxMessageSize := 100
 		listenConfig := TCPListenerConfig{
-			MaxMessageSize: maxMessageSize,
-			Logger:         log.New(GinkgoWriter, "leanstreams", log.LstdFlags),
-			Address:        ":0",
-			Callback:       tc.Callback,
-			TLSConfig:      tlsServerConfig,
+			MaxMessageSize:      maxMessageSize,
+			Logger:              log.New(GinkgoWriter, "leanstreams", log.LstdFlags),
+			Address:             ":0",
+			Callback:            tc.Callback,
+			TLSConfig:           tlsServerConfig,
+			MetricRegistrar:     tc.MetricRegistrar,
+			ConnCountMetricName: serverConnCount,
 		}
 		listener, err := ListenTCP(listenConfig)
 		if err != nil {
@@ -145,6 +154,20 @@ var _ = Describe("Leanstreams", func() {
 
 			_, err = tc.Write("This is an example message")
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("increments and decrements the connection counts", func() {
+			tc, cleanup := setup()
+
+			Eventually(
+				tc.MetricRegistrar.Fetch(serverConnCount),
+			).Should(Equal(1.0))
+
+			cleanup()
+
+			Eventually(
+				tc.MetricRegistrar.Fetch(serverConnCount),
+			).Should(Equal(0.0))
 		})
 	})
 
