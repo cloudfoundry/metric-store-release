@@ -15,10 +15,10 @@ import (
 	"k8s.io/client-go/util/certificate/csr"
 )
 
-type CertificateClient interface {
-	GenerateCSR() (csrPEM []byte, key *ecdsa.PrivateKey, err error)
-	RequestCertificate(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error)
-	UpdateApproval(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error)
+type CertificateSigningRequestClient interface {
+	Generate() (csrPEM []byte, key *ecdsa.PrivateKey, err error)
+	Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error)
+	Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error)
 	Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error)
 }
 
@@ -34,12 +34,12 @@ func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface) *
 	}
 }
 
-func (client *csrClient) RequestCertificate(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {
+func (client *csrClient) Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {
 	usages := []certificates.KeyUsage{certificates.UsageClientAuth}
 	return csr.RequestCertificate(client.api, csrData, client.metricStoreCommonName, usages, privateKey)
 }
 
-func (client *csrClient) UpdateApproval(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error) {
+func (client *csrClient) Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error) {
 	certificateSigningRequest.Status.Conditions = append(certificateSigningRequest.Status.Conditions, certificates.CertificateSigningRequestCondition{Type: certificates.CertificateApproved})
 	return client.api.UpdateApproval(certificateSigningRequest)
 }
@@ -48,7 +48,7 @@ func (client *csrClient) Get(options v1.GetOptions) (*certificates.CertificateSi
 	return client.api.Get(client.metricStoreCommonName, options)
 }
 
-func (client *csrClient) GenerateCSR() ([]byte, *ecdsa.PrivateKey, error) {
+func (client *csrClient) Generate() ([]byte, *ecdsa.PrivateKey, error) {
 	template := &x509.CertificateRequest{
 		// TODO make sure we don't need these other fields
 		Subject: pkix.Name{

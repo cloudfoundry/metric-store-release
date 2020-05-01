@@ -34,7 +34,7 @@ type Cluster struct {
 	CaData    string
 	UserToken string
 	Host      string
-	APIClient kubernetes2.CertificateClient
+	APIClient kubernetes2.CertificateSigningRequestClient
 }
 
 func (lookup *ClusterLookup) GetClusters(authHeader string) ([]Cluster, error) {

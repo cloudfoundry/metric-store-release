@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"fmt"
 	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
@@ -24,26 +25,49 @@ import (
 )
 
 type certificateMock struct {
-	generatedCSRs     atomic.Int32
-	certificateString string
-	pending           bool
-	privateKey        *ecdsa.PrivateKey
+	generatedCSRs atomic.Int32
+	pending       bool
+	privateKey    *ecdsa.PrivateKey
+
+	nextCreateCSRIsError      bool
+	nextUpdateApprovalIsError bool
+	nextGetApprovalIsError    bool
 }
 
-func (mock *certificateMock) GenerateCSR() (csrPEM []byte, key *ecdsa.PrivateKey, err error) {
+func newMockCSRClient() *certificateMock {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	Expect(err).To(Not(HaveOccurred()))
+	mockClient := &certificateMock{
+		privateKey: privateKey,
+	}
+	return mockClient
+}
+
+func (mock *certificateMock) Generate() (csrPEM []byte, key *ecdsa.PrivateKey, err error) {
 	mock.generatedCSRs.Inc()
-	return []byte(mock.certificateString), mock.privateKey, nil
+	return []byte{}, mock.privateKey, nil
 }
 
-func (mock *certificateMock) RequestCertificate(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {
+func (mock *certificateMock) Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {
+	if mock.nextCreateCSRIsError {
+		return nil, fmt.Errorf("Server Unavailable")
+	}
 	return nil, nil
 }
 
-func (mock *certificateMock) UpdateApproval(_ *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error) {
+func (mock *certificateMock) Approve(_ *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error) {
+	if mock.nextUpdateApprovalIsError {
+		return nil, fmt.Errorf("Server Unavailable")
+	}
 	return nil, nil
 }
 
 func (mock *certificateMock) Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error) {
+	if mock.nextGetApprovalIsError {
+		return nil, fmt.Errorf("Server Unavailable")
+	}
+	
+	// TODO are we still using this pending field?
 	if mock.pending {
 		return &certificates.CertificateSigningRequest{
 			Status: certificates.CertificateSigningRequestStatus{
@@ -130,8 +154,7 @@ var _ = Describe("Cluster Discovery", func() {
 
 		tc := &testContext{
 			certificateClient: certificateMock{
-				certificateString: "scraperCertData",
-				privateKey:        privateKey,
+				privateKey: privateKey,
 			},
 		}
 		return tc
@@ -154,10 +177,11 @@ var _ = Describe("Cluster Discovery", func() {
 		It("runs repeatedly", func() {
 			mockAuth := &mockAuthClient{}
 			certificateStore := &storeSpy{}
-			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-			Expect(err).To(Not(HaveOccurred()))
-			certificateClient := &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
-			discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth,
+			discovery := cluster_discovery.New(certificateStore,
+				&mockClusterProvider{
+					certClient: newMockCSRClient(),
+				},
+				mockAuth,
 				cluster_discovery.WithRefreshInterval(time.Millisecond),
 			)
 
@@ -169,10 +193,11 @@ var _ = Describe("Cluster Discovery", func() {
 		It("stops", func() {
 			mockAuth := &mockAuthClient{}
 			certificateStore := &storeSpy{}
-			privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-			Expect(err).To(Not(HaveOccurred()))
-			certificateClient := &certificateMock{certificateString: "scraperCertData", privateKey: privateKey}
-			discovery := cluster_discovery.New(certificateStore, &mockClusterProvider{certClient: certificateClient}, mockAuth,
+			discovery := cluster_discovery.New(certificateStore,
+				&mockClusterProvider{
+					certClient: newMockCSRClient(),
+				},
+				mockAuth,
 				cluster_discovery.WithRefreshInterval(time.Millisecond),
 			)
 
@@ -255,7 +280,7 @@ var _ = Describe("Cluster Discovery", func() {
 })
 
 type mockClusterProvider struct {
-	certClient kubernetes.CertificateClient
+	certClient kubernetes.CertificateSigningRequestClient
 }
 
 func (m mockClusterProvider) GetClusters(authHeader string) ([]pks.Cluster, error) {

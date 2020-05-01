@@ -95,7 +95,6 @@ func WithMetrics(metrics debug.MetricRegistrar) WithOption {
 	}
 }
 
-//TODO DELETE CERTS/KEYS WHEN SCRAPE NO LONGER WORKS
 //TODO CHECK IF EXISTING SCRAPE CONFIG WORKS BEFORE GENERATING NEW ONE FOR A CLUSTER
 
 // Start runs the discovery server and periodically writes an updated prometheus
@@ -144,9 +143,6 @@ func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 		return
 	}
 
-	// TODO scrape configs need to be combined with other configs
-	// from various places (scrape metric store itself, etc),
-	// so this shouldn't expect to create a full prom config
 	err = discovery.store.SaveScrapeConfig(contents)
 	if err != nil {
 		discovery.log.Error("writing updated scrape config", err)

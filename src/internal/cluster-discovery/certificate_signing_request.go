@@ -12,14 +12,14 @@ import (
 )
 
 type CertificateSigningRequest struct {
-	kubernetesCSRClient kubernetes.CertificateClient
+	kubernetesCSRClient kubernetes.CertificateSigningRequestClient
 	timeout             time.Duration
 	retryInterval       time.Duration
 }
 
 type CSROption func(csr *CertificateSigningRequest)
 
-func NewCertificateSigningRequest(client kubernetes.CertificateClient, options ...CSROption) *CertificateSigningRequest {
+func NewCertificateSigningRequest(client kubernetes.CertificateSigningRequestClient, options ...CSROption) *CertificateSigningRequest {
 	csr := &CertificateSigningRequest{kubernetesCSRClient: client, timeout: time.Minute, retryInterval: time.Second}
 
 	for _, o := range options {
@@ -40,24 +40,33 @@ func WithCertificateSigningRequestRetryInterval(t time.Duration) CSROption {
 	}
 }
 
+// TODO if we have a large number of clusters, does blocking on certificate
+//      approval make discovery unacceptably slow?
 func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byte, error) {
 	//TODO DELETE CSR so that it doesn't error
 	//you can still log into the cluster with the generated cert
 	//after the csr is deleted
 
-	csrPEM, privateKey, err := csr.kubernetesCSRClient.GenerateCSR()
+	csrPEM, privateKey, err := csr.kubernetesCSRClient.Generate()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	signingRequest, err := csr.kubernetesCSRClient.RequestCertificate(csrPEM, privateKey)
-	panicIfError(err)
+	signingRequest, err := csr.kubernetesCSRClient.Submit(csrPEM, privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	signingRequest, err = csr.kubernetesCSRClient.UpdateApproval(signingRequest)
-	panicIfError(err)
+	signingRequest, err = csr.kubernetesCSRClient.Approve(signingRequest)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	signingRequest, err = csr.get()
-	panicIfError(err)
+	signingRequest, err = csr.getUntilApproved()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	keyBytes, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to encode private key: %v", err)
@@ -66,7 +75,7 @@ func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byt
 	return signingRequest.Status.Certificate, keyBytes, nil
 }
 
-func (csr *CertificateSigningRequest) get() (*certificates.CertificateSigningRequest, error) {
+func (csr *CertificateSigningRequest) getUntilApproved() (*certificates.CertificateSigningRequest, error) {
 	ctx, _ := context.WithTimeout(context.Background(), csr.timeout)
 	for {
 		select {
@@ -75,8 +84,7 @@ func (csr *CertificateSigningRequest) get() (*certificates.CertificateSigningReq
 		default:
 			signingRequest, err := csr.kubernetesCSRClient.Get(v1.GetOptions{})
 			if err != nil {
-				//return nil, err
-				panicIfError(err)
+				return nil, err
 			}
 			if signingRequest.Status.Certificate != nil {
 				return signingRequest, nil
