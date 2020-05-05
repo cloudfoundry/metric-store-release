@@ -100,11 +100,11 @@ func WithMetrics(metrics debug.MetricRegistrar) WithOption {
 // Start runs the discovery server and periodically writes an updated prometheus
 // config file for each of the available PKS clusters.
 func (discovery *ClusterDiscovery) Start() {
-	go discovery.run()
+	go discovery.Run()
 }
 
-func (discovery *ClusterDiscovery) run() {
-	discovery.UpdateScrapeConfig()
+func (discovery *ClusterDiscovery) Run() {
+	discovery.updateScrapeConfig()
 
 	t := time.NewTicker(discovery.refreshInterval)
 	for {
@@ -113,12 +113,12 @@ func (discovery *ClusterDiscovery) run() {
 			t.Stop()
 			return
 		case <-t.C:
-			discovery.UpdateScrapeConfig()
+			discovery.updateScrapeConfig()
 		}
 	}
 }
 
-func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
+func (discovery *ClusterDiscovery) updateScrapeConfig() {
 	authHeader, err := discovery.auth.GetAuthHeader()
 	if err != nil {
 		discovery.log.Error("getting auth header", err)
@@ -133,7 +133,8 @@ func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 
 	scrapeConfig := &prometheusConfig.Config{}
 	for _, cluster := range clusters {
-		scrapeConfig.ScrapeConfigs = append(scrapeConfig.ScrapeConfigs, discovery.getScrapeConfigsForCluster(&cluster)...)
+		scrapeConfigs, _ := discovery.getScrapeConfigsForCluster(&cluster)
+		scrapeConfig.ScrapeConfigs = append(scrapeConfig.ScrapeConfigs, scrapeConfigs...)
 	}
 
 	contents, err := yaml.Marshal(scrapeConfig)
@@ -154,29 +155,38 @@ func (discovery *ClusterDiscovery) Stop() {
 	close(discovery.done)
 }
 
-func (discovery *ClusterDiscovery) getScrapeConfigsForCluster(cluster *pks.Cluster) []*prometheusConfig.ScrapeConfig {
+func (discovery *ClusterDiscovery) getScrapeConfigsForCluster(cluster *pks.Cluster) ([]*prometheusConfig.ScrapeConfig, error) {
 	// TODO talk to Bob
 	//existing := discovery.loadConfigForCluster(cluster.Name)
 	//if existing != nil {
 	//	return existing
 	//}
 
-	_ = discovery.store.SaveCA(cluster.Name, []byte(cluster.CaData))
+	err := discovery.store.SaveCA(cluster.Name, []byte(cluster.CaData))
+	if err != nil {
+		return nil, err
+	}
 
 	certificateSigningRequest := NewCertificateSigningRequest(cluster.APIClient)
 	clientCert, clientKey, err := certificateSigningRequest.RequestScraperCertificate()
-	panicIfError(err) // TODO fix me
+	if err != nil {
+		return nil, err
+	}
 
 	err = discovery.store.SaveCert(cluster.Name, clientCert)
-	panicIfError(err) // TODO fix me
+	if err != nil {
+		return nil, err
+	}
 
 	err = discovery.store.SavePrivateKey(cluster.Name, clientKey)
-	panicIfError(err) // TODO fix me
+	if err != nil {
+		return nil, err
+	}
 
 	return []*prometheusConfig.ScrapeConfig{
 		kubernetesNodesScrapeConfig(cluster, discovery.store),
 		//kubernetesAPIServersScrapeConfig(cluster, discovery.store),
-	}
+	}, nil
 }
 
 func (discovery *ClusterDiscovery) loadConfigForCluster(_ string) []*prometheusConfig.ScrapeConfig {
@@ -309,11 +319,5 @@ func kubernetesAPIServersScrapeConfig(cluster *pks.Cluster, store scrapeStore) *
 				},
 			},
 		},
-	}
-}
-
-func panicIfError(err error) {
-	if err != nil {
-		panic(err)
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	kubernetes2 "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
+	cd_kubernetes "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"net"
 	"net/http"
@@ -24,8 +24,13 @@ func NewClusterLookup(addr string, tlsConfig *tls.Config, log *logger.Logger) *C
 	}
 }
 
+type Client interface {
+	GetClusters(authorization string) ([]string, error)
+	GetCredentials(clusterName string, authorization string) (*pks.Credentials, error)
+}
+
 type ClusterLookup struct {
-	pksClient *pks.Client
+	pksClient Client
 	log       *logger.Logger
 }
 
@@ -34,13 +39,13 @@ type Cluster struct {
 	CaData    string
 	UserToken string
 	Host      string
-	APIClient kubernetes2.CertificateSigningRequestClient
+	APIClient cd_kubernetes.CertificateSigningRequestClient
 }
 
 func (lookup *ClusterLookup) GetClusters(authHeader string) ([]Cluster, error) {
 	pksClusters, err := lookup.pksClient.GetClusters(authHeader)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	lookup.log.Debug("clusters", logger.String("json", fmt.Sprintf("%#v", pksClusters)))
@@ -49,29 +54,28 @@ func (lookup *ClusterLookup) GetClusters(authHeader string) ([]Cluster, error) {
 	for _, clusterName := range pksClusters {
 		credentials, err := lookup.pksClient.GetCredentials(clusterName, authHeader)
 		if err != nil {
-			panic(err)
+			lookup.log.Error("Could not retrieve credentials for cluster "+clusterName+". skipping.", err)
+			continue
 		}
 
 		lookup.log.Debug("credentials", logger.String("json", fmt.Sprintf("%#v", credentials)))
 
-		caData := credentials.Clusters[0].Cluster.CertificateAuthorityData
-		userToken := credentials.Users[0].User.Token
-		u, err := url.Parse(credentials.Clusters[0].Cluster.Server)
+		certificateAuthority, err := base64.StdEncoding.DecodeString(credentials.CaData)
 		if err != nil {
-			panic(err)
+			lookup.log.Error("Could not decode CA for cluster "+clusterName+". skipping.", err)
+			continue
 		}
 
-		certificateAuthority, err := base64.StdEncoding.DecodeString(caData)
+		u, err := url.Parse(credentials.Server)
 		if err != nil {
-			panic(err)
-
+			lookup.log.Error("Could not parse the URL for cluster "+clusterName+". skipping.", err)
+			continue
 		}
 
-		//TODO add test with no port given
 		hostname, _, err := net.SplitHostPort(u.Host)
 		if err != nil {
-			panic(err)
-
+			lookup.log.Error("Could not parse the host and port for cluster "+clusterName+". skipping.", err)
+			continue
 		}
 
 		tlsClientConfig := rest.TLSClientConfig{
@@ -81,21 +85,21 @@ func (lookup *ClusterLookup) GetClusters(authHeader string) ([]Cluster, error) {
 
 		clientSet, err := kubernetes.NewForConfig(&rest.Config{
 			Host:            u.Host,
-			BearerToken:     userToken,
+			BearerToken:     credentials.UserToken,
 			TLSClientConfig: tlsClientConfig,
 		})
 		if err != nil {
-			panic(err)
-
+			lookup.log.Error("Could not build kubernetes config for cluster "+clusterName+". skipping.", err)
+			continue
 		}
 		apiClient := clientSet.CertificatesV1beta1().CertificateSigningRequests()
 
 		clusters = append(clusters, Cluster{
 			Name:      clusterName,
-			CaData:    caData,
-			UserToken: userToken,
+			CaData:    credentials.CaData,
+			UserToken: credentials.UserToken,
 			Host:      u.Host,
-			APIClient: kubernetes2.NewCSRClient(apiClient),
+			APIClient: cd_kubernetes.NewCSRClient(apiClient),
 		})
 	}
 	return clusters, nil

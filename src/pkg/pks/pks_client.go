@@ -43,7 +43,7 @@ func (client *Client) GetClusters(authorization string) ([]string, error) {
 	responseBody, err := client.doRequest(pksRequest, http.StatusOK)
 	panicIfError(err)
 
-	var pksClusters []pksClustersResponse
+	var pksClusters []PksClustersResponse
 	err = json.Unmarshal(responseBody, &pksClusters)
 	panicIfError(err)
 
@@ -54,7 +54,7 @@ func (client *Client) GetClusters(authorization string) ([]string, error) {
 	return clusterNames, nil
 }
 
-func (client *Client) GetCredentials(clusterName string, authorization string) (*pksCredentialsResponse, error) {
+func (client *Client) GetCredentials(clusterName string, authorization string) (*Credentials, error) {
 	pksRequest, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/v1/clusters/%s/binds", client.url, clusterName), bytes.NewBuffer([]byte{}))
 	panicIfError(err)
 	pksRequest.Header.Add("Authorization", authorization)
@@ -64,12 +64,15 @@ func (client *Client) GetCredentials(clusterName string, authorization string) (
 	responseBody, err := client.doRequest(pksRequest, http.StatusCreated)
 	panicIfError(err)
 
-	pksCredentials := &pksCredentialsResponse{}
+	pksCredentials := &CredentialsResponse{}
 	client.log.Debug("Credential Response", zap.ByteString("body", responseBody))
 	err = json.Unmarshal(responseBody, pksCredentials)
 	panicIfError(err)
 
-	return pksCredentials, nil
+	return &Credentials{
+		CaData:    pksCredentials.Clusters[0].Cluster.CertificateAuthorityData,
+		UserToken: pksCredentials.Users[0].User.Token,
+		Server:    pksCredentials.Clusters[0].Cluster.Server}, nil
 }
 
 func (client *Client) doRequest(req *http.Request, expectedStatus int) ([]byte, error) {
@@ -84,11 +87,17 @@ func (client *Client) doRequest(req *http.Request, expectedStatus int) ([]byte, 
 	return ioutil.ReadAll(resp.Body)
 }
 
-type pksClustersResponse struct {
+type Credentials struct {
+	CaData    string
+	UserToken string
+	Server    string
+}
+
+type PksClustersResponse struct {
 	Name string `json:"name"`
 }
 
-type pksCredentialsResponse struct {
+type CredentialsResponse struct {
 	Clusters []clusters `json:"clusters"`
 	Users    []users    `json:"users"`
 }

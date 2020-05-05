@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
@@ -66,7 +67,7 @@ func (mock *certificateMock) Get(options v1.GetOptions) (*certificates.Certifica
 	if mock.nextGetApprovalIsError {
 		return nil, fmt.Errorf("Server Unavailable")
 	}
-	
+
 	// TODO are we still using this pending field?
 	if mock.pending {
 		return &certificates.CertificateSigningRequest{
@@ -92,14 +93,21 @@ func (mock *certificateMock) PrivateKey() []byte {
 }
 
 type storeSpy struct {
-	certs              map[string][]byte
-	caCerts            map[string][]byte
-	privateKeys        map[string][]byte
-	scrapeConfig       []byte
-	loadedScrapeConfig []byte
+	certs               map[string][]byte
+	caCerts             map[string][]byte
+	privateKeys         map[string][]byte
+	scrapeConfig        []byte
+	loadedScrapeConfig  []byte
+	nextSaveCertIsError bool
+	nextSaveCAIsError   bool
+	nextSaveKeyIsError  bool
 }
 
 func (spy *storeSpy) SaveCert(clusterName string, certData []byte) error {
+	if spy.nextSaveCertIsError {
+		return errors.New("Error Saving Certificate")
+	}
+
 	if spy.certs == nil {
 		spy.certs = map[string][]byte{}
 	}
@@ -107,6 +115,9 @@ func (spy *storeSpy) SaveCert(clusterName string, certData []byte) error {
 	return nil
 }
 func (spy *storeSpy) SaveCA(clusterName string, certData []byte) error {
+	if spy.nextSaveCAIsError {
+		return errors.New("Error Saving CA")
+	}
 	if spy.caCerts == nil {
 		spy.caCerts = map[string][]byte{}
 	}
@@ -114,6 +125,9 @@ func (spy *storeSpy) SaveCA(clusterName string, certData []byte) error {
 	return nil
 }
 func (spy *storeSpy) SavePrivateKey(clusterName string, keyData []byte) error {
+	if spy.nextSaveKeyIsError {
+		return errors.New("Error Saving Private Key")
+	}
 	if spy.privateKeys == nil {
 		spy.privateKeys = map[string][]byte{}
 	}
@@ -165,7 +179,8 @@ var _ = Describe("Cluster Discovery", func() {
 		discovery := cluster_discovery.New(&tc.certificateStore,
 			&mockClusterProvider{certClient: &tc.certificateClient},
 			mockAuth)
-		discovery.UpdateScrapeConfig()
+		discovery.Stop()
+		discovery.Run()
 
 		var expected prometheusConfig.Config
 
@@ -275,6 +290,32 @@ var _ = Describe("Cluster Discovery", func() {
 			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
 			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
 			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
+		})
+	})
+
+	Describe("ScrapeConfig handles errors gracefully", func() {
+		It("checks errors when saving the CA", func() {
+			tc := setup()
+			tc.certificateStore.nextSaveCAIsError = true
+			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
+		})
+
+		It("checks errors when generating the certificate", func() {
+			tc := setup()
+			tc.certificateClient.nextGetApprovalIsError = true
+			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
+		})
+
+		It("checks errors when saving the certificate", func() {
+			tc := setup()
+			tc.certificateStore.nextSaveCertIsError = true
+			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
+		})
+
+		It("checks errors when saving the key", func() {
+			tc := setup()
+			tc.certificateStore.nextSaveKeyIsError = true
+			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
 		})
 	})
 })
