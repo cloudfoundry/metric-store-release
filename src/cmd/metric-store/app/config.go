@@ -47,6 +47,7 @@ type Config struct {
 	MetricStoreMetricsTLS   MetricStoreMetricsTLS
 
 	ScrapeConfigPath string `env:"SCRAPE_CONFIG_PATH, report"`
+	AdditionalScrapeConfigDir string `env:"ADDITIONAL_SCRAPE_CONFIGS_DIR, report"`
 
 	LogLevel string `env:"LOG_LEVEL, report"`
 }

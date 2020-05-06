@@ -7,7 +7,7 @@ processes:
     persistent_disk: true
     executable: /var/vcap/packages/metric-store-cluster-discovery/metric-store-cluster-discovery
     env:
-      STORAGE_PATH: "<%= p('storage_path') %>"
+      STORAGE_DIR: "<%= p('storage_dir') %>"
       HEALTH_PORT: "<%= p('cluster_discovery.health_port') %>"
 
       PKS_CA_PATH: "<%= "#{cert_dir}/pks_ca.crt" %>"
@@ -23,4 +23,9 @@ processes:
       METRICS_CA_PATH: "<%= "#{cert_dir}/metrics_ca.crt" %>"
       METRICS_CERT_PATH: "<%= "#{cert_dir}/metrics.crt" %>"
       METRICS_KEY_PATH: "<%= "#{cert_dir}/metrics.key" %>"
+    unsafe:
+      unrestricted_volumes:
+        - path: "<%= p('storage_dir') %>"
+          allow_executions: false
+          writable: true
 

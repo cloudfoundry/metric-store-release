@@ -69,6 +69,7 @@ processes:
 
     # Config for Prometheus metric scrapers
     SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
+    ADDITIONAL_SCRAPE_CONFIGS_DIR: "/var/vcap/store/metric-store/scrape_configs"
 
   limits:
     open_files: 65536

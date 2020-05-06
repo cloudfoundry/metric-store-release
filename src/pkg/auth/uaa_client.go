@@ -88,7 +88,7 @@ func (uaa *UAAClient) GetAuthHeader() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s %s", tokenType, accessToken), err
+	return fmt.Sprintf("%s %s", tokenType, accessToken), nil
 }
 
 type uaaTokenResponse struct {

@@ -92,6 +92,7 @@ type MetricStore struct {
 	internodeAddrs []string
 
 	scrapeConfigPath string
+	additionalScrapeConfigDir string
 	storagePath      string
 	queryLogPath     string
 
@@ -229,11 +230,19 @@ func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	}
 }
 
-// WithScrapeConfigPath sets the path where configuration for alerting scrapeconfig can be
+// WithScrapeConfigPath sets the path where the base scrapeconfig can be
 // found
 func WithScrapeConfigPath(scrapeConfigPath string) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.scrapeConfigPath = scrapeConfigPath
+	}
+}
+
+// WithAdditionalScrapeConfigsDir sets the directory where additional scrape configs can be
+// found
+func WithAdditionalScrapeConfigsDir(scrapeConfigDir string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.additionalScrapeConfigDir = scrapeConfigDir
 	}
 }
 
@@ -280,7 +289,7 @@ func (store *MetricStore) Start() {
 	store.setupDirtyListener()
 	store.setupSanitizedListener()
 
-	if store.scrapeConfigPath != "" {
+	if store.scrapeConfigPath != "" || store.additionalScrapeConfigDir != "" {
 		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
 		store.runScraping(scrapeStorage)
 	}
@@ -377,19 +386,48 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 }
 
 func (store *MetricStore) runScraping(storage scrape.Appendable) {
-	scrapeConfig, err := prom_config.LoadFile(store.scrapeConfigPath)
-	if err != nil {
-		panic(err)
+	promConfig := &prom_config.Config{}
+
+	if store.scrapeConfigPath != "" {
+		var err error
+		store.log.Debug("Adding base scrape config from path: "+store.scrapeConfigPath)
+		promConfig, err = prom_config.LoadFile(store.scrapeConfigPath)
+		if err != nil {
+			panic(err)
+		}
 	}
+
+	scrapeConfigs := promConfig.ScrapeConfigs
+	if store.additionalScrapeConfigDir != "" {
+		store.log.Debug("Adding additional scrape configs from path: "+store.additionalScrapeConfigDir)
+
+		fileInfos, err := ioutil.ReadDir(store.additionalScrapeConfigDir)
+		if err != nil {
+			store.log.Error("Could not read files from additional scrape configs dir: "+store.additionalScrapeConfigDir, err)
+			panic(err)
+		}
+
+		for _, fileInfo := range fileInfos {
+			if !fileInfo.IsDir() {
+				additionalScrapeConfig, err := prom_config.LoadFile(filepath.Join(store.additionalScrapeConfigDir, fileInfo.Name()))
+				if err != nil {
+					store.log.Error("Could not parse scrape config from path "+fileInfo.Name(), err)
+				}
+				scrapeConfigs = append(scrapeConfigs, additionalScrapeConfig.ScrapeConfigs...)
+			}
+		}
+	}
+
+	promConfig.ScrapeConfigs = scrapeConfigs
 	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
-	store.discoveryAgent.ApplyScrapeConfig(scrapeConfig.ScrapeConfigs)
+	store.discoveryAgent.ApplyScrapeConfig(scrapeConfigs)
 	store.discoveryAgent.Start()
 
 	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
-	store.scrapeManager.ApplyConfig(scrapeConfig)
+	store.scrapeManager.ApplyConfig(promConfig)
 
 	go func(discoveryAgent *discovery.DiscoveryAgent) {
-		err = store.scrapeManager.Run(discoveryAgent.SyncCh())
+		err := store.scrapeManager.Run(discoveryAgent.SyncCh())
 		if err != nil {
 			panic(err)
 		}

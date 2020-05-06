@@ -21,8 +21,9 @@ provides:
 consumes:
 
 properties:
-  storage_path:
+  storage_dir:
     description: "Where to store Prometheus ScrapeConfigs"
+    default: "/var/vcap/store/metric-store"
 
   cluster_discovery.health_port:
     description: "The port to bind a health endpoint"

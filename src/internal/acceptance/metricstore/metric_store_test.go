@@ -103,21 +103,21 @@ const (
 
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
-		numNodes             int
-		addrs                []string
-		internodeAddrs       []string
-		ingressAddrs         []string
-		healthPorts          []string
-		metricStoreProcesses []*gexec.Session
-		tlsConfig            *tls.Config
-		caCert               string
-		cert                 string
-		key                  string
-
-		scrapeConfigPath  string
-		localEgressClient prom_versioned_api_client.API
-		peerEgressClient  prom_versioned_api_client.API
-		replicationFactor int
+		numNodes                   int
+		addrs                      []string
+		internodeAddrs             []string
+		ingressAddrs               []string
+		healthPorts                []string
+		metricStoreProcesses       []*gexec.Session
+		tlsConfig                  *tls.Config
+		caCert                     string
+		cert                       string
+		key                        string
+		scrapeConfigPath           string
+		additionalScrapeConfigsDir string
+		localEgressClient          prom_versioned_api_client.API
+		peerEgressClient           prom_versioned_api_client.API
+		replicationFactor          int
 	}
 
 	var portAvailable = func(port int) bool {
@@ -170,6 +170,7 @@ var _ = Describe("MetricStore", func() {
 				"METRIC_STORE_METRICS_CERT_PATH=" + tc.cert,
 				"METRIC_STORE_METRICS_KEY_PATH=" + tc.key,
 				"SCRAPE_CONFIG_PATH=" + tc.scrapeConfigPath,
+				"ADDITIONAL_SCRAPE_CONFIGS_DIR=" + tc.additionalScrapeConfigsDir,
 				"REPLICATION_FACTOR=" + strconv.Itoa(tc.replicationFactor),
 			},
 		)
@@ -274,6 +275,12 @@ var _ = Describe("MetricStore", func() {
 		}
 	}
 
+	var WithOptionAdditionalScrapeConfigsDir = func(dir string) WithTestContextOption {
+		return func(tc *testContext) {
+			tc.additionalScrapeConfigsDir = dir
+		}
+	}
+
 	var makeInstantQuery = func(tc *testContext, query testInstantQuery) (model.Value, error) {
 		value, _, err := tc.localEgressClient.Query(context.Background(), query.Query, query.Timestamp())
 		return value, err
@@ -347,6 +354,72 @@ var _ = Describe("MetricStore", func() {
 				},
 			},
 		)
+	}
+
+	var waitForMetric = func(tc *testContext, name string) {
+		Eventually(func() int {
+			client, err := shared_api.NewPromHTTPClient(
+				tc.addrs[0],
+				"",
+				tc.tlsConfig,
+			)
+			Expect(err).ToNot(HaveOccurred())
+			rge := v1.Range{Start: time.Now().Add(time.Hour * -1), End: time.Now(), Step: time.Second}
+			value, _, err := client.QueryRange(
+				context.Background(),
+				name,
+				rge,
+			)
+			if err != nil {
+				log.Println("Error: ", err)
+				return 0
+			}
+			var result []int64
+			switch serieses := value.(type) {
+			case model.Matrix:
+				if len(serieses) != 1 {
+					return 0
+				}
+				for _, point := range serieses[0].Values {
+					result = append(result, point.Timestamp.UnixNano())
+				}
+			default:
+				return 0
+			}
+
+			return len(result)
+		}, 20).Should(BeNumerically(">", 0))
+	}
+
+	var createScrapeConfig = func(dir string, tmpfile *os.File, healthPort int, includeGlobalScrapeInterval bool) {
+		globalScrapeInterval :=[]byte(`global:
+  scrape_interval: 1s`)
+
+
+		scrape_yml := []byte(`
+scrape_configs:
+- job_name: metric_store_health
+  scheme: https
+  scrape_interval: 1s
+  tls_config:
+    ca_file: "` + shared.Cert("metric-store-ca.crt") + `"
+    cert_file: "` + shared.Cert("metric-store.crt") + `"
+    key_file: "` + shared.Cert("metric-store.key") + `"
+    server_name: metric-store
+  static_configs:
+  - targets:
+    - localhost:` + strconv.Itoa(healthPort),
+		)
+
+		if includeGlobalScrapeInterval {
+			scrape_yml = append(globalScrapeInterval, scrape_yml...)
+		}
+		if _, err := tmpfile.Write(scrape_yml); err != nil {
+			log.Fatal(err)
+		}
+		if err := tmpfile.Close(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	Context("with a single node", func() {
@@ -435,72 +508,48 @@ var _ = Describe("MetricStore", func() {
 			}
 			healthPort := shared.GetFreePort()
 
-			tmpfile, err := ioutil.TempFile("", "prom_scrape")
+			dir, err := ioutil.TempDir("", "scrape_config")
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer os.RemoveAll(dir)
+			tmpfile, err := ioutil.TempFile(dir, "prom_scrape")
 			Expect(err).NotTo(HaveOccurred())
-			defer os.Remove(tmpfile.Name())
+			createScrapeConfig(dir, tmpfile, healthPort, true)
 
-			scrape_yml := []byte(`
-global:
-  scrape_interval: 1s
-scrape_configs:
-- job_name: metric_store_health
-  scheme: https
-  tls_config:
-    ca_file: "` + shared.Cert("metric-store-ca.crt") + `"
-    cert_file: "` + shared.Cert("metric-store.crt") + `"
-    key_file: "` + shared.Cert("metric-store.key") + `"
-    server_name: metric-store
-  static_configs:
-  - targets:
-    - localhost:` + strconv.Itoa(healthPort),
-			)
-
-			if _, err := tmpfile.Write(scrape_yml); err != nil {
-				log.Fatal(err)
-			}
-			if err := tmpfile.Close(); err != nil {
-				log.Fatal(err)
-			}
 			tc, cleanup := setup(
 				1,
 				WithOptionScrapeConfigPath(tmpfile.Name()),
 				WithOptionHealthPort(healthPort),
 			)
 			defer cleanup()
+			waitForMetric(tc,"metric_store_pruned_shards_total")
+		})
 
-			Eventually(func() int {
-				client, err := shared_api.NewPromHTTPClient(
-					tc.addrs[0],
-					"",
-					tc.tlsConfig,
-				)
-				Expect(err).ToNot(HaveOccurred())
-				rge := v1.Range{Start: time.Now().Add(time.Hour * -1), End: time.Now(), Step: time.Second}
-				value, _, err := client.QueryRange(
-					context.Background(),
-					//"{job=\"metric_store_health\"}",
-					"metric_store_pruned_shards_total",
-					rge,
-				)
-				if err != nil {
-					log.Println("Error: ", err)
-					return 0
-				}
-				var result []int64
-				switch serieses := value.(type) {
-				case model.Matrix:
-					if len(serieses) != 1 {
-						return 0
-					}
-					for _, point := range serieses[0].Values {
-						result = append(result, point.Timestamp.UnixNano())
-					}
-				default:
-					return 0
-				}
+		It("scrapes additional metrics from a directory", func() {
+			if runtime.GOOS == "darwin" {
+				Skip("doesn't work on Mac OS")
+			}
+			healthPort := shared.GetFreePort()
 
-				return len(result)
-			}, 20).Should(BeNumerically(">", 0))
+
+			dir, err := ioutil.TempDir("", "additional_scrape_configs")
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer os.RemoveAll(dir)
+			tmpfile, err := ioutil.TempFile(dir, "prom_scrape")
+			Expect(err).NotTo(HaveOccurred())
+			defer os.Remove(tmpfile.Name())
+
+			createScrapeConfig(dir, tmpfile, healthPort, false)
+			tc, cleanup := setup(
+				1,
+				WithOptionAdditionalScrapeConfigsDir(dir),
+				WithOptionHealthPort(healthPort),
+			)
+			defer cleanup()
+			waitForMetric(tc, "metric_store_pruned_shards_total")
 		})
 	})
 

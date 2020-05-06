@@ -22,6 +22,9 @@ case $1 in
     mkdir -p $RUN_DIR $LOG_DIR
     chown -R vcap:vcap $RUN_DIR $LOG_DIR
 
+    mkdir -p /var/vcap/store/metric-store/scrape_configs
+    chown vcap:vcap /var/vcap/store/metric-store/scrape_configs
+
     cd $PACKAGE_DIR
 
     ulimit -n 8192

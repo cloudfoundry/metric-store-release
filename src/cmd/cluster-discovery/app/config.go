@@ -9,7 +9,7 @@ import (
 // Config is the configuration for a ClusterDiscovery.
 type Config struct {
 	HealthPort  int    `env:"HEALTH_PORT, report"`
-	StoragePath string `env:"STORAGE_PATH, required, report"`
+	StoragePath string `env:"STORAGE_DIR, required, report"`
 	LogLevel    string `env:"LOG_LEVEL, report"`
 	MetricsTLS  ClusterDiscoveryMetricsTLS
 	PKS         PKSConfig
