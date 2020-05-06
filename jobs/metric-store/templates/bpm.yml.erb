@@ -30,6 +30,8 @@ processes:
 - name: metric-store
   executable: /var/vcap/packages/metric-store/metric-store
   persistent_disk: true
+  hooks:
+    pre_start: /var/vcap/jobs/metric-store/bin/pre-start.sh
   env:
     HEALTH_PORT:              "<%= p('health_port') %>"
     ADDR:                     ":<%= p('port') %>"
