@@ -16,7 +16,6 @@ provides:
   type: metric-store-cluster-discovery
   properties:
   - cluster_discovery.health_port
-  - storage_path
 
 consumes:
 
