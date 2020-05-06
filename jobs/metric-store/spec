@@ -21,6 +21,7 @@ templates:
   metric_store_server_ca.crt.erb: config/certs/metric_store_server_ca.crt
   rules.yml: config/rules.yml
   scrape_config.yml.erb: config/scrape_config.yml
+  pre-start.sh: bin/pre-start.sh
 
 packages:
 - metric-store
