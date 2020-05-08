@@ -26,26 +26,25 @@ func NewClient(addr string, httpClient *http.Client, log *logger.Logger) *Client
 	}
 }
 
-func panicIfError(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
 func (client *Client) GetClusters(authorization string) ([]string, error) {
 	url := fmt.Sprintf("%s/v1/clusters", client.url)
 	client.log.Debug("cluster request", logger.String("url", url))
 	pksRequest, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer([]byte{}))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	pksRequest.Header.Add("Authorization", authorization)
 
 	responseBody, err := client.doRequest(pksRequest, http.StatusOK)
-	panicIfError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	var pksClusters []PksClustersResponse
 	err = json.Unmarshal(responseBody, &pksClusters)
-	panicIfError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	var clusterNames []string
 	for _, response := range pksClusters {
@@ -56,18 +55,24 @@ func (client *Client) GetClusters(authorization string) ([]string, error) {
 
 func (client *Client) GetCredentials(clusterName string, authorization string) (*Credentials, error) {
 	pksRequest, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/v1/clusters/%s/binds", client.url, clusterName), bytes.NewBuffer([]byte{}))
-	panicIfError(err)
+	if err != nil {
+		return nil, err
+	}
 	pksRequest.Header.Add("Authorization", authorization)
 	pksRequest.Header.Add("Content-Type", "application/json")
 	pksRequest.Header.Add("Media-Type", "application/json")
 
 	responseBody, err := client.doRequest(pksRequest, http.StatusCreated)
-	panicIfError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	pksCredentials := &CredentialsResponse{}
 	client.log.Debug("Credential Response", zap.ByteString("body", responseBody))
 	err = json.Unmarshal(responseBody, pksCredentials)
-	panicIfError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Credentials{
 		CaData:    pksCredentials.Clusters[0].Cluster.CertificateAuthorityData,
@@ -77,7 +82,9 @@ func (client *Client) GetCredentials(clusterName string, authorization string) (
 
 func (client *Client) doRequest(req *http.Request, expectedStatus int) ([]byte, error) {
 	resp, err := client.httpClient.Do(req)
-	panicIfError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	if resp.StatusCode != expectedStatus {
 		return nil, fmt.Errorf("unexpected response code %d", resp.StatusCode)
