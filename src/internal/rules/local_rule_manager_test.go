@@ -19,7 +19,7 @@ import (
 var _ = Describe("LocalRuleManager", func() {
 	Describe("CreateManager", func() {
 		It("creates a populated rule manager", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 
 			spyPromRuleManagers := NewRuleManagers(
@@ -59,7 +59,7 @@ var _ = Describe("LocalRuleManager", func() {
 
 	Describe("DeleteManager", func() {
 		It("deletes an existing rule manager", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()
@@ -77,7 +77,7 @@ var _ = Describe("LocalRuleManager", func() {
 		})
 
 		It("errors if manager file doesn't exist", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()
@@ -89,7 +89,7 @@ var _ = Describe("LocalRuleManager", func() {
 		})
 
 		It("errors if manager id doesn't exist", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 
 			spyPromRuleManagers := testing.NewPromRuleManagersSpy()

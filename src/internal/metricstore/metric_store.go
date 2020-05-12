@@ -91,10 +91,10 @@ type MetricStore struct {
 	// externally and instead will store all of it.
 	internodeAddrs []string
 
-	scrapeConfigPath string
+	scrapeConfigPath          string
 	additionalScrapeConfigDir string
-	storagePath      string
-	queryLogPath     string
+	storagePath               string
+	queryLogPath              string
 
 	replicatedStorage prom_storage.Storage
 	scrapeManager     *scrape.Manager
@@ -285,7 +285,6 @@ func (store *MetricStore) Start() {
 		store.queryTimeout,
 	)
 
-	store.setupRouting(queryEngine)
 	store.setupDirtyListener()
 	store.setupSanitizedListener()
 
@@ -293,6 +292,8 @@ func (store *MetricStore) Start() {
 		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
 		store.runScraping(scrapeStorage)
 	}
+
+	store.setupRouting(queryEngine)
 	go store.loadRules(queryEngine)
 }
 
@@ -359,6 +360,8 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	rulesAPI := api.NewRulesAPI(replicatedRuleManager, store.log)
 	rulesAPIRouter := rulesAPI.Router()
 
+	reloadAPI := api.NewReloadAPI(store.loadScrapeConfigs, store.log)
+
 	localRulesAPI := api.NewRulesAPI(localRuleManager, store.log)
 	localRulesAPIRouter := localRulesAPI.Router()
 
@@ -368,6 +371,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	mux.Handle("/private/api/v1/", http.StripPrefix("/private/api/v1", apiPrivate))
 	mux.Handle("/rules/", http.StripPrefix("/rules", rulesAPIRouter))
 	mux.Handle("/private/rules/", http.StripPrefix("/private/rules", localRulesAPIRouter))
+	mux.Handle("/~/", http.StripPrefix("/~", reloadAPI.Router()))
 
 	mux.HandleFunc("/health", store.apiHealth)
 
@@ -385,12 +389,12 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	}()
 }
 
-func (store *MetricStore) runScraping(storage scrape.Appendable) {
+func (store *MetricStore) loadScrapeConfigs() {
 	promConfig := &prom_config.Config{}
 
 	if store.scrapeConfigPath != "" {
 		var err error
-		store.log.Debug("Adding base scrape config from path: "+store.scrapeConfigPath)
+		store.log.Debug("Adding base scrape config from path: " + store.scrapeConfigPath)
 		promConfig, err = prom_config.LoadFile(store.scrapeConfigPath)
 		if err != nil {
 			panic(err)
@@ -399,7 +403,7 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 
 	scrapeConfigs := promConfig.ScrapeConfigs
 	if store.additionalScrapeConfigDir != "" {
-		store.log.Debug("Adding additional scrape configs from path: "+store.additionalScrapeConfigDir)
+		store.log.Debug("Adding additional scrape configs from path: " + store.additionalScrapeConfigDir)
 
 		fileInfos, err := ioutil.ReadDir(store.additionalScrapeConfigDir)
 		if err != nil {
@@ -409,6 +413,7 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 
 		for _, fileInfo := range fileInfos {
 			if !fileInfo.IsDir() {
+				store.log.Debug("Found additional scrape config file " + fileInfo.Name())
 				additionalScrapeConfig, err := prom_config.LoadFile(filepath.Join(store.additionalScrapeConfigDir, fileInfo.Name()))
 				if err != nil {
 					store.log.Error("Could not parse scrape config from path "+fileInfo.Name(), err)
@@ -419,13 +424,22 @@ func (store *MetricStore) runScraping(storage scrape.Appendable) {
 	}
 
 	promConfig.ScrapeConfigs = scrapeConfigs
-	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
 	store.discoveryAgent.ApplyScrapeConfig(scrapeConfigs)
-	store.discoveryAgent.Start()
+	err := store.scrapeManager.ApplyConfig(promConfig)
+	if err != nil {
+		store.log.Error("could not apply scrape config", err)
+	}
+}
 
+func (store *MetricStore) runScraping(storage scrape.Appendable) {
+	//TODO refactor this so the control flow is less weird
+	//note that loadScrapeConfigs is passed to the reload api
+	//RS & JG 05/12/2020
 	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
-	store.scrapeManager.ApplyConfig(promConfig)
+	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
+	store.loadScrapeConfigs()
 
+	store.discoveryAgent.Start()
 	go func(discoveryAgent *discovery.DiscoveryAgent) {
 		err := store.scrapeManager.Run(discoveryAgent.SyncCh())
 		if err != nil {

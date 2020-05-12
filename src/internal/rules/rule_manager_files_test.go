@@ -16,7 +16,7 @@ import (
 var _ = Describe("RuleManagerFile", func() {
 	Describe("Create", func() {
 		It("Writes an alertmanager config to the filesystem", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 			caFile := testing.Cert("metric-store-ca.crt")
 			certFile := testing.Cert("metric-store.crt")
@@ -45,7 +45,7 @@ var _ = Describe("RuleManagerFile", func() {
 
 		Context("when configured with an inline cert", func() {
 			It("extracts the cert to a file, and interpolates the file name", func() {
-				tempStorage := testing.NewTempStorage()
+				tempStorage := testing.NewTempStorage("metric-store")
 				defer tempStorage.Cleanup()
 				caCert := testing.MustAsset("metric-store-ca.crt")
 				cert := testing.MustAsset("metric-store.crt")
@@ -116,7 +116,7 @@ var _ = Describe("RuleManagerFile", func() {
 
 	Describe("Delete", func() {
 		It("deletes the directory for a manager", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 
 			ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())
@@ -130,7 +130,7 @@ var _ = Describe("RuleManagerFile", func() {
 		})
 
 		It("errors if manager file doesn't exist", func() {
-			tempStorage := testing.NewTempStorage()
+			tempStorage := testing.NewTempStorage("metric-store")
 			defer tempStorage.Cleanup()
 
 			ruleManagerFiles := NewRuleManagerFiles(tempStorage.Path())

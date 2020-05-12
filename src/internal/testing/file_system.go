@@ -8,9 +8,10 @@ import (
 
 type TempStorage struct {
 	path string
+	fileCleanup []string
 }
 
-func NewTempStorage() TempStorage {
+func NewTempStorage(name string) TempStorage {
 	path, err := ioutil.TempDir("", "metric-store")
 	if err != nil {
 		panic(err)
@@ -75,4 +76,20 @@ func (s TempStorage) Directory(p string) []string {
 	}
 
 	return fileNames
+}
+
+func (s TempStorage) CreateFile(name string, content []byte) string {
+	tmpfile, err := ioutil.TempFile(s.Path(), name)
+	if err != nil {
+		panic(err)
+	}
+
+	if _, err := tmpfile.Write(content); err != nil {
+		panic(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		panic(err)
+	}
+
+	return tmpfile.Name()
 }

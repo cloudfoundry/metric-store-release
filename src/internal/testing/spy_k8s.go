@@ -46,7 +46,6 @@ func (spy *K8sSpy) everything(_ http.ResponseWriter, r *http.Request) {
 }
 
 func (spy *K8sSpy) csrs(w http.ResponseWriter, _ *http.Request) {
-	println("inside get csrs spy")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	w.Write(csrRequestBody(false))
@@ -88,21 +87,18 @@ func csrRequestBody(includeCertificate bool) []byte {
 }
 
 func (spy *K8sSpy) approveCsr(w http.ResponseWriter, _ *http.Request) {
-	println("inside approval spy")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
 	w.Write(csrRequestBody(false))
 }
 
 func (spy *K8sSpy) getCsr(w http.ResponseWriter, _ *http.Request) {
-	println("inside getcsr spy")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write(csrRequestBody(true))
 }
 
 func (spy *K8sSpy) deleteCsr(w http.ResponseWriter, _ *http.Request) {
-	println("inside delete spy")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(202)
 	w.Write([]byte{})

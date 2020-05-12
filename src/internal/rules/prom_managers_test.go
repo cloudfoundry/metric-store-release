@@ -68,7 +68,7 @@ groups:
 		alertmanager.Start()
 		cleanups = append(cleanups, alertmanager.Stop)
 
-		tempStorage = testing.NewTempStorage()
+		tempStorage = testing.NewTempStorage("metric-store")
 		cleanups = append(cleanups, tempStorage.Cleanup)
 
 		spyMetrics = shared.NewSpyMetricRegistrar()

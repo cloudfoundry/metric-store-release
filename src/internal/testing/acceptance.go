@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"sync"
 
 	. "github.com/onsi/ginkgo"
@@ -33,6 +34,12 @@ func WaitForHealthCheck(healthPort string, tlsConfig *tls.Config) {
 }
 
 var builtPathsCache = &sync.Map{}
+
+func SkipTestOnMac(){
+	if runtime.GOOS == "darwin" {
+		Skip("doesn't work on Mac OS")
+	}
+}
 
 func StartGoProcess(importPath string, env []string, args ...string) *gexec.Session {
 	var commandPath string

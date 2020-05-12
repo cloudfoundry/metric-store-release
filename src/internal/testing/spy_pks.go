@@ -96,7 +96,6 @@ func (spy *PKSSpy) clusterBinds(w http.ResponseWriter, r *http.Request) {
 	}
 
 	encodedCaCert := base64.StdEncoding.EncodeToString([]byte(spy.k8sCaCertificate))
-	println("return cluster binds host: ", spy.k8sApiHost)
 	data := []byte(`{
   "preferences": {},
   "apiVersion": "v1",

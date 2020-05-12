@@ -356,6 +356,23 @@ var _ = Describe("MetricStore", func() {
 		)
 	}
 
+	var waitFoReload = func(tc *testContext) {
+		client := &http.Client{
+			Timeout:   5 * time.Second,
+			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
+		}
+		reload := func() int {
+			resp, err := client.Post("https://"+tc.addrs[0]+"/~/reload", "application/json", nil)
+			if err != nil {
+				return 0
+			} else {
+				resp.Body.Close()
+				return resp.StatusCode
+			}
+		}
+		Eventually(reload, 10).Should(Equal(http.StatusOK))
+	}
+
 	var waitForMetric = func(tc *testContext, name string) {
 		Eventually(func() int {
 			client, err := shared_api.NewPromHTTPClient(
@@ -391,10 +408,9 @@ var _ = Describe("MetricStore", func() {
 		}, 20).Should(BeNumerically(">", 0))
 	}
 
-	var createScrapeConfig = func(dir string, tmpfile *os.File, healthPort int, includeGlobalScrapeInterval bool) {
-		globalScrapeInterval :=[]byte(`global:
+	var createScrapeConfig = func(healthPort int, includeGlobalScrapeInterval bool) []byte {
+		globalScrapeInterval := []byte(`global:
   scrape_interval: 1s`)
-
 
 		scrape_yml := []byte(`
 scrape_configs:
@@ -414,12 +430,7 @@ scrape_configs:
 		if includeGlobalScrapeInterval {
 			scrape_yml = append(globalScrapeInterval, scrape_yml...)
 		}
-		if _, err := tmpfile.Write(scrape_yml); err != nil {
-			log.Fatal(err)
-		}
-		if err := tmpfile.Close(); err != nil {
-			log.Fatal(err)
-		}
+		return scrape_yml
 	}
 
 	Context("with a single node", func() {
@@ -501,55 +512,42 @@ scrape_configs:
 		})
 	})
 
-	Context("Scraping", func() {
+	FContext("Scraping", func() {
 		It("scrapes its own metrics", func() {
-			if runtime.GOOS == "darwin" {
-				Skip("doesn't work on Mac OS")
-			}
+			//testing.SkipTestOnMac()
 			healthPort := shared.GetFreePort()
 
-			dir, err := ioutil.TempDir("", "scrape_config")
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer os.RemoveAll(dir)
-			tmpfile, err := ioutil.TempFile(dir, "prom_scrape")
-			Expect(err).NotTo(HaveOccurred())
-			createScrapeConfig(dir, tmpfile, healthPort, true)
+			tempStorage := testing.NewTempStorage("scrape_config")
+			defer tempStorage.Cleanup()
+			scrapeConfig := tempStorage.CreateFile("prom_scrape", createScrapeConfig(healthPort, true))
 
 			tc, cleanup := setup(
 				1,
-				WithOptionScrapeConfigPath(tmpfile.Name()),
-				WithOptionHealthPort(healthPort),
-			)
-			defer cleanup()
-			waitForMetric(tc,"metric_store_pruned_shards_total")
-		})
-
-		It("scrapes additional metrics from a directory", func() {
-			if runtime.GOOS == "darwin" {
-				Skip("doesn't work on Mac OS")
-			}
-			healthPort := shared.GetFreePort()
-
-
-			dir, err := ioutil.TempDir("", "additional_scrape_configs")
-			if err != nil {
-				log.Fatal(err)
-			}
-			defer os.RemoveAll(dir)
-			tmpfile, err := ioutil.TempFile(dir, "prom_scrape")
-			Expect(err).NotTo(HaveOccurred())
-			defer os.Remove(tmpfile.Name())
-
-			createScrapeConfig(dir, tmpfile, healthPort, false)
-			tc, cleanup := setup(
-				1,
-				WithOptionAdditionalScrapeConfigsDir(dir),
+				WithOptionScrapeConfigPath(scrapeConfig),
 				WithOptionHealthPort(healthPort),
 			)
 			defer cleanup()
 			waitForMetric(tc, "metric_store_pruned_shards_total")
+		})
+
+		It("reloads aditional scrape configs via api", func() {
+			//testing.SkipTestOnMac()
+			healthPort := shared.GetFreePort()
+
+			tempStorage := testing.NewTempStorage("additional_scrape_configs")
+			defer tempStorage.Cleanup()
+
+			tc, cleanup := setup(
+				1,
+				WithOptionAdditionalScrapeConfigsDir(tempStorage.Path()),
+				WithOptionHealthPort(healthPort),
+			)
+			defer cleanup()
+
+			waitFoReload(tc)
+			tempStorage.CreateFile("prom_scrape", createScrapeConfig(healthPort, false))
+			waitFoReload(tc)
+			waitForMetric(tc, "metric_store_pruned_shards_total{job=\"metric_store_health\"}")
 		})
 	})
 
