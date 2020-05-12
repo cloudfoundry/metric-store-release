@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -512,9 +511,9 @@ scrape_configs:
 		})
 	})
 
-	FContext("Scraping", func() {
+	Context("Scraping", func() {
 		It("scrapes its own metrics", func() {
-			//testing.SkipTestOnMac()
+			testing.SkipTestOnMac()
 			healthPort := shared.GetFreePort()
 
 			tempStorage := testing.NewTempStorage("scrape_config")
@@ -531,7 +530,7 @@ scrape_configs:
 		})
 
 		It("reloads aditional scrape configs via api", func() {
-			//testing.SkipTestOnMac()
+			testing.SkipTestOnMac()
 			healthPort := shared.GetFreePort()
 
 			tempStorage := testing.NewTempStorage("additional_scrape_configs")
@@ -553,9 +552,7 @@ scrape_configs:
 
 	Context("as a cluster of nodes", func() {
 		It("replays data when a node comes back online", func() {
-			if runtime.GOOS == "darwin" {
-				Skip("doesn't work on Mac OS")
-			}
+			testing.SkipTestOnMac()
 			tc, cleanup := setup(2)
 			defer cleanup()
 
