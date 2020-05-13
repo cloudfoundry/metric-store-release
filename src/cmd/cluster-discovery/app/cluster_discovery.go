@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
@@ -86,6 +87,15 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 		app.log.Fatal("unable to create scrapeConfig store", err)
 	}
 
+	tlsConfig, err := sharedtls.NewMutualTLSClientConfig(app.cfg.MetricStoreAPI.CAPath, app.cfg.MetricStoreAPI.CertPath, app.cfg.MetricStoreAPI.KeyPath, app.cfg.MetricStoreAPI.CommonName)
+
+	if err != nil {
+		panic(err)
+	}
+	metricStoreAPIClient := &http.Client{
+		Transport:     &http.Transport{TLSClientConfig: tlsConfig},
+		Timeout:       10* time.Second,
+	}
 	clusterDiscovery := cluster_discovery.New(
 		scrapeConfigStore,
 		pks.NewClusterLookup(
@@ -102,6 +112,8 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 			app.log,
 			auth.WithClientCredentials(app.cfg.UAA.Client, app.cfg.UAA.ClientSecret),
 		),
+		app.cfg.MetricStoreAPI.Address,
+		metricStoreAPIClient,
 		cluster_discovery.WithLogger(app.log),
 		cluster_discovery.WithMetrics(app.metrics),
 	)

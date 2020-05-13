@@ -63,3 +63,12 @@
     common_name: metric-store-client
     extended_key_usage:
     - client_auth
+- name: cluster_discovery_metrics_api
+  type: certificate
+  options:
+    ca: metric_store_ca
+    common_name: cluster-discovery
+    alternative_names:
+      - cluster-discovery
+    extended_key_usage:
+      - client_auth

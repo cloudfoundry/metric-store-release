@@ -25,20 +25,23 @@ var __ *cluster_discovery.ClusterDiscovery
 
 var _ = Describe("ClusterDiscovery", func() {
 	type testContext struct {
-		tlsConfig        *tls.Config
-		caCert           string
-		cert             string
-		key              string
-		healthPort       int
-		scrapeConfigPath string
-		storagePath      string
+	tlsConfig        *tls.Config
+	caCert           string
+	cert             string
+	key              string
+	healthPort       int
+	scrapeConfigPath string
+	storagePath      string
 
-		uaaSpy     *testing.SpyUAA
-		pksSpy     *testing.PKSSpy
-		kubeAPISpy *testing.K8sSpy
+	metricStoreAPIAddress string
 
-		app *app.ClusterDiscoveryApp
-	}
+	uaaSpy     *testing.SpyUAA
+	pksSpy     *testing.PKSSpy
+	kubeAPISpy *testing.K8sSpy
+
+	app     *app.ClusterDiscoveryApp
+	MetricS interface{}
+}
 
 	var startProcess = func(tc *testContext) {
 		tmpDir, err := ioutil.TempDir("", "cluster-discovery")
@@ -54,6 +57,13 @@ var _ = Describe("ClusterDiscovery", func() {
 				CAPath:   tc.caCert,
 				CertPath: tc.cert,
 				KeyPath:  tc.key,
+			},
+			MetricStoreAPI: app.MetricStoreAPI{
+				Address:       tc.metricStoreAPIAddress,
+				CAPath:     shared.Cert("metric-store-ca.crt"),
+				CertPath:   shared.Cert("metric-store.crt"),
+				KeyPath:    shared.Cert("metric-store.key"),
+				CommonName: "metric-store",
 			},
 			PKS: app.PKSConfig{
 				API:                "https://localhost:" + tc.pksSpy.Port(),
@@ -114,12 +124,20 @@ var _ = Describe("ClusterDiscovery", func() {
 		tc.uaaSpy.Start()
 		startProcess(tc)
 
+		apiTLSConfig, err := sharedtls.NewMutualTLSServerConfig(tc.caCert, tc.cert, tc.key)
+		if err != nil {
+			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
+		}
+		metricStoreAPI := testing.NewSpyMetricStore(apiTLSConfig)
+		tc.metricStoreAPIAddress = metricStoreAPI.Start().EgressAddr
+
 		return tc, func() {
 			stopProcess(tc)
 			os.RemoveAll(tc.storagePath)
 			tc.kubeAPISpy.Stop()
 			tc.pksSpy.Stop()
 			tc.uaaSpy.Stop()
+			metricStoreAPI.Stop()
 		}
 	}
 

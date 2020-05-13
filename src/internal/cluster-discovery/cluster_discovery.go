@@ -2,6 +2,7 @@ package cluster_discovery
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -13,6 +14,7 @@ import (
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
+	"net/http"
 	"net/url"
 	"time"
 )
@@ -23,11 +25,13 @@ type ClusterDiscovery struct {
 	log     *logger.Logger
 	metrics debug.MetricRegistrar
 
-	auth            authorizationProvider
-	topology        topologyProvider
-	store           scrapeStore
-	done            chan bool
-	refreshInterval time.Duration
+	auth                  authorizationProvider
+	topology              topologyProvider
+	store                 scrapeStore
+	done                  chan bool
+	refreshInterval       time.Duration
+	metricStoreClient     *http.Client
+	metricStoreAPIAddress string
 }
 
 type authorizationProvider interface {
@@ -57,16 +61,20 @@ func New(
 	scrapeConfigStore scrapeStore,
 	topologyProvider topologyProvider,
 	authClient authorizationProvider,
+	metricStoreAPIAddress string,
+	metricStoreClient *http.Client,
 	options ...WithOption,
 ) *ClusterDiscovery {
 	discovery := &ClusterDiscovery{
-		topology:        topologyProvider,
-		auth:            authClient,
-		store:           scrapeConfigStore,
-		log:             logger.NewNop(),
-		metrics:         &debug.NullRegistrar{},
-		done:            make(chan bool, 1),
-		refreshInterval: time.Minute,
+		topology:              topologyProvider,
+		auth:                  authClient,
+		store:                 scrapeConfigStore,
+		log:                   logger.NewNop(),
+		metrics:               &debug.NullRegistrar{},
+		done:                  make(chan bool, 1),
+		refreshInterval:       time.Minute,
+		metricStoreAPIAddress: metricStoreAPIAddress,
+		metricStoreClient:     metricStoreClient,
 	}
 
 	for _, option := range options {
@@ -148,6 +156,12 @@ func (discovery *ClusterDiscovery) updateScrapeConfig() {
 	if err != nil {
 		discovery.log.Error("writing updated scrape config", err)
 	}
+
+	//TODO only reload metric-store config if we have new scrape configs added
+	err = discovery.reloadMetricStoreConfiguration()
+	if err != nil {
+		discovery.log.Error("reloading metric store configuration", err)
+	}
 }
 
 // Stop shuts down the ClusterDiscovery server, leaving the scrape config file in place.
@@ -201,6 +215,23 @@ func (discovery *ClusterDiscovery) loadConfigForCluster(_ string) []*prometheusC
 
 	var cfg prometheusConfig.Config
 	err = yaml.NewDecoder(bytes.NewReader(raw)).Decode(&cfg)
+	return nil
+}
+
+func (discovery *ClusterDiscovery) reloadMetricStoreConfiguration() error {
+	u := url.URL{
+		Scheme: "https",
+		Host:   discovery.metricStoreAPIAddress,
+		Path:   "/~/reload",
+	}
+	resp, err := discovery.metricStoreClient.Post(u.String(), "application/json", nil)
+
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d %s", resp.StatusCode, resp.Status)
+	}
 	return nil
 }
 

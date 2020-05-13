@@ -42,7 +42,7 @@ func (spy *K8sSpy) Start() error {
 }
 
 func (spy *K8sSpy) everything(_ http.ResponseWriter, r *http.Request) {
-	println("got uncaught path: ", r.RequestURI)
+	panic("got uncaught path: " + r.RequestURI)
 }
 
 func (spy *K8sSpy) csrs(w http.ResponseWriter, _ *http.Request) {

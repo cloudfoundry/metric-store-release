@@ -2,9 +2,12 @@
 name: metric-store-cluster-discovery
 templates:
   bpm.yml.erb: config/bpm.yml
+  metrics_ca.crt.erb: config/certs/metrics_ca.crt
   metrics.crt.erb: config/certs/metrics.crt
   metrics.key.erb: config/certs/metrics.key
-  metrics_ca.crt.erb: config/certs/metrics_ca.crt
+  metric_store_api_ca.crt.erb: config/certs/metric_store_api_ca.crt
+  metric_store_api.crt.erb: config/certs/metric_store_api.crt
+  metric_store_api.key.erb: config/certs/metric_store_api.key
   pks_ca.crt.erb: config/certs/pks_ca.crt
   uaa_ca.crt.erb: config/certs/uaa_ca.crt
 
@@ -52,3 +55,16 @@ properties:
     description: "The certificate for cluster-discovery metrics mutual TLS."
   metrics.tls.key:
     description: "The private key for cluster-discovery metrics mutual TLS."
+
+  metric_store_api.address:
+    description: "The address for the Metric Store API including port"
+    default: "localhost:8080"
+  metric_store_api.tls.ca_cert:
+    description: "The certificate authority for the Metric Store API mutual TLS."
+  metric_store_api.tls.cert:
+    description: "The certificate for the Metric Store API mutual TLS."
+  metric_store_api.tls.key:
+    description: "The private key for the Metric Store API mutual TLS."
+  metric_store_api.tls.common_name:
+    description: "The common name for the Metric Store API mutual TLS."
+    default: "metricstore"

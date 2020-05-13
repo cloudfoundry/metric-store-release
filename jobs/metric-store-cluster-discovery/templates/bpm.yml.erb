@@ -23,6 +23,13 @@ processes:
       METRICS_CA_PATH: "<%= "#{cert_dir}/metrics_ca.crt" %>"
       METRICS_CERT_PATH: "<%= "#{cert_dir}/metrics.crt" %>"
       METRICS_KEY_PATH: "<%= "#{cert_dir}/metrics.key" %>"
+
+      # Metric Store API
+      METRIC_STORE_API_ADDRESS: "<%= p('metric_store_api.address') %>"
+      METRIC_STORE_API_CA_PATH: "<%= "#{cert_dir}/metric_store_api_ca.crt" %>"
+      METRIC_STORE_API_CERT_PATH: "<%= "#{cert_dir}/metric_store_api.crt" %>"
+      METRIC_STORE_API_KEY_PATH: "<%= "#{cert_dir}/metric_store_api.key" %>"
+      METRIC_STORE_API_COMMON_NAME: "<%= p('metric_store_api.tls.common_name') %>"
     unsafe:
       unrestricted_volumes:
         - path: "<%= p('storage_dir') %>"

@@ -8,12 +8,13 @@ import (
 
 // Config is the configuration for a ClusterDiscovery.
 type Config struct {
-	HealthPort  int    `env:"HEALTH_PORT, report"`
-	StoragePath string `env:"STORAGE_DIR, required, report"`
-	LogLevel    string `env:"LOG_LEVEL, report"`
-	MetricsTLS  ClusterDiscoveryMetricsTLS
-	PKS         PKSConfig
-	UAA         UAAConfig
+	HealthPort     int    `env:"HEALTH_PORT, report"`
+	StoragePath    string `env:"STORAGE_DIR, required, report"`
+	LogLevel       string `env:"LOG_LEVEL, report"`
+	MetricsTLS     ClusterDiscoveryMetricsTLS
+	MetricStoreAPI MetricStoreAPI
+	PKS            PKSConfig
+	UAA            UAAConfig
 }
 
 // LoadConfig creates Config object from environment variables
@@ -36,6 +37,14 @@ type ClusterDiscoveryMetricsTLS struct {
 	CAPath   string `env:"METRICS_CA_PATH, required, report"`
 	CertPath string `env:"METRICS_CERT_PATH, required, report"`
 	KeyPath  string `env:"METRICS_KEY_PATH, required, report"`
+}
+
+type MetricStoreAPI struct {
+	Address    string `env:"METRIC_STORE_API_ADDRESS, required, report"`
+	CAPath     string `env:"METRIC_STORE_API_CA_PATH, required, report"`
+	CertPath   string `env:"METRIC_STORE_API_CERT_PATH, required, report"`
+	KeyPath    string `env:"METRIC_STORE_API_KEY_PATH, required, report"`
+	CommonName string `env:"METRIC_STORE_API_COMMON_NAME, required, report"`
 }
 
 type PKSConfig struct {

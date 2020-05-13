@@ -11,6 +11,9 @@ import (
 	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -22,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/http"
 	"time"
 )
 
@@ -158,18 +162,43 @@ func (spy *storeSpy) LoadScrapeConfig() ([]byte, error) {
 
 var _ = Describe("Cluster Discovery", func() {
 	type testContext struct {
-		certificateStore  storeSpy
-		certificateClient certificateMock
+		certificateStore     storeSpy
+		certificateClient    certificateMock
+		metricStoreAPI       *testing.SpyMetricStore
+		metricStoreAPIClient *http.Client
 	}
 
 	var setup = func() *testContext {
 		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		Expect(err).To(Not(HaveOccurred()))
+		tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+		)
+		if err != nil {
+			panic(err)
+		}
+		tlsClientConfig, err := sharedtls.NewMutualTLSClientConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		if err != nil {
+			panic(err)
+		}
 
+		metricStoreAPIClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsClientConfig},
+			Timeout:   10 * time.Second,
+		}
 		tc := &testContext{
 			certificateClient: certificateMock{
 				privateKey: privateKey,
 			},
+			metricStoreAPIClient: metricStoreAPIClient,
+			metricStoreAPI:       testing.NewSpyMetricStore(tlsConfig),
 		}
 		return tc
 	}
@@ -178,7 +207,9 @@ var _ = Describe("Cluster Discovery", func() {
 		mockAuth := &mockAuthClient{}
 		discovery := cluster_discovery.New(&tc.certificateStore,
 			&mockClusterProvider{certClient: &tc.certificateClient},
-			mockAuth)
+			mockAuth,
+			"localhost:8080",
+			tc.metricStoreAPIClient)
 		discovery.Stop()
 		discovery.Run()
 
@@ -190,6 +221,7 @@ var _ = Describe("Cluster Discovery", func() {
 
 	Describe("Start", func() {
 		It("runs repeatedly", func() {
+			tc := setup()
 			mockAuth := &mockAuthClient{}
 			certificateStore := &storeSpy{}
 			discovery := cluster_discovery.New(certificateStore,
@@ -197,6 +229,8 @@ var _ = Describe("Cluster Discovery", func() {
 					certClient: newMockCSRClient(),
 				},
 				mockAuth,
+				"localhost:8080",
+				tc.metricStoreAPIClient,
 				cluster_discovery.WithRefreshInterval(time.Millisecond),
 			)
 
@@ -207,12 +241,15 @@ var _ = Describe("Cluster Discovery", func() {
 
 		It("stops", func() {
 			mockAuth := &mockAuthClient{}
+			tc := setup()
 			certificateStore := &storeSpy{}
 			discovery := cluster_discovery.New(certificateStore,
 				&mockClusterProvider{
 					certClient: newMockCSRClient(),
 				},
 				mockAuth,
+				"localhost:8080",
+				tc.metricStoreAPIClient,
 				cluster_discovery.WithRefreshInterval(time.Millisecond),
 			)
 
@@ -221,6 +258,28 @@ var _ = Describe("Cluster Discovery", func() {
 			discovery.Stop()
 			runsAtStop := mockAuth.calls.Load()
 			Consistently(mockAuth.calls.Load).Should(BeNumerically("<=", runsAtStop+1))
+		})
+
+		It("reloads metric store's configuration", func() {
+			tc := setup()
+			mockAuth := &mockAuthClient{}
+			certificateStore := &storeSpy{}
+
+			discovery := cluster_discovery.New(certificateStore,
+				&mockClusterProvider{
+					certClient: newMockCSRClient(),
+				},
+				mockAuth,
+				tc.metricStoreAPI.Start().EgressAddr,
+				tc.metricStoreAPIClient,
+				cluster_discovery.WithRefreshInterval(time.Second),
+				cluster_discovery.WithLogger(logger.NewTestLogger(GinkgoWriter)),
+			)
+
+			discovery.Start()
+
+			Eventually(mockAuth.calls.Load, 5).Should(BeNumerically(">", 1))
+			Expect(tc.metricStoreAPI.ReloadRequestsCount.Load()).To(BeNumerically(">", 0))
 		})
 	})
 

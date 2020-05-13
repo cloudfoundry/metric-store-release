@@ -3,6 +3,7 @@ package testing
 import (
 	"crypto/tls"
 	"fmt"
+	"go.uber.org/atomic"
 	"net"
 	"net/http"
 	"sync"
@@ -16,6 +17,7 @@ type SpyMetricStore struct {
 	mu              sync.Mutex
 	localOnlyValues []bool
 
+	ReloadRequestsCount       atomic.Int32
 	queryResultValue          float64
 	QueryError                error
 	remoteConnection          *SpyTCPListener
@@ -66,7 +68,14 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 	insecureConnection, err := net.Listen("tcp", ":0")
 	Expect(err).ToNot(HaveOccurred())
 	secureConnection := tls.NewListener(insecureConnection, s.tlsConfig)
-	egressServer := &http.Server{}
+
+	mux := http.NewServeMux()
+	mux.Handle("/~/reload", s.handleReload())
+	mux.Handle("/", s.handleDefault())
+	egressServer := &http.Server{
+		Handler: mux,
+	}
+
 	go egressServer.Serve(secureConnection)
 
 	return SpyMetricStoreAddrs{
@@ -74,6 +83,18 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 		IngressAddr:   s.remoteConnection.Address(),
 		InternodeAddr: s.remoteInternodeConnection.Address(),
 	}
+}
+
+func (s *SpyMetricStore) handleReload() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.ReloadRequestsCount.Inc()
+	})
+}
+
+func (s *SpyMetricStore) handleDefault() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("got uncaught path: " + r.RequestURI)
+	})
 }
 
 func (s *SpyMetricStore) Stop() {
