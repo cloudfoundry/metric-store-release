@@ -8,22 +8,22 @@ function squashHead() {
 }
 
 function printUsage() {
-  echo "Run tests and autocommit"
-  echo "usage: $0 path/to/package/to/test"
-  echo "       Watches that package for changes and automatically runs tests on changes"
-  echo "       Automatically commits when tests pass with [Autocommit] tag"
-  echo ""
-  echo "Squash autocommits"
-  echo "usage: $0 squash \"commit message\""
-  echo "       Squashes last concurrent [Autocommit] tagged commits into a single commit"
-  echo ""
-  echo "Diff squash"
-  echo "usage: $0 diff"
-  echo "       show the diff of all that you are about to squash but don't squash"
-  echo ""
-  echo "Unroll commits"
-  echo "usage: $0 unroll"
-  echo "       unroll your autocommits but do not automatically commit the squash"
+  echo -e "\033[32mRun tests and autocommit\033[0m"
+  echo -e "\033[31musage: \033[1;34m$0 path/to/package/to/test\033[0m"
+  echo -e "       Watches that package for changes and automatically runs tests on changes"
+  echo -e "       Automatically commits when tests pass with [Autocommit] tag"
+  echo -e ""
+  echo -e "\033[32mSquash autocommits\033[0m"
+  echo -e "\033[31musage: \033[1;34m$0 squash \"commit message\"\033[0m"
+  echo -e "       Squashes last concurrent [Autocommit] tagged commits into a single commit"
+  echo -e ""
+  echo -e "\033[32mDiff squash\033[0m"
+  echo -e "\033[31musage: \033[1;34m$0 diff\033[0m"
+  echo -e "       show the diff of all that you are about to squash but don't squash"
+  echo -e ""
+  echo -e "\033[32mUnroll commits\033[0m"
+  echo -e "\033[31musage: \033[1;34m$0 unroll\033[0m"
+  echo -e "       unroll your autocommits but do not automatically commit the squash"
 
 }
 
