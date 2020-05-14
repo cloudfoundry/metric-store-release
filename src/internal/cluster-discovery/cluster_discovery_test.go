@@ -17,15 +17,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/prometheus/common/model"
+	"github.com/onsi/gomega/types"
 	prometheusConfig "github.com/prometheus/prometheus/config"
-	kubernetesDiscovery "github.com/prometheus/prometheus/discovery/kubernetes"
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"go.uber.org/atomic"
 	"gopkg.in/yaml.v2"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"regexp"
 	"time"
 )
 
@@ -203,20 +203,20 @@ var _ = Describe("Cluster Discovery", func() {
 		return tc
 	}
 
-	var runScrape = func(tc *testContext) prometheusConfig.Config {
+	var runScrape = func(tc *testContext) []*prometheusConfig.ScrapeConfig {
 		mockAuth := &mockAuthClient{}
 		discovery := cluster_discovery.New(&tc.certificateStore,
 			&mockClusterProvider{certClient: &tc.certificateClient},
 			mockAuth,
 			"localhost:8080",
-			tc.metricStoreAPIClient)
-		discovery.Stop()
-		discovery.Run()
+			tc.metricStoreAPIClient,
+			cluster_discovery.WithLogger(logger.NewTestLogger(GinkgoWriter)))
+		discovery.UpdateScrapeConfig()
 
 		var expected prometheusConfig.Config
 
-		Expect(yaml.NewDecoder(bytes.NewReader(tc.certificateStore.scrapeConfig)).Decode(&expected)).To(Succeed())
-		return expected
+		yaml.NewDecoder(bytes.NewReader(tc.certificateStore.scrapeConfig)).Decode(&expected)
+		return expected.ScrapeConfigs
 	}
 
 	Describe("Start", func() {
@@ -284,97 +284,164 @@ var _ = Describe("Cluster Discovery", func() {
 	})
 
 	Describe("ScrapeConfig for node in a cluster", func() {
-		var getJobConfig = func(jobName string, config prometheusConfig.Config) *prometheusConfig.ScrapeConfig {
-			Expect(config.ScrapeConfigs).ToNot(BeEmpty())
-			for _, scrapeConfig := range config.ScrapeConfigs {
-				if scrapeConfig.JobName == jobName {
-					return scrapeConfig
-				}
+		var yamlValues = func(doc []byte, name string) []string {
+			// name: matches the characters value: literally (case sensitive)
+			// \s* matches any whitespace character (equal to [\r\n\t\f\v ])
+			//   * Quantifier — Matches between zero and unlimited times, as many times as possible, giving back as needed (greedy)
+			// "? matches the character " literally (case sensitive)
+			//   ? Quantifier — Matches between zero and one times, as many times as possible, giving back as needed (greedy)
+			// 1st Capturing Group ([\w\.\/]+)
+			//   Match a single character present in the list below [-\w\.\/]+
+			//     - matches the character - literally (case sensitive)
+			//     : matches the character : literally (case sensitive)
+			//     \w matches any word character (equal to [a-zA-Z0-9_])
+			//     \. matches the character . literally (case sensitive)
+			//     \/ matches the character / literally (case sensitive)
+			//     + Quantifier — Matches between one and unlimited times, as many times as possible, giving back as needed (greedy)
+			// "? matches the character " literally (case sensitive)
+			//   ? Quantifier — Matches between zero and one times, as many times as possible, giving back as needed (greedy)
+			pattern := fmt.Sprintf(`%s:\s*"?([-:\w\.\/]+)"?`, name)
+			regex, err := regexp.Compile(pattern)
+			Expect(err).ToNot(HaveOccurred())
+
+			matches := regex.FindAllSubmatch(doc, -1)
+			Expect(len(matches)).To(BeNumerically(">", 0),
+				fmt.Sprintf("attribute %s had no occurrences", name))
+
+			var values []string
+			for _, match := range matches {
+				values = append(values, string(match[1]))
 			}
-			Fail("No scrape config found for name" + jobName)
-			return nil
+			return values
 		}
 
-		It("creates a base ScrapeConfig", func() {
-			scrapeConfig := getJobConfig("cluster1-kubernetes-nodes", runScrape(setup()))
+		var matchAllValues = func(doc []byte, name, expectedValue string) {
+			values := yamlValues(doc, name)
+			for occurrence, value := range values {
+				Expect(value).To(Equal(expectedValue),
+					fmt.Sprintf("%s occurrance #%d", name, occurrence))
+			}
+		}
 
-			sdConfig := scrapeConfig.ServiceDiscoveryConfig.KubernetesSDConfigs[0]
-			Expect(sdConfig.Role).To(Equal(kubernetesDiscovery.Role("node")))
-			Expect(sdConfig.APIServer.String()).To(Equal("//somehost:12345"))
+		Describe("creates a scrape config", func() {
+			It("creates a valid config", func() {
+				tc := setup()
+				unmarshalled := runScrape(tc)
+				Expect(unmarshalled).ToNot(BeNil())
+			})
+
+			It("populates shared values", func() {
+				tc := setup()
+				runScrape(tc)
+
+				matchAllValues(tc.certificateStore.scrapeConfig, "ca_file", "/tmp/scraper/cluster1/ca.pem")
+				matchAllValues(tc.certificateStore.scrapeConfig, "cert_file", "/tmp/scraper/cluster1/cert.pem")
+				matchAllValues(tc.certificateStore.scrapeConfig, "key_file", "/tmp/scraper/private.key")
+				matchAllValues(tc.certificateStore.scrapeConfig, "insecure_skip_verify", "true")
+				matchAllValues(tc.certificateStore.scrapeConfig, "api_server", "https://somehost:12345")
+			})
+
+			var findJob = func(jobName string, configs []*prometheusConfig.ScrapeConfig) *prometheusConfig.ScrapeConfig {
+				for _, job := range configs {
+					if job.JobName == jobName {
+						return job
+					}
+				}
+				return nil
+			}
+
+			var matchRelabel = func() types.GomegaMatcher {
+				return MatchElements(
+					func(element interface{}) string {
+						relabelConfig := element.(*relabel.Config)
+						return string(relabelConfig.TargetLabel) + ":" + string(relabelConfig.Action)
+					},
+					IgnoreExtras,
+					Elements{
+						"__address__:replace": PointTo(MatchFields(IgnoreExtras,
+							Fields{
+								"Replacement": Equal("somehost:12345"),
+							})),
+					})
+			}
+
+			It("creates cluster job", func() {
+				tc := setup()
+				unmarshalled := runScrape(tc)
+
+				serverJob := findJob("cluster1", unmarshalled)
+				Expect(serverJob).ToNot(BeNil())
+				Expect(string(serverJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0]["__address__"])).
+					To(Equal("somehost:12345"))
+			})
+
+			It("creates an apiserver job", func() {
+				tc := setup()
+				jobs := runScrape(tc)
+				Expect(findJob("cluster1-kubernetes-apiservers", jobs)).ToNot(BeNil())
+			})
+
+			It("creates kubernetes-nodes job", func() {
+				tc := setup()
+				unmarshalled := runScrape(tc)
+
+				serverJob := findJob("cluster1-kubernetes-nodes", unmarshalled)
+				Expect(serverJob).ToNot(BeNil(), "cluster1-kubernetes-nodes cluster1 job doesn't exist")
+				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+			})
+
+			It("creates cadvisor job", func() {
+				tc := setup()
+				unmarshalled := runScrape(tc)
+
+				serverJob := findJob("cluster1-kubernetes-cadvisor", unmarshalled)
+				Expect(serverJob).ToNot(BeNil())
+				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+			})
+
+			It("creates kube-state-metrics job", func() {
+				tc := setup()
+				unmarshalled := runScrape(tc)
+
+				serverJob := findJob("cluster1-kube-state-metrics", unmarshalled)
+				Expect(serverJob).ToNot(BeNil())
+				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+			})
+
+			It("creates kubernetes-coredns job", func() {
+				tc := setup()
+				unmarshalled := runScrape(tc)
+
+				serverJob := findJob("cluster1-kubernetes-coredns", unmarshalled)
+				Expect(serverJob).ToNot(BeNil())
+				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+			})
 		})
 
-		It("creates a ScrapeConfig for nodes in a cluster", func() {
-			scrapeConfig := getJobConfig("cluster1-kubernetes-nodes", runScrape(setup()))
+		Describe("ScrapeConfig handles errors gracefully", func() {
+			It("checks errors when saving the CA", func() {
+				tc := setup()
+				tc.certificateStore.nextSaveCAIsError = true
+				Expect(runScrape(tc)).To(BeEmpty())
+			})
 
-			Expect(scrapeConfig.RelabelConfigs).To(HaveLen(3))
-			Expect(scrapeConfig.RelabelConfigs).To(MatchAllElements(
-				func(element interface{}) string {
-					return element.(*relabel.Config).TargetLabel
-				},
-				Elements{
-					"": PointTo(MatchFields(IgnoreExtras, Fields{
-						"Regex":  Equal(relabel.MustNewRegexp("__meta_kubernetes_node_label_(.+)")),
-						"Action": Equal(relabel.LabelMap),
-					})),
-					"__address__": PointTo(MatchFields(IgnoreExtras, Fields{
-						"Replacement": Equal("somehost:12345"),
-					})),
-					"__metrics_path__": PointTo(MatchFields(IgnoreExtras, Fields{
-						"SourceLabels": Equal(model.LabelNames{
-							"__meta_kubernetes_node_name",
-						}),
-						"Regex":       Equal(relabel.MustNewRegexp("(.+)")),
-						"Replacement": Equal("/api/v1/nodes/$1/proxy/metrics"),
-					})),
-				}),
-			)
-		})
+			It("checks errors when generating the certificate", func() {
+				tc := setup()
+				tc.certificateClient.nextGetApprovalIsError = true
+				Expect(runScrape(tc)).To(BeEmpty())
+			})
 
-		It("configures TLS", func() {
-			clusterName := "cluster1"
-			jobName := clusterName + "-kubernetes-nodes"
-			tc := setup()
-			scrapeConfig := getJobConfig(jobName, runScrape(tc))
+			It("checks errors when saving the certificate", func() {
+				tc := setup()
+				tc.certificateStore.nextSaveCertIsError = true
+				Expect(runScrape(tc)).To(BeEmpty())
+			})
 
-			Expect(string(tc.certificateStore.certs["cluster1"])).To(Equal("signed-certificate"))
-			Expect(tc.certificateStore.caCerts["cluster1"]).To(Equal([]byte("certdata")))
-			Expect(tc.certificateStore.privateKeys["cluster1"]).To(Equal(tc.certificateClient.PrivateKey()))
-
-			tlsConfig := scrapeConfig.HTTPClientConfig.TLSConfig
-			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
-			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
-			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
-
-			tlsConfig = scrapeConfig.ServiceDiscoveryConfig.KubernetesSDConfigs[0].HTTPClientConfig.TLSConfig
-			Expect(tlsConfig.KeyFile).To(Equal("/tmp/scraper/private.key"))
-			Expect(tlsConfig.CAFile).To(Equal("/tmp/scraper/cluster1/ca.pem"))
-			Expect(tlsConfig.CertFile).To(Equal("/tmp/scraper/cluster1/cert.pem"))
-		})
-	})
-
-	Describe("ScrapeConfig handles errors gracefully", func() {
-		It("checks errors when saving the CA", func() {
-			tc := setup()
-			tc.certificateStore.nextSaveCAIsError = true
-			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
-		})
-
-		It("checks errors when generating the certificate", func() {
-			tc := setup()
-			tc.certificateClient.nextGetApprovalIsError = true
-			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
-		})
-
-		It("checks errors when saving the certificate", func() {
-			tc := setup()
-			tc.certificateStore.nextSaveCertIsError = true
-			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
-		})
-
-		It("checks errors when saving the key", func() {
-			tc := setup()
-			tc.certificateStore.nextSaveKeyIsError = true
-			Expect(runScrape(tc).ScrapeConfigs).To(BeEmpty())
+			It("checks errors when saving the key", func() {
+				tc := setup()
+				tc.certificateStore.nextSaveKeyIsError = true
+				Expect(runScrape(tc)).To(BeEmpty())
+			})
 		})
 	})
 })
@@ -389,7 +456,7 @@ func (m mockClusterProvider) GetClusters(authHeader string) ([]pks.Cluster, erro
 			Name:      "cluster1",
 			CaData:    "certdata",
 			UserToken: "bearer thingie",
-			Host:      "somehost:12345",
+			Addr:      "somehost:12345",
 			APIClient: m.certClient,
 		},
 	}, nil
@@ -403,181 +470,3 @@ func (m *mockAuthClient) GetAuthHeader() (string, error) {
 	m.calls.Inc()
 	return "bearer stuff", nil
 }
-
-var _ = `---
-- job_name: "cluster1"
-  metrics_path: "/metrics"
-  scheme: "https"
-  tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
-  static_configs:
-  - targets:
-    - "localhost:$k8sApiPort"
-- job_name: "cluster1-kubernetes-apiservers"
-  kubernetes_sd_configs:
-  - role: "endpoints"
-    api_server: "https://localhost:$k8sApiPort"
-    tls_config:
-      ca_file: "/tmp/cluster1_ca.pem"
-      cert_file: "/tmp/cluster1_cert.pem"
-      key_file: "/tmp/cluster1_cert.key"
-      insecure_skip_verify: false
-  scheme: "https"
-  tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
-  relabel_configs:
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    - "__meta_kubernetes_service_name"
-    - "__meta_kubernetes_endpoint_port_name"
-    action: "keep"
-    regex: "default;kubernetes;https"
-- job_name: "cluster1-kubernetes-nodes"
-  kubernetes_sd_configs:
-  - role: "node"
-    api_server: "https://localhost:$k8sApiPort"
-    tls_config:
-      ca_file: "/tmp/cluster1_ca.pem"
-      cert_file: "/tmp/cluster1_cert.pem"
-      key_file: "/tmp/cluster1_cert.key"
-      insecure_skip_verify: false
-  scheme: "https"
-  tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
-  relabel_configs:
-  - action: "labelmap"
-    regex: "__meta_kubernetes_node_label_(.+)"
-  - target_label: "__address__"
-    replacement: "localhost:$k8sApiPort"
-  - source_labels:
-    - "__meta_kubernetes_node_name"
-    regex: "(.+)"
-    target_label: "__metrics_path__"
-    replacement: "/api/v1/nodes/$1/proxy/metrics"
-- job_name: "cluster1-kubernetes-cadvisor"
-  kubernetes_sd_configs:
-  - role: "node"
-    api_server: "https://localhost:$k8sApiPort"
-    tls_config:
-      ca_file: "/tmp/cluster1_ca.pem"
-      cert_file: "/tmp/cluster1_cert.pem"
-      key_file: "/tmp/cluster1_cert.key"
-      insecure_skip_verify: false
-  scheme: "https"
-  tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
-  relabel_configs:
-  - action: "labelmap"
-    regex: "__meta_kubernetes_node_label_(.+)"
-  - target_label: "__address__"
-    replacement: "localhost:$k8sApiPort"
-  - source_labels:
-    - "__meta_kubernetes_node_name"
-    regex: "(.+)"
-    target_label: "__metrics_path__"
-    replacement: "/api/v1/nodes/$1/proxy/metrics/cadvisor"
-- job_name: "cluster1-kube-state-metrics"
-  kubernetes_sd_configs:
-  - role: "pod"
-    api_server: "https://localhost:$k8sApiPort"
-    tls_config:
-      ca_file: "/tmp/cluster1_ca.pem"
-      cert_file: "/tmp/cluster1_cert.pem"
-      key_file: "/tmp/cluster1_cert.key"
-      insecure_skip_verify: false
-  scheme: "https"
-  tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
-  relabel_configs:
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    - "__meta_kubernetes_pod_container_name"
-    - "__meta_kubernetes_pod_container_port_name"
-    action: "keep"
-    regex: "(pks-system;kube-state-metrics;http-metrics|telemetry)"
-  - target_label: "__address__"
-    replacement: "localhost:$k8sApiPort"
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    - "__meta_kubernetes_pod_name"
-    - "__meta_kubernetes_pod_container_port_number"
-    action: "replace"
-    regex: "(.+);(.+);(\\d+)"
-    target_label: "__metrics_path__"
-    replacement: "/api/v1/namespaces/$1/pods/$2:$3/proxy/metrics"
-  - action: "labelmap"
-    regex: "__meta_kubernetes_service_label_(.+)"
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    action: "replace"
-    target_label: "kubernetes_namespace"
-  - source_labels:
-    - "__meta_kubernetes_service_name"
-    action: "replace"
-    target_label: "kubernetes_name"
-  - source_labels:
-    - "__meta_kubernetes_pod_name"
-    - "__meta_kubernetes_pod_container_port_number"
-    action: "replace"
-    regex: "(.+);(\\d+)"
-    target_label: "instance"
-    replacement: "$1:$2"
-- job_name: "cluster1-kubernetes-coredns"
-  kubernetes_sd_configs:
-  - role: "pod"
-    api_server: "https://localhost:$k8sApiPort"
-    tls_config:
-      ca_file: "/tmp/cluster1_ca.pem"
-      cert_file: "/tmp/cluster1_cert.pem"
-      key_file: "/tmp/cluster1_cert.key"
-      insecure_skip_verify: false
-  scheme: "https"
-  tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
-  relabel_configs:
-  - source_labels:
-    - "__meta_kubernetes_pod_container_name"
-    action: "keep"
-    regex: "coredns"
-  - target_label: "__address__"
-    replacement: "localhost:$k8sApiPort"
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    - "__meta_kubernetes_pod_name"
-    - "__meta_kubernetes_service_annotation_prometheus_io_port"
-    action: "replace"
-    regex: "(.+);(.+);(\\d+)"
-    target_label: "__metrics_path__"
-    replacement: "/api/v1/namespaces/$1/pods/$2:$3/proxy/metrics"
-  - action: "labelmap"
-    regex: "__meta_kubernetes_service_label_(.+)"
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    action: "replace"
-    target_label: "kubernetes_namespace"
-  - source_labels:
-    - "__meta_kubernetes_service_name"
-    action: "replace"
-    target_label: "kubernetes_name"
-  - source_labels:
-    - "__meta_kubernetes_pod_name"
-    action: "replace"
-    target_label: "instance"`

@@ -165,7 +165,7 @@ var _ = Describe("ClusterDiscovery", func() {
 			config, err := prometheusConfig.LoadFile(tc.scrapeConfigPath)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(config.ScrapeConfigs).To(HaveLen(1))
+			Expect(config.ScrapeConfigs).To(HaveLen(6))
 			c := config.ScrapeConfigs[0]
 			println(fmt.Sprintf("config %+v", c))
 			Expect(c.JobName).To(ContainSubstring("cluster1"))

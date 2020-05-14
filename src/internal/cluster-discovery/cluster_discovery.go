@@ -6,16 +6,11 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	prometheusCommonConfig "github.com/prometheus/common/config"
-	"github.com/prometheus/common/model"
 	prometheusConfig "github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/discovery/config"
-	kubernetesDiscovery "github.com/prometheus/prometheus/discovery/kubernetes"
-	"github.com/prometheus/prometheus/pkg/relabel"
-	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 	"net/http"
 	"net/url"
+	"text/template"
 	"time"
 )
 
@@ -112,7 +107,7 @@ func (discovery *ClusterDiscovery) Start() {
 }
 
 func (discovery *ClusterDiscovery) Run() {
-	discovery.updateScrapeConfig()
+	discovery.UpdateScrapeConfig()
 
 	t := time.NewTicker(discovery.refreshInterval)
 	for {
@@ -121,12 +116,12 @@ func (discovery *ClusterDiscovery) Run() {
 			t.Stop()
 			return
 		case <-t.C:
-			discovery.updateScrapeConfig()
+			discovery.UpdateScrapeConfig()
 		}
 	}
 }
 
-func (discovery *ClusterDiscovery) updateScrapeConfig() {
+func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 	authHeader, err := discovery.auth.GetAuthHeader()
 	if err != nil {
 		discovery.log.Error("getting auth header", err)
@@ -139,20 +134,13 @@ func (discovery *ClusterDiscovery) updateScrapeConfig() {
 		return
 	}
 
-	scrapeConfig := &prometheusConfig.Config{}
+	var combinedConfig bytes.Buffer
 	for _, cluster := range clusters {
 		scrapeConfigs, _ := discovery.getScrapeConfigsForCluster(&cluster)
-		scrapeConfig.ScrapeConfigs = append(scrapeConfig.ScrapeConfigs, scrapeConfigs...)
+		combinedConfig.WriteString(scrapeConfigs)
 	}
 
-	contents, err := yaml.Marshal(scrapeConfig)
-	if err != nil {
-		discovery.log.Debug("attempting to marshal", zap.Any("scrape config", scrapeConfig))
-		discovery.log.Error("converting scrape config to yaml", err)
-		return
-	}
-
-	err = discovery.store.SaveScrapeConfig(contents)
+	err = discovery.store.SaveScrapeConfig(combinedConfig.Bytes())
 	if err != nil {
 		discovery.log.Error("writing updated scrape config", err)
 	}
@@ -169,44 +157,74 @@ func (discovery *ClusterDiscovery) Stop() {
 	close(discovery.done)
 }
 
-func (discovery *ClusterDiscovery) getScrapeConfigsForCluster(cluster *pks.Cluster) ([]*prometheusConfig.ScrapeConfig, error) {
+func (discovery *ClusterDiscovery) getScrapeConfigsForCluster(cluster *pks.Cluster) (string, error) {
+	err := discovery.saveCerts(cluster)
+	if err != nil {
+		return "", err
+	}
+
+	return discovery.populateScrapeTemplate(cluster)
+}
+
+func (discovery *ClusterDiscovery) saveCerts(cluster *pks.Cluster) error {
 	// TODO talk to Bob
 	//existing := discovery.loadConfigForCluster(cluster.Name)
 	//if existing != nil {
 	//	return existing
 	//}
-
 	err := discovery.store.SaveCA(cluster.Name, []byte(cluster.CaData))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	certificateSigningRequest := NewCertificateSigningRequest(cluster.APIClient)
 	clientCert, clientKey, err := certificateSigningRequest.RequestScraperCertificate()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = discovery.store.SaveCert(cluster.Name, clientCert)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	err = discovery.store.SavePrivateKey(cluster.Name, clientKey)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	return nil
+}
+
+func (discovery *ClusterDiscovery) populateScrapeTemplate(cluster *pks.Cluster) (string, error) {
+	var vars = ScrapeTemplate{
+		ClusterName: cluster.Name,
+		CAPath:      discovery.store.CAPath(cluster.Name),
+		CertPath:    discovery.store.CertPath(cluster.Name),
+		KeyPath:     discovery.store.PrivateKeyPath(cluster.Name),
+		K8sApiAddr:  cluster.Addr,
+		SkipSsl:     true,
 	}
 
-	return []*prometheusConfig.ScrapeConfig{
-		kubernetesNodesScrapeConfig(cluster, discovery.store),
-		//kubernetesAPIServersScrapeConfig(cluster, discovery.store),
-	}, nil
+	template, err := template.New("clusterConfig").Parse(scrapeTemplate)
+	if err != nil {
+		discovery.log.Error("unable to parse scrape config template", err)
+		return "", err
+	}
+
+	var buffer bytes.Buffer
+	err = template.Execute(&buffer, vars)
+	if err != nil {
+		discovery.log.Error("unable to populate scrape config template", err)
+		return "", err
+	}
+
+	return buffer.String(), nil
 }
 
 func (discovery *ClusterDiscovery) loadConfigForCluster(_ string) []*prometheusConfig.ScrapeConfig {
 	//do i have an existing scrap config?
 	//can i connect to the k8s api using the tls config and get a 200 OK
-	// maybe, check that cluster.Host and config.apiServer are the same
+	// maybe, check that cluster.Addr and config.apiServer are the same
 	//if i get a 200 OK then add the existing scrape configs to config.ScrapeConfigs
 	raw, err := discovery.store.LoadScrapeConfig()
 	if err != nil {
@@ -235,120 +253,192 @@ func (discovery *ClusterDiscovery) reloadMetricStoreConfiguration() error {
 	return nil
 }
 
-func kubernetesNodesScrapeConfig(cluster *pks.Cluster, store scrapeStore) *prometheusConfig.ScrapeConfig {
-	return &prometheusConfig.ScrapeConfig{
-		JobName: cluster.Name + "-kubernetes-nodes",
-		ServiceDiscoveryConfig: config.ServiceDiscoveryConfig{
-			KubernetesSDConfigs: []*kubernetesDiscovery.SDConfig{{
-				APIServer: prometheusCommonConfig.URL{URL: &url.URL{Host: cluster.Host}},
-				Role:      "node",
-				HTTPClientConfig: prometheusCommonConfig.HTTPClientConfig{
-					TLSConfig: prometheusCommonConfig.TLSConfig{
-						CAFile:   store.CAPath(cluster.Name),
-						CertFile: store.CertPath(cluster.Name),
-						KeyFile:  store.PrivateKeyPath(cluster.Name),
-					},
-				},
-			}},
-		},
-		Scheme: "https",
-		HTTPClientConfig: prometheusCommonConfig.HTTPClientConfig{
-			TLSConfig: prometheusCommonConfig.TLSConfig{
-				CAFile:   store.CAPath(cluster.Name),
-				CertFile: store.CertPath(cluster.Name),
-				KeyFile:  store.PrivateKeyPath(cluster.Name),
-			},
-		},
-		RelabelConfigs: []*relabel.Config{
-			{
-				Action: relabel.LabelMap,
-				Regex:  relabel.MustNewRegexp("__meta_kubernetes_node_label_(.+)"),
-			},
-			{
-				TargetLabel: "__address__",
-				Replacement: cluster.Host,
-			},
-			{
-				TargetLabel: "__metrics_path__",
-				Replacement: "/api/v1/nodes/$1/proxy/metrics",
-				Regex:       relabel.MustNewRegexp("(.+)"),
-				SourceLabels: model.LabelNames{
-					"__meta_kubernetes_node_name",
-				},
-			},
-		},
-	}
+type ScrapeTemplate struct {
+	ClusterName string
+	CAPath      string
+	CertPath    string
+	KeyPath     string
+	SkipSsl     bool
+	K8sApiAddr  string
 }
 
-func kubernetesAPIServersScrapeConfig(cluster *pks.Cluster, store scrapeStore) *prometheusConfig.ScrapeConfig {
-	var _ = `
-- job_name: "cluster1-kubernetes-apiservers"
-  kubernetes_sd_configs:
-  - role: "endpoints"
-    api_server: "https://localhost:$k8sApiPort"
-    tls_config:
-      ca_file: "/tmp/cluster1_ca.pem"
-      cert_file: "/tmp/cluster1_cert.pem"
-      key_file: "/tmp/cluster1_cert.key"
-      insecure_skip_verify: false
+var scrapeTemplate = `
+scrape_configs:
+- job_name: "{{.ClusterName}}"
+  metrics_path: "/metrics"
   scheme: "https"
   tls_config:
-    ca_file: "/tmp/cluster1_ca.pem"
-    cert_file: "/tmp/cluster1_cert.pem"
-    key_file: "/tmp/cluster1_cert.key"
-    insecure_skip_verify: false
+    ca_file: "{{.CAPath}}"
+    cert_file: "{{.CertPath}}"
+    key_file: "{{.KeyPath}}"
+    insecure_skip_verify: {{.SkipSsl}}
+  static_configs:
+  - targets:
+    - "{{.K8sApiAddr}}"
+- job_name: "{{.ClusterName}}-kubernetes-apiservers"
+  kubernetes_sd_configs:
+  - role: "endpoints"
+    api_server: "https://{{.K8sApiAddr}}"
+    tls_config:
+      ca_file: "{{.CAPath}}"
+      cert_file: "{{.CertPath}}"
+      key_file: "{{.KeyPath}}"
+      insecure_skip_verify: {{ .SkipSsl }}
+  scheme: "https"
+  tls_config:
+    ca_file: "{{.CAPath}}"
+    cert_file: "{{.CertPath}}"
+    key_file: "{{.KeyPath}}"
+    insecure_skip_verify: {{ .SkipSsl }}
   relabel_configs:
   - source_labels:
     - "__meta_kubernetes_namespace"
     - "__meta_kubernetes_service_name"
     - "__meta_kubernetes_endpoint_port_name"
     action: "keep"
-    regex: "default;kubernetes;https"`
-	return &prometheusConfig.ScrapeConfig{
-		JobName: cluster.Name + "-kubernetes-apiservers",
-		ServiceDiscoveryConfig: config.ServiceDiscoveryConfig{
-			KubernetesSDConfigs: []*kubernetesDiscovery.SDConfig{{
-				APIServer: prometheusCommonConfig.URL{URL: &url.URL{Host: cluster.Host}},
-				Role:      "endpoints",
-				HTTPClientConfig: prometheusCommonConfig.HTTPClientConfig{
-					TLSConfig: prometheusCommonConfig.TLSConfig{
-						CAFile:   store.CAPath(cluster.Name),
-						CertFile: store.CertPath(cluster.Name),
-						KeyFile:  store.PrivateKeyPath(cluster.Name),
-					},
-				},
-			}},
-		},
-		Scheme: "https",
-		HTTPClientConfig: prometheusCommonConfig.HTTPClientConfig{
-			TLSConfig: prometheusCommonConfig.TLSConfig{
-				CAFile:   store.CAPath(cluster.Name),
-				CertFile: store.CertPath(cluster.Name),
-				KeyFile:  store.PrivateKeyPath(cluster.Name),
-			},
-		},
-		RelabelConfigs: []*relabel.Config{
-			{
-				SourceLabels: []model.LabelName{
-					"__meta_kubernetes_namespace",
-					"__meta_kubernetes_service_name",
-					"__meta_kubernetes_endpoint_port_name",
-				},
-				Action: relabel.Keep,
-				Regex:  relabel.MustNewRegexp("default;kubernetes;https"),
-			},
-			{
-				TargetLabel: "__address__",
-				Replacement: cluster.Host,
-			},
-			{
-				TargetLabel: "__metrics_path__",
-				Replacement: "/api/v1/nodes/$1/proxy/metrics",
-				Regex:       relabel.MustNewRegexp("(.+)"),
-				SourceLabels: model.LabelNames{
-					"__meta_kubernetes_node_name",
-				},
-			},
-		},
-	}
-}
+    regex: "default;kubernetes;https"
+- job_name: "{{.ClusterName}}-kubernetes-nodes"
+  kubernetes_sd_configs:
+  - role: "node"
+    api_server: "https://{{.K8sApiAddr}}"
+    tls_config:
+      ca_file: "{{.CAPath}}"
+      cert_file: "{{.CertPath}}"
+      key_file: "{{.KeyPath}}"
+      insecure_skip_verify: {{ .SkipSsl }}
+  scheme: "https"
+  tls_config:
+    ca_file: "{{.CAPath}}"
+    cert_file: "{{.CertPath}}"
+    key_file: "{{.KeyPath}}"
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - action: "labelmap"
+    regex: "__meta_kubernetes_node_label_(.+)"
+  - target_label: "__address__"
+    replacement: "{{.K8sApiAddr}}"
+  - source_labels:
+    - "__meta_kubernetes_node_name"
+    regex: "(.+)"
+    target_label: "__metrics_path__"
+    replacement: "/api/v1/nodes/$1/proxy/metrics"
+- job_name: "{{.ClusterName}}-kubernetes-cadvisor"
+  kubernetes_sd_configs:
+  - role: "node"
+    api_server: "https://{{.K8sApiAddr}}"
+    tls_config:
+      ca_file: "{{.CAPath}}"
+      cert_file: "{{.CertPath}}"
+      key_file: "{{.KeyPath}}"
+      insecure_skip_verify: {{ .SkipSsl }}
+  scheme: "https"
+  tls_config:
+    ca_file: "{{.CAPath}}"
+    cert_file: "{{.CertPath}}"
+    key_file: "{{.KeyPath}}"
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - action: "labelmap"
+    regex: "__meta_kubernetes_node_label_(.+)"
+  - target_label: "__address__"
+    replacement: "{{.K8sApiAddr}}"
+  - source_labels:
+    - "__meta_kubernetes_node_name"
+    regex: "(.+)"
+    target_label: "__metrics_path__"
+    replacement: "/api/v1/nodes/$1/proxy/metrics/cadvisor"
+- job_name: "{{.ClusterName}}-kube-state-metrics"
+  kubernetes_sd_configs:
+  - role: "pod"
+    api_server: "https://{{.K8sApiAddr}}"
+    tls_config:
+      ca_file: "{{.CAPath}}"
+      cert_file: "{{.CertPath}}"
+      key_file: "{{.KeyPath}}"
+      insecure_skip_verify: {{ .SkipSsl }}
+  scheme: "https"
+  tls_config:
+    ca_file: "{{.CAPath}}"
+    cert_file: "{{.CertPath}}"
+    key_file: "{{.KeyPath}}"
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - source_labels:
+    - "__meta_kubernetes_namespace"
+    - "__meta_kubernetes_pod_container_name"
+    - "__meta_kubernetes_pod_container_port_name"
+    action: "keep"
+    regex: "(pks-system;kube-state-metrics;http-metrics|telemetry)"
+  - target_label: "__address__"
+    replacement: "{{.K8sApiAddr}}"
+    action: "replace"
+  - source_labels:
+    - "__meta_kubernetes_namespace"
+    - "__meta_kubernetes_pod_name"
+    - "__meta_kubernetes_pod_container_port_number"
+    action: "replace"
+    regex: "(.+);(.+);(\\d+)"
+    target_label: "__metrics_path__"
+    replacement: "/api/v1/namespaces/$1/pods/$2:$3/proxy/metrics"
+  - action: "labelmap"
+    regex: "__meta_kubernetes_service_label_(.+)"
+  - source_labels:
+    - "__meta_kubernetes_namespace"
+    action: "replace"
+    target_label: "kubernetes_namespace"
+  - source_labels:
+    - "__meta_kubernetes_service_name"
+    action: "replace"
+    target_label: "kubernetes_name"
+  - source_labels:
+    - "__meta_kubernetes_pod_name"
+    - "__meta_kubernetes_pod_container_port_number"
+    action: "replace"
+    regex: "(.+);(\\d+)"
+    target_label: "instance"
+    replacement: "$1:$2"
+- job_name: "{{.ClusterName}}-kubernetes-coredns"
+  kubernetes_sd_configs:
+  - role: "pod"
+    api_server: "https://{{.K8sApiAddr}}"
+    tls_config:
+      ca_file: "{{.CAPath}}"
+      cert_file: "{{.CertPath}}"
+      key_file: "{{.KeyPath}}"
+      insecure_skip_verify: {{ .SkipSsl }}
+  scheme: "https"
+  tls_config:
+    ca_file: "{{.CAPath}}"
+    cert_file: "{{.CertPath}}"
+    key_file: "{{.KeyPath}}"
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - source_labels:
+    - "__meta_kubernetes_pod_container_name"
+    action: "keep"
+    regex: "coredns"
+  - target_label: "__address__"
+    replacement: "{{.K8sApiAddr}}"
+  - source_labels:
+    - "__meta_kubernetes_namespace"
+    - "__meta_kubernetes_pod_name"
+    - "__meta_kubernetes_service_annotation_prometheus_io_port"
+    action: "replace"
+    regex: "(.+);(.+);(\\d+)"
+    target_label: "__metrics_path__"
+    replacement: "/api/v1/namespaces/$1/pods/$2:$3/proxy/metrics"
+  - action: "labelmap"
+    regex: "__meta_kubernetes_service_label_(.+)"
+  - source_labels:
+    - "__meta_kubernetes_namespace"
+    action: "replace"
+    target_label: "kubernetes_namespace"
+  - source_labels:
+    - "__meta_kubernetes_service_name"
+    action: "replace"
+    target_label: "kubernetes_name"
+  - source_labels:
+    - "__meta_kubernetes_pod_name"
+    action: "replace"
+    target_label: "instance"
+`
