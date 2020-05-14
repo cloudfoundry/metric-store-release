@@ -37,6 +37,11 @@ projectdir=$(git rev-parse --show-toplevel)
 testdir="${projectdir}/$1"
 
 if [[ $1 == "squash" ]]; then
+  if [[ $# -lt 2 ]]; then
+    printUsage
+    exit 1
+  fi
+
   git reset "$(squashHead)"
   git add -A
   git commit -m "$2"
