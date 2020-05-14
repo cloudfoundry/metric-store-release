@@ -42,7 +42,7 @@ function parse_argc() {
 }
 
 function run_common() {
-  golangci-lint run -c "${CONFIG_DIR}" --out-format tab $@
+  golangci-lint run -c "${CONFIG_FILE}" --out-format tab $@
 }
 
 function run_all() {
