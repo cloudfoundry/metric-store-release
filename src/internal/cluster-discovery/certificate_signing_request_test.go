@@ -2,6 +2,7 @@ package cluster_discovery_test
 
 import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"time"
@@ -10,7 +11,7 @@ import (
 var _ = Describe("CertificateSigningRequest", func() {
 	Describe("Generates a CSR", func() {
 		It("returns the certificate and private key", func() {
-			mockClient := newMockCSRClient()
+			mockClient := testing.NewMockCSRClient()
 			csr := cluster_discovery.NewCertificateSigningRequest(mockClient,
 				cluster_discovery.WithCertificateSigningRequestTimeout(time.Millisecond))
 			cert, key, err := csr.RequestScraperCertificate()
@@ -22,8 +23,8 @@ var _ = Describe("CertificateSigningRequest", func() {
 
 		Describe("bubble up errors on external calls", func() {
 			It("handles certificate request error", func() {
-				mockClient := newMockCSRClient()
-				mockClient.nextCreateCSRIsError = true
+				mockClient := testing.NewMockCSRClient()
+				mockClient.NextCreateCSRIsError = true
 				csr := cluster_discovery.NewCertificateSigningRequest(mockClient,
 					cluster_discovery.WithCertificateSigningRequestTimeout(time.Millisecond))
 				_, _, err := csr.RequestScraperCertificate()
@@ -32,8 +33,8 @@ var _ = Describe("CertificateSigningRequest", func() {
 			})
 
 			It("handles certificate approval error", func() {
-				mockClient := newMockCSRClient()
-				mockClient.nextUpdateApprovalIsError = true
+				mockClient := testing.NewMockCSRClient()
+				mockClient.NextUpdateApprovalIsError = true
 				csr := cluster_discovery.NewCertificateSigningRequest(mockClient,
 					cluster_discovery.WithCertificateSigningRequestTimeout(time.Millisecond))
 				_, _, err := csr.RequestScraperCertificate()
@@ -42,8 +43,8 @@ var _ = Describe("CertificateSigningRequest", func() {
 			})
 
 			It("handles get approved signing request error", func() {
-				mockClient := newMockCSRClient()
-				mockClient.nextGetApprovalIsError = true
+				mockClient := testing.NewMockCSRClient()
+				mockClient.NextGetApprovalIsError = true
 				csr := cluster_discovery.NewCertificateSigningRequest(mockClient,
 					cluster_discovery.WithCertificateSigningRequestTimeout(time.Millisecond))
 				_, _, err := csr.RequestScraperCertificate()
