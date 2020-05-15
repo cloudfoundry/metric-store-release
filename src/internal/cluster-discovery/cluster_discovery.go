@@ -263,7 +263,6 @@ type ScrapeTemplate struct {
 }
 
 var scrapeTemplate = `
-scrape_configs:
 - job_name: "{{.ClusterName}}"
   metrics_path: "/metrics"
   scheme: "https"

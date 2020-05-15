@@ -1,10 +1,12 @@
 package cluster_discovery_test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/cmd/cluster-discovery/app"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,23 +27,23 @@ var __ *cluster_discovery.ClusterDiscovery
 
 var _ = Describe("ClusterDiscovery", func() {
 	type testContext struct {
-	tlsConfig        *tls.Config
-	caCert           string
-	cert             string
-	key              string
-	healthPort       int
-	scrapeConfigPath string
-	storagePath      string
+		tlsConfig        *tls.Config
+		caCert           string
+		cert             string
+		key              string
+		healthPort       int
+		scrapeConfigPath string
+		storagePath      string
 
-	metricStoreAPIAddress string
+		metricStoreAPIAddress string
 
-	uaaSpy     *testing.SpyUAA
-	pksSpy     *testing.PKSSpy
-	kubeAPISpy *testing.K8sSpy
+		uaaSpy     *testing.SpyUAA
+		pksSpy     *testing.PKSSpy
+		kubeAPISpy *testing.K8sSpy
 
-	app     *app.ClusterDiscoveryApp
-	MetricS interface{}
-}
+		app     *app.ClusterDiscoveryApp
+		MetricS interface{}
+	}
 
 	var startProcess = func(tc *testContext) {
 		tmpDir, err := ioutil.TempDir("", "cluster-discovery")
@@ -59,7 +61,7 @@ var _ = Describe("ClusterDiscovery", func() {
 				KeyPath:  tc.key,
 			},
 			MetricStoreAPI: app.MetricStoreAPI{
-				Address:       tc.metricStoreAPIAddress,
+				Address:    tc.metricStoreAPIAddress,
 				CAPath:     shared.Cert("metric-store-ca.crt"),
 				CertPath:   shared.Cert("metric-store.crt"),
 				KeyPath:    shared.Cert("metric-store.key"),
@@ -162,11 +164,14 @@ var _ = Describe("ClusterDiscovery", func() {
 			}
 			Eventually(getFileContents, 3).Should(ContainSubstring("cluster1"))
 
-			config, err := prometheusConfig.LoadFile(tc.scrapeConfigPath)
+			configsString, err := ioutil.ReadFile(tc.scrapeConfigPath)
+
+			var configs []*prometheusConfig.ScrapeConfig
+			err = yaml.NewDecoder(bytes.NewReader(configsString)).Decode(&configs)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(config.ScrapeConfigs).To(HaveLen(6))
-			c := config.ScrapeConfigs[0]
+			Expect(configs).To(HaveLen(6))
+			c := configs[0]
 			println(fmt.Sprintf("config %+v", c))
 			Expect(c.JobName).To(ContainSubstring("cluster1"))
 		})
