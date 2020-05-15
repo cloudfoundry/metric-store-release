@@ -75,9 +75,9 @@ var _ = Describe("Cluster Discovery", func() {
 			cluster_discovery.WithLogger(logger.NewTestLogger(GinkgoWriter)))
 		discovery.UpdateScrapeConfig()
 
-		var expected []*prometheusConfig.ScrapeConfig
+		var expected prometheusConfig.Config
 		yaml.NewDecoder(bytes.NewReader(tc.certificateStore.ScrapeConfig)).Decode(&expected)
-		return expected
+		return expected.ScrapeConfigs
 	}
 
 	Describe("Start", func() {
