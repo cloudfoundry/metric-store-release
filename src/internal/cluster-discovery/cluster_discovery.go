@@ -134,7 +134,7 @@ func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 		return
 	}
 
-	var combinedConfig bytes.Buffer
+	combinedConfig := bytes.NewBufferString("scrape_configs:\n")
 	for _, cluster := range clusters {
 		scrapeConfigs, _ := discovery.getScrapeConfigsForCluster(&cluster)
 		combinedConfig.WriteString(scrapeConfigs)
@@ -263,7 +263,6 @@ type ScrapeTemplate struct {
 }
 
 var scrapeTemplate = `
-scrape_configs:
 - job_name: "{{.ClusterName}}"
   metrics_path: "/metrics"
   scheme: "https"

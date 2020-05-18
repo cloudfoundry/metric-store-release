@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
+	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -25,9 +26,10 @@ import (
 var _ = Describe("Cluster Discovery", func() {
 	type testContext struct {
 		certificateStore     testing.ScrapeStoreSpy
-		certificateClient    testing.MockCSRClient
+		certificateClient    *testing.MockCSRClient
 		metricStoreAPI       *testing.SpyMetricStore
 		metricStoreAPIClient *http.Client
+		clusters             []pks.Cluster
 	}
 
 	var setup = func() *testContext {
@@ -55,12 +57,25 @@ var _ = Describe("Cluster Discovery", func() {
 			Transport: &http.Transport{TLSClientConfig: tlsClientConfig},
 			Timeout:   10 * time.Second,
 		}
-		tc := &testContext{
-			certificateClient: testing.MockCSRClient{
-				Key: privateKey,
+
+		mockCSRClient := testing.MockCSRClient{
+			Key: privateKey,
+		}
+
+		clusters := []pks.Cluster{
+			{
+				Name:      "cluster1",
+				CaData:    "certdata",
+				UserToken: "bearer thingie",
+				Addr:      "somehost:12345",
+				APIClient: &mockCSRClient,
 			},
+		}
+		tc := &testContext{
+			certificateClient:    &mockCSRClient,
 			metricStoreAPIClient: metricStoreAPIClient,
 			metricStoreAPI:       testing.NewSpyMetricStore(tlsConfig),
+			clusters:             clusters,
 		}
 		return tc
 	}
@@ -68,7 +83,7 @@ var _ = Describe("Cluster Discovery", func() {
 	var runScrape = func(tc *testContext) []*prometheusConfig.ScrapeConfig {
 		mockAuth := &testing.MockAuthClient{}
 		discovery := cluster_discovery.New(&tc.certificateStore,
-			&testing.MockClusterProvider{CertClient: &tc.certificateClient},
+			&testing.MockClusterProvider{Clusters: tc.clusters},
 			mockAuth,
 			"localhost:8080",
 			tc.metricStoreAPIClient,
@@ -86,9 +101,7 @@ var _ = Describe("Cluster Discovery", func() {
 			mockAuth := &testing.MockAuthClient{}
 			certificateStore := &testing.ScrapeStoreSpy{}
 			discovery := cluster_discovery.New(certificateStore,
-				&testing.MockClusterProvider{
-					CertClient: testing.NewMockCSRClient(),
-				},
+				&testing.MockClusterProvider{Clusters: tc.clusters},
 				mockAuth,
 				"localhost:8080",
 				tc.metricStoreAPIClient,
@@ -105,9 +118,7 @@ var _ = Describe("Cluster Discovery", func() {
 			tc := setup()
 			certificateStore := &testing.ScrapeStoreSpy{}
 			discovery := cluster_discovery.New(certificateStore,
-				&testing.MockClusterProvider{
-					CertClient: testing.NewMockCSRClient(),
-				},
+				&testing.MockClusterProvider{Clusters: tc.clusters},
 				mockAuth,
 				"localhost:8080",
 				tc.metricStoreAPIClient,
@@ -127,9 +138,7 @@ var _ = Describe("Cluster Discovery", func() {
 			certificateStore := &testing.ScrapeStoreSpy{}
 
 			discovery := cluster_discovery.New(certificateStore,
-				&testing.MockClusterProvider{
-					CertClient: testing.NewMockCSRClient(),
-				},
+				&testing.MockClusterProvider{Clusters: tc.clusters},
 				mockAuth,
 				tc.metricStoreAPI.Start().EgressAddr,
 				tc.metricStoreAPIClient,
@@ -234,6 +243,33 @@ var _ = Describe("Cluster Discovery", func() {
 				Expect(serverJob).ToNot(BeNil())
 				Expect(string(serverJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0]["__address__"])).
 					To(Equal("somehost:12345"))
+			})
+
+			It("handles multiple clusters", func() {
+				tc := setup()
+				tc.clusters = []pks.Cluster{
+					{
+						Name:      "cluster1",
+						CaData:    "certdata",
+						UserToken: "bearer thingie",
+						Addr:      "somehost:12345",
+						APIClient: tc.certificateClient,
+					},
+					{
+						Name:      "cluster2",
+						CaData:    "certdata",
+						UserToken: "bearer thingie",
+						Addr:      "somehost:12345",
+						APIClient: tc.certificateClient,
+					},
+				}
+				unmarshalled := runScrape(tc)
+
+				job1 := findJob("cluster1", unmarshalled)
+				Expect(job1).ToNot(BeNil())
+
+				job2 := findJob("cluster2", unmarshalled)
+				Expect(job2).ToNot(BeNil())
 			})
 
 			It("creates an apiserver job", func() {
