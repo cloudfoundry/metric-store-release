@@ -57,7 +57,8 @@ function run_new() {
 
 function run_origin() {
   bold_blue "Linting Unpushed Changes"
-  run_common --new-from-rev origin/develop
+  local firstRemoteCommit=$(git log --first-parent --remotes="origin" -n 1 --pretty="format:%H")
+  run_common --new-from-rev "$firstRemoteCommit"
 }
 
 function run_rev() {
