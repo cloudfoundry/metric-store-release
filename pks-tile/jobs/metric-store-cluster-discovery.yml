@@ -16,4 +16,4 @@ manifest: |
       ca_cert: (((metric_store_server.ca)))
       cert: (((cluster_discovery_metrics_api.certificate)))
       key: (((cluster_discovery_metrics_api.private_key)))
-      common_name: metricstore
+      common_name: metric-store
