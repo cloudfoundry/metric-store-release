@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ROOT=$(git rev-parse --show-toplevel)
-CONFIG_FILE=$(dirname "$0")/golangci.yml
 
 function bold_blue() {
   echo -e "\033[1;34m$1\033[0m"
@@ -42,7 +41,7 @@ function parse_argc() {
 }
 
 function run_common() {
-  golangci-lint run -c "${CONFIG_FILE}" --out-format tab $@
+  golangci-lint run --out-format tab $@
 }
 
 function run_all() {
