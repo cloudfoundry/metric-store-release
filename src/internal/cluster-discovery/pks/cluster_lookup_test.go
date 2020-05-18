@@ -67,6 +67,15 @@ var _ = Describe("Cluster Lookup", func() {
 		}
 	})
 
+	Describe("data about the cluster", func() {
+		It("returns the decoded CA", func() {
+			clusters, err := clusterLookup.GetClusters("some-header")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(clusters).To(HaveLen(2))
+			Expect(clusters[0].CaData).To(Equal([]byte("some-ca")))
+		})
+	})
+
 	Describe("Handles Errors", func() {
 		It("returns an error when it fails to look up the pks clusters", func() {
 			client.errorsOnGetClusters = true

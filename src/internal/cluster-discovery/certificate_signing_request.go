@@ -3,6 +3,7 @@ package cluster_discovery
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
@@ -67,7 +68,16 @@ func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byt
 		return nil, nil, err
 	}
 
-	keyBytes, err := x509.MarshalECPrivateKey(privateKey)
+	marshalledKey, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to encode private key: %v", err)
+	}
+
+	keyBlock := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: marshalledKey,
+	}
+	keyBytes := pem.EncodeToMemory(keyBlock)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to encode private key: %v", err)
 	}

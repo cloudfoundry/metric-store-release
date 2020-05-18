@@ -1,10 +1,10 @@
 package testing
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"go.uber.org/atomic"
 	"k8s.io/api/certificates/v1beta1"
@@ -15,7 +15,7 @@ import (
 
 type MockCSRClient struct {
 	GeneratedCSRs atomic.Int32
-	Key           *ecdsa.PrivateKey
+	Key           *rsa.PrivateKey
 
 	NextCreateCSRIsError      bool
 	NextUpdateApprovalIsError bool
@@ -23,7 +23,7 @@ type MockCSRClient struct {
 }
 
 func NewMockCSRClient() *MockCSRClient {
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 256)
 	Expect(err).To(Not(HaveOccurred()))
 	mockClient := &MockCSRClient{
 		Key: privateKey,
@@ -31,7 +31,7 @@ func NewMockCSRClient() *MockCSRClient {
 	return mockClient
 }
 
-func (mock *MockCSRClient) Generate() (csrPEM []byte, key *ecdsa.PrivateKey, err error) {
+func (mock *MockCSRClient) Generate() (csrPEM []byte, key *rsa.PrivateKey, err error) {
 	mock.GeneratedCSRs.Inc()
 	return []byte{}, mock.Key, nil
 }
@@ -64,7 +64,19 @@ func (mock *MockCSRClient) Get(options v1.GetOptions) (*v1beta1.CertificateSigni
 }
 
 func (mock *MockCSRClient) PrivateKey() []byte {
-	keyBytes, err := x509.MarshalECPrivateKey(mock.Key)
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(mock.Key)
 	Expect(err).ToNot(HaveOccurred())
 	return keyBytes
 }
+
+func (mock *MockCSRClient) PrivateKeyInPEMForm() []byte {
+	marshalledKey, err := x509.MarshalPKCS8PrivateKey(mock.Key)
+	Expect(err).ToNot(HaveOccurred())
+	keyBlock := &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: marshalledKey,
+	}
+	return pem.EncodeToMemory(keyBlock)
+}
+
+

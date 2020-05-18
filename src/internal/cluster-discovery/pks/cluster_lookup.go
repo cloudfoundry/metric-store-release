@@ -36,7 +36,7 @@ type ClusterLookup struct {
 
 type Cluster struct {
 	Name      string
-	CaData    string
+	CaData    []byte
 	UserToken string
 	Addr      string
 	APIClient cd_kubernetes.CertificateSigningRequestClient
@@ -96,7 +96,7 @@ func (lookup *ClusterLookup) GetClusters(authHeader string) ([]Cluster, error) {
 
 		clusters = append(clusters, Cluster{
 			Name:      clusterName,
-			CaData:    credentials.CaData,
+			CaData:    certificateAuthority,
 			UserToken: credentials.UserToken,
 			Addr:      u.Host,
 			APIClient: cd_kubernetes.NewCSRClient(apiClient),

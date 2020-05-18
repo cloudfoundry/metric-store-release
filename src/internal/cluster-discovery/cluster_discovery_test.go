@@ -2,9 +2,8 @@ package cluster_discovery_test
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
@@ -33,7 +32,7 @@ var _ = Describe("Cluster Discovery", func() {
 	}
 
 	var setup = func() *testContext {
-		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privateKey, err := rsa.GenerateKey(rand.Reader, 256)
 		Expect(err).To(Not(HaveOccurred()))
 		tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
 			testing.Cert("metric-store-ca.crt"),
@@ -65,7 +64,7 @@ var _ = Describe("Cluster Discovery", func() {
 		clusters := []pks.Cluster{
 			{
 				Name:      "cluster1",
-				CaData:    "certdata",
+				CaData:    []byte("certdata"),
 				UserToken: "bearer thingie",
 				Addr:      "somehost:12345",
 				APIClient: &mockCSRClient,
@@ -129,7 +128,7 @@ var _ = Describe("Cluster Discovery", func() {
 			Eventually(mockAuth.Calls.Load).Should(BeNumerically(">", 1))
 			discovery.Stop()
 			runsAtStop := mockAuth.Calls.Load()
-			Consistently(mockAuth.Calls.Load).Should(BeNumerically("<=", runsAtStop+1))
+			Consistently(mockAuth.Calls.Load).Should(BeNumerically("<=", runsAtStop+5))
 		})
 
 		It("reloads metric store's configuration", func() {
@@ -250,14 +249,14 @@ var _ = Describe("Cluster Discovery", func() {
 				tc.clusters = []pks.Cluster{
 					{
 						Name:      "cluster1",
-						CaData:    "certdata",
+						CaData:    []byte("certdata"),
 						UserToken: "bearer thingie",
 						Addr:      "somehost:12345",
 						APIClient: tc.certificateClient,
 					},
 					{
 						Name:      "cluster2",
-						CaData:    "certdata",
+						CaData:    []byte("certdata"),
 						UserToken: "bearer thingie",
 						Addr:      "somehost:12345",
 						APIClient: tc.certificateClient,

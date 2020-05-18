@@ -172,7 +172,7 @@ func (discovery *ClusterDiscovery) saveCerts(cluster *pks.Cluster) error {
 	//if existing != nil {
 	//	return existing
 	//}
-	err := discovery.store.SaveCA(cluster.Name, []byte(cluster.CaData))
+	err := discovery.store.SaveCA(cluster.Name, cluster.CaData)
 	if err != nil {
 		return err
 	}

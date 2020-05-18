@@ -17,7 +17,7 @@ var _ = Describe("CertificateSigningRequest", func() {
 			cert, key, err := csr.RequestScraperCertificate()
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(key).To(Equal(mockClient.PrivateKey()))
+			Expect(key).To(Equal(mockClient.PrivateKeyInPEMForm()))
 			Expect(string(cert)).To(Equal("signed-certificate"))
 		})
 

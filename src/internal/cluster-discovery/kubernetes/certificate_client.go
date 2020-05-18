@@ -1,9 +1,8 @@
 package kubernetes
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
@@ -16,7 +15,7 @@ import (
 )
 
 type CertificateSigningRequestClient interface {
-	Generate() (csrPEM []byte, key *ecdsa.PrivateKey, err error)
+	Generate() (csrPEM []byte, key *rsa.PrivateKey, err error)
 	Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error)
 	Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error)
 	Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error)
@@ -48,7 +47,7 @@ func (client *csrClient) Get(options v1.GetOptions) (*certificates.CertificateSi
 	return client.api.Get(client.metricStoreCommonName, options)
 }
 
-func (client *csrClient) Generate() ([]byte, *ecdsa.PrivateKey, error) {
+func (client *csrClient) Generate() ([]byte, *rsa.PrivateKey, error) {
 	template := &x509.CertificateRequest{
 		// TODO make sure we don't need these other fields
 		Subject: pkix.Name{
@@ -57,7 +56,7 @@ func (client *csrClient) Generate() ([]byte, *ecdsa.PrivateKey, error) {
 		},
 		//EmailAddresses: []string{"metric-store@vmware.com"},
 	}
-	privateKey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to generate a new private key: %v", err)
 	}

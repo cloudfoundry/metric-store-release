@@ -25,23 +25,29 @@ var __ *cluster_discovery.ClusterDiscovery
 
 var _ = Describe("ClusterDiscovery", func() {
 	type testContext struct {
-	tlsConfig        *tls.Config
-	caCert           string
-	cert             string
-	key              string
-	healthPort       int
-	scrapeConfigPath string
-	storagePath      string
+		tlsConfig        *tls.Config
+		caCert           string
+		cert             string
+		key              string
+		healthPort       int
+		scrapeConfigPath string
+		storagePath      string
 
-	metricStoreAPIAddress string
+		metricStoreAPIAddress string
 
-	uaaSpy     *testing.SpyUAA
-	pksSpy     *testing.PKSSpy
-	kubeAPISpy *testing.K8sSpy
+		uaaSpy     *testing.SpyUAA
+		pksSpy     *testing.PKSSpy
+		kubeAPISpy *testing.K8sSpy
 
-	app     *app.ClusterDiscoveryApp
-	MetricS interface{}
-}
+		app     *app.ClusterDiscoveryApp
+		MetricS interface{}
+	}
+
+	var readCertFile = func(path string) []byte {
+		fileContents, err := ioutil.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		return fileContents
+	}
 
 	var startProcess = func(tc *testContext) {
 		tmpDir, err := ioutil.TempDir("", "cluster-discovery")
@@ -59,7 +65,7 @@ var _ = Describe("ClusterDiscovery", func() {
 				KeyPath:  tc.key,
 			},
 			MetricStoreAPI: app.MetricStoreAPI{
-				Address:       tc.metricStoreAPIAddress,
+				Address:    tc.metricStoreAPIAddress,
 				CAPath:     shared.Cert("metric-store-ca.crt"),
 				CertPath:   shared.Cert("metric-store.crt"),
 				KeyPath:    shared.Cert("metric-store.key"),
@@ -147,8 +153,6 @@ var _ = Describe("ClusterDiscovery", func() {
 			defer cleanup()
 
 			// TODO just waiting for file creation
-			println("scrape config path test", tc.scrapeConfigPath)
-
 			getFileContents := func() string {
 				println("Checking scape path ", tc.scrapeConfigPath)
 				_, err := os.Stat(tc.scrapeConfigPath)
@@ -167,8 +171,15 @@ var _ = Describe("ClusterDiscovery", func() {
 
 			Expect(config.ScrapeConfigs).To(HaveLen(6))
 			c := config.ScrapeConfigs[0]
-			println(fmt.Sprintf("config %+v", c))
 			Expect(c.JobName).To(ContainSubstring("cluster1"))
+
+			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CAFile)).To(ContainSubstring("-----BEGIN CERTIFICATE-----"))
+			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CAFile)).To(ContainSubstring("-----END CERTIFICATE-----"))
+			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CertFile)).To(ContainSubstring("-----BEGIN CERTIFICATE-----"))
+			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CertFile)).To(ContainSubstring("-----END CERTIFICATE-----"))
+			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.KeyFile)).To(ContainSubstring("-----BEGIN PRIVATE KEY-----"))
+			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.KeyFile)).To(ContainSubstring("-----END PRIVATE KEY-----"))
+
 		})
 	})
 
