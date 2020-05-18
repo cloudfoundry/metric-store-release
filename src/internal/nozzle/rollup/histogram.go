@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -14,61 +15,79 @@ import (
 type histogramRollup struct {
 	log *logger.Logger
 
-	nodeIndex            string
-	metricName           string
-	rollupTags           []string
-	histogramsInInterval map[string]struct{}
-	histograms           map[string]prometheus.Histogram
+	nodeIndex  string
+	rollupTags []string
+	histograms map[string]prometheus.Histogram
+	lastSeen   map[string]int64
+	expiration time.Duration
 
 	mu sync.Mutex
 }
 
-func NewHistogramRollup(log *logger.Logger, nodeIndex, metricName string, rollupTags []string) *histogramRollup {
-	return &histogramRollup{
-		log:                  log,
-		nodeIndex:            nodeIndex,
-		metricName:           metricName,
-		rollupTags:           rollupTags,
-		histogramsInInterval: make(map[string]struct{}),
-		histograms:           make(map[string]prometheus.Histogram),
+func NewHistogramRollup(log *logger.Logger, nodeIndex string, rollupTags []string, opts ...HistogramRollupOption) *histogramRollup {
+	histogramRollup := &histogramRollup{
+		log:        log,
+		nodeIndex:  nodeIndex,
+		rollupTags: rollupTags,
+		histograms: make(map[string]prometheus.Histogram),
+		lastSeen:   make(map[string]int64),
+		expiration: EXPIRATION,
+	}
+
+	for _, o := range opts {
+		o(histogramRollup)
+	}
+
+	return histogramRollup
+}
+
+type HistogramRollupOption func(*histogramRollup)
+
+func WithHistogramRollupExpiration(expiration time.Duration) HistogramRollupOption {
+	return func(rollup *histogramRollup) {
+		rollup.expiration = expiration
 	}
 }
 
-func (h *histogramRollup) Record(sourceId string, tags map[string]string, timeInNanoseconds int64) {
-	key := keyFromTags(h.rollupTags, sourceId, tags)
+func (r *histogramRollup) Record(timestamp int64, sourceId string, tags map[string]string, value int64) {
+	key := keyFromTags(r.rollupTags, sourceId, tags)
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	_, found := h.histograms[key]
+	r.lastSeen[key] = timestamp
+
+	_, found := r.histograms[key]
 	if !found {
-		h.histograms[key] = prometheus.NewHistogram(prometheus.HistogramOpts{
-			Name: h.metricName + "_duration_seconds",
-		})
+		r.histograms[key] = prometheus.NewHistogram(prometheus.HistogramOpts{})
 	}
 
-	h.histograms[key].Observe(NanosecondsToSeconds(timeInNanoseconds))
-	h.histogramsInInterval[key] = struct{}{}
+	r.histograms[key].Observe(transform.NanosecondsToSeconds(value))
 }
 
-func (h *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
+func (r *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 	var batches []*PointsBatch
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	for k := range h.histogramsInInterval {
+	for k := range r.histograms {
+		if expired(r.lastSeen[k], timestamp, r.expiration) {
+			delete(r.lastSeen, k)
+			delete(r.histograms, k)
+			continue
+		}
+
 		var points []*rpc.Point
 		var size int
 
-		labels, err := labelsFromKey(k, h.nodeIndex, h.rollupTags, h.log)
+		labels, err := labelsFromKey(k, r.nodeIndex, r.rollupTags, r.log)
 		if err != nil {
 			continue
 		}
 
-		th := h.histograms[k]
 		m := &dto.Metric{}
-		th.Write(m)
+		r.histograms[k].Write(m)
 		histogram := m.GetHistogram()
 
 		for _, bucket := range histogram.Bucket {
@@ -79,7 +98,7 @@ func (h *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 			bucketLabels["le"] = strconv.FormatFloat(*bucket.UpperBound, 'f', -1, 64)
 
 			bucketPoint := &rpc.Point{
-				Name:      h.metricName + "_duration_seconds_bucket",
+				Name:      GorouterHttpMetricName + "_duration_seconds_bucket",
 				Timestamp: timestamp,
 				Value:     float64(*bucket.CumulativeCount),
 				Labels:    bucketLabels,
@@ -96,20 +115,20 @@ func (h *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 		bucketLabels["le"] = "+Inf"
 
 		bucketInfPoint := &rpc.Point{
-			Name:      h.metricName + "_duration_seconds_bucket",
+			Name:      GorouterHttpMetricName + "_duration_seconds_bucket",
 			Timestamp: timestamp,
 			Value:     float64(*histogram.SampleCount),
 			Labels:    bucketLabels,
 		}
 
 		histogramCountPoint := &rpc.Point{
-			Name:      h.metricName + "_duration_seconds_count",
+			Name:      GorouterHttpMetricName + "_duration_seconds_count",
 			Timestamp: timestamp,
 			Value:     float64(*histogram.SampleCount),
 			Labels:    labels,
 		}
 		histogramSumPoint := &rpc.Point{
-			Name:      h.metricName + "_duration_seconds_sum",
+			Name:      GorouterHttpMetricName + "_duration_seconds_sum",
 			Timestamp: timestamp,
 			Value:     float64(*histogram.SampleSum),
 			Labels:    labels,
@@ -126,11 +145,5 @@ func (h *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 		})
 	}
 
-	h.histogramsInInterval = make(map[string]struct{})
-
 	return batches
-}
-
-func NanosecondsToSeconds(ns int64) float64 {
-	return float64(ns*int64(time.Nanosecond)) / float64(time.Second)
 }

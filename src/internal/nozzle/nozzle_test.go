@@ -53,7 +53,6 @@ var _ = Describe("Nozzle", func() {
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
-				"rolled_timer",
 				[]string{"tag1", "tag2", "status_code"},
 				[]string{"tag1", "tag2"},
 			),
@@ -143,7 +142,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "source-id",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 0,
 							Stop:  5 * int64(time.Millisecond),
 						},
@@ -159,7 +158,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "source-id",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 5 * int64(time.Millisecond),
 							Stop:  100 * int64(time.Millisecond),
 						},
@@ -175,7 +174,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "source-id-2",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 100 * int64(time.Millisecond),
 							Stop:  106 * int64(time.Millisecond),
 						},
@@ -190,7 +189,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "source-id-2",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 96 * int64(time.Millisecond),
 							Stop:  100 * int64(time.Millisecond),
 						},
@@ -205,7 +204,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "source-id-2",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 500 * int64(time.Millisecond),
 							Stop:  1000 * int64(time.Millisecond),
 						},
@@ -227,7 +226,7 @@ var _ = Describe("Nozzle", func() {
 			// _count points, per series including status_code
 			Expect(points).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_total",
+					Name:  "http_total",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index":  "0",
@@ -238,7 +237,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_total",
+					Name:  "http_total",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index":  "0",
@@ -249,7 +248,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_total",
+					Name:  "http_total",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index":  "0",
@@ -258,7 +257,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_total",
+					Name:  "http_total",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index":  "0",
@@ -272,7 +271,7 @@ var _ = Describe("Nozzle", func() {
 			// only testing one series
 			Expect(points).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -283,7 +282,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -294,7 +293,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -305,7 +304,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -316,7 +315,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -327,7 +326,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -338,7 +337,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -349,7 +348,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -360,7 +359,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -371,7 +370,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -382,7 +381,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -393,7 +392,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -404,7 +403,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_count",
+					Name:  "http_duration_seconds_count",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -414,7 +413,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_sum",
+					Name:  "http_duration_seconds_sum",
 					Value: 0.100,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -445,7 +444,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "gorouter",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 100 * int64(time.Millisecond),
 							Stop:  106 * int64(time.Millisecond),
 						},
@@ -460,7 +459,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "gorouter",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 100 * int64(time.Millisecond),
 							Stop:  106 * int64(time.Millisecond),
 						},
@@ -475,7 +474,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "gorouter",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 96 * int64(time.Millisecond),
 							Stop:  100 * int64(time.Millisecond),
 						},
@@ -490,7 +489,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "gorouter",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 96 * int64(time.Millisecond),
 							Stop:  100 * int64(time.Millisecond),
 						},
@@ -505,7 +504,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "gorouter",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 500 * int64(time.Millisecond),
 							Stop:  1000 * int64(time.Millisecond),
 						},
@@ -520,7 +519,7 @@ var _ = Describe("Nozzle", func() {
 					SourceId:  "gorouter",
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Start: 500 * int64(time.Millisecond),
 							Stop:  1000 * int64(time.Millisecond),
 						},
@@ -542,7 +541,7 @@ var _ = Describe("Nozzle", func() {
 			// _count points, per series including status_code
 			Expect(points).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_total",
+					Name:  "http_total",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index":  "0",
@@ -551,7 +550,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_total",
+					Name:  "http_total",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index":  "0",
@@ -565,7 +564,7 @@ var _ = Describe("Nozzle", func() {
 			// only testing one series
 			Expect(points).To(ContainPoints([]*rpc.Point{
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 1,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -574,7 +573,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -583,7 +582,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -592,7 +591,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -601,7 +600,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -610,7 +609,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 2,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -619,7 +618,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -628,7 +627,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -637,7 +636,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -646,7 +645,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -655,7 +654,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -664,7 +663,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_bucket",
+					Name:  "http_duration_seconds_bucket",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -673,7 +672,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_count",
+					Name:  "http_duration_seconds_count",
 					Value: 3,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -681,7 +680,7 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 				{
-					Name:  "rolled_timer_duration_seconds_sum",
+					Name:  "http_duration_seconds_sum",
 					Value: 0.510,
 					Labels: map[string]string{
 						"node_index": "0",
@@ -709,7 +708,7 @@ var _ = Describe("Nozzle", func() {
 					Timestamp: 10000000002065383,
 					Message: &loggregator_v2.Envelope_Timer{
 						Timer: &loggregator_v2.Timer{
-							Name:  "unrolled_timer",
+							Name:  "not_http",
 							Start: 0,
 							Stop:  5,
 						},
@@ -720,7 +719,7 @@ var _ = Describe("Nozzle", func() {
 					Timestamp: 66606660666066601,
 					Message: &loggregator_v2.Envelope_Counter{
 						Counter: &loggregator_v2.Counter{
-							Name:  "rolled_timer",
+							Name:  "http",
 							Total: 4,
 						},
 					},
@@ -731,7 +730,7 @@ var _ = Describe("Nozzle", func() {
 			Consistently(metricStore.GetPoints, .5).Should(HaveLen(1))
 			Expect(metricStore.GetPoints()).To(ConsistOf(
 				&rpc.Point{
-					Name:      "rolled_timer",
+					Name:      "http",
 					Timestamp: 66606660666066601,
 					Value:     4,
 					Labels: map[string]string{
@@ -746,7 +745,7 @@ var _ = Describe("Nozzle", func() {
 				SourceId: "source-id",
 				Message: &loggregator_v2.Envelope_Timer{
 					Timer: &loggregator_v2.Timer{
-						Name:  "rolled_timer",
+						Name:  "http",
 						Start: 0,
 						Stop:  0,
 					},
@@ -774,7 +773,7 @@ var _ = Describe("Nozzle", func() {
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{&secondTimer, &thirdTimer}
 
 			// wait for emit interval to elapse, adding 15 more per series
-			Eventually(metricStore.GetPoints).Should(HaveLen(30))
+			Eventually(metricStore.GetPoints).Should(HaveLen(45))
 
 			point := rpc.Point{
 				Labels: map[string]string{
@@ -786,17 +785,17 @@ var _ = Describe("Nozzle", func() {
 			}
 
 			firstIntervalHistogram := point
-			firstIntervalHistogram.Name = "rolled_timer_duration_seconds_count"
+			firstIntervalHistogram.Name = "http_duration_seconds_count"
 			firstIntervalHistogram.Value = 1
 			firstIntervalTotal := point
-			firstIntervalTotal.Name = "rolled_timer_total"
+			firstIntervalTotal.Name = "http_total"
 			firstIntervalTotal.Value = 1
 
 			secondIntervalHistogram := point
-			secondIntervalHistogram.Name = "rolled_timer_duration_seconds_count"
+			secondIntervalHistogram.Name = "http_duration_seconds_count"
 			secondIntervalHistogram.Value = 3
 			secondIntervalTotal := point
-			secondIntervalTotal.Name = "rolled_timer_total"
+			secondIntervalTotal.Name = "http_total"
 			secondIntervalTotal.Value = 3
 
 			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{

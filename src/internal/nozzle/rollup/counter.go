@@ -2,6 +2,7 @@ package rollup
 
 import (
 	"sync"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -10,34 +11,48 @@ import (
 type counterRollup struct {
 	log *logger.Logger
 
-	nodeIndex         string
-	metricName        string
-	rollupTags        []string
-	totalsForInterval map[string]struct{}
-	totals            map[string]int64
+	nodeIndex  string
+	rollupTags []string
+	counters   map[string]int64
+	lastSeen   map[string]int64
+	expiration time.Duration
 
 	mu sync.Mutex
 }
 
-func NewCounterRollup(log *logger.Logger, nodeIndex, metricName string, rollupTags []string) *counterRollup {
-	return &counterRollup{
-		log:               log,
-		nodeIndex:         nodeIndex,
-		metricName:        metricName,
-		rollupTags:        rollupTags,
-		totalsForInterval: make(map[string]struct{}),
-		totals:            make(map[string]int64),
+func NewCounterRollup(log *logger.Logger, nodeIndex string, rollupTags []string, opts ...CounterRollupOption) *counterRollup {
+	counterRollup := &counterRollup{
+		log:        log,
+		nodeIndex:  nodeIndex,
+		rollupTags: rollupTags,
+		counters:   make(map[string]int64),
+		lastSeen:   make(map[string]int64),
+		expiration: EXPIRATION,
+	}
+
+	for _, o := range opts {
+		o(counterRollup)
+	}
+
+	return counterRollup
+}
+
+type CounterRollupOption func(*counterRollup)
+
+func WithCounterRollupExpiration(expiration time.Duration) CounterRollupOption {
+	return func(rollup *counterRollup) {
+		rollup.expiration = expiration
 	}
 }
 
-func (r *counterRollup) Record(sourceId string, tags map[string]string, value int64) {
+func (r *counterRollup) Record(timestamp int64, sourceId string, tags map[string]string, value int64) {
 	key := keyFromTags(r.rollupTags, sourceId, tags)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.totalsForInterval[key] = struct{}{}
-	r.totals[key] += value
+	r.lastSeen[key] = timestamp
+	r.counters[key] += value
 }
 
 func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
@@ -46,16 +61,22 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for k := range r.totalsForInterval {
+	for k := range r.counters {
+		if expired(r.lastSeen[k], timestamp, r.expiration) {
+			delete(r.lastSeen, k)
+			delete(r.counters, k)
+			continue
+		}
+
 		labels, err := labelsFromKey(k, r.nodeIndex, r.rollupTags, r.log)
 		if err != nil {
 			continue
 		}
 
 		countPoint := &rpc.Point{
-			Name:      r.metricName + "_total",
+			Name:      GorouterHttpMetricName + "_total",
 			Timestamp: timestamp,
-			Value:     float64(r.totals[k]),
+			Value:     float64(r.counters[k]),
 			Labels:    labels,
 		}
 
@@ -64,8 +85,6 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 			Size:   countPoint.EstimatePointSize(),
 		})
 	}
-
-	r.totalsForInterval = make(map[string]struct{})
 
 	return batches
 }

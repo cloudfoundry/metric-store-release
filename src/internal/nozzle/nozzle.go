@@ -33,7 +33,6 @@ type Nozzle struct {
 	timerBuffer           *diodes.OneToOne
 	timerRollupBufferSize uint
 	rollupInterval        time.Duration
-	rollupMetricName      string
 	totalRollup           rollup.Rollup
 	durationRollup        rollup.Rollup
 
@@ -54,7 +53,7 @@ const (
 	BATCH_CHANNEL_SIZE   = 512
 )
 
-func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...NozzleOption) *Nozzle {
+func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
 	n := &Nozzle{
 		log:                   logger.NewNop(),
 		metrics:               &debug.NullRegistrar{},
@@ -100,36 +99,36 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 	return n
 }
 
-type NozzleOption func(*Nozzle)
+type Option func(*Nozzle)
 
-// WithNozzleLogger returns a NozzleOption that configures a nozzle's logger.
+// WithNozzleLogger returns a Option that configures a nozzle's logger.
 // It defaults to silent logging.
-func WithNozzleLogger(l *logger.Logger) NozzleOption {
+func WithNozzleLogger(l *logger.Logger) Option {
 	return func(n *Nozzle) {
 		n.log = l
 	}
 }
 
-func WithNozzleDebugRegistrar(m debug.MetricRegistrar) NozzleOption {
+func WithNozzleDebugRegistrar(m debug.MetricRegistrar) Option {
 	return func(n *Nozzle) {
 		n.metrics = m
 	}
 }
 
-func WithNozzleTimerRollupBufferSize(size uint) NozzleOption {
+func WithNozzleTimerRollupBufferSize(size uint) Option {
 	return func(n *Nozzle) {
 		n.timerRollupBufferSize = size
 	}
 }
 
-func WithNozzleTimerRollup(interval time.Duration, metricName string, totalRollupTags, durationRollupTags []string) NozzleOption {
+func WithNozzleTimerRollup(interval time.Duration, totalRollupTags, durationRollupTags []string) Option {
 	return func(n *Nozzle) {
 		n.rollupInterval = interval
-		n.rollupMetricName = metricName
 
 		nodeIndex := strconv.Itoa(n.nodeIndex)
-		n.totalRollup = rollup.NewCounterRollup(n.log, nodeIndex, metricName, totalRollupTags)
-		n.durationRollup = rollup.NewHistogramRollup(n.log, nodeIndex, metricName, durationRollupTags)
+		n.totalRollup = rollup.NewCounterRollup(n.log, nodeIndex, totalRollupTags)
+		// TODO: rename HistogramRollup
+		n.durationRollup = rollup.NewHistogramRollup(n.log, nodeIndex, durationRollupTags)
 	}
 }
 
@@ -245,8 +244,9 @@ func (n *Nozzle) timerProcessor() {
 		envelope := *(*loggregator_v2.Envelope)(data)
 		timer := envelope.GetTimer()
 
-		n.totalRollup.Record(envelope.SourceId, envelope.Tags, 1)
-		n.durationRollup.Record(envelope.SourceId, envelope.Tags, timer.GetStop()-timer.GetStart())
+		now := time.Now().UnixNano()
+		n.totalRollup.Record(now, envelope.SourceId, envelope.Tags, 1)
+		n.durationRollup.Record(now, envelope.SourceId, envelope.Tags, timer.GetStop()-timer.GetStart())
 	}
 }
 
@@ -294,21 +294,29 @@ func (n *Nozzle) convertEnvelopesToPoints(envelopes []*loggregator_v2.Envelope) 
 	return points
 }
 
+func (n *Nozzle) captureGorouterHttpTimerMetricsForRollup(envelope *loggregator_v2.Envelope) {
+	timer := envelope.GetTimer()
+
+	if timer.GetName() != rollup.GorouterHttpMetricName {
+		return
+	}
+
+	if envelope.GetSourceId() == "gorouter" && strings.ToLower(envelope.Tags["peer_type"]) == "client" {
+		// gorouter reports both client and server timers for each request,
+		// only record server types
+		return
+	}
+
+	n.timerBuffer.Set(diodes.GenericDataType(envelope))
+}
+
 func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	switch envelope.Message.(type) {
 	case *loggregator_v2.Envelope_Gauge:
 		return n.createPointsFromGauge(envelope)
 	case *loggregator_v2.Envelope_Timer:
-		timer := envelope.GetTimer()
-		if timer.GetName() != n.rollupMetricName {
-			return []*rpc.Point{}
-		}
-
-		if envelope.GetSourceId() == "gorouter" && strings.ToLower(envelope.Tags["peer_type"]) == "client" {
-			return []*rpc.Point{}
-		}
-
-		n.timerBuffer.Set(diodes.GenericDataType(envelope))
+		n.captureGorouterHttpTimerMetricsForRollup(envelope)
+		return []*rpc.Point{}
 	case *loggregator_v2.Envelope_Counter:
 		return []*rpc.Point{n.createPointFromCounter(envelope)}
 	}
