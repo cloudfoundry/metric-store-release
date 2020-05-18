@@ -42,6 +42,8 @@ if [[ $1 == "squash" ]]; then
     exit 1
   fi
 
+  golangci-lint run -c "$(dirname "$0")/golangci.yml" --out-format tab --new-from-rev $(squashHead) || exit
+
   git reset "$(squashHead)"
   git add -A
   git commit -m "$2"
