@@ -20,5 +20,6 @@ linters:
   enable:
     - funlen
     - godox
+    - errcheck
   disable-all: true
   fast: false
