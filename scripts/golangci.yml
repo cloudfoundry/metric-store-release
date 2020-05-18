@@ -3,9 +3,6 @@ run:
 
   timeout: 1m
 
-  # include test files or not, default is true
-  tests: false
-
   # default is true. Enables skipping of directories:
   #   vendor$, third_party$, testdata$, examples$, Godeps$, builtin$
   skip-dirs-use-default: true
@@ -20,6 +17,3 @@ linters:
   enable:
     - funlen
     - godox
-    - errcheck
-  disable-all: true
-  fast: false
