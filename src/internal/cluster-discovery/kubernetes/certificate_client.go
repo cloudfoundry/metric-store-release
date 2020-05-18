@@ -24,18 +24,20 @@ type CertificateSigningRequestClient interface {
 type csrClient struct {
 	api                   typedCertificates.CertificateSigningRequestInterface
 	metricStoreCommonName string
+	name string
 }
 
 func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface) *csrClient {
 	return &csrClient{
 		api:                   client,
-		metricStoreCommonName: "metricstore" + uuid.New().String(), // TODO this is pretty terrible, fix this somehow
+		metricStoreCommonName: "metricstore",
+		name: "metricstore" + uuid.New().String(), // TODO this is pretty terrible, fix this somehow
 	}
 }
 
 func (client *csrClient) Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {
 	usages := []certificates.KeyUsage{certificates.UsageClientAuth}
-	return csr.RequestCertificate(client.api, csrData, client.metricStoreCommonName, usages, privateKey)
+	return csr.RequestCertificate(client.api, csrData, client.name, usages, privateKey)
 }
 
 func (client *csrClient) Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error) {
@@ -44,7 +46,7 @@ func (client *csrClient) Approve(certificateSigningRequest *certificates.Certifi
 }
 
 func (client *csrClient) Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error) {
-	return client.api.Get(client.metricStoreCommonName, options)
+	return client.api.Get(client.name, options)
 }
 
 func (client *csrClient) Generate() ([]byte, *rsa.PrivateKey, error) {
