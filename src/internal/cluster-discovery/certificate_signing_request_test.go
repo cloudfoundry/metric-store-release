@@ -28,7 +28,7 @@ var _ = Describe("CertificateSigningRequest", func() {
 				csr := cluster_discovery.NewCertificateSigningRequest(mockClient,
 					cluster_discovery.WithCertificateSigningRequestTimeout(time.Millisecond))
 				_, _, err := csr.RequestScraperCertificate()
-
+				Expect(mockClient.DeletedCSRs.Load()).To(BeNumerically(">", 0))
 				Expect(err).To(HaveOccurred())
 			})
 
@@ -40,6 +40,7 @@ var _ = Describe("CertificateSigningRequest", func() {
 				_, _, err := csr.RequestScraperCertificate()
 
 				Expect(err).To(HaveOccurred())
+				Expect(mockClient.DeletedCSRs.Load()).To(BeNumerically(">", 0))
 			})
 
 			It("handles get approved signing request error", func() {
@@ -50,6 +51,7 @@ var _ = Describe("CertificateSigningRequest", func() {
 				_, _, err := csr.RequestScraperCertificate()
 
 				Expect(err).To(HaveOccurred())
+				Expect(mockClient.DeletedCSRs.Load()).To(BeNumerically(">", 0))
 			})
 		})
 	})

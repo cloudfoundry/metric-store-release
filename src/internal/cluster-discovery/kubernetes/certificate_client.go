@@ -32,8 +32,12 @@ func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface) *
 	return &csrClient{
 		api:                   client,
 		metricStoreCommonName: "metricstore",
-		name:                  "metricstore" + uuid.New().String(), // TODO this is pretty terrible, fix this somehow
+		name:                  uniqueCSRName(),
 	}
+}
+
+func uniqueCSRName() string {
+	return "metricstore-" + uuid.New().String()
 }
 
 func (client *csrClient) Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {

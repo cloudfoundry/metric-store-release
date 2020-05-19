@@ -67,7 +67,7 @@ func New(
 		log:                   logger.NewNop(),
 		metrics:               &debug.NullRegistrar{},
 		done:                  make(chan bool, 1),
-		refreshInterval:       time.Minute,
+		refreshInterval:       time.Minute, //TODO expose this in the bosh release
 		metricStoreAPIAddress: metricStoreAPIAddress,
 		metricStoreClient:     metricStoreClient,
 	}
@@ -116,6 +116,8 @@ func (discovery *ClusterDiscovery) Run() {
 			t.Stop()
 			return
 		case <-t.C:
+			//TODO log number of new scrape configs created
+			//maybe number of current configs as well
 			discovery.UpdateScrapeConfig()
 		}
 	}
@@ -177,7 +179,7 @@ func (discovery *ClusterDiscovery) saveCerts(cluster *pks.Cluster) error {
 		return err
 	}
 
-	certificateSigningRequest := NewCertificateSigningRequest(cluster.APIClient)
+	certificateSigningRequest := NewCertificateSigningRequest(cluster.APIClient, WithCertificateSigningRequestLogger(discovery.log))
 	clientCert, clientKey, err := certificateSigningRequest.RequestScraperCertificate()
 	if err != nil {
 		return err

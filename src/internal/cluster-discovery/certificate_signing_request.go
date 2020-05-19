@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/kubernetes"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
@@ -16,12 +17,18 @@ type CertificateSigningRequest struct {
 	kubernetesCSRClient kubernetes.CertificateSigningRequestClient
 	timeout             time.Duration
 	retryInterval       time.Duration
+	log                 *logger.Logger
 }
 
 type CSROption func(csr *CertificateSigningRequest)
 
 func NewCertificateSigningRequest(client kubernetes.CertificateSigningRequestClient, options ...CSROption) *CertificateSigningRequest {
-	csr := &CertificateSigningRequest{kubernetesCSRClient: client, timeout: time.Minute, retryInterval: time.Second}
+	csr := &CertificateSigningRequest{
+		kubernetesCSRClient: client,
+		timeout:             time.Minute,
+		retryInterval:       time.Second,
+		log:                 logger.NewNop(),
+	}
 
 	for _, o := range options {
 		o(csr)
@@ -35,19 +42,13 @@ func WithCertificateSigningRequestTimeout(t time.Duration) CSROption {
 	}
 }
 
-func WithCertificateSigningRequestRetryInterval(t time.Duration) CSROption {
+func WithCertificateSigningRequestLogger(log *logger.Logger) CSROption {
 	return func(csr *CertificateSigningRequest) {
-		csr.retryInterval = t
+		csr.log = log
 	}
 }
 
-// TODO if we have a large number of clusters, does blocking on certificate
-//      approval make discovery unacceptably slow?
 func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byte, error) {
-	//TODO DELETE CSR so that it doesn't error
-	//you can still log into the cluster with the generated cert
-	//after the csr is deleted
-
 	csrPEM, privateKey, err := csr.kubernetesCSRClient.Generate()
 	if err != nil {
 		return nil, nil, err
@@ -55,20 +56,23 @@ func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byt
 
 	signingRequest, err := csr.kubernetesCSRClient.Submit(csrPEM, privateKey)
 	if err != nil {
+		csr.delete()
 		return nil, nil, err
 	}
 
 	signingRequest, err = csr.kubernetesCSRClient.Approve(signingRequest)
 	if err != nil {
+		csr.delete()
 		return nil, nil, err
 	}
 
 	signingRequest, err = csr.getUntilApproved()
 	if err != nil {
+		csr.delete()
 		return nil, nil, err
 	}
 
-	err = csr.kubernetesCSRClient.Delete()
+	err = csr.delete()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,6 +92,14 @@ func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byt
 	}
 
 	return signingRequest.Status.Certificate, keyBytes, nil
+}
+
+func (csr *CertificateSigningRequest) delete() error {
+	err := csr.kubernetesCSRClient.Delete()
+	if err != nil {
+		csr.log.Error("could not delete csr", err)
+	}
+	return err
 }
 
 func (csr *CertificateSigningRequest) getUntilApproved() (*certificates.CertificateSigningRequest, error) {
