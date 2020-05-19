@@ -7,15 +7,16 @@ import (
 	"strings"
 	"time"
 
-	diodes "code.cloudfoundry.org/go-diodes"
-	loggregator "code.cloudfoundry.org/go-loggregator"
-	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/nozzle/rollup"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+
+	"code.cloudfoundry.org/go-diodes"
+	"code.cloudfoundry.org/go-loggregator"
+	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
@@ -133,7 +134,7 @@ func WithNozzleTimerRollup(interval time.Duration, totalRollupTags, durationRoll
 }
 
 // Start() starts reading envelopes from the logs provider and writes them to
-// metric-store. It blocks indefinitely.
+// metric-store.
 func (n *Nozzle) Start() {
 	rx := n.s.Stream(context.Background(), n.buildBatchReq())
 
@@ -148,7 +149,6 @@ func (n *Nozzle) Start() {
 		go n.pointWriter(ch)
 	}
 
-	// The batcher will block indefinitely.
 	go n.pointBatcher(ch)
 }
 
@@ -177,7 +177,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 			t.Reset(BATCH_FLUSH_INTERVAL)
 			size = 0
 		default:
-			// Do we care if one envelope procuces multiple points, in which a
+			// Do we care if one envelope produces multiple points, in which a
 			// subset crosses the threshold?
 
 			// if len(points) >= BATCH_CHANNEL_SIZE {
