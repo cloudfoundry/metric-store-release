@@ -1,0 +1,44 @@
+#!/usr/local/bin/zsh
+set -euo pipefail
+
+# Note: requires python-yq, the jq wrapper, not the other junky yq
+
+function pullDownConfig() {
+  mkdir -p "$LOCAL_DIR"
+  export MS_DEPLOYMENT=$(bosh deployments --json | jq --raw-output '.Tables[0].Rows[] | select (.name | contains("metric-store") ).name')
+  echo "found deployment: $MS_DEPLOYMENT"
+
+  bosh -d "$MS_DEPLOYMENT" scp -r metric-store/0:/var/vcap/jobs/$JOB_NAME/config $LOCAL_DIR/config >/dev/null
+  echo "job config copied to $LOCAL_DIR"
+}
+
+function createEnvFile() {
+  yq -r '.processes[0].env | to_entries|map("export \(.key)=\"\(.value)\"")|.[]' <$LOCAL_DIR/config/bpm.yml |
+    sed "s|/var/vcap/jobs|$LOCAL_DIR|" >$LOCAL_DIR/env.sh
+
+  echo "$LOCAL_DIR/env.sh created"
+}
+
+function createRunConfig() {
+  yq -r '.processes[0].env | to_entries|map("      <env name=\"\(.key)\" value=\"\(.value)\"/>")|.[]' <$LOCAL_DIR/config/bpm.yml |
+    sed "s|/var/vcap/jobs|$LOCAL_DIR|" >$LOCAL_DIR/runconfig.xml
+
+  echo "$LOCAL_DIR/runconfig.xml values created"
+}
+
+if [[ -z "$BOSH_ENV_NAME" ]]; then
+  echo "You must target an environment"
+  exit 1
+fi
+
+if [[ $# -ne 1 ]]; then
+  echo "Use: $0 job_name"
+  exit 1
+fi
+
+export JOB_NAME="$1"
+export LOCAL_DIR="/tmp/$BOSH_ENV_NAME/$JOB_NAME"
+
+pullDownConfig
+createEnvFile
+createRunConfig
