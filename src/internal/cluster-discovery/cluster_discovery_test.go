@@ -110,6 +110,15 @@ var _ = Describe("Cluster Discovery", func() {
 			discovery.Start()
 
 			Eventually(mockAuth.Calls.Load).Should(BeNumerically(">", 1))
+			Eventually(mockAuth.Calls.Load).Should(BeNumerically(">", 1))
+		})
+
+		It("deletes the csr on every run", func() {
+			tc := setup()
+			runScrape(tc)
+
+			Expect(tc.certificateClient.GeneratedCSRs.Load()).To(BeNumerically(">", 0))
+			Expect(tc.certificateClient.DeletedCSRs.Load()).To(BeNumerically(">", 0))
 		})
 
 		It("stops", func() {
@@ -336,6 +345,12 @@ var _ = Describe("Cluster Discovery", func() {
 			It("checks errors when saving the key", func() {
 				tc := setup()
 				tc.certificateStore.NextSaveKeyIsError = true
+				Expect(runScrape(tc)).To(BeEmpty())
+			})
+
+			It("checks errors when deleting the csr", func() {
+				tc := setup()
+				tc.certificateClient.NextDeleteIsError = true
 				Expect(runScrape(tc)).To(BeEmpty())
 			})
 		})

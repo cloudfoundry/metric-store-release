@@ -19,19 +19,20 @@ type CertificateSigningRequestClient interface {
 	Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error)
 	Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error)
 	Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error)
+	Delete() error
 }
 
 type csrClient struct {
 	api                   typedCertificates.CertificateSigningRequestInterface
 	metricStoreCommonName string
-	name string
+	name                  string
 }
 
 func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface) *csrClient {
 	return &csrClient{
 		api:                   client,
 		metricStoreCommonName: "metricstore",
-		name: "metricstore" + uuid.New().String(), // TODO this is pretty terrible, fix this somehow
+		name:                  "metricstore" + uuid.New().String(), // TODO this is pretty terrible, fix this somehow
 	}
 }
 
@@ -47,6 +48,10 @@ func (client *csrClient) Approve(certificateSigningRequest *certificates.Certifi
 
 func (client *csrClient) Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error) {
 	return client.api.Get(client.name, options)
+}
+
+func (client *csrClient) Delete() error {
+	return client.api.Delete(client.name, &v1.DeleteOptions{})
 }
 
 func (client *csrClient) Generate() ([]byte, *rsa.PrivateKey, error) {

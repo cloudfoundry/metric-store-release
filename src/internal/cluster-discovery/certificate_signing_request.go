@@ -68,6 +68,11 @@ func (csr *CertificateSigningRequest) RequestScraperCertificate() ([]byte, []byt
 		return nil, nil, err
 	}
 
+	err = csr.kubernetesCSRClient.Delete()
+	if err != nil {
+		return nil, nil, err
+	}
+
 	marshalledKey, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to encode private key: %v", err)

@@ -15,11 +15,13 @@ import (
 
 type MockCSRClient struct {
 	GeneratedCSRs atomic.Int32
+	DeletedCSRs   atomic.Int32
 	Key           *rsa.PrivateKey
 
 	NextCreateCSRIsError      bool
 	NextUpdateApprovalIsError bool
 	NextGetApprovalIsError    bool
+	NextDeleteIsError         bool
 }
 
 func NewMockCSRClient() *MockCSRClient {
@@ -54,13 +56,21 @@ func (mock *MockCSRClient) Get(options v1.GetOptions) (*v1beta1.CertificateSigni
 	if mock.NextGetApprovalIsError {
 		return nil, fmt.Errorf("Server Unavailable")
 	}
-
+	mock.GeneratedCSRs.Inc()
 	return &v1beta1.CertificateSigningRequest{
 		Status: v1beta1.CertificateSigningRequestStatus{
 			Conditions:  []v1beta1.CertificateSigningRequestCondition{{Type: v1beta1.CertificateApproved}},
 			Certificate: []byte("signed-certificate"),
 		},
 	}, nil
+}
+
+func (mock *MockCSRClient) Delete() error {
+	if mock.NextDeleteIsError {
+		return fmt.Errorf("Could not delete")
+	}
+	mock.DeletedCSRs.Inc()
+	return nil
 }
 
 func (mock *MockCSRClient) PrivateKey() []byte {
@@ -78,5 +88,3 @@ func (mock *MockCSRClient) PrivateKeyInPEMForm() []byte {
 	}
 	return pem.EncodeToMemory(keyBlock)
 }
-
-
