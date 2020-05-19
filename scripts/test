@@ -38,8 +38,7 @@ function bold_blue {
 
 function check_output {
     eval "$@"
-    local status=$?
-    exit_on_failure $status
+    exit_on_failure $?
 }
 
 function exit_on_failure {
@@ -129,7 +128,7 @@ function run_fast {
       echo -e "skipping '${skipped}':\n$(find . -name '*_suite_test.go' -exec dirname \{\} \; | grep ${skipped})\n"
   done
 
-  go test -mod=vendor $tests ${TEST_OPTIONS} $@
+  go test -mod=vendor ${tests} ${TEST_OPTIONS} $@
 }
 
 function run_all {
