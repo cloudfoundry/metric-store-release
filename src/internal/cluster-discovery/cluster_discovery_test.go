@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 	prometheusConfig "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/relabel"
 	"gopkg.in/yaml.v2"
@@ -63,11 +62,13 @@ var _ = Describe("Cluster Discovery", func() {
 
 		clusters := []pks.Cluster{
 			{
-				Name:      "cluster1",
-				CaData:    []byte("certdata"),
-				UserToken: "bearer thingie",
-				Addr:      "somehost:12345",
-				APIClient: &mockCSRClient,
+				Name:       "cluster1",
+				CaData:     []byte("certdata"),
+				UserToken:  "bearer thingie",
+				Addr:       "somehost:12345",
+				ServerName: "somehost",
+				MasterIps:  []string{"master1", "master2"},
+				APIClient:  &mockCSRClient,
 			},
 		}
 		tc := &testContext{
@@ -90,7 +91,8 @@ var _ = Describe("Cluster Discovery", func() {
 		discovery.UpdateScrapeConfig()
 
 		var expected prometheusConfig.Config
-		yaml.NewDecoder(bytes.NewReader(tc.certificateStore.ScrapeConfig)).Decode(&expected)
+		err := yaml.NewDecoder(bytes.NewReader(tc.certificateStore.ScrapeConfig)).Decode(&expected)
+		Expect(err).ToNot(HaveOccurred())
 		return expected.ScrapeConfigs
 	}
 
@@ -217,6 +219,7 @@ var _ = Describe("Cluster Discovery", func() {
 				matchAllValues(tc.certificateStore.ScrapeConfig, "key_file", "/tmp/scraper/private.key")
 				matchAllValues(tc.certificateStore.ScrapeConfig, "insecure_skip_verify", "true")
 				matchAllValues(tc.certificateStore.ScrapeConfig, "api_server", "https://somehost:12345")
+				matchAllValues(tc.certificateStore.ScrapeConfig, "server_name", "somehost")
 			})
 
 			var findJob = func(jobName string, configs []*prometheusConfig.ScrapeConfig) *prometheusConfig.ScrapeConfig {
@@ -225,65 +228,72 @@ var _ = Describe("Cluster Discovery", func() {
 						return job
 					}
 				}
+				Fail(fmt.Sprintf("%s job was expected but not found", jobName))
 				return nil
 			}
-
-			var matchRelabel = func() types.GomegaMatcher {
-				return MatchElements(
-					func(element interface{}) string {
-						relabelConfig := element.(*relabel.Config)
-						return string(relabelConfig.TargetLabel) + ":" + string(relabelConfig.Action)
-					},
-					IgnoreExtras,
-					Elements{
-						"__address__:replace": PointTo(MatchFields(IgnoreExtras,
-							Fields{
-								"Replacement": Equal("somehost:12345"),
-							})),
-					})
-			}
-
-			It("creates cluster job", func() {
-				tc := setup()
-				unmarshalled := runScrape(tc)
-
-				serverJob := findJob("cluster1", unmarshalled)
-				Expect(serverJob).ToNot(BeNil())
-				Expect(string(serverJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0]["__address__"])).
-					To(Equal("somehost:12345"))
-			})
 
 			It("handles multiple clusters", func() {
 				tc := setup()
 				tc.clusters = []pks.Cluster{
 					{
-						Name:      "cluster1",
-						CaData:    []byte("certdata"),
-						UserToken: "bearer thingie",
-						Addr:      "somehost:12345",
-						APIClient: tc.certificateClient,
+						Name:       "cluster1",
+						CaData:     []byte("certdata"),
+						UserToken:  "bearer thingie",
+						Addr:       "somehost:12345",
+						ServerName: "somehost",
+						MasterIps:  []string{"master1", "master2"},
+						APIClient:  tc.certificateClient,
 					},
 					{
-						Name:      "cluster2",
-						CaData:    []byte("certdata"),
-						UserToken: "bearer thingie",
-						Addr:      "somehost:12345",
-						APIClient: tc.certificateClient,
+						Name:       "cluster2",
+						CaData:     []byte("certdata"),
+						UserToken:  "bearer thingie",
+						Addr:       "somehost:12345",
+						ServerName: "somehost",
+						MasterIps:  []string{"master1", "master2"},
+						APIClient:  tc.certificateClient,
 					},
 				}
 				unmarshalled := runScrape(tc)
 
-				job1 := findJob("cluster1", unmarshalled)
+				job1 := findJob("cluster1-kubernetes-apiservers", unmarshalled)
 				Expect(job1).ToNot(BeNil())
 
-				job2 := findJob("cluster2", unmarshalled)
+				job2 := findJob("cluster2-kubernetes-apiservers", unmarshalled)
 				Expect(job2).ToNot(BeNil())
+			})
+
+			It("creates a telegraf job", func() {
+				tc := setup()
+				jobs := runScrape(tc)
+				scrapeJob := findJob("cluster1-telegraf", jobs)
+
+				ExpectAddClusterNameLabel(scrapeJob)
+				ExpectMasterNodeTargets(scrapeJob, "10200")
+			})
+
+			It("creates kube-controller-manager job", func() {
+				tc := setup()
+				jobs := runScrape(tc)
+				scrapeJob := findJob("cluster1-kube-controller-manager", jobs)
+				ExpectAddClusterNameLabel(scrapeJob)
+				ExpectMasterNodeTargets(scrapeJob, "10252")
+			})
+			It("creates kube-scheduler job", func() {
+				tc := setup()
+				jobs := runScrape(tc)
+				scrapeJob := findJob("cluster1-kube-scheduler", jobs)
+				ExpectAddClusterNameLabel(scrapeJob)
+				ExpectMasterNodeTargets(scrapeJob, "10251")
 			})
 
 			It("creates an apiserver job", func() {
 				tc := setup()
 				jobs := runScrape(tc)
-				Expect(findJob("cluster1-kubernetes-apiservers", jobs)).ToNot(BeNil())
+				scrapeJob := findJob("cluster1-kubernetes-apiservers", jobs)
+				Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs).To(HaveLen(1))
+				Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets).To(HaveLen(1))
+				Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0]["__address__"]).To(BeEquivalentTo("somehost:12345"))
 			})
 
 			It("creates kubernetes-nodes job", func() {
@@ -291,8 +301,8 @@ var _ = Describe("Cluster Discovery", func() {
 				unmarshalled := runScrape(tc)
 
 				serverJob := findJob("cluster1-kubernetes-nodes", unmarshalled)
-				Expect(serverJob).ToNot(BeNil(), "cluster1-kubernetes-nodes cluster1 job doesn't exist")
-				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+				ExpectAddClusterNameLabel(serverJob)
+				ExpectReplaceSDAddressLabel(serverJob)
 			})
 
 			It("creates cadvisor job", func() {
@@ -300,8 +310,8 @@ var _ = Describe("Cluster Discovery", func() {
 				unmarshalled := runScrape(tc)
 
 				serverJob := findJob("cluster1-kubernetes-cadvisor", unmarshalled)
-				Expect(serverJob).ToNot(BeNil())
-				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+				ExpectAddClusterNameLabel(serverJob)
+				ExpectReplaceSDAddressLabel(serverJob)
 			})
 
 			It("creates kube-state-metrics job", func() {
@@ -309,8 +319,8 @@ var _ = Describe("Cluster Discovery", func() {
 				unmarshalled := runScrape(tc)
 
 				serverJob := findJob("cluster1-kube-state-metrics", unmarshalled)
-				Expect(serverJob).ToNot(BeNil())
-				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+				ExpectAddClusterNameLabel(serverJob)
+				ExpectReplaceSDAddressLabel(serverJob)
 			})
 
 			It("creates kubernetes-coredns job", func() {
@@ -318,8 +328,8 @@ var _ = Describe("Cluster Discovery", func() {
 				unmarshalled := runScrape(tc)
 
 				serverJob := findJob("cluster1-kubernetes-coredns", unmarshalled)
-				Expect(serverJob).ToNot(BeNil())
-				Expect(serverJob.RelabelConfigs).To(matchRelabel())
+				ExpectAddClusterNameLabel(serverJob)
+				ExpectReplaceSDAddressLabel(serverJob)
 			})
 		})
 
@@ -356,3 +366,42 @@ var _ = Describe("Cluster Discovery", func() {
 		})
 	})
 })
+
+func ExpectMasterNodeTargets(scrapeJob *prometheusConfig.ScrapeConfig, port string) {
+	Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs).To(HaveLen(1))
+	Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets).To(HaveLen(2))
+	Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0]["__address__"]).To(BeEquivalentTo("master1:" + port))
+	Expect(scrapeJob.ServiceDiscoveryConfig.StaticConfigs[0].Targets[1]["__address__"]).To(BeEquivalentTo("master2:" + port))
+}
+
+func ExpectAddClusterNameLabel(scrapeJob *prometheusConfig.ScrapeConfig) bool {
+	return Expect(scrapeJob.RelabelConfigs).To(MatchElements(
+		func(element interface{}) string {
+			relabelConfig := element.(*relabel.Config)
+			return string(relabelConfig.TargetLabel) + ":" + string(relabelConfig.Action)
+		},
+		IgnoreExtras,
+		Elements{
+			"cluster:replace": PointTo(MatchFields(IgnoreExtras,
+				Fields{
+					"Replacement": Equal("cluster1"),
+				})),
+		}),
+	)
+}
+
+func ExpectReplaceSDAddressLabel(scrapeJob *prometheusConfig.ScrapeConfig) bool {
+	return Expect(scrapeJob.RelabelConfigs).To(MatchElements(
+		func(element interface{}) string {
+			relabelConfig := element.(*relabel.Config)
+			return string(relabelConfig.TargetLabel) + ":" + string(relabelConfig.Action)
+		},
+		IgnoreExtras,
+		Elements{
+			"__address__:replace": PointTo(MatchFields(IgnoreExtras,
+				Fields{
+					"Replacement": Equal("somehost:12345"),
+				})),
+		}),
+	)
+}

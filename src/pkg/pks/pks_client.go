@@ -26,7 +26,7 @@ func NewClient(addr string, httpClient *http.Client, log *logger.Logger) *Client
 	}
 }
 
-func (client *Client) GetClusters(authorization string) ([]string, error) {
+func (client *Client) GetClusters(authorization string) ([]Cluster, error) {
 	url := fmt.Sprintf("%s/v1/clusters", client.url)
 	client.log.Debug("cluster request", logger.String("url", url))
 	pksRequest, err := http.NewRequest(http.MethodGet, url, bytes.NewBuffer([]byte{}))
@@ -40,17 +40,17 @@ func (client *Client) GetClusters(authorization string) ([]string, error) {
 		return nil, err
 	}
 
-	var pksClusters []PksClustersResponse
-	err = json.Unmarshal(responseBody, &pksClusters)
+	var clusterResponses []clustersResponse
+	err = json.Unmarshal(responseBody, &clusterResponses)
 	if err != nil {
 		return nil, err
 	}
 
-	var clusterNames []string
-	for _, response := range pksClusters {
-		clusterNames = append(clusterNames, response.Name)
+	var clusters []Cluster
+	for _, response := range clusterResponses {
+		clusters = append(clusters, Cluster(response))
 	}
-	return clusterNames, nil
+	return clusters, nil
 }
 
 func (client *Client) GetCredentials(clusterName string, authorization string) (*Credentials, error) {
@@ -67,7 +67,7 @@ func (client *Client) GetCredentials(clusterName string, authorization string) (
 		return nil, err
 	}
 
-	pksCredentials := &CredentialsResponse{}
+	pksCredentials := &credentialsResponse{}
 	client.log.Debug("Credential Response", zap.ByteString("body", responseBody))
 	err = json.Unmarshal(responseBody, pksCredentials)
 	if err != nil {
@@ -100,21 +100,27 @@ type Credentials struct {
 	Server    string
 }
 
-type PksClustersResponse struct {
-	Name string `json:"name"`
+type Cluster struct {
+	Name      string
+	MasterIps []string
 }
 
-type CredentialsResponse struct {
-	Clusters []clusters `json:"clusters"`
-	Users    []users    `json:"users"`
+type clustersResponse struct {
+	Name      string   `json:"name"`
+	MasterIps []string `json:"kubernetes_master_ips"`
 }
 
-type clusters struct {
-	Name    string  `json:"name"`
-	Cluster cluster `json:"cluster"`
+type credentialsResponse struct {
+	Clusters []clustersJson `json:"clusters"`
+	Users    []users        `json:"users"`
 }
 
-type cluster struct {
+type clustersJson struct {
+	Name    string      `json:"name"`
+	Cluster clusterJson `json:"cluster"`
+}
+
+type clusterJson struct {
 	CertificateAuthorityData string `json:"certificate-authority-data"`
 	Server                   string `json:"server"`
 }

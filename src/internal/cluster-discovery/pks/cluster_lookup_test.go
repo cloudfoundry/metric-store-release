@@ -24,14 +24,14 @@ func NewMockClient(clusters map[string]*pks.Credentials) *mockClient {
 	return &mockClient{clusters: clusters}
 }
 
-func (m *mockClient) GetClusters(authorization string) ([]string, error) {
+func (m *mockClient) GetClusters(authorization string) ([]pks.Cluster, error) {
 	if m.errorsOnGetClusters {
 		return nil, errors.New("get clusters error")
 	}
 
-	var keys []string
+	var keys []pks.Cluster
 	for key := range m.clusters {
-		keys = append(keys, key)
+		keys = append(keys, pks.Cluster{Name: key})
 	}
 	return keys, nil
 }
@@ -96,13 +96,13 @@ var _ = Describe("Cluster Lookup", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(clusters).To(HaveLen(1))
 		})
-
 		It("ignores a cluster when it fails to parse the URL", func() {
 			client.clusters["cluster1"].Server = "not a real url"
 			clusters, err := clusterLookup.GetClusters("some-header")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(clusters).To(HaveLen(1))
 		})
+
 	})
 
 })

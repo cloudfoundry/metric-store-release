@@ -204,7 +204,10 @@ func (discovery *ClusterDiscovery) populateScrapeTemplate(cluster *pks.Cluster) 
 		CertPath:    discovery.store.CertPath(cluster.Name),
 		KeyPath:     discovery.store.PrivateKeyPath(cluster.Name),
 		K8sApiAddr:  cluster.Addr,
-		SkipSsl:     true,
+		ServerName:  cluster.ServerName,
+		MasterIps:   cluster.MasterIps,
+
+		SkipSsl: true,
 	}
 
 	template, err := template.New("clusterConfig").Parse(scrapeTemplate)
@@ -262,42 +265,62 @@ type ScrapeTemplate struct {
 	KeyPath     string
 	SkipSsl     bool
 	K8sApiAddr  string
+	ServerName  string
+	MasterIps   []string
 }
 
 var scrapeTemplate = `
-- job_name: "{{.ClusterName}}"
+- job_name: "{{.ClusterName}}-telegraf"
+  metrics_path: "/metrics"
+  scheme: "http"
+  tls_config:
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
+  static_configs:
+  - targets:
+{{range $node := .MasterIps}}    - "{{$node}}:10200"
+{{end}}
+- job_name: "{{.ClusterName}}-kube-controller-manager"
+  metrics_path: "/metrics"
+  scheme: "http"
+  tls_config:
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
+  static_configs:
+  - targets:
+{{range $node := .MasterIps}}    - "{{$node}}:10252"
+{{end}}
+- job_name: "{{.ClusterName}}-kube-scheduler"
+  metrics_path: "/metrics"
+  scheme: "http"
+  tls_config:
+    insecure_skip_verify: {{ .SkipSsl }}
+  relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
+  static_configs:
+  - targets:
+{{range $node := .MasterIps}}    - "{{$node}}:10251"
+{{end}}
+- job_name: "{{.ClusterName}}-kubernetes-apiservers"
   metrics_path: "/metrics"
   scheme: "https"
   tls_config:
     ca_file: "{{.CAPath}}"
     cert_file: "{{.CertPath}}"
     key_file: "{{.KeyPath}}"
-    insecure_skip_verify: {{.SkipSsl}}
+    insecure_skip_verify: {{ .SkipSsl }}
+    server_name: "{{.ServerName}}"
+  relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
   static_configs:
   - targets:
-    - "{{.K8sApiAddr}}"
-- job_name: "{{.ClusterName}}-kubernetes-apiservers"
-  kubernetes_sd_configs:
-  - role: "endpoints"
-    api_server: "https://{{.K8sApiAddr}}"
-    tls_config:
-      ca_file: "{{.CAPath}}"
-      cert_file: "{{.CertPath}}"
-      key_file: "{{.KeyPath}}"
-      insecure_skip_verify: {{ .SkipSsl }}
-  scheme: "https"
-  tls_config:
-    ca_file: "{{.CAPath}}"
-    cert_file: "{{.CertPath}}"
-    key_file: "{{.KeyPath}}"
-    insecure_skip_verify: {{ .SkipSsl }}
-  relabel_configs:
-  - source_labels:
-    - "__meta_kubernetes_namespace"
-    - "__meta_kubernetes_service_name"
-    - "__meta_kubernetes_endpoint_port_name"
-    action: "keep"
-    regex: "default;kubernetes;https"
+    - {{.K8sApiAddr}}
 - job_name: "{{.ClusterName}}-kubernetes-nodes"
   kubernetes_sd_configs:
   - role: "node"
@@ -307,13 +330,17 @@ var scrapeTemplate = `
       cert_file: "{{.CertPath}}"
       key_file: "{{.KeyPath}}"
       insecure_skip_verify: {{ .SkipSsl }}
+      server_name: "{{.ServerName}}"
   scheme: "https"
   tls_config:
     ca_file: "{{.CAPath}}"
     cert_file: "{{.CertPath}}"
     key_file: "{{.KeyPath}}"
     insecure_skip_verify: {{ .SkipSsl }}
+    server_name: "{{.ServerName}}"
   relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
   - action: "labelmap"
     regex: "__meta_kubernetes_node_label_(.+)"
   - target_label: "__address__"
@@ -332,13 +359,17 @@ var scrapeTemplate = `
       cert_file: "{{.CertPath}}"
       key_file: "{{.KeyPath}}"
       insecure_skip_verify: {{ .SkipSsl }}
+      server_name: "{{.ServerName}}"
   scheme: "https"
   tls_config:
     ca_file: "{{.CAPath}}"
     cert_file: "{{.CertPath}}"
     key_file: "{{.KeyPath}}"
     insecure_skip_verify: {{ .SkipSsl }}
+    server_name: "{{.ServerName}}"
   relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
   - action: "labelmap"
     regex: "__meta_kubernetes_node_label_(.+)"
   - target_label: "__address__"
@@ -357,13 +388,17 @@ var scrapeTemplate = `
       cert_file: "{{.CertPath}}"
       key_file: "{{.KeyPath}}"
       insecure_skip_verify: {{ .SkipSsl }}
+      server_name: "{{.ServerName}}"
   scheme: "https"
   tls_config:
     ca_file: "{{.CAPath}}"
     cert_file: "{{.CertPath}}"
     key_file: "{{.KeyPath}}"
     insecure_skip_verify: {{ .SkipSsl }}
+    server_name: "{{.ServerName}}"
   relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
   - source_labels:
     - "__meta_kubernetes_namespace"
     - "__meta_kubernetes_pod_container_name"
@@ -372,7 +407,6 @@ var scrapeTemplate = `
     regex: "(pks-system;kube-state-metrics;http-metrics|telemetry)"
   - target_label: "__address__"
     replacement: "{{.K8sApiAddr}}"
-    action: "replace"
   - source_labels:
     - "__meta_kubernetes_namespace"
     - "__meta_kubernetes_pod_name"
@@ -407,13 +441,17 @@ var scrapeTemplate = `
       cert_file: "{{.CertPath}}"
       key_file: "{{.KeyPath}}"
       insecure_skip_verify: {{ .SkipSsl }}
+      server_name: "{{.ServerName}}"
   scheme: "https"
   tls_config:
     ca_file: "{{.CAPath}}"
     cert_file: "{{.CertPath}}"
     key_file: "{{.KeyPath}}"
     insecure_skip_verify: {{ .SkipSsl }}
+    server_name: "{{.ServerName}}"
   relabel_configs:
+  - target_label: "cluster"
+    replacement: "{{.ClusterName}}"
   - source_labels:
     - "__meta_kubernetes_pod_container_name"
     action: "keep"

@@ -169,16 +169,24 @@ var _ = Describe("ClusterDiscovery", func() {
 			config, err := prometheusConfig.LoadFile(tc.scrapeConfigPath)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(config.ScrapeConfigs).To(HaveLen(6))
-			c := config.ScrapeConfigs[0]
-			Expect(c.JobName).To(ContainSubstring("cluster1"))
+			Expect(config.ScrapeConfigs).To(HaveLen(8))
 
-			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CAFile)).To(ContainSubstring("-----BEGIN CERTIFICATE-----"))
-			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CAFile)).To(ContainSubstring("-----END CERTIFICATE-----"))
-			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CertFile)).To(ContainSubstring("-----BEGIN CERTIFICATE-----"))
-			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.CertFile)).To(ContainSubstring("-----END CERTIFICATE-----"))
-			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.KeyFile)).To(ContainSubstring("-----BEGIN PRIVATE KEY-----"))
-			Expect(readCertFile(c.HTTPClientConfig.TLSConfig.KeyFile)).To(ContainSubstring("-----END PRIVATE KEY-----"))
+			var jobConfig *prometheusConfig.ScrapeConfig
+			for _, config := range config.ScrapeConfigs {
+				if config.JobName == "cluster1-kubernetes-apiservers" {
+					jobConfig = config
+					break
+				}
+			}
+			Expect(jobConfig).ToNot(BeNil(), "didn't find expected job config")
+			Expect(jobConfig.JobName).To(ContainSubstring("cluster1"))
+
+			Expect(readCertFile(jobConfig.HTTPClientConfig.TLSConfig.CAFile)).To(ContainSubstring("-----BEGIN CERTIFICATE-----"))
+			Expect(readCertFile(jobConfig.HTTPClientConfig.TLSConfig.CAFile)).To(ContainSubstring("-----END CERTIFICATE-----"))
+			Expect(readCertFile(jobConfig.HTTPClientConfig.TLSConfig.CertFile)).To(ContainSubstring("-----BEGIN CERTIFICATE-----"))
+			Expect(readCertFile(jobConfig.HTTPClientConfig.TLSConfig.CertFile)).To(ContainSubstring("-----END CERTIFICATE-----"))
+			Expect(readCertFile(jobConfig.HTTPClientConfig.TLSConfig.KeyFile)).To(ContainSubstring("-----BEGIN PRIVATE KEY-----"))
+			Expect(readCertFile(jobConfig.HTTPClientConfig.TLSConfig.KeyFile)).To(ContainSubstring("-----END PRIVATE KEY-----"))
 
 		})
 	})
