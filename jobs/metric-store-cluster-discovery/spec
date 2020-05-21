@@ -18,7 +18,7 @@ provides:
 - name: metric-store-cluster-discovery
   type: metric-store-cluster-discovery
   properties:
-  - cluster_discovery.health_port
+  - cluster_discovery.metrics_port
 
 consumes:
 
@@ -27,8 +27,8 @@ properties:
     description: "Where to store Prometheus ScrapeConfigs"
     default: "/var/vcap/store/metric-store"
 
-  cluster_discovery.health_port:
-    description: "The port to bind a health endpoint"
+  cluster_discovery.metrics_port:
+    description: "The port to bind a prometheus metrics endpoint"
     default: 6065
   cluster_discovery.pks.addr:
     description: "PKS API endpoint"

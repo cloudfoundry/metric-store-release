@@ -58,8 +58,8 @@ properties:
     description: "The port for the metric-store to listen on for internode communication"
     default: 8091
 
-  health_port:
-    description: "The port for metric-store to bind a health endpoint"
+  metrics_port:
+    description: "The port for metric-store to bind a prometheus metrics endpoint"
     default: 6060
   storage_path:
     description: "Where metric-store should keep persistent data"

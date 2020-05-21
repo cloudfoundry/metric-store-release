@@ -10,11 +10,11 @@ processes:
   executable: /var/vcap/packages/metric-store-cf-auth-proxy/metric-store-cf-auth-proxy
   env:
     METRIC_STORE_ADDR:         "<%= "localhost:#{ms.p('port')}" %>"
-    ADDR:                      "<%= ":#{p('proxy_port')}" %>"
+    ADDR:                      ":<%= p('proxy_port') %>"
+    METRICS_ADDR:              ":<%= p('metrics_port') %>"
     INTERNAL_IP:               "<%= spec.ip %>"
     EXTERNAL_CERT:             "<%= "#{cert_dir}/external.crt" %>"
     EXTERNAL_KEY:              "<%= "#{cert_dir}/external.key" %>"
-    HEALTH_PORT:               "<%= p('health_port') %>"
     PROXY_CA_PATH:             "<%= "#{cert_dir}/proxy_ca.crt" %>"
     <% if_p('security_event_log') do |path| %>
     SECURITY_EVENT_LOG:        "<%= path %>"

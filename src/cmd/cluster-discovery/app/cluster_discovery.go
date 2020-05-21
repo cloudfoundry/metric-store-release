@@ -1,9 +1,6 @@
 package app
 
 import (
-	"fmt"
-	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
-	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/store"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
+	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
+	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/store"
+
+	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
@@ -93,8 +93,8 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 		panic(err)
 	}
 	metricStoreAPIClient := &http.Client{
-		Transport:     &http.Transport{TLSClientConfig: tlsConfig},
-		Timeout:       10* time.Second,
+		Transport: &http.Transport{TLSClientConfig: tlsConfig},
+		Timeout:   10 * time.Second,
 	}
 	clusterDiscovery := cluster_discovery.New(
 		scrapeConfigStore,
@@ -153,9 +153,8 @@ func (app *ClusterDiscoveryApp) startHealthServer() {
 		}),
 	)
 
-	debugAddr := fmt.Sprintf("localhost:%d", app.cfg.HealthPort)
 	app.healthServer = debug.StartServer(
-		debugAddr,
+		app.cfg.MetricsAddr,
 		tlsConfig,
 		app.metrics.Gatherer(),
 		app.log,

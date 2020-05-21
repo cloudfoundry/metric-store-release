@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -177,9 +176,8 @@ func (c *CFAuthProxyApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	debugAddr := fmt.Sprintf("localhost:%d", c.cfg.HealthPort)
 	c.debugLis = debug.StartServer(
-		debugAddr,
+		c.cfg.MetricsAddr,
 		tlsConfig,
 		c.debugRegistrar.Gatherer(),
 		c.log,

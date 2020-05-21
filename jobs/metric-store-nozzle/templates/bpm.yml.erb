@@ -14,9 +14,9 @@ processes:
 - name: metric-store-nozzle
   executable: /var/vcap/packages/metric-store-nozzle/metric-store-nozzle
   env:
-    HEALTH_PORT:       "<%= p('health_port') %>"
     METRIC_STORE_ADDR: "<%= "localhost:#{ms.p('port')}" %>"
     INGRESS_ADDR:      "<%= "localhost:#{ms.p('ingress_port')}" %>"
+    METRICS_ADDR:      ":<%= p('metrics_port') %>"
     SHARD_ID:          "<%= p('shard_id') %>"
 
     # Diode size for timer metrics aggregation

@@ -3,15 +3,15 @@ package cluster_discovery_test
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/cloudfoundry/metric-store-release/src/cmd/cluster-discovery/app"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
+	"github.com/cloudfoundry/metric-store-release/src/cmd/cluster-discovery/app"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+
+	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
@@ -29,7 +29,7 @@ var _ = Describe("ClusterDiscovery", func() {
 		caCert           string
 		cert             string
 		key              string
-		healthPort       int
+		metricsAddr      string
 		scrapeConfigPath string
 		storagePath      string
 
@@ -56,7 +56,7 @@ var _ = Describe("ClusterDiscovery", func() {
 		tc.scrapeConfigPath = filepath.Join(tmpDir, "scrape_config.yml")
 
 		cfg := &app.Config{
-			HealthPort:  tc.healthPort,
+			MetricsAddr: tc.metricsAddr,
 			StoragePath: tmpDir,
 			LogLevel:    "DEBUG",
 			MetricsTLS: app.ClusterDiscoveryMetricsTLS{
@@ -87,7 +87,7 @@ var _ = Describe("ClusterDiscovery", func() {
 		tc.app = app.NewClusterDiscoveryApp(cfg, logger.NewTestLogger(GinkgoWriter))
 		go tc.app.Run()
 		time.Sleep(5 * time.Second)
-		shared.WaitForHealthCheck(strconv.Itoa(tc.healthPort), tc.tlsConfig)
+		shared.WaitForHealthCheck(tc.metricsAddr, tc.tlsConfig)
 
 	}
 
@@ -99,10 +99,10 @@ var _ = Describe("ClusterDiscovery", func() {
 
 	var setup = func(numNodes int, opts ...WithTestContextOption) (*testContext, func()) {
 		tc := &testContext{
-			caCert:     shared.Cert("metric-store-ca.crt"),
-			cert:       shared.Cert("metric-store.crt"),
-			key:        shared.Cert("metric-store.key"),
-			healthPort: shared.GetFreePort(),
+			caCert:      shared.Cert("metric-store-ca.crt"),
+			cert:        shared.Cert("metric-store.crt"),
+			key:         shared.Cert("metric-store.key"),
+			metricsAddr: fmt.Sprintf(":%d", shared.GetFreePort()),
 		}
 
 		var err error

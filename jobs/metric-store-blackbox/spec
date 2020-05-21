@@ -18,7 +18,7 @@ provides:
 - name: metric-store-blackbox
   type: metric-store-blackbox
   properties:
-  - health_port
+  - metrics_port
   - deployment
 
 consumes:
@@ -44,8 +44,8 @@ properties:
   source_id:
     description: "Source ID for metadata of both test and result metrics"
     default: metric-store
-  health_port:
-    description: "The port for the Blackbox to bind a health endpoint"
+  metrics_port:
+    description: "The port for the Blackbox to bind a prometheus metrics endpoint"
     default: 6066
   deployment:
     description: "The deployment name for the Blackbox, used to tag metrics"

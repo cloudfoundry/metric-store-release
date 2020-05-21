@@ -33,10 +33,10 @@ processes:
   hooks:
     pre_start: /var/vcap/jobs/metric-store/bin/pre-start.sh
   env:
-    HEALTH_PORT:              "<%= p('health_port') %>"
     ADDR:                     ":<%= p('port') %>"
     INGRESS_ADDR:             ":<%= p('ingress_port') %>"
     INTERNODE_ADDR:           ":<%= p('internode_port') %>"
+    METRICS_ADDR:             ":<%= p('metrics_port') %>"
     STORAGE_PATH:             "<%= p('storage_path') %>"
     RETENTION_PERIOD_IN_DAYS: "<%= p('retention_period_in_days') %>"
     DISK_FREE_PERCENT_TARGET: "<%= p('disk_free_percent_target') %>"

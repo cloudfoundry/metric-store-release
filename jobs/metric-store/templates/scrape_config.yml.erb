@@ -24,7 +24,7 @@ scrape_configs:
       - names:
           - q-s4.metric-store.*.<%= spec.deployment %>.bosh
         type: A
-        port: <%= p('health_port') %>
+        port: <%= p('metrics_port') %>
 
     <%
   if_link("metric-store-nozzle") do |metric_store_nozzle|
@@ -40,7 +40,7 @@ scrape_configs:
       - names:
           - q-s4.metric-store.*.<%= spec.deployment %>.bosh
         type: A
-        port: <%= metric_store_nozzle.p('health_port') %>
+        port: <%= metric_store_nozzle.p('metrics_port') %>
     <% end %>
     <% if_link("metric-store-cf-auth-proxy") do |metric_store_cf_auth_proxy| %>
   - job_name: metric-store-cf-auth-proxy
@@ -54,7 +54,7 @@ scrape_configs:
       - names:
           - q-s4.metric-store.*.<%= spec.deployment %>.bosh
         type: A
-        port: <%= metric_store_cf_auth_proxy.p('health_port') %>
+        port: <%= metric_store_cf_auth_proxy.p('metrics_port') %>
     <% end %>
     <%
 if_link("metric-store-blackbox") do |metric_store_blackbox|
@@ -70,7 +70,7 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
     static_configs:
         <% metric_store_blackbox.instances.each do |blackbox| %>
       - targets:
-          - <%= blackbox.address %>:<%= metric_store_blackbox.p('health_port') %>
+          - <%= blackbox.address %>:<%= metric_store_blackbox.p('metrics_port') %>
         labels:
           id: <%= blackbox.id %>
           ip: <%= blackbox.address %>

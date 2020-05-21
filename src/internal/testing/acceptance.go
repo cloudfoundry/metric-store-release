@@ -14,13 +14,13 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-func WaitForHealthCheck(healthPort string, tlsConfig *tls.Config) {
+func WaitForHealthCheck(metricsAddr string, tlsConfig *tls.Config) {
 	Eventually(func() error {
 		client := &http.Client{
 			Transport: &http.Transport{TLSClientConfig: tlsConfig},
 		}
 
-		resp, err := client.Get("https://localhost:" + healthPort + "/debug/vars")
+		resp, err := client.Get("https://" + metricsAddr + "/debug/vars")
 		if err != nil {
 			return err
 		}
@@ -35,7 +35,7 @@ func WaitForHealthCheck(healthPort string, tlsConfig *tls.Config) {
 
 var builtPathsCache = &sync.Map{}
 
-func SkipTestOnMac(){
+func SkipTestOnMac() {
 	if runtime.GOOS == "darwin" {
 		Skip("doesn't work on Mac OS")
 	}

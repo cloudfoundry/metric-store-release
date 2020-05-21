@@ -8,7 +8,7 @@ import (
 
 // Config is the configuration for a ClusterDiscovery.
 type Config struct {
-	HealthPort     int    `env:"HEALTH_PORT, report"`
+	MetricsAddr    string `env:"METRICS_ADDR, report"`
 	StoragePath    string `env:"STORAGE_DIR, required, report"`
 	LogLevel       string `env:"LOG_LEVEL, report"`
 	MetricsTLS     ClusterDiscoveryMetricsTLS
@@ -20,8 +20,8 @@ type Config struct {
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
 	cfg := &Config{
-		LogLevel:   "info",
-		HealthPort: 6060,
+		LogLevel:    "info",
+		MetricsAddr: ":6060",
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

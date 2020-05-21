@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -173,9 +172,8 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	debugAddr := fmt.Sprintf("localhost:%d", n.cfg.HealthPort)
 	n.debugLis = debug.StartServer(
-		debugAddr,
+		n.cfg.MetricsAddr,
 		tlsConfig,
 		n.debugRegistrar.Gatherer(),
 		n.log,

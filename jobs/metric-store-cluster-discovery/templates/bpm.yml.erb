@@ -8,7 +8,7 @@ processes:
     executable: /var/vcap/packages/metric-store-cluster-discovery/metric-store-cluster-discovery
     env:
       STORAGE_DIR: "<%= p('storage_dir') %>"
-      HEALTH_PORT: "<%= p('cluster_discovery.health_port') %>"
+      METRICS_ADDR: ":<%= p('cluster_discovery.metrics_port') %>"
 
       PKS_CA_PATH: "<%= "#{cert_dir}/pks_ca.crt" %>"
       PKS_API_ADDR: "<%= p('cluster_discovery.pks.addr') %>"

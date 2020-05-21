@@ -15,7 +15,7 @@ type Config struct {
 	WindowLag        time.Duration `env:"WINDOW_LAG, required, report"`
 	SourceId         string        `env:"SOURCE_ID, required, report"`
 
-	HealthPort             int    `env:"HEALTH_PORT, report"`
+	MetricsAddr            string `env:"METRICS_ADDR, report"`
 	CfBlackboxEnabled      bool   `env:"CF_BLACKBOX_ENABLED, report"`
 	MetricStoreHTTPAddr    string `env:"METRIC_STORE_HTTP_ADDR, required, report"`
 	MetricStoreIngressAddr string `env:"METRIC_STORE_INGRESS_ADDR, required, report"`
@@ -39,8 +39,8 @@ type MetricStoreMetricsTLS struct {
 
 func LoadConfig() *Config {
 	cfg := &Config{
-		LogLevel:   "info",
-		HealthPort: 6066,
+		LogLevel:    "info",
+		MetricsAddr: ":6066",
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

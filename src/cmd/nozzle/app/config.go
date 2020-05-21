@@ -15,7 +15,7 @@ type Config struct {
 	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
 	IngressAddr           string `env:"INGRESS_ADDR, required, report"`
-	HealthPort            int    `env:"HEALTH_PORT, report"`
+	MetricsAddr           string `env:"METRICS_ADDR, report"`
 	ShardId               string `env:"SHARD_ID, required, report"`
 	TimerRollupBufferSize uint   `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
 	NodeIndex             int    `env:"NODE_INDEX, required, report"`
@@ -47,7 +47,7 @@ func LoadConfig() *Config {
 		LogLevel:              "info",
 		MetricStoreAddr:       ":8080",
 		IngressAddr:           ":8090",
-		HealthPort:            6061,
+		MetricsAddr:           ":6061",
 		ShardId:               "metric-store",
 		TimerRollupBufferSize: 16384,
 	}

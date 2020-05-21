@@ -13,7 +13,7 @@ type Config struct {
 	Addr                  string        `env:"ADDR, required, report"`
 	IngressAddr           string        `env:"INGRESS_ADDR, required, report"`
 	InternodeAddr         string        `env:"INTERNODE_ADDR, required, report"`
-	HealthPort            int           `env:"HEALTH_PORT, report"`
+	MetricsAddr           string        `env:"METRICS_ADDR, report"`
 	StoragePath           string        `env:"STORAGE_PATH, report"`
 	RetentionPeriodInDays uint          `env:"RETENTION_PERIOD_IN_DAYS, report"`
 	RetentionPeriod       time.Duration `env:"-, report"`
@@ -46,7 +46,7 @@ type Config struct {
 	MetricStoreInternodeTLS MetricStoreInternodeTLS
 	MetricStoreMetricsTLS   MetricStoreMetricsTLS
 
-	ScrapeConfigPath string `env:"SCRAPE_CONFIG_PATH, report"`
+	ScrapeConfigPath          string `env:"SCRAPE_CONFIG_PATH, report"`
 	AdditionalScrapeConfigDir string `env:"ADDITIONAL_SCRAPE_CONFIGS_DIR, report"`
 
 	LogLevel string `env:"LOG_LEVEL, report"`
@@ -70,6 +70,7 @@ type MetricStoreMetricsTLS struct {
 	KeyPath  string `env:"METRIC_STORE_METRICS_KEY_PATH, required, report"`
 }
 
+// TODO decide between required env vars and defaults
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
 	cfg := &Config{
@@ -77,7 +78,7 @@ func LoadConfig() *Config {
 		Addr:                  ":8080",
 		IngressAddr:           ":8090",
 		InternodeAddr:         ":8091",
-		HealthPort:            6060,
+		MetricsAddr:           ":6060",
 		StoragePath:           "/tmp/metric-store",
 		RetentionPeriod:       7 * 24 * time.Hour,
 		DiskFreePercentTarget: 20,

@@ -15,7 +15,7 @@
         - name: pks_cluster_discovery
           manifest: |
             enabled: true
-            health_port: (( .properties.pks_cluster_discovery.enabled.cluster_discovery_scrape_port.value ))
+            metrics_port: (( .properties.pks_cluster_discovery.enabled.cluster_discovery_scrape_port.value ))
             discovery_frequency_seconds: (( .properties.pks_cluster_discovery.enabled.discovery_frequency_seconds.value ))
             pks:
               addr: https://(( ..pivotal-container-service.properties.pks_api_hostname.value)):9021

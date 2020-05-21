@@ -106,7 +106,7 @@ var _ = Describe("MetricStore", func() {
 		addrs                      []string
 		internodeAddrs             []string
 		ingressAddrs               []string
-		healthPorts                []string
+		metricsAddrs               []string
 		metricStoreProcesses       []*gexec.Session
 		tlsConfig                  *tls.Config
 		caCert                     string
@@ -150,7 +150,7 @@ var _ = Describe("MetricStore", func() {
 				"ADDR=" + tc.addrs[index],
 				"INGRESS_ADDR=" + tc.ingressAddrs[index],
 				"INTERNODE_ADDR=" + tc.internodeAddrs[index],
-				"HEALTH_PORT=" + tc.healthPorts[index],
+				"METRICS_ADDR=" + tc.metricsAddrs[index],
 				"STORAGE_PATH=" + storagePaths[index],
 				"RETENTION_PERIOD_IN_DAYS=1",
 				fmt.Sprintf("NODE_INDEX=%d", index),
@@ -174,7 +174,7 @@ var _ = Describe("MetricStore", func() {
 			},
 		)
 
-		shared.WaitForHealthCheck(tc.healthPorts[index], tc.tlsConfig)
+		shared.WaitForHealthCheck(tc.metricsAddrs[index], tc.tlsConfig)
 		tc.metricStoreProcesses[index] = metricStoreProcess
 	}
 
@@ -214,7 +214,7 @@ var _ = Describe("MetricStore", func() {
 			tc.addrs = append(tc.addrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
 			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
 			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
-			tc.healthPorts = append(tc.healthPorts, strconv.Itoa(getFreePort(tc)))
+			tc.metricsAddrs = append(tc.metricsAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
 		}
 
 		for _, opt := range opts {
@@ -262,9 +262,9 @@ var _ = Describe("MetricStore", func() {
 		}
 	}
 
-	var WithOptionHealthPort = func(port int) WithTestContextOption {
+	var WithOptionMetricsPort = func(port int) WithTestContextOption {
 		return func(tc *testContext) {
-			tc.healthPorts[0] = strconv.Itoa(port)
+			tc.metricsAddrs[0] = fmt.Sprintf(":%d", port)
 		}
 	}
 
@@ -407,7 +407,7 @@ var _ = Describe("MetricStore", func() {
 		}, 20).Should(BeNumerically(">", 0))
 	}
 
-	var createScrapeConfig = func(healthPort int, includeGlobalScrapeInterval bool) []byte {
+	var createScrapeConfig = func(metricsPort int, includeGlobalScrapeInterval bool) []byte {
 		globalScrapeInterval := []byte(`global:
   scrape_interval: 1s`)
 
@@ -423,7 +423,7 @@ scrape_configs:
     server_name: metric-store
   static_configs:
   - targets:
-    - localhost:` + strconv.Itoa(healthPort),
+    - localhost:` + strconv.Itoa(metricsPort),
 		)
 
 		if includeGlobalScrapeInterval {
@@ -514,16 +514,16 @@ scrape_configs:
 	Context("Scraping", func() {
 		It("scrapes its own metrics", func() {
 			testing.SkipTestOnMac()
-			healthPort := shared.GetFreePort()
+			metricsPort := shared.GetFreePort()
 
 			tempStorage := testing.NewTempStorage("scrape_config")
 			defer tempStorage.Cleanup()
-			scrapeConfig := tempStorage.CreateFile("prom_scrape", createScrapeConfig(healthPort, true))
+			scrapeConfig := tempStorage.CreateFile("prom_scrape", createScrapeConfig(metricsPort, true))
 
 			tc, cleanup := setup(
 				1,
 				WithOptionScrapeConfigPath(scrapeConfig),
-				WithOptionHealthPort(healthPort),
+				WithOptionMetricsPort(metricsPort),
 			)
 			defer cleanup()
 			waitForMetric(tc, "metric_store_pruned_shards_total")
@@ -531,7 +531,7 @@ scrape_configs:
 
 		It("reloads aditional scrape configs via api", func() {
 			testing.SkipTestOnMac()
-			healthPort := shared.GetFreePort()
+			metricsPort := shared.GetFreePort()
 
 			tempStorage := testing.NewTempStorage("additional_scrape_configs")
 			defer tempStorage.Cleanup()
@@ -539,12 +539,12 @@ scrape_configs:
 			tc, cleanup := setup(
 				1,
 				WithOptionAdditionalScrapeConfigsDir(tempStorage.Path()),
-				WithOptionHealthPort(healthPort),
+				WithOptionMetricsPort(metricsPort),
 			)
 			defer cleanup()
 
 			waitFoReload(tc)
-			tempStorage.CreateFile("prom_scrape", createScrapeConfig(healthPort, false))
+			tempStorage.CreateFile("prom_scrape", createScrapeConfig(metricsPort, false))
 			waitFoReload(tc)
 			waitForMetric(tc, "metric_store_pruned_shards_total{job=\"metric_store_health\"}")
 		})
@@ -1140,7 +1140,7 @@ scrape_configs:
 			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
 		}
 
-		resp, err := httpClient.Get("https://localhost:" + tc.healthPorts[0] + "/metrics")
+		resp, err := httpClient.Get("https://" + tc.metricsAddrs[0] + "/metrics")
 		Expect(err).NotTo(HaveOccurred())
 		defer resp.Body.Close()
 

@@ -16,7 +16,7 @@ processes:
     WINDOW_INTERVAL:   "<%= p('window_interval') %>"
     WINDOW_LAG:        "<%= p('window_lag') %>"
     SOURCE_ID:         "<%= p('source_id') %>"
-    HEALTH_PORT:       "<%= p('health_port') %>"
+    METRICS_ADDR:      ":<%= p('metrics_port') %>"
 
     # Metric Store
     METRIC_STORE_INGRESS_ADDR: "<%= "#{ms.address}:#{ms.p('ingress_port')}" %>"

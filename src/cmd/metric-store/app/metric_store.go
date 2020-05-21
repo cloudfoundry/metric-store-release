@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -248,9 +247,8 @@ func (m *MetricStoreApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	debugAddr := fmt.Sprintf("localhost:%d", m.cfg.HealthPort)
 	m.debugLis = debug.StartServer(
-		debugAddr,
+		m.cfg.MetricsAddr,
 		tlsConfig,
 		m.debugRegistrar.Gatherer(),
 		m.log,

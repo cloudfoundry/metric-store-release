@@ -21,7 +21,7 @@ provides:
 - name: metric-store-nozzle
   type: metric-store-nozzle
   properties:
-  - health_port
+  - metrics_port
 
 consumes:
 - name: reverse_log_proxy
@@ -44,8 +44,8 @@ properties:
   logs_provider.tls.key:
     description: "TLS key for the logs-provider connection"
 
-  health_port:
-    description: "The port for the Nozzle to bind a health endpoint"
+  metrics_port:
+    description: "The port for the Nozzle to bind a prometheus metrics endpoint"
     default: 6061
   shard_id:
     description: "The sharding group name to use for egress from RLP"

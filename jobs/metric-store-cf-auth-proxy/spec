@@ -21,7 +21,7 @@ provides:
   type: metric-store-cf-auth-proxy
   properties:
   - proxy_port
-  - health_port
+  - metrics_port
 
 consumes:
 - name: metric-store
@@ -37,8 +37,8 @@ properties:
     description: "The TLS cert for the auth proxy"
   external_key:
     description: "The TLS key for the auth proxy"
-  health_port:
-    description: "The port for the CF Auth Proxy to bind a health endpoint"
+  metrics_port:
+    description: "The port for the CF Auth Proxy to bind a prometheus metrics endpoint"
     default: 6065
   proxy_port:
     description: "The port for the cf-auth-proxy to listen on"
