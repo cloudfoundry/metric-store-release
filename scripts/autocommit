@@ -13,18 +13,14 @@ function printUsage() {
   echo -e "       Watches that package for changes and automatically runs tests on changes"
   echo -e "       Automatically commits when tests pass with [Autocommit] tag"
   echo -e ""
-  echo -e "\033[32mSquash autocommits\033[0m"
-  echo -e "\033[31musage: \033[1;34m$0 squash \"commit message\"\033[0m"
-  echo -e "       Squashes last concurrent [Autocommit] tagged commits into a single commit"
-  echo -e ""
   echo -e "\033[32mDiff squash\033[0m"
   echo -e "\033[31musage: \033[1;34m$0 diff\033[0m"
   echo -e "       show the diff of all that you are about to squash but don't squash"
   echo -e ""
   echo -e "\033[32mUnroll commits\033[0m"
-  echo -e "\033[31musage: \033[1;34m$0 unroll\033[0m"
+  echo -e "\033[31musage: \033[1;34m$0 unroll [-f]\033[0m"
   echo -e "       unroll your autocommits but do not automatically commit the squash"
-
+  echo -e "       -f: skip linting"
 }
 
 if [[ $# -lt 1 || $1 == "-h" ]]; then
@@ -36,23 +32,15 @@ scriptdir=$(dirname "$0")
 projectdir=$(git rev-parse --show-toplevel)
 testdir="${projectdir}/$1"
 
-if [[ $1 == "squash" ]]; then
-  if [[ $# -lt 2 ]]; then
-    printUsage
-    exit 1
+if [[ $1 == "unroll" ]]; then
+  if [[ $2 != '-f' ]]; then
+    echo "Linting"
+    pushd "$projectdir" >/dev/null || exit 1
+    golangci-lint run --out-format tab --new-from-rev $(squashHead) || exit
+    popd >/dev/null || exit 1
   fi
 
-  pushd "$projectdir" >/dev/null || exit 1
-  golangci-lint run --out-format tab --new-from-rev $(squashHead) || exit
-  popd >/dev/null || exit 1
-
   git reset "$(squashHead)"
-  git add -A
-  git commit -m "$2"
-elif [[ $1 == "unroll" ]]; then
-  git reset "$(squashHead)"
-  git add -A
-  git commit -m "$2"
 elif [[ $1 == "diff" ]]; then
   git diff "$(squashHead)"
 else
