@@ -20,14 +20,11 @@ scrape_configs:
       cert_file: "<%= "#{cert_dir}/metric_store_metrics_client.crt" %>"
       key_file: "<%= "#{cert_dir}/metric_store_metrics_client.key" %>"
       server_name: metric-store
-    static_configs:
-      - targets:
-          - 127.0.0.1:<%= p('health_port') %>
-        labels:
-          id: <%= spec.id %>
-          ip: <%= spec.ip %>
-          deployment: <%= spec.deployment %>
-          nodeIndex: <%= index %>
+    dns_sd_configs:
+      - names:
+          - q-s4.metric-store.*.<%= spec.deployment %>.bosh
+        type: A
+        port: <%= p('health_port') %>
 
     <%
   if_link("metric-store-nozzle") do |metric_store_nozzle|
@@ -39,14 +36,11 @@ scrape_configs:
       cert_file: "<%= "#{cert_dir}/metric_store_metrics_client.crt" %>"
       key_file: "<%= "#{cert_dir}/metric_store_metrics_client.key" %>"
       server_name: metric-store
-    static_configs:
-      - targets:
-          - 127.0.0.1:<%= metric_store_nozzle.p('health_port') %>
-        labels:
-          id: <%= spec.id %>
-          ip: <%= spec.ip %>
-          deployment: <%= spec.deployment %>
-          nodeIndex: <%= index %>
+    dns_sd_configs:
+      - names:
+          - q-s4.metric-store.*.<%= spec.deployment %>.bosh
+        type: A
+        port: <%= metric_store_nozzle.p('health_port') %>
     <% end %>
     <% if_link("metric-store-cf-auth-proxy") do |metric_store_cf_auth_proxy| %>
   - job_name: metric-store-cf-auth-proxy
@@ -56,14 +50,11 @@ scrape_configs:
       cert_file: "<%= "#{cert_dir}/metric_store_metrics_client.crt" %>"
       key_file: "<%= "#{cert_dir}/metric_store_metrics_client.key" %>"
       server_name: metric-store
-    static_configs:
-      - targets:
-          - 127.0.0.1:<%= metric_store_cf_auth_proxy.p('health_port') %>
-        labels:
-          id: <%= spec.id %>
-          ip: <%= spec.ip %>
-          deployment: <%= spec.deployment %>
-          nodeIndex: <%= index %>
+    dns_sd_configs:
+      - names:
+          - q-s4.metric-store.*.<%= spec.deployment %>.bosh
+        type: A
+        port: <%= metric_store_cf_auth_proxy.p('health_port') %>
     <% end %>
     <%
 if_link("metric-store-blackbox") do |metric_store_blackbox|
