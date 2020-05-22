@@ -25,7 +25,12 @@ scrape_configs:
           - q-s4.metric-store.*.<%= spec.deployment %>.bosh
         type: A
         port: <%= p('metrics_port') %>
-
+    relabel_configs:
+      - source_labels:
+          - "__meta_dns_name"
+        target_label: meta_dns_name
+        regex: "(.*)"
+        replacement: "$1"
     <%
   if_link("metric-store-nozzle") do |metric_store_nozzle|
 %>
