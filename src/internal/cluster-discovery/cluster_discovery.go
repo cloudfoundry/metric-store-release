@@ -67,7 +67,7 @@ func New(
 		log:                   logger.NewNop(),
 		metrics:               &debug.NullRegistrar{},
 		done:                  make(chan bool, 1),
-		refreshInterval:       time.Minute, //TODO expose this in the bosh release
+		refreshInterval:       time.Minute,
 		metricStoreAPIAddress: metricStoreAPIAddress,
 		metricStoreClient:     metricStoreClient,
 	}

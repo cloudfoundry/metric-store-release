@@ -116,6 +116,7 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 		metricStoreAPIClient,
 		cluster_discovery.WithLogger(app.log),
 		cluster_discovery.WithMetrics(app.metrics),
+		cluster_discovery.WithRefreshInterval(app.cfg.RefreshInterval),
 	)
 
 	clusterDiscovery.Start()

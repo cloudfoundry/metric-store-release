@@ -2,26 +2,29 @@ package app
 
 import (
 	"log"
+	"time"
 
 	"code.cloudfoundry.org/go-envstruct"
 )
 
 // Config is the configuration for a ClusterDiscovery.
 type Config struct {
-	MetricsAddr    string `env:"METRICS_ADDR, report"`
-	StoragePath    string `env:"STORAGE_DIR, required, report"`
-	LogLevel       string `env:"LOG_LEVEL, report"`
-	MetricsTLS     ClusterDiscoveryMetricsTLS
-	MetricStoreAPI MetricStoreAPI
-	PKS            PKSConfig
-	UAA            UAAConfig
+	MetricsAddr     string `env:"METRICS_ADDR, report"`
+	StoragePath     string `env:"STORAGE_DIR, required, report"`
+	LogLevel        string `env:"LOG_LEVEL, report"`
+	MetricsTLS      ClusterDiscoveryMetricsTLS
+	MetricStoreAPI  MetricStoreAPI
+	PKS             PKSConfig
+	UAA             UAAConfig
+	RefreshInterval time.Duration `env:"REFRESH_INTERVAL, report"`
 }
 
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
 	cfg := &Config{
-		LogLevel:    "info",
-		MetricsAddr: ":6060",
+		LogLevel:        "info",
+		MetricsAddr:     ":6060",
+		RefreshInterval: 1 * time.Minute,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

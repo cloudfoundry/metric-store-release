@@ -26,6 +26,9 @@ properties:
   storage_dir:
     description: "Where to store Prometheus ScrapeConfigs"
     default: "/var/vcap/store/metric-store"
+  refresh_interval:
+    description: "The amount of time between cluster discovery run starts"
+    default: "10m"
 
   cluster_discovery.metrics_port:
     description: "The port to bind a prometheus metrics endpoint"

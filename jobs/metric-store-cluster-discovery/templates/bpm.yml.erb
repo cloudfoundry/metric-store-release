@@ -18,6 +18,7 @@ processes:
       PKS_UAA_CLIENT: "<%= p('cluster_discovery.uaa.client_id') %>"
       PKS_UAA_CLIENT_SECRET: "<%= p('cluster_discovery.uaa.client_secret') %>"
       PKS_SKIP_SSL_VALIDATION: "<%= p('cluster_discovery.pks.skip_ssl_validation') %>"
+      REFRESH_INTERVAL: "<%= p('refresh_interval') %>"
 
       # Metrics Server Mutual TLS
       METRICS_CA_PATH: "<%= "#{cert_dir}/metrics_ca.crt" %>"

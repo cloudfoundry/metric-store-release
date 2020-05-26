@@ -55,10 +55,14 @@ var _ = Describe("ClusterDiscovery", func() {
 		tc.storagePath = tmpDir
 		tc.scrapeConfigPath = filepath.Join(tmpDir, "scrape_config.yml")
 
+		err = ioutil.WriteFile(tc.scrapeConfigPath, []byte("---\n"), 0644)
+		Expect(err).ToNot(HaveOccurred())
+
 		cfg := &app.Config{
-			MetricsAddr: tc.metricsAddr,
-			StoragePath: tmpDir,
-			LogLevel:    "DEBUG",
+			MetricsAddr:     tc.metricsAddr,
+			StoragePath:     tmpDir,
+			LogLevel:        "DEBUG",
+			RefreshInterval: time.Minute,
 			MetricsTLS: app.ClusterDiscoveryMetricsTLS{
 				CAPath:   tc.caCert,
 				CertPath: tc.cert,

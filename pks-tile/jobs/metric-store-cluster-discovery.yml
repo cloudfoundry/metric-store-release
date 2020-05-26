@@ -3,6 +3,7 @@ name: metric-store-cluster-discovery
 release: metric-store
 manifest: |
   storage_dir: "/var/vcap/store/metric-store/scrape_configs"
+  refresh_interval: "1m"
   cluster_discovery:
     (( .properties.pks_cluster_discovery.selected_option.parsed_manifest(pks_cluster_discovery) ))
   metrics:
