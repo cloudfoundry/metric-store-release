@@ -103,7 +103,7 @@ func (lookup *ClusterLookup) GetClusters(authHeader string) ([]Cluster, error) {
 			ServerName: hostname,
 			Addr:       u.Host,
 			MasterIps:  cluster.MasterIps,
-			APIClient:  cd_kubernetes.NewCSRClient(apiClient),
+			APIClient:  cd_kubernetes.NewCSRClient(apiClient, cd_kubernetes.WithLogger(lookup.log)),
 		})
 	}
 	return clusters, nil

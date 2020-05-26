@@ -32,6 +32,7 @@ func (spy *K8sSpy) Start() error {
 	mux.HandleFunc("/apis/certificates.k8s.io/v1beta1/certificatesigningrequests/metricstore/approval", spy.approveCsr)
 	mux.PathPrefix("/apis/certificates.k8s.io/v1beta1/certificatesigningrequests/metricstore").Methods("GET").HandlerFunc(spy.getCsr)
 	mux.PathPrefix("/apis/certificates.k8s.io/v1beta1/certificatesigningrequests/metricstore").Methods("DELETE").HandlerFunc(spy.deleteCsr)
+	mux.PathPrefix("/metrics").Methods("GET").HandlerFunc(spy.metrics)
 	mux.PathPrefix("/").HandlerFunc(spy.everything)
 	spy.server = &http.Server{
 		Handler: mux,
@@ -48,6 +49,13 @@ func (spy *K8sSpy) everything(_ http.ResponseWriter, r *http.Request) {
 func (spy *K8sSpy) csrs(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+	w.Write(csrRequestBody(false))
+
+}
+
+func (spy *K8sSpy) metrics(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(200)
 	w.Write(csrRequestBody(false))
 
 }

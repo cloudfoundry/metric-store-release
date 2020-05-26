@@ -1,13 +1,19 @@
 package testing
 
-import "errors"
+import (
+	"bytes"
+	"errors"
+	. "github.com/onsi/gomega"
+	prometheusConfig "github.com/prometheus/prometheus/config"
+	"gopkg.in/yaml.v2"
+)
 
 type ScrapeStoreSpy struct {
 	Certs               map[string][]byte
 	CaCerts             map[string][]byte
 	PrivateKeys         map[string][]byte
 	ScrapeConfig        []byte
-	LoadedScrapeConfig  []byte
+	LoadedScrapeConfig  []*prometheusConfig.ScrapeConfig
 	NextSaveCertIsError bool
 	NextSaveCAIsError   bool
 	NextSaveKeyIsError  bool
@@ -62,6 +68,15 @@ func (spy *ScrapeStoreSpy) SaveScrapeConfig(config []byte) error {
 	spy.ScrapeConfig = config
 	return nil
 }
-func (spy *ScrapeStoreSpy) LoadScrapeConfig() ([]byte, error) {
+func (spy *ScrapeStoreSpy) LoadScrapeConfig() ([]*prometheusConfig.ScrapeConfig, error) {
 	return spy.LoadedScrapeConfig, nil
+}
+
+func (spy *ScrapeStoreSpy) SetLoadedScrapeConfig(configBytes []byte) {
+	var config []*prometheusConfig.ScrapeConfig
+	err := yaml.NewDecoder(bytes.NewReader(configBytes)).Decode(&config)
+	if err != nil {
+		Expect(err).ToNot(HaveOccurred())
+	}
+	spy.LoadedScrapeConfig = config
 }

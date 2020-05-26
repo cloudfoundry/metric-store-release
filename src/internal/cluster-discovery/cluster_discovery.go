@@ -7,7 +7,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	prometheusConfig "github.com/prometheus/prometheus/config"
-	"gopkg.in/yaml.v2"
 	"net/http"
 	"net/url"
 	"text/template"
@@ -44,7 +43,7 @@ type scrapeStore interface {
 	CertPath(clusterName string) string
 	PrivateKeyPath(clusterName string) string
 
-	LoadScrapeConfig() ([]byte, error)
+	LoadScrapeConfig() ([]*prometheusConfig.ScrapeConfig, error)
 }
 
 type topologyProvider interface {
@@ -98,8 +97,6 @@ func WithMetrics(metrics debug.MetricRegistrar) WithOption {
 	}
 }
 
-//TODO CHECK IF EXISTING SCRAPE CONFIG WORKS BEFORE GENERATING NEW ONE FOR A CLUSTER
-
 // Start runs the discovery server and periodically writes an updated prometheus
 // config file for each of the available PKS clusters.
 func (discovery *ClusterDiscovery) Start() {
@@ -116,9 +113,9 @@ func (discovery *ClusterDiscovery) Run() {
 			t.Stop()
 			return
 		case <-t.C:
-			//TODO log number of new scrape configs created
-			//maybe number of current configs as well
+			discovery.log.Info("Running Cluster Discovery")
 			discovery.UpdateScrapeConfig()
+			discovery.log.Info("Cluster Discovery Run Complete")
 		}
 	}
 }
@@ -136,22 +133,54 @@ func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 		return
 	}
 
+	scrapeConfigs, err := discovery.store.LoadScrapeConfig()
+	if err != nil {
+		discovery.log.Error("loading existing scrape configs", err)
+		return
+	}
+
 	combinedConfig := bytes.NewBufferString("scrape_configs:\n")
+	newClusters := 0
+	existingClusters := 0
 	for _, cluster := range clusters {
-		scrapeConfigs, _ := discovery.getScrapeConfigsForCluster(&cluster)
+		discovery.log.Debug("Found PKS cluster: " + cluster.Name)
+		currentConfig := discovery.loadConfigForCluster(scrapeConfigs, cluster.Name)
+		scrapeConfigs := ""
+		if !discovery.hasValidConfig(&cluster, currentConfig) {
+			discovery.log.Debug("Generating new scrape config for: " + cluster.Name)
+			scrapeConfigs, err = discovery.getScrapeConfigsForCluster(&cluster)
+			if err != nil {
+				discovery.log.Error("Could not generate scrape config for cluster: %s"+cluster.Name, err)
+				continue
+			}
+			newClusters++
+		} else {
+			discovery.log.Debug("Cluster: " + cluster.Name + " has existing working config.  Skipping.")
+			scrapeConfigs, err = discovery.populateScrapeTemplate(&cluster)
+			existingClusters++
+		}
 		combinedConfig.WriteString(scrapeConfigs)
 	}
 
+	discovery.log.Info(fmt.Sprintf("Generating scrape jobs for %d new clusters and %d existing clusters", newClusters, existingClusters))
 	err = discovery.store.SaveScrapeConfig(combinedConfig.Bytes())
 	if err != nil {
 		discovery.log.Error("writing updated scrape config", err)
 	}
 
-	//TODO only reload metric-store config if we have new scrape configs added
+	discovery.log.Debug("Reloading Metric Store Configuration")
 	err = discovery.reloadMetricStoreConfiguration()
 	if err != nil {
 		discovery.log.Error("reloading metric store configuration", err)
 	}
+}
+
+func (discovery *ClusterDiscovery) hasValidConfig(cluster *pks.Cluster, config *prometheusConfig.ScrapeConfig) bool {
+	if config == nil {
+		return false
+	}
+	url := "https://" + string(config.ServiceDiscoveryConfig.StaticConfigs[0].Targets[0]["__address__"]) + config.MetricsPath
+	return cluster.APIClient.TestConnectivity(url, config.HTTPClientConfig.TLSConfig.CAFile, config.HTTPClientConfig.TLSConfig.CertFile, config.HTTPClientConfig.TLSConfig.KeyFile, config.HTTPClientConfig.TLSConfig.ServerName)
 }
 
 // Stop shuts down the ClusterDiscovery server, leaving the scrape config file in place.
@@ -169,11 +198,6 @@ func (discovery *ClusterDiscovery) getScrapeConfigsForCluster(cluster *pks.Clust
 }
 
 func (discovery *ClusterDiscovery) saveCerts(cluster *pks.Cluster) error {
-	// TODO talk to Bob
-	//existing := discovery.loadConfigForCluster(cluster.Name)
-	//if existing != nil {
-	//	return existing
-	//}
 	err := discovery.store.SaveCA(cluster.Name, cluster.CaData)
 	if err != nil {
 		return err
@@ -199,13 +223,14 @@ func (discovery *ClusterDiscovery) saveCerts(cluster *pks.Cluster) error {
 
 func (discovery *ClusterDiscovery) populateScrapeTemplate(cluster *pks.Cluster) (string, error) {
 	var vars = ScrapeTemplate{
-		ClusterName: cluster.Name,
-		CAPath:      discovery.store.CAPath(cluster.Name),
-		CertPath:    discovery.store.CertPath(cluster.Name),
-		KeyPath:     discovery.store.PrivateKeyPath(cluster.Name),
-		K8sApiAddr:  cluster.Addr,
-		ServerName:  cluster.ServerName,
-		MasterIps:   cluster.MasterIps,
+		ApiServerJobName: apiServerJobNameForCluster(cluster.Name),
+		ClusterName:      cluster.Name,
+		CAPath:           discovery.store.CAPath(cluster.Name),
+		CertPath:         discovery.store.CertPath(cluster.Name),
+		KeyPath:          discovery.store.PrivateKeyPath(cluster.Name),
+		K8sApiAddr:       cluster.Addr,
+		ServerName:       cluster.ServerName,
+		MasterIps:        cluster.MasterIps,
 
 		SkipSsl: true,
 	}
@@ -226,19 +251,18 @@ func (discovery *ClusterDiscovery) populateScrapeTemplate(cluster *pks.Cluster) 
 	return buffer.String(), nil
 }
 
-func (discovery *ClusterDiscovery) loadConfigForCluster(_ string) []*prometheusConfig.ScrapeConfig {
-	//do i have an existing scrap config?
-	//can i connect to the k8s api using the tls config and get a 200 OK
-	// maybe, check that cluster.Addr and config.apiServer are the same
-	//if i get a 200 OK then add the existing scrape configs to config.ScrapeConfigs
-	raw, err := discovery.store.LoadScrapeConfig()
-	if err != nil {
-		return nil
+func (discovery *ClusterDiscovery) loadConfigForCluster(scrapeConfigs []*prometheusConfig.ScrapeConfig, clusterName string) *prometheusConfig.ScrapeConfig {
+	for _, scrapeConfig := range scrapeConfigs {
+		if scrapeConfig.JobName == apiServerJobNameForCluster(clusterName) {
+			return scrapeConfig
+		}
 	}
 
-	var cfg prometheusConfig.Config
-	err = yaml.NewDecoder(bytes.NewReader(raw)).Decode(&cfg)
 	return nil
+}
+
+func apiServerJobNameForCluster(clusterName string) string {
+	return fmt.Sprintf("%s-kubernetes-apiservers", clusterName)
 }
 
 func (discovery *ClusterDiscovery) reloadMetricStoreConfiguration() error {
@@ -259,14 +283,15 @@ func (discovery *ClusterDiscovery) reloadMetricStoreConfiguration() error {
 }
 
 type ScrapeTemplate struct {
-	ClusterName string
-	CAPath      string
-	CertPath    string
-	KeyPath     string
-	SkipSsl     bool
-	K8sApiAddr  string
-	ServerName  string
-	MasterIps   []string
+	ApiServerJobName string
+	ClusterName      string
+	CAPath           string
+	CertPath         string
+	KeyPath          string
+	SkipSsl          bool
+	K8sApiAddr       string
+	ServerName       string
+	MasterIps        []string
 }
 
 var scrapeTemplate = `
@@ -306,7 +331,7 @@ var scrapeTemplate = `
   - targets:
 {{range $node := .MasterIps}}    - "{{$node}}:10251"
 {{end}}
-- job_name: "{{.ClusterName}}-kubernetes-apiservers"
+- job_name: "{{.ApiServerJobName}}"
   metrics_path: "/metrics"
   scheme: "https"
   tls_config:

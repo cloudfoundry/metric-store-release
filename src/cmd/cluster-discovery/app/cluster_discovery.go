@@ -96,6 +96,7 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 		Transport: &http.Transport{TLSClientConfig: tlsConfig},
 		Timeout:   10 * time.Second,
 	}
+
 	clusterDiscovery := cluster_discovery.New(
 		scrapeConfigStore,
 		pks.NewClusterLookup(

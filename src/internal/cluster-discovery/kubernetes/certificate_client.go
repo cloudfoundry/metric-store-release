@@ -6,12 +6,16 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/google/uuid"
 	certificates "k8s.io/api/certificates/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	typedCertificates "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate/csr"
+	"net/http"
+	"time"
 )
 
 type CertificateSigningRequestClient interface {
@@ -20,19 +24,35 @@ type CertificateSigningRequestClient interface {
 	Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error)
 	Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error)
 	Delete() error
+	TestConnectivity(url string, caCertPath, certPath, keyPath, serverName string) bool
 }
 
 type csrClient struct {
 	api                   typedCertificates.CertificateSigningRequestInterface
 	metricStoreCommonName string
 	name                  string
+	log                   *logger.Logger
 }
 
-func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface) *csrClient {
-	return &csrClient{
+func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface, options ...WithOption, ) *csrClient {
+	csrClient := &csrClient{
 		api:                   client,
 		metricStoreCommonName: "metricstore",
 		name:                  uniqueCSRName(),
+		log:                   logger.NewNop(),
+	}
+
+	for _, option := range options {
+		option(csrClient)
+	}
+	return csrClient
+}
+
+type WithOption func(client *csrClient)
+
+func WithLogger(log *logger.Logger) WithOption {
+	return func(client *csrClient) {
+		client.log = log
 	}
 }
 
@@ -77,4 +97,25 @@ func (client *csrClient) Generate() ([]byte, *rsa.PrivateKey, error) {
 		return nil, nil, fmt.Errorf("unable to create a csr from the private key: %v", err)
 	}
 	return csrPEM, privateKey, nil
+}
+
+func (client *csrClient) TestConnectivity(url string, caCertPath, certPath, keyPath, serverName string) bool {
+	tlsConfig, err := sharedtls.NewMutualTLSClientConfig(caCertPath, certPath, keyPath, serverName)
+	if err != nil {
+		client.log.Error("creating tls config while testing existing scrape config for "+url, err)
+		return false
+	}
+
+	httpClient := &http.Client{
+		Timeout:   5 * time.Second, //TODO make this configurable?
+		Transport: &http.Transport{TLSClientConfig: tlsConfig},
+	}
+
+	resp, err := httpClient.Get(url)
+
+	if err != nil {
+		client.log.Error("making request while testing existing scrape config for "+url, err)
+		return false
+	}
+	return resp.StatusCode == http.StatusOK
 }

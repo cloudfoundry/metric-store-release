@@ -71,12 +71,14 @@ var _ = Describe("Cluster Discovery", func() {
 				APIClient:  &mockCSRClient,
 			},
 		}
+
 		tc := &testContext{
 			certificateClient:    &mockCSRClient,
 			metricStoreAPIClient: metricStoreAPIClient,
 			metricStoreAPI:       testing.NewSpyMetricStore(tlsConfig),
 			clusters:             clusters,
 		}
+
 		return tc
 	}
 
@@ -121,6 +123,40 @@ var _ = Describe("Cluster Discovery", func() {
 
 			Expect(tc.certificateClient.GeneratedCSRs.Load()).To(BeNumerically(">", 0))
 			Expect(tc.certificateClient.DeletedCSRs.Load()).To(BeNumerically(">", 0))
+		})
+
+		It("does not regenerate a scrape config that already works", func() {
+			tc := setup()
+			tc.certificateClient.ValidExistingScrapeJobs = true
+			tc.certificateStore.SetLoadedScrapeConfig([]byte(`
+- job_name: "cluster1-kubernetes-apiservers"
+  metrics_path: "/metrics"
+  scheme: "https"
+  tls_config:
+    ca_file: "/some-ca-path"
+    cert_file: "/some-cert-path"
+    key_file: "/some-key-path"
+    insecure_skip_verify: true
+    server_name: "some-server-name"
+  relabel_configs:
+  - target_label: "cluster"
+    replacement: "cluster1"
+  static_configs:
+  - targets:
+    - some-api-address-and-port
+`))
+
+			runScrape(tc)
+
+			Expect(tc.certificateClient.TestConnectivityCalls).To(HaveLen(1))
+			Expect(tc.certificateClient.TestConnectivityCalls[0]).To(BeEquivalentTo(testing.TestConnectivityArgs{
+				Url:        "https://some-api-address-and-port/metrics",
+				CaCertPath: "/some-ca-path",
+				CertPath:   "/some-cert-path",
+				KeyPath:    "/some-key-path",
+				ServerName: "some-server-name",
+			}))
+			Expect(tc.certificateClient.GeneratedCSRs.Load()).To(BeNumerically("==", 0))
 		})
 
 		It("stops", func() {

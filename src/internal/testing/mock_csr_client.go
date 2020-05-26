@@ -9,11 +9,13 @@ import (
 	"go.uber.org/atomic"
 	"k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sync"
 
 	. "github.com/onsi/gomega"
 )
 
 type MockCSRClient struct {
+	sync.Mutex
 	GeneratedCSRs atomic.Int32
 	DeletedCSRs   atomic.Int32
 	Key           *rsa.PrivateKey
@@ -22,6 +24,16 @@ type MockCSRClient struct {
 	NextUpdateApprovalIsError bool
 	NextGetApprovalIsError    bool
 	NextDeleteIsError         bool
+	ValidExistingScrapeJobs   bool
+	TestConnectivityCalls []TestConnectivityArgs
+}
+
+type TestConnectivityArgs struct {
+	Url string
+	CaCertPath string
+	CertPath string
+	KeyPath string
+	ServerName string
 }
 
 func NewMockCSRClient() *MockCSRClient {
@@ -71,6 +83,19 @@ func (mock *MockCSRClient) Delete() error {
 	}
 	mock.DeletedCSRs.Inc()
 	return nil
+}
+
+func (mock *MockCSRClient) TestConnectivity(url string, caCertPath, certPath, keyPath, serverName string ) bool {
+	mock.Lock()
+	mock.TestConnectivityCalls = append(mock.TestConnectivityCalls, TestConnectivityArgs{
+		Url:               url,
+		CaCertPath: caCertPath,
+		CertPath:          certPath,
+		KeyPath:           keyPath,
+		ServerName:        serverName,
+	})
+	mock.Unlock()
+	return mock.ValidExistingScrapeJobs
 }
 
 func (mock *MockCSRClient) PrivateKey() []byte {

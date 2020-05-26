@@ -1,10 +1,13 @@
 package store
 
 import (
+	"bytes"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"k8s.io/client-go/util/keyutil"
+	prometheusConfig "github.com/prometheus/prometheus/config"
 	"os"
 	"path/filepath"
 )
@@ -60,8 +63,18 @@ func (store *ScrapeStore) SaveScrapeConfig(bytes []byte) error {
 	return ioutil.WriteFile(targetLocation, bytes, os.ModePerm)
 }
 
-func (store *ScrapeStore) LoadScrapeConfig() ([]byte, error) {
-	return ioutil.ReadFile(filepath.Join(store.rootDir, "scrape_config.yml"))
+func (store *ScrapeStore) LoadScrapeConfig() ([]*prometheusConfig.ScrapeConfig, error) {
+	file, err := ioutil.ReadFile(filepath.Join(store.rootDir, "scrape_config.yml"))
+	if err != nil {
+		return nil, err
+	}
+
+	var config prometheusConfig.Config
+	err = yaml.NewDecoder(bytes.NewReader(file)).Decode(&config)
+	if err != nil {
+		return nil, err
+	}
+	return config.ScrapeConfigs, nil
 }
 
 // TODO rename or expand?
