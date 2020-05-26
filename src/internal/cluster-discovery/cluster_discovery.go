@@ -150,7 +150,7 @@ func (discovery *ClusterDiscovery) UpdateScrapeConfig() {
 			discovery.log.Debug("Generating new scrape config for: " + cluster.Name)
 			scrapeConfigs, err = discovery.getScrapeConfigsForCluster(&cluster)
 			if err != nil {
-				discovery.log.Error("Could not generate scrape config for cluster: %s"+cluster.Name, err)
+				discovery.log.Error("Could not generate scrape config for cluster: "+cluster.Name, err)
 				continue
 			}
 			newClusters++
