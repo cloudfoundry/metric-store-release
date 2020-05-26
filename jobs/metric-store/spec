@@ -4,27 +4,27 @@ name: metric-store
 templates:
   bpm.yml.erb: config/bpm.yml
   indicators.yml.erb: config/indicators.yml
-  metric_store.crt.erb: config/certs/metric_store.crt
-  metric_store.key.erb: config/certs/metric_store.key
-  metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
-  metric_store_internode.crt.erb: config/certs/metric_store_internode.crt
-  metric_store_internode.key.erb: config/certs/metric_store_internode.key
-  metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
-  metric_store_metrics_client.crt.erb: config/certs/metric_store_metrics_client.crt
-  metric_store_metrics_client.key.erb: config/certs/metric_store_metrics_client.key
-  metric_store_metrics_client_ca.crt.erb: config/certs/metric_store_metrics_client_ca.crt
-  metric_store_metrics_server.crt.erb: config/certs/metric_store_metrics_server.crt
-  metric_store_metrics_server.key.erb: config/certs/metric_store_metrics_server.key
-  metric_store_metrics_server_ca.crt.erb: config/certs/metric_store_metrics_server_ca.crt
-  metric_store_server.crt.erb: config/certs/metric_store_server.crt
-  metric_store_server.key.erb: config/certs/metric_store_server.key
-  metric_store_server_ca.crt.erb: config/certs/metric_store_server_ca.crt
+  certs/metric_store.crt.erb: config/certs/metric_store.crt
+  certs/metric_store.key.erb: config/certs/metric_store.key
+  certs/metric_store_ca.crt.erb: config/certs/metric_store_ca.crt
+  certs/metric_store_internode.crt.erb: config/certs/metric_store_internode.crt
+  certs/metric_store_internode.key.erb: config/certs/metric_store_internode.key
+  certs/metric_store_internode_ca.crt.erb: config/certs/metric_store_internode_ca.crt
+  certs/metric_store_metrics_client.crt.erb: config/certs/metric_store_metrics_client.crt
+  certs/metric_store_metrics_client.key.erb: config/certs/metric_store_metrics_client.key
+  certs/metric_store_metrics_client_ca.crt.erb: config/certs/metric_store_metrics_client_ca.crt
+  certs/metric_store_metrics_server.crt.erb: config/certs/metric_store_metrics_server.crt
+  certs/metric_store_metrics_server.key.erb: config/certs/metric_store_metrics_server.key
+  certs/metric_store_metrics_server_ca.crt.erb: config/certs/metric_store_metrics_server_ca.crt
+  certs/metric_store_server.crt.erb: config/certs/metric_store_server.crt
+  certs/metric_store_server.key.erb: config/certs/metric_store_server.key
+  certs/metric_store_server_ca.crt.erb: config/certs/metric_store_server_ca.crt
   rules.yml: config/rules.yml
   scrape_config.yml.erb: config/scrape_config.yml
   pre-start.sh: bin/pre-start.sh
-  healthwatch_exporter_ca.crt.erb: config/certs/healthwatch_exporter_ca.crt
-  healthwatch_exporter.crt.erb: config/certs/healthwatch_exporter.crt
-  healthwatch_exporter.key.erb: config/certs/healthwatch_exporter.key
+  certs/healthwatch_exporter_ca.crt.erb: config/certs/healthwatch_exporter_ca.crt
+  certs/healthwatch_exporter.crt.erb: config/certs/healthwatch_exporter.crt
+  certs/healthwatch_exporter.key.erb: config/certs/healthwatch_exporter.key
 
 packages:
 - metric-store
