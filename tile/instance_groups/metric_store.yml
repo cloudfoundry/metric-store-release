@@ -57,3 +57,11 @@ instance_definition:
   constraints:
     min: 1
     max: 9
+
+property_blueprints:
+  - name: healthwatch_pas_exporter
+    type: rsa_cert_credentials
+    configurable: false
+    default:
+      domains:
+        - metric-store-client
