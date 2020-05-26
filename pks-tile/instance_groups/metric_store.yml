@@ -69,3 +69,10 @@ property_blueprints:
     default:
       domains:
         - prometheus
+
+  - name: healthwatch_exporter
+    type: rsa_cert_credentials
+    configurable: false
+    default:
+      domains:
+        - metric-store-client

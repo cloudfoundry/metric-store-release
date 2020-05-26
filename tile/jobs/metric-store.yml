@@ -33,8 +33,8 @@ manifest: |
       cert: (((metric_store_metrics_client.certificate)))
       key: (((metric_store_metrics_client.private_key)))
   healthwatch:
-    pas_exporter:
+    exporter:
       tls:
         ca_cert: (($ops_manager.ca_certificate))
-        cert: (( .metric-store.healthwatch_pas_exporter.certificate))
-        key: (( .metric-store.healthwatch_pas_exporter.private_key))
+        cert: (( .metric-store.healthwatch_exporter.certificate))
+        key: (( .metric-store.healthwatch_exporter.private_key))

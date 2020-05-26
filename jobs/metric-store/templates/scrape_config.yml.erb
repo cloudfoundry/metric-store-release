@@ -101,9 +101,9 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
     scheme: https
     tls_config:
       server_name: pasexporter
-      ca_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_pas_exporter_ca.pem"
-      cert_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_pas_exporter_certificate.pem"
-      key_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_pas_exporter_certificate.key"
+      ca_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_ca.pem"
+      cert_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_certificate.pem"
+      key_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_certificate.key"
     relabel_configs:
       - source_labels:
           - "__meta_dns_name"
@@ -115,5 +115,25 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
           - q-s4.pas-sli-exporter.*.*.bosh.
           - q-s4.bosh-health-exporter.*.*.bosh.
           - q-s4.bosh-deployments-exporter.*.*.bosh.
+        type: A
+        port: 9090
+  - job_name: healthwatch-pks-exporter
+    metrics_path: "/metrics"
+    scheme: https
+    tls_config:
+      server_name: pasexporter
+      ca_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_ca.pem"
+      cert_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_certificate.pem"
+      key_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_certificate.key"
+    relabel_configs:
+      - source_labels:
+          - "__meta_dns_name"
+        target_label: scrape_instance_group
+        regex: "[^.]*[.]([^.]*).*"
+        replacement: "$1"
+    dns_sd_configs:
+      - names:
+          - q-s4.pks-exporter.*.*.bosh.
+          - q-s4.pks-sli-exporter.*.*.bosh.
         type: A
         port: 9090

@@ -59,7 +59,7 @@ instance_definition:
     max: 9
 
 property_blueprints:
-  - name: healthwatch_pas_exporter
+  - name: healthwatch_exporter
     type: rsa_cert_credentials
     configurable: false
     default:
