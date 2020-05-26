@@ -14,16 +14,20 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
-
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+
 	"github.com/influxdata/influxql"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
@@ -31,12 +35,6 @@ import (
 	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
-
-	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
-	. "github.com/onsi/gomega"
 )
 
 const (
@@ -55,12 +53,10 @@ type testContext struct {
 	rulesClient     *rulesclient.RulesClient
 	rulesApiClient  *http.Client
 
-	spyMetrics                *shared.SpyMetricRegistrar
-	spyPersistentStoreMetrics *shared.SpyMetricRegistrar
+	spyMetrics                *testing.SpyMetricRegistrar
+	spyPersistentStoreMetrics *testing.SpyMetricRegistrar
 	registry                  *prometheus.Registry
 
-	alertManager1         *testing.AlertManagerSpy
-	alertManager2         *testing.AlertManagerSpy
 	minTimeInMilliseconds int64
 	maxTimeInMilliseconds int64
 }
@@ -109,30 +105,30 @@ var _ = Describe("MetricStore", func() {
 
 		var err error
 		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
-			shared.Cert("metric-store-ca.crt"),
-			shared.Cert("metric-store.crt"),
-			shared.Cert("metric-store.key"),
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 		)
 		Expect(err).ToNot(HaveOccurred())
 
 		tc.tlsConfig, err = sharedtls.NewMutualTLSClientConfig(
-			shared.Cert("metric-store-ca.crt"),
-			shared.Cert("metric-store.crt"),
-			shared.Cert("metric-store.key"),
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
 			metricstore.COMMON_NAME,
 		)
 		Expect(err).ToNot(HaveOccurred())
 
 		tc.egressTLSConfig = &config_util.TLSConfig{
-			CAFile:     shared.Cert("metric-store-ca.crt"),
-			CertFile:   shared.Cert("metric-store.crt"),
-			KeyFile:    shared.Cert("metric-store.key"),
+			CAFile:     testing.Cert("metric-store-ca.crt"),
+			CertFile:   testing.Cert("metric-store.crt"),
+			KeyFile:    testing.Cert("metric-store.key"),
 			ServerName: metricstore.COMMON_NAME,
 		}
 
 		tc.peer = testing.NewSpyMetricStore(tlsServerConfig)
 		peerAddrs := tc.peer.Start()
-		tc.spyMetrics = shared.NewSpyMetricRegistrar()
+		tc.spyMetrics = testing.NewSpyMetricRegistrar()
 		tc.persistentStore = persistentStore
 
 		tc.store = metricstore.New(
@@ -177,7 +173,7 @@ var _ = Describe("MetricStore", func() {
 			panic(err)
 		}
 
-		spyPersistentStoreMetrics := shared.NewSpyMetricRegistrar()
+		spyPersistentStoreMetrics := testing.NewSpyMetricRegistrar()
 		persistentStore := persistence.NewStore(
 			storagePath,
 			spyPersistentStoreMetrics,
@@ -186,10 +182,6 @@ var _ = Describe("MetricStore", func() {
 		tc, innerCleanup := setupWithPersistentStore(persistentStore, storagePath)
 		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
 
-		tc.alertManager1 = testing.NewAlertManagerSpy(tc.tlsConfig)
-		tc.alertManager2 = testing.NewAlertManagerSpy(tc.tlsConfig)
-		tc.alertManager1.Start()
-		tc.alertManager2.Start()
 		tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsConfig)
 
 		tc.rulesApiClient = &http.Client{
@@ -202,21 +194,13 @@ var _ = Describe("MetricStore", func() {
 		return tc, func() {
 			innerCleanup()
 			os.RemoveAll(storagePath)
-			tc.alertManager1.Stop()
-			tc.alertManager2.Stop()
 		}
 	}
 
-	var tc *testContext
-	var cleanup func()
-
-	BeforeEach(func() {
-		tc, cleanup = setup()
-	})
-
-	AfterEach(func() { cleanup() })
-
 	It("queries data via PromQL Instant Queries", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{
@@ -250,6 +234,9 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("queries data via PromQL Range Queries", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{
@@ -291,6 +278,9 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("provides a default resolution for sub-queries", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{
@@ -334,6 +324,9 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("routes points to internode peers", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
 		now := time.Now()
 		writePoints(tc, []*rpc.Point{
 			{Timestamp: now.UnixNano(), Name: MAGIC_MEASUREMENT_NAME},
@@ -348,6 +341,9 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("replays writes to internode connections when they come back online", func() {
+		tc, cleanup := setup()
+		defer cleanup()
+
 		if runtime.GOOS == "darwin" {
 			Skip("doesn't work on Mac OS")
 		}
@@ -370,6 +366,9 @@ var _ = Describe("MetricStore", func() {
 	Describe("Rules API", func() {
 		Describe("/rules/manager endpoint", func() {
 			It("Creates a rules manager with the provided ID", func() {
+				tc, cleanup := setup()
+				defer cleanup()
+
 				managerConfig, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, nil)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -393,11 +392,11 @@ var _ = Describe("MetricStore", func() {
 			}`)
 
 			Context("when a rule manager exists", func() {
-				BeforeEach(func() {
-					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
-				})
-
 				It("Creates a rule group", func() {
+					tc, cleanup := setup()
+					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
+					defer cleanup()
+
 					group, err := tc.CreateRuleGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "sum(http_total) by (source_id)")
 					Expect(err).ToNot(HaveOccurred())
 
@@ -413,6 +412,10 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Correctly serializes the duration from the `for` field", func() {
+					tc, cleanup := setup()
+					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
+					defer cleanup()
+
 					payload := []byte(`
 					{
 						"data": {
@@ -437,6 +440,10 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Returns an error if the rules array is not provided", func() {
+					tc, cleanup := setup()
+					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
+					defer cleanup()
+
 					_, err := tc.rulesClient.UpsertRuleGroup(MAGIC_MEASUREMENT_NAME, rulesclient.RuleGroup{
 						Name:     "tragic",
 						Interval: rulesclient.Duration(time.Minute),
@@ -446,6 +453,10 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Returns an error if the resulting config is not valid", func() {
+					tc, cleanup := setup()
+					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
+					defer cleanup()
+
 					_, err := tc.CreateRuleGroup(MAGIC_MEASUREMENT_NAME, "job:http_total:sum", "invalid promql {")
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("parse"))
@@ -453,6 +464,10 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			It("Returns an error if the manager_id does not exist", func() {
+				tc, cleanup := setup()
+				tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
+				defer cleanup()
+
 				resp, err := tc.rulesApiClient.Post(
 					"https://"+tc.store.Addr()+"/rules/manager/rules-manager-that-isnt/group",
 					"application/json",
@@ -466,6 +481,8 @@ var _ = Describe("MetricStore", func() {
 
 	Describe("TLS security", func() {
 		DescribeTable("allows only supported TLS versions", func(clientTLSVersion int, serverAllows bool) {
+			tc, cleanup := setup()
+			defer cleanup()
 
 			clientTlsConfig := tc.tlsConfig.Clone()
 			clientTlsConfig.MaxVersion = uint16(clientTLSVersion)
@@ -488,6 +505,9 @@ var _ = Describe("MetricStore", func() {
 		)
 
 		DescribeTable("allows only supported cipher suites", func(clientCipherSuite uint16, serverAllows bool) {
+			tc, cleanup := setup()
+			defer cleanup()
+
 			clientTlsConfig := tc.tlsConfig.Clone()
 			clientTlsConfig.MaxVersion = tls.VersionTLS12
 			clientTlsConfig.CipherSuites = []uint16{clientCipherSuite}
@@ -501,7 +521,6 @@ var _ = Describe("MetricStore", func() {
 				Expect(err).To(HaveOccurred())
 			}
 		},
-
 			Entry("unsupported cipher RSA_WITH_3DES_EDE_CBC_SHA", tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA, false),
 			Entry("unsupported cipher ECDHE_RSA_WITH_3DES_EDE_CBC_SHA", tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, false),
 			Entry("unsupported cipher RSA_WITH_RC4_128_SHA", tls.TLS_RSA_WITH_RC4_128_SHA, false),
@@ -568,7 +587,7 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 				return err
 			}
 
-			series := shared.ExplodeSeriesSet(seriesSet)
+			series := testing.ExplodeSeriesSet(seriesSet)
 			if len(series) < 1 {
 				return errors.New("expected at least 1 series")
 			}
@@ -592,49 +611,3 @@ func countRuleGroups(tc *testContext) func() int {
 	}
 }
 
-func countManagersActive(tc *testContext) func() int {
-	return func() int {
-		managers, err := tc.apiClient.AlertManagers(context.Background())
-		Expect(err).ToNot(HaveOccurred())
-
-		return len(managers.Active)
-	}
-}
-
-func countFiringAlerts(tc *testContext) func() int {
-	return func() int {
-		alerts, err := tc.apiClient.Alerts(context.Background())
-		Expect(err).ToNot(HaveOccurred())
-
-		count := 0
-		for _, alert := range alerts.Alerts {
-			if alert.State == prom_api_client.AlertStateFiring {
-				count += 1
-			}
-		}
-		return count
-	}
-}
-
-type mockPersistentStore struct {
-}
-
-func newMockPersistentStore() *mockPersistentStore {
-	return &mockPersistentStore{}
-}
-
-func (m *mockPersistentStore) Querier(ctx context.Context, mint int64, maxt int64) (storage.Querier, error) {
-	return nil, nil
-}
-
-func (m *mockPersistentStore) StartTime() (int64, error) {
-	panic("not implemented")
-}
-
-func (m *mockPersistentStore) Appender() (storage.Appender, error) {
-	return nil, nil
-}
-
-func (m *mockPersistentStore) Close() error {
-	panic("not implemented")
-}
