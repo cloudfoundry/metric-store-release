@@ -18,7 +18,6 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
@@ -35,7 +34,6 @@ import (
 	config_util "github.com/prometheus/common/config"
 	prom_labels "github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
-	"github.com/prometheus/prometheus/scrape"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
@@ -69,7 +67,6 @@ type MetricStore struct {
 
 	localStore        prom_storage.Storage
 	promRuleManagers  rules.RuleManagers
-	routingTable      *routing.RoutingTable
 	replicationFactor uint
 	queryTimeout      time.Duration
 
@@ -98,8 +95,6 @@ type MetricStore struct {
 	queryLogPath              string
 
 	replicatedStorage prom_storage.Storage
-	scrapeManager     *scrape.Manager
-	discoveryAgent    *discovery.DiscoveryAgent
 }
 
 func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
@@ -132,14 +127,13 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 	}
 
 	// TODO pass the routing table to replicatedStorage
-	var err error
-	store.routingTable, err = routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
+	routingTable, err := routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
 	if err != nil {
 		store.log.Fatal("creating routing table", err)
 	}
 
 	// TODO let's do a thing
-	store.scraper = scraping.New(store.scrapeConfigPath, store.additionalScrapeConfigDir, store.log, store.routingTable)
+	store.scraper = scraping.New(store.scrapeConfigPath, store.additionalScrapeConfigDir, store.log, routingTable)
 
 
 
@@ -559,12 +553,12 @@ func (store *MetricStore) IngressAddr() string {
 func (store *MetricStore) Close() error {
 	atomic.AddInt64(&store.closing, 1)
 	_ = store.server.Shutdown(context.Background())
-	if store.discoveryAgent != nil {
-		store.discoveryAgent.Stop()
-	}
-	if store.scrapeManager != nil {
-		store.scrapeManager.Stop()
-	}
+	// if store.discoveryAgent != nil {
+	// 	store.discoveryAgent.Stop()
+	// }
+	// if store.scrapeManager != nil {
+	// 	store.scrapeManager.Stop()
+	// }
 	_ = store.promRuleManagers.DeleteAll()
 	_ = store.replicatedStorage.Close()
 	store.ingressListener.Close()
