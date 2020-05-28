@@ -126,16 +126,14 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		store.nodeAddrs = []string{store.addr}
 	}
 
-	// TODO pass the routing table to replicatedStorage
+	// TODO not part of the MetricStore
 	routingTable, err := routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
 	if err != nil {
 		store.log.Fatal("creating routing table", err)
 	}
 
-	// TODO let's do a thing
+	// TODO clean this up and move the WithOptions
 	store.scraper = scraping.New(store.scrapeConfigPath, store.additionalScrapeConfigDir, store.log, routingTable)
-
-
 
 	return store
 }
@@ -224,6 +222,12 @@ func WithHandoffStoragePath(handoffStoragePath string) MetricStoreOption {
 func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.queryTimeout = queryTimeout
+	}
+}
+
+func WithScraper(scraper *scraping.Scraper) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.scraper = scraper
 	}
 }
 

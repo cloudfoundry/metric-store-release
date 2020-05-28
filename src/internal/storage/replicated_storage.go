@@ -72,6 +72,7 @@ func NewReplicatedStorage(
 		opt(store)
 	}
 
+	// TODO handle this error
 	store.routingTable, _ = routing.NewRoutingTable(localIndex, store.nodeAddrs, store.replicationFactor)
 
 	// TODO handle this error
