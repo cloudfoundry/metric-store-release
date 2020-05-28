@@ -14,20 +14,21 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
-	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/go-kit/kit/log"
 	"go.uber.org/zap"
 
+	"github.com/cloudfoundry/metric-store-release/src/internal/api"
+	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
@@ -59,7 +60,6 @@ type MetricStore struct {
 	server            *http.Server
 	ingressListener   *leanstreams.TCPListener
 	internodeListener *leanstreams.TCPListener
-	// internodeConns    chan *leanstreams.TCPClient
 
 	ingressTLSConfig         *tls.Config
 	internodeTLSServerConfig *tls.Config
@@ -70,6 +70,7 @@ type MetricStore struct {
 
 	localStore        prom_storage.Storage
 	promRuleManagers  rules.RuleManagers
+	routingTable      *routing.RoutingTable
 	replicationFactor uint
 	queryTimeout      time.Duration
 
@@ -189,16 +190,6 @@ func WithClustered(nodeIndex int, nodeAddrs, internodeAddrs []string) MetricStor
 	}
 }
 
-// WithExternalAddr returns a MetricStoreOption that sets address that peer
-// nodes will refer to the given node as. This is required when the set
-// address won't match what peers will refer to the node as (e.g. :0).
-// Defaults to the resulting address from the listener.
-func WithExternalAddr(addr string) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.extAddr = addr
-	}
-}
-
 // WithMetrics returns a MetricStoreOption that configures the metrics for the
 // MetricStore. It will add metrics to the given map.
 func WithMetrics(metrics debug.MetricRegistrar) MetricStoreOption {
@@ -250,6 +241,13 @@ func WithAdditionalScrapeConfigsDir(scrapeConfigDir string) MetricStoreOption {
 // and therefore does not block.
 func (store *MetricStore) Start() {
 	promql.SetDefaultEvaluationInterval(DEFAULT_EVALUATION_INTERVAL)
+
+	var err error
+	// TODO pass the routing table to replicatedStorage
+	store.routingTable, err = routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
+	if err != nil {
+		store.log.Fatal("creating routing table", err)
+	}
 
 	store.replicatedStorage = storage.NewReplicatedStorage(
 		store.localStore,
@@ -401,7 +399,18 @@ func (store *MetricStore) loadScrapeConfigs() {
 		}
 	}
 
-	scrapeConfigs := promConfig.ScrapeConfigs
+	scrapeConfigs := store.filterScrapeConfigs(store.unfilteredScrapeConfigs(promConfig.ScrapeConfigs))
+
+	promConfig.ScrapeConfigs = scrapeConfigs
+	store.discoveryAgent.ApplyScrapeConfig(scrapeConfigs)
+	err := store.scrapeManager.ApplyConfig(promConfig)
+	if err != nil {
+		store.log.Error("could not apply scrape config", err)
+	}
+}
+
+func (store *MetricStore) unfilteredScrapeConfigs(existing []*prom_config.ScrapeConfig) []*prom_config.ScrapeConfig {
+	scrapeConfigs := existing
 	if store.additionalScrapeConfigDir != "" {
 		store.log.Debug("Adding additional scrape configs from path: " + store.additionalScrapeConfigDir)
 
@@ -423,18 +432,13 @@ func (store *MetricStore) loadScrapeConfigs() {
 		}
 	}
 
-	promConfig.ScrapeConfigs = scrapeConfigs
-	store.discoveryAgent.ApplyScrapeConfig(scrapeConfigs)
-	err := store.scrapeManager.ApplyConfig(promConfig)
-	if err != nil {
-		store.log.Error("could not apply scrape config", err)
-	}
+	return scrapeConfigs
 }
 
 func (store *MetricStore) runScraping(storage scrape.Appendable) {
-	//TODO refactor this so the control flow is less weird
-	//note that loadScrapeConfigs is passed to the reload api
-	//RS & JG 05/12/2020
+	// TODO refactor this so the control flow is less weird
+	// note that loadScrapeConfigs is passed to the reload api
+	// RS & JG 05/12/2020
 	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
 	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
 	store.loadScrapeConfigs()
@@ -471,7 +475,7 @@ func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
 			continue
 		}
 
-		store.promRuleManagers.Create(managerId, promRulesFile, alertManagers)
+		_ = store.promRuleManagers.Create(managerId, promRulesFile, alertManagers)
 	}
 }
 
@@ -614,21 +618,21 @@ func (store *MetricStore) IngressAddr() string {
 // Close will shutdown the servers
 func (store *MetricStore) Close() error {
 	atomic.AddInt64(&store.closing, 1)
-	store.server.Shutdown(context.Background())
+	_ = store.server.Shutdown(context.Background())
 	if store.discoveryAgent != nil {
 		store.discoveryAgent.Stop()
 	}
 	if store.scrapeManager != nil {
 		store.scrapeManager.Stop()
 	}
-	store.promRuleManagers.DeleteAll()
-	store.replicatedStorage.Close()
+	_ = store.promRuleManagers.DeleteAll()
+	_ = store.replicatedStorage.Close()
 	store.ingressListener.Close()
 	store.internodeListener.Close()
 	return nil
 }
 
-func (store *MetricStore) apiHealth(w http.ResponseWriter, req *http.Request) {
+func (store *MetricStore) apiHealth(w http.ResponseWriter, _ *http.Request) {
 	type healthInfo struct {
 		Version string `json:"version"`
 		Sha     string `json:"sha"`
@@ -644,6 +648,18 @@ func (store *MetricStore) apiHealth(w http.ResponseWriter, req *http.Request) {
 		store.log.Error("Failed to marshal health check response", err)
 	}
 
-	w.Write(responseBytes)
+	_, _ = w.Write(responseBytes)
 	return
+}
+
+func (store *MetricStore) filterScrapeConfigs(configs []*prom_config.ScrapeConfig) []*prom_config.ScrapeConfig {
+	var filtered []*prom_config.ScrapeConfig
+
+	for _, config := range configs {
+		if store.routingTable.IsLocal(config.JobName) {
+			filtered = append(filtered, config)
+		}
+	}
+
+	return filtered
 }

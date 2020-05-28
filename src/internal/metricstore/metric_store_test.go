@@ -17,7 +17,6 @@ import (
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
@@ -44,18 +43,20 @@ const (
 )
 
 type testContext struct {
-	tlsConfig       *tls.Config
+	tlsServerConfig *tls.Config
+	tlsClientConfig *tls.Config
 	egressTLSConfig *config_util.TLSConfig
-	peer            *testing.SpyMetricStore
+
 	store           *metricstore.MetricStore
 	persistentStore storage.Storage
 	apiClient       prom_api_client.API
 	rulesClient     *rulesclient.RulesClient
 	rulesApiClient  *http.Client
+	registry        *prometheus.Registry
 
+	peer                      *testing.SpyMetricStore
 	spyMetrics                *testing.SpyMetricRegistrar
 	spyPersistentStoreMetrics *testing.SpyMetricRegistrar
-	registry                  *prometheus.Registry
 
 	minTimeInMilliseconds int64
 	maxTimeInMilliseconds int64
@@ -96,109 +97,91 @@ func (tc *testContext) CreateAlertGroup(managerId, alertName, alertExpr string) 
 	Expect(err).ToNot(HaveOccurred())
 }
 
+func (tc *testContext) startMetricStore(storagePath string, opts ...metricstore.MetricStoreOption) {
+	peerAddrs := tc.peer.Start()
+
+	options := []metricstore.MetricStoreOption{
+		metricstore.WithAddr("127.0.0.1:0"),
+		metricstore.WithIngressAddr("127.0.0.1:0"),
+		metricstore.WithInternodeAddr("127.0.0.1:0"),
+		metricstore.WithClustered(
+			0,
+			[]string{"my-addr", peerAddrs.EgressAddr},
+			[]string{"my-addr", peerAddrs.InternodeAddr},
+		),
+		metricstore.WithMetrics(tc.spyMetrics),
+		metricstore.WithLogger(logger.NewTestLogger(GinkgoWriter)),
+	}
+	for _, opt := range opts {
+		options = append(options, opt)
+	}
+
+	tc.store = metricstore.New(
+		tc.persistentStore,
+		storagePath,
+		tc.tlsServerConfig,
+		tc.tlsServerConfig,
+		tc.tlsClientConfig,
+		tc.egressTLSConfig,
+		options...,
+	)
+	tc.store.Start()
+}
+
+var createAPIClient = func(addr string, tlsConfig *tls.Config) prom_api_client.API {
+	client, err := shared_api.NewPromHTTPClient(
+		addr,
+		"",
+		tlsConfig,
+	)
+	Expect(err).NotTo(HaveOccurred())
+	return client
+}
+
+type cleanup func()
+
+func setup(tc *testContext, opts ...metricstore.MetricStoreOption) (*testContext, cleanup) {
+	storagePath, err := ioutil.TempDir("", storagePathPrefix)
+	if err != nil {
+		panic(err)
+	}
+
+	tc.spyMetrics = testing.NewSpyMetricRegistrar()
+	tc.spyPersistentStoreMetrics = testing.NewSpyMetricRegistrar()
+
+	tc.persistentStore = persistence.NewStore(
+		storagePath,
+		tc.spyPersistentStoreMetrics,
+	)
+
+	tc.peer = testing.NewSpyMetricStore(tc.tlsServerConfig)
+
+	tc.startMetricStore(storagePath, opts...)
+
+	innerCleanup := func() {
+		tc.store.Close()
+		tc.peer.Stop()
+	}
+
+	tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsClientConfig)
+
+	tc.rulesApiClient = &http.Client{
+		Transport: &http.Transport{TLSClientConfig: tc.tlsClientConfig},
+	}
+
+	tc.rulesClient = rulesclient.NewRulesClient(tc.store.Addr(), tc.tlsClientConfig,
+		rulesclient.WithRulesClientLogger(logger.NewTestLogger(GinkgoWriter)))
+
+	return tc, func() {
+		innerCleanup()
+		os.RemoveAll(storagePath)
+	}
+}
+
 var _ = Describe("MetricStore", func() {
-	var setupWithPersistentStore = func(persistentStore storage.Storage, storagePath string) (tc *testContext, cleanup func()) {
-		tc = &testContext{
-			minTimeInMilliseconds: influxql.MinTime / int64(time.Millisecond),
-			maxTimeInMilliseconds: influxql.MaxTime / int64(time.Millisecond),
-		}
-
-		var err error
-		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
-			testing.Cert("metric-store-ca.crt"),
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		tc.tlsConfig, err = sharedtls.NewMutualTLSClientConfig(
-			testing.Cert("metric-store-ca.crt"),
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			metricstore.COMMON_NAME,
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		tc.egressTLSConfig = &config_util.TLSConfig{
-			CAFile:     testing.Cert("metric-store-ca.crt"),
-			CertFile:   testing.Cert("metric-store.crt"),
-			KeyFile:    testing.Cert("metric-store.key"),
-			ServerName: metricstore.COMMON_NAME,
-		}
-
-		tc.peer = testing.NewSpyMetricStore(tlsServerConfig)
-		peerAddrs := tc.peer.Start()
-		tc.spyMetrics = testing.NewSpyMetricRegistrar()
-		tc.persistentStore = persistentStore
-
-		tc.store = metricstore.New(
-			persistentStore,
-			storagePath,
-			tlsServerConfig,
-			tlsServerConfig,
-			tc.tlsConfig,
-			tc.egressTLSConfig,
-			metricstore.WithAddr("127.0.0.1:0"),
-			metricstore.WithIngressAddr("127.0.0.1:0"),
-			metricstore.WithInternodeAddr("127.0.0.1:0"),
-			metricstore.WithClustered(
-				0,
-				[]string{"my-addr", peerAddrs.EgressAddr},
-				[]string{"my-addr", peerAddrs.InternodeAddr},
-			),
-			metricstore.WithMetrics(tc.spyMetrics),
-			metricstore.WithLogger(logger.NewTestLogger(GinkgoWriter)),
-		)
-		tc.store.Start()
-
-		return tc, func() {
-			tc.store.Close()
-			tc.peer.Stop()
-		}
-	}
-
-	var createAPIClient = func(addr string, tlsConfig *tls.Config) prom_api_client.API {
-		client, err := shared_api.NewPromHTTPClient(
-			addr,
-			"",
-			tlsConfig,
-		)
-		Expect(err).NotTo(HaveOccurred())
-		return client
-	}
-
-	var setup = func() (tc *testContext, cleanup func()) {
-		storagePath, err := ioutil.TempDir("", storagePathPrefix)
-		if err != nil {
-			panic(err)
-		}
-
-		spyPersistentStoreMetrics := testing.NewSpyMetricRegistrar()
-		persistentStore := persistence.NewStore(
-			storagePath,
-			spyPersistentStoreMetrics,
-		)
-
-		tc, innerCleanup := setupWithPersistentStore(persistentStore, storagePath)
-		tc.spyPersistentStoreMetrics = spyPersistentStoreMetrics
-
-		tc.apiClient = createAPIClient(tc.store.Addr(), tc.tlsConfig)
-
-		tc.rulesApiClient = &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tc.tlsConfig},
-		}
-
-		tc.rulesClient = rulesclient.NewRulesClient(tc.store.Addr(), tc.tlsConfig,
-			rulesclient.WithRulesClientLogger(logger.NewTestLogger(GinkgoWriter)))
-
-		return tc, func() {
-			innerCleanup()
-			os.RemoveAll(storagePath)
-		}
-	}
 
 	It("queries data via PromQL Instant Queries", func() {
-		tc, cleanup := setup()
+		tc, cleanup := setup(defaultTestContext())
 		defer cleanup()
 
 		now := time.Now()
@@ -234,7 +217,7 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("queries data via PromQL Range Queries", func() {
-		tc, cleanup := setup()
+		tc, cleanup := setup(defaultTestContext())
 		defer cleanup()
 
 		now := time.Now()
@@ -278,7 +261,7 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("provides a default resolution for sub-queries", func() {
-		tc, cleanup := setup()
+		tc, cleanup := setup(defaultTestContext())
 		defer cleanup()
 
 		now := time.Now()
@@ -324,7 +307,7 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("routes points to internode peers", func() {
-		tc, cleanup := setup()
+		tc, cleanup := setup(defaultTestContext())
 		defer cleanup()
 
 		now := time.Now()
@@ -341,7 +324,7 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	It("replays writes to internode connections when they come back online", func() {
-		tc, cleanup := setup()
+		tc, cleanup := setup(defaultTestContext())
 		defer cleanup()
 
 		if runtime.GOOS == "darwin" {
@@ -366,7 +349,7 @@ var _ = Describe("MetricStore", func() {
 	Describe("Rules API", func() {
 		Describe("/rules/manager endpoint", func() {
 			It("Creates a rules manager with the provided ID", func() {
-				tc, cleanup := setup()
+				tc, cleanup := setup(defaultTestContext())
 				defer cleanup()
 
 				managerConfig, err := tc.rulesClient.CreateManager(MAGIC_MEASUREMENT_NAME, nil)
@@ -393,7 +376,7 @@ var _ = Describe("MetricStore", func() {
 
 			Context("when a rule manager exists", func() {
 				It("Creates a rule group", func() {
-					tc, cleanup := setup()
+					tc, cleanup := setup(defaultTestContext())
 					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
 					defer cleanup()
 
@@ -412,7 +395,7 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Correctly serializes the duration from the `for` field", func() {
-					tc, cleanup := setup()
+					tc, cleanup := setup(defaultTestContext())
 					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
 					defer cleanup()
 
@@ -440,7 +423,7 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Returns an error if the rules array is not provided", func() {
-					tc, cleanup := setup()
+					tc, cleanup := setup(defaultTestContext())
 					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
 					defer cleanup()
 
@@ -453,7 +436,7 @@ var _ = Describe("MetricStore", func() {
 				})
 
 				It("Returns an error if the resulting config is not valid", func() {
-					tc, cleanup := setup()
+					tc, cleanup := setup(defaultTestContext())
 					tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
 					defer cleanup()
 
@@ -464,7 +447,7 @@ var _ = Describe("MetricStore", func() {
 			})
 
 			It("Returns an error if the manager_id does not exist", func() {
-				tc, cleanup := setup()
+				tc, cleanup := setup(defaultTestContext())
 				tc.CreateRuleManager(MAGIC_MEASUREMENT_NAME, nil)
 				defer cleanup()
 
@@ -481,10 +464,10 @@ var _ = Describe("MetricStore", func() {
 
 	Describe("TLS security", func() {
 		DescribeTable("allows only supported TLS versions", func(clientTLSVersion int, serverAllows bool) {
-			tc, cleanup := setup()
+			tc, cleanup := setup(defaultTestContext())
 			defer cleanup()
 
-			clientTlsConfig := tc.tlsConfig.Clone()
+			clientTlsConfig := tc.tlsClientConfig.Clone()
 			clientTlsConfig.MaxVersion = uint16(clientTLSVersion)
 			clientTlsConfig.CipherSuites = []uint16{tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384}
 
@@ -505,10 +488,10 @@ var _ = Describe("MetricStore", func() {
 		)
 
 		DescribeTable("allows only supported cipher suites", func(clientCipherSuite uint16, serverAllows bool) {
-			tc, cleanup := setup()
+			tc, cleanup := setup(defaultTestContext())
 			defer cleanup()
 
-			clientTlsConfig := tc.tlsConfig.Clone()
+			clientTlsConfig := tc.tlsClientConfig.Clone()
 			clientTlsConfig.MaxVersion = tls.VersionTLS12
 			clientTlsConfig.CipherSuites = []uint16{clientCipherSuite}
 
@@ -546,7 +529,92 @@ var _ = Describe("MetricStore", func() {
 			Entry("supported cipher ECDHE_RSA_WITH_AES_256_GCM_SHA384", tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, true),
 		)
 	})
+
+	Describe("Scraping", func() {
+		It("hits our configured scrape endpoint", func() {
+			tc := defaultTestContext()
+
+			scrapeTarget := testing.NewScrapeTargetSpy(tc.tlsServerConfig)
+			scrapeTarget.Start()
+			defer scrapeTarget.Stop()
+
+			endpoints := map[string]string{
+				MAGIC_MEASUREMENT_NAME: scrapeTarget.Addr(),
+			}
+			scrapeConfig := createScrapeConfig(endpoints)
+			defer os.Remove(scrapeConfig.Name())
+
+			_, cleanup := setup(tc, metricstore.WithScrapeConfigPath(scrapeConfig.Name()))
+			defer cleanup()
+
+			Eventually(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically(">", 0))
+		})
+
+		It("ignores a job that doesn't belong on its node", func() {
+			tc := defaultTestContext()
+
+			scrapeTarget := testing.NewScrapeTargetSpy(tc.tlsServerConfig)
+			scrapeTarget.Start()
+			defer scrapeTarget.Stop()
+
+			scrapeConfig := createScrapeConfig(map[string]string{MAGIC_MEASUREMENT_PEER_NAME: scrapeTarget.Addr()})
+			defer os.Remove(scrapeConfig.Name())
+
+			_, cleanup := setup(tc, metricstore.WithScrapeConfigPath(scrapeConfig.Name()))
+			defer cleanup()
+
+			Consistently(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically("==", 0))
+		})
+
+	})
 })
+
+func defaultTestContext() *testContext {
+	return &testContext{
+		minTimeInMilliseconds: influxql.MinTime / int64(time.Millisecond),
+		maxTimeInMilliseconds: influxql.MaxTime / int64(time.Millisecond),
+		tlsClientConfig:       testing.MutualTLSClientConfig(),
+		tlsServerConfig:       testing.MutualTLSServerConfig(),
+		egressTLSConfig: &config_util.TLSConfig{
+			CAFile:     testing.Cert("metric-store-ca.crt"),
+			CertFile:   testing.Cert("metric-store.crt"),
+			KeyFile:    testing.Cert("metric-store.key"),
+			ServerName: metricstore.COMMON_NAME,
+		},
+	}
+}
+
+func createScrapeConfig(endpoints map[string]string) *os.File {
+	tmpfile, err := ioutil.TempFile("", "scrape_config_yml")
+	Expect(err).NotTo(HaveOccurred())
+	var content string
+	for jobName, endpoint := range endpoints {
+		content += fmt.Sprintf(`- job_name: "%s"
+  scrape_interval: 1ms
+  metrics_path: "/"
+  scheme: "https"
+  tls_config:
+    ca_file: "%s"
+    cert_file: "%s"
+    key_file: "%s"
+    server_name: "%s"  
+  static_configs:
+  - targets: ["%s"]`,
+			jobName,
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			metricstore.COMMON_NAME,
+			endpoint)
+	}
+
+	_, err = tmpfile.Write([]byte(`---
+scrape_configs:
+` + content))
+	Expect(err).NotTo(HaveOccurred())
+	Expect(tmpfile.Close()).To(Succeed())
+	return tmpfile
+}
 
 func writePoints(tc *testContext, testPoints []*rpc.Point) {
 	ingressAddr := tc.store.IngressAddr()
@@ -561,7 +629,7 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 	cfg := &leanstreams.TCPClientConfig{
 		MaxMessageSize: 65536,
 		Address:        ingressAddr,
-		TLSConfig:      tc.tlsConfig,
+		TLSConfig:      tc.tlsClientConfig,
 	}
 	remoteConnection, err := leanstreams.DialTCP(cfg)
 	Expect(err).ToNot(HaveOccurred())
@@ -610,4 +678,3 @@ func countRuleGroups(tc *testContext) func() int {
 		return len(rules.Groups)
 	}
 }
-
