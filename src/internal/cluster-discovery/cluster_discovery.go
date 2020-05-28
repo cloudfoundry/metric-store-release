@@ -113,9 +113,9 @@ func (discovery *ClusterDiscovery) Run() {
 			t.Stop()
 			return
 		case <-t.C:
-			discovery.log.Info("Running Cluster Discovery")
+			discovery.log.Debug("Running Cluster Discovery")
 			discovery.UpdateScrapeConfig()
-			discovery.log.Info("Cluster Discovery Run Complete")
+			discovery.log.Debug("Cluster Discovery Run Complete")
 		}
 	}
 }
@@ -235,14 +235,14 @@ func (discovery *ClusterDiscovery) populateScrapeTemplate(cluster *pks.Cluster) 
 		SkipSsl: true,
 	}
 
-	template, err := template.New("clusterConfig").Parse(scrapeTemplate)
+	t, err := template.New("clusterConfig").Parse(scrapeTemplate)
 	if err != nil {
 		discovery.log.Error("unable to parse scrape config template", err)
 		return "", err
 	}
 
 	var buffer bytes.Buffer
-	err = template.Execute(&buffer, vars)
+	err = t.Execute(&buffer, vars)
 	if err != nil {
 		discovery.log.Error("unable to populate scrape config template", err)
 		return "", err
