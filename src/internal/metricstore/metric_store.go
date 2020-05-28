@@ -14,7 +14,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"go.uber.org/zap"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
@@ -23,6 +22,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
+	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/internal/version"
@@ -33,7 +33,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	config_util "github.com/prometheus/common/config"
-	prom_config "github.com/prometheus/prometheus/config"
 	prom_labels "github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/scrape"
@@ -92,6 +91,7 @@ type MetricStore struct {
 	// externally and instead will store all of it.
 	internodeAddrs []string
 
+	scraper *scraping.Scraper
 	scrapeConfigPath          string
 	additionalScrapeConfigDir string
 	storagePath               string
@@ -130,6 +130,18 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 	if len(store.nodeAddrs) == 0 {
 		store.nodeAddrs = []string{store.addr}
 	}
+
+	// TODO pass the routing table to replicatedStorage
+	var err error
+	store.routingTable, err = routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
+	if err != nil {
+		store.log.Fatal("creating routing table", err)
+	}
+
+	// TODO let's do a thing
+	store.scraper = scraping.New(store.scrapeConfigPath, store.additionalScrapeConfigDir, store.log, store.routingTable)
+
+
 
 	return store
 }
@@ -221,7 +233,7 @@ func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	}
 }
 
-// WithScrapeConfigPath sets the path where the base scrapeconfig can be
+// WithScrapeConfigPath sets the path where the base ScrapeConfig can be
 // found
 func WithScrapeConfigPath(scrapeConfigPath string) MetricStoreOption {
 	return func(store *MetricStore) {
@@ -241,13 +253,6 @@ func WithAdditionalScrapeConfigsDir(scrapeConfigDir string) MetricStoreOption {
 // and therefore does not block.
 func (store *MetricStore) Start() {
 	promql.SetDefaultEvaluationInterval(DEFAULT_EVALUATION_INTERVAL)
-
-	var err error
-	// TODO pass the routing table to replicatedStorage
-	store.routingTable, err = routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
-	if err != nil {
-		store.log.Fatal("creating routing table", err)
-	}
 
 	store.replicatedStorage = storage.NewReplicatedStorage(
 		store.localStore,
@@ -288,7 +293,7 @@ func (store *MetricStore) Start() {
 
 	if store.scrapeConfigPath != "" || store.additionalScrapeConfigDir != "" {
 		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
-		store.runScraping(scrapeStorage)
+		store.scraper.Run(scrapeStorage)
 	}
 
 	store.setupRouting(queryEngine)
@@ -358,7 +363,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	rulesAPI := api.NewRulesAPI(replicatedRuleManager, store.log)
 	rulesAPIRouter := rulesAPI.Router()
 
-	reloadAPI := api.NewReloadAPI(store.loadScrapeConfigs, store.log)
+	reloadAPI := api.NewReloadAPI(store.scraper.LoadConfigs, store.log)
 
 	localRulesAPI := api.NewRulesAPI(localRuleManager, store.log)
 	localRulesAPIRouter := localRulesAPI.Router()
@@ -385,71 +390,6 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 			store.log.Fatal("failed to serve http egress server", err)
 		}
 	}()
-}
-
-func (store *MetricStore) loadScrapeConfigs() {
-	promConfig := &prom_config.Config{}
-
-	if store.scrapeConfigPath != "" {
-		var err error
-		store.log.Debug("Adding base scrape config from path: " + store.scrapeConfigPath)
-		promConfig, err = prom_config.LoadFile(store.scrapeConfigPath)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	scrapeConfigs := store.filterScrapeConfigs(store.unfilteredScrapeConfigs(promConfig.ScrapeConfigs))
-
-	promConfig.ScrapeConfigs = scrapeConfigs
-	store.discoveryAgent.ApplyScrapeConfig(scrapeConfigs)
-	err := store.scrapeManager.ApplyConfig(promConfig)
-	if err != nil {
-		store.log.Error("could not apply scrape config", err)
-	}
-}
-
-func (store *MetricStore) unfilteredScrapeConfigs(existing []*prom_config.ScrapeConfig) []*prom_config.ScrapeConfig {
-	scrapeConfigs := existing
-	if store.additionalScrapeConfigDir != "" {
-		store.log.Debug("Adding additional scrape configs from path: " + store.additionalScrapeConfigDir)
-
-		fileInfos, err := ioutil.ReadDir(store.additionalScrapeConfigDir)
-		if err != nil {
-			store.log.Error("Could not read files from additional scrape configs dir: "+store.additionalScrapeConfigDir, err)
-			panic(err)
-		}
-
-		for _, fileInfo := range fileInfos {
-			if !fileInfo.IsDir() {
-				store.log.Debug("Found additional scrape config file " + fileInfo.Name())
-				additionalScrapeConfig, err := prom_config.LoadFile(filepath.Join(store.additionalScrapeConfigDir, fileInfo.Name()))
-				if err != nil {
-					store.log.Error("Could not parse scrape config from path "+fileInfo.Name(), err)
-				}
-				scrapeConfigs = append(scrapeConfigs, additionalScrapeConfig.ScrapeConfigs...)
-			}
-		}
-	}
-
-	return scrapeConfigs
-}
-
-func (store *MetricStore) runScraping(storage scrape.Appendable) {
-	// TODO refactor this so the control flow is less weird
-	// note that loadScrapeConfigs is passed to the reload api
-	// RS & JG 05/12/2020
-	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
-	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
-	store.loadScrapeConfigs()
-
-	store.discoveryAgent.Start()
-	go func(discoveryAgent *discovery.DiscoveryAgent) {
-		err := store.scrapeManager.Run(discoveryAgent.SyncCh())
-		if err != nil {
-			panic(err)
-		}
-	}(store.discoveryAgent)
 }
 
 func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
@@ -650,16 +590,4 @@ func (store *MetricStore) apiHealth(w http.ResponseWriter, _ *http.Request) {
 
 	_, _ = w.Write(responseBytes)
 	return
-}
-
-func (store *MetricStore) filterScrapeConfigs(configs []*prom_config.ScrapeConfig) []*prom_config.ScrapeConfig {
-	var filtered []*prom_config.ScrapeConfig
-
-	for _, config := range configs {
-		if store.routingTable.IsLocal(config.JobName) {
-			filtered = append(filtered, config)
-		}
-	}
-
-	return filtered
 }
