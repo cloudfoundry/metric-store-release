@@ -531,6 +531,7 @@ var _ = Describe("MetricStore", func() {
 	})
 
 	Describe("Scraping", func() {
+		// TODO move to acceptance?
 		It("hits our configured scrape endpoint", func() {
 			tc := defaultTestContext()
 
