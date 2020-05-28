@@ -141,3 +141,7 @@ func (s *SpyMetricStore) GetLocalOnlyValues() []bool {
 	copy(r, s.localOnlyValues)
 	return r
 }
+
+func (s *SpyMetricStore) Addr() string {
+	return s.remoteInternodeConnection.Address()
+}

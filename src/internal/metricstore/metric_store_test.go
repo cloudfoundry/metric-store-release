@@ -16,6 +16,8 @@ import (
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -545,7 +547,12 @@ var _ = Describe("MetricStore", func() {
 			scrapeConfig := createScrapeConfig(endpoints)
 			defer os.Remove(scrapeConfig.Name())
 
-			_, cleanup := setup(tc, metricstore.WithScrapeConfigPath(scrapeConfig.Name()))
+			routingTable, err := routing.NewRoutingTable(0, []string{"my-addr", "peer-addr"}, 1)
+			Expect(err).ToNot(HaveOccurred())
+
+			scraper := scraping.New(scrapeConfig.Name(), "", logger.NewTestLogger(GinkgoWriter), routingTable)
+
+			_, cleanup := setup(tc, metricstore.WithScraper(scraper))
 			defer cleanup()
 
 			Eventually(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically(">", 0))
@@ -561,7 +568,12 @@ var _ = Describe("MetricStore", func() {
 			scrapeConfig := createScrapeConfig(map[string]string{MAGIC_MEASUREMENT_PEER_NAME: scrapeTarget.Addr()})
 			defer os.Remove(scrapeConfig.Name())
 
-			_, cleanup := setup(tc, metricstore.WithScrapeConfigPath(scrapeConfig.Name()))
+			routingTable, err := routing.NewRoutingTable(0, []string{"my-addr", "peer-addr"}, 1)
+			Expect(err).ToNot(HaveOccurred())
+
+			scraper := scraping.New(scrapeConfig.Name(), "", logger.NewTestLogger(GinkgoWriter), routingTable)
+
+			_, cleanup := setup(tc, metricstore.WithScraper(scraper))
 			defer cleanup()
 
 			Consistently(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically("==", 0))

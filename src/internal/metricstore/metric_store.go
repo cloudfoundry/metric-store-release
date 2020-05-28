@@ -19,7 +19,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
@@ -89,8 +88,6 @@ type MetricStore struct {
 	internodeAddrs []string
 
 	scraper *scraping.Scraper
-	scrapeConfigPath          string
-	additionalScrapeConfigDir string
 	storagePath               string
 	queryLogPath              string
 
@@ -125,15 +122,6 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 	if len(store.nodeAddrs) == 0 {
 		store.nodeAddrs = []string{store.addr}
 	}
-
-	// TODO not part of the MetricStore
-	routingTable, err := routing.NewRoutingTable(store.nodeIndex, store.nodeAddrs, store.replicationFactor)
-	if err != nil {
-		store.log.Fatal("creating routing table", err)
-	}
-
-	// TODO clean this up and move the WithOptions
-	store.scraper = scraping.New(store.scrapeConfigPath, store.additionalScrapeConfigDir, store.log, routingTable)
 
 	return store
 }
@@ -231,22 +219,6 @@ func WithScraper(scraper *scraping.Scraper) MetricStoreOption {
 	}
 }
 
-// WithScrapeConfigPath sets the path where the base ScrapeConfig can be
-// found
-func WithScrapeConfigPath(scrapeConfigPath string) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.scrapeConfigPath = scrapeConfigPath
-	}
-}
-
-// WithAdditionalScrapeConfigsDir sets the directory where additional scrape configs can be
-// found
-func WithAdditionalScrapeConfigsDir(scrapeConfigDir string) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.additionalScrapeConfigDir = scrapeConfigDir
-	}
-}
-
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
@@ -289,7 +261,7 @@ func (store *MetricStore) Start() {
 	store.setupDirtyListener()
 	store.setupSanitizedListener()
 
-	if store.scrapeConfigPath != "" || store.additionalScrapeConfigDir != "" {
+	if store.scraper != nil {
 		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
 		store.scraper.Run(scrapeStorage)
 	}

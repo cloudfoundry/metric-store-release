@@ -13,6 +13,8 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
@@ -112,6 +114,13 @@ func (m *MetricStoreApp) Run() {
 		persistence.WithDiskFreeReporter(diskFreeReporter),
 	)
 
+	// TODO: doesn't apply login inside of metric store to have default single NodeAddr
+	routingTable, err := routing.NewRoutingTable(m.cfg.NodeIndex, m.cfg.NodeAddrs, m.cfg.ReplicationFactor)
+	if err != nil {
+		m.log.Fatal("creating routing table", err)
+	}
+	scraper := scraping.New(m.cfg.ScrapeConfigPath, m.cfg.AdditionalScrapeConfigDir, m.log, routingTable)
+
 	store := metricstore.New(
 		persistentStore,
 		m.cfg.StoragePath,
@@ -123,8 +132,7 @@ func (m *MetricStoreApp) Run() {
 		metricstore.WithAddr(m.cfg.Addr),
 		metricstore.WithIngressAddr(m.cfg.IngressAddr),
 		metricstore.WithInternodeAddr(m.cfg.InternodeAddr),
-		metricstore.WithScrapeConfigPath(m.cfg.ScrapeConfigPath),
-		metricstore.WithAdditionalScrapeConfigsDir(m.cfg.AdditionalScrapeConfigDir),
+		metricstore.WithScraper(scraper),
 		metricstore.WithClustered(
 			m.cfg.NodeIndex,
 			m.cfg.NodeAddrs,
