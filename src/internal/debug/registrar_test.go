@@ -285,6 +285,16 @@ var _ = Describe("Registrar", func() {
 			}).Should(Equal(1.0))
 		})
 
+		It("adds the point to a labeled histogram observer", func() {
+			h.Histogram("histogram", "bar").Observe(10.0)
+
+			// For simplification this is asserting on the sample count
+			Eventually(func() float64 {
+				value, _ := mf.fetch("histogram")
+				return value
+			}).Should(Equal(1.0))
+		})
+
 		It("panics for unknown metric name", func() {
 			Expect(func() {
 				h.Histogram("unknown")
