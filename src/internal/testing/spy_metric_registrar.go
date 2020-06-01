@@ -65,7 +65,7 @@ func (s *SpyHistogramObserver) Observe(value float64) {
 	s.Observations = append(s.Observations, value)
 }
 
-func (r *SpyMetricRegistrar) Histogram(name string) prometheus.Observer {
+func (r *SpyMetricRegistrar) Histogram(name string, labels ...string) prometheus.Observer {
 	r.Lock()
 	defer r.Unlock()
 

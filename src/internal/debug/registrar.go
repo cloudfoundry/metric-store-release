@@ -16,12 +16,13 @@ type Registrar struct {
 	sourceID    string
 	constLabels map[string]string
 
-	counters    map[string]prometheus.Counter
-	counterVecs map[string]*prometheus.CounterVec
-	gauges      map[string]prometheus.Gauge
-	gaugeVecs   map[string]*prometheus.GaugeVec
-	summaries   map[string]*prometheus.SummaryVec
-	histograms  map[string]prometheus.Histogram
+	counters      map[string]prometheus.Counter
+	counterVecs   map[string]*prometheus.CounterVec
+	gauges        map[string]prometheus.Gauge
+	gaugeVecs     map[string]*prometheus.GaugeVec
+	summaries     map[string]*prometheus.SummaryVec
+	histograms    map[string]prometheus.Histogram
+	histogramVecs map[string]*prometheus.HistogramVec
 }
 
 // NewRegistrar returns an initialized health endpoint registrar configured
@@ -34,17 +35,18 @@ func NewRegistrar(
 	defaultRegistry := prometheus.NewRegistry()
 
 	r := &Registrar{
-		log:         log,
-		registerer:  defaultRegistry,
-		gatherer:    defaultRegistry,
-		sourceID:    sourceID,
-		constLabels: make(map[string]string),
-		counters:    make(map[string]prometheus.Counter),
-		counterVecs: make(map[string]*prometheus.CounterVec),
-		gauges:      make(map[string]prometheus.Gauge),
-		gaugeVecs:   make(map[string]*prometheus.GaugeVec),
-		summaries:   make(map[string]*prometheus.SummaryVec),
-		histograms:  make(map[string]prometheus.Histogram),
+		log:           log,
+		registerer:    defaultRegistry,
+		gatherer:      defaultRegistry,
+		sourceID:      sourceID,
+		constLabels:   make(map[string]string),
+		counters:      make(map[string]prometheus.Counter),
+		counterVecs:   make(map[string]*prometheus.CounterVec),
+		gauges:        make(map[string]prometheus.Gauge),
+		gaugeVecs:     make(map[string]*prometheus.GaugeVec),
+		summaries:     make(map[string]*prometheus.SummaryVec),
+		histograms:    make(map[string]prometheus.Histogram),
+		histogramVecs: make(map[string]*prometheus.HistogramVec),
 	}
 
 	for _, o := range opts {
@@ -128,13 +130,19 @@ func (h *Registrar) Summary(name, label string) prometheus.Observer {
 }
 
 // Histogram will return the histogram observer that matches the name.
-func (h *Registrar) Histogram(name string) prometheus.Observer {
+func (h *Registrar) Histogram(name string, labels ...string) prometheus.Observer {
 	histogram, ok := h.histograms[name]
-	if !ok {
-		h.log.Panic("Histogram called for unknown histogram", logger.String("name", name))
+	if ok {
+		return histogram
 	}
 
-	return histogram
+	histogramVec, ok := h.histogramVecs[name]
+	if ok {
+		return histogramVec.WithLabelValues(labels...)
+	}
+
+	h.log.Panic("Histogram called for unknown histogram", logger.String("name", name))
+	return nil
 }
 
 // RegistrarOption is a function that can be used to set optional configuration

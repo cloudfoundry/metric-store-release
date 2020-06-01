@@ -7,7 +7,7 @@ type MetricRegistrar interface {
 	Set(name string, value float64, labels ...string)
 	Add(name string, delta float64, labels ...string)
 	Inc(name string, labels ...string)
-	Histogram(name string) prometheus.Observer
+	Histogram(name string, labels ...string) prometheus.Observer
 	Registerer() prometheus.Registerer
 	Gatherer() prometheus.Gatherer
 }
