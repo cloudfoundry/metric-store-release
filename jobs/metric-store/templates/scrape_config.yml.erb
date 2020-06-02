@@ -121,7 +121,7 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
     metrics_path: "/metrics"
     scheme: https
     tls_config:
-      server_name: pasexporter
+      server_name: pksexporter
       ca_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter_ca.crt"
       cert_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter.crt"
       key_file: "/var/vcap/jobs/metric-store/config/certs/healthwatch_exporter.key"
