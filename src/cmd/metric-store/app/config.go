@@ -70,6 +70,8 @@ type MetricStoreMetricsTLS struct {
 	KeyPath  string `env:"METRIC_STORE_METRICS_KEY_PATH, required, report"`
 }
 
+// TODO consider whether to create tls.Configs here
+
 // TODO decide between required env vars and defaults
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
@@ -93,6 +95,10 @@ func LoadConfig() *Config {
 
 	if cfg.RetentionPeriodInDays > 0 {
 		cfg.RetentionPeriod = time.Duration(cfg.RetentionPeriodInDays) * 24 * time.Hour
+	}
+
+	if len(cfg.NodeAddrs) == 0 {
+		cfg.NodeAddrs = []string{cfg.Addr}
 	}
 
 	_ = envstruct.WriteReport(cfg)

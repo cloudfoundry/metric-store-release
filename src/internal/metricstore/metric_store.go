@@ -53,7 +53,7 @@ type MetricStore struct {
 	log *logger.Logger
 
 	lis               net.Listener
-	server            *http.Server
+	egressServer      *http.Server
 	ingressListener   *leanstreams.TCPListener
 	internodeListener *leanstreams.TCPListener
 
@@ -117,10 +117,6 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 
 	for _, o := range opts {
 		o(store)
-	}
-
-	if len(store.nodeAddrs) == 0 {
-		store.nodeAddrs = []string{store.addr}
 	}
 
 	return store
@@ -262,8 +258,7 @@ func (store *MetricStore) Start() {
 	store.setupSanitizedListener()
 
 	if store.scraper != nil {
-		scrapeStorage := storage.NewScrapeStorage(store.replicatedStorage)
-		store.scraper.Run(scrapeStorage)
+		store.scraper.Run(storage.NewScrapeStorage(store.replicatedStorage))
 	}
 
 	store.setupRouting(queryEngine)
@@ -287,7 +282,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.egressTLSConfig.KeyFile,
 	)
 	if err != nil {
-		store.log.Fatal("failed to convert TLS server config", err)
+		store.log.Fatal("failed to convert TLS egressServer config", err)
 	}
 	tlsClientConfig, err := shared_tls.NewMutualTLSClientConfig(
 		store.egressTLSConfig.CAFile,
@@ -301,6 +296,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 	secureConnection := tls.NewListener(insecureConnection, tlsServerConfig)
 	store.lis = secureConnection
+	// TODO is this necessary?
 	if store.extAddr == "" {
 		store.extAddr = store.lis.Addr().String()
 	}
@@ -348,7 +344,7 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 	mux.HandleFunc("/health", store.apiHealth)
 
-	store.server = &http.Server{
+	store.egressServer = &http.Server{
 		Handler:     mux,
 		ErrorLog:    store.log.StdLog("egress"),
 		ReadTimeout: store.queryTimeout,
@@ -356,8 +352,8 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 
 	go func() {
 		store.log.Info("registration of egress reverse proxy is scheduled")
-		if err := store.server.Serve(secureConnection); err != nil && atomic.LoadInt64(&store.closing) == 0 {
-			store.log.Fatal("failed to serve http egress server", err)
+		if err := store.egressServer.Serve(secureConnection); err != nil && atomic.LoadInt64(&store.closing) == 0 {
+			store.log.Fatal("failed to serve http egress Server", err)
 		}
 	}()
 }
@@ -528,7 +524,7 @@ func (store *MetricStore) IngressAddr() string {
 // Close will shutdown the servers
 func (store *MetricStore) Close() error {
 	atomic.AddInt64(&store.closing, 1)
-	_ = store.server.Shutdown(context.Background())
+	_ = store.egressServer.Shutdown(context.Background())
 	// if store.discoveryAgent != nil {
 	// 	store.discoveryAgent.Stop()
 	// }

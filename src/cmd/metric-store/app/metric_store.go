@@ -114,7 +114,7 @@ func (m *MetricStoreApp) Run() {
 		persistence.WithDiskFreeReporter(diskFreeReporter),
 	)
 
-	// TODO: doesn't apply login inside of metric store to have default single NodeAddr
+	// TODO: doesn't apply logic inside of metric store to have default single NodeAddr
 	routingTable, err := routing.NewRoutingTable(m.cfg.NodeIndex, m.cfg.NodeAddrs, m.cfg.ReplicationFactor)
 	if err != nil {
 		m.log.Fatal("creating routing table", err)
