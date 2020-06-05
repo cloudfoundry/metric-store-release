@@ -42,6 +42,8 @@ var _ = Describe("Metric Store App", func() {
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
 			StoragePath: "/tmp/metric-store",
+			ReplicationFactor: 1,
+			NodeAddrs: []string{"localhost:8080"},
 		}, logger.NewTestLogger(GinkgoWriter))
 		go metricStore.Run()
 
