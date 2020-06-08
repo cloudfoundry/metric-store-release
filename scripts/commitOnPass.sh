@@ -6,8 +6,10 @@ if [[ $1 == "[PASS]" ]]; then
     exit 0
   fi
 
+  shift
+
   git add .
-  git commit -m "[Autocommit] Tests Passed"
+  git commit -m "[Autocommit] $*"
 else
   echo "No commit"
 fi
