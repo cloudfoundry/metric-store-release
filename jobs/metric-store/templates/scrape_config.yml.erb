@@ -73,10 +73,8 @@ scrape_configs:
         regex: "([^.]*[.]){3}([^.]*)[.].*"
         replacement: "$2"
     <% end %>
-    <%
-if_link("metric-store-blackbox") do |metric_store_blackbox|
-  if index == 0
-%>
+
+<% if_link("metric-store-blackbox") do |metric_store_blackbox| %>
   - job_name: metric-store-blackbox
     scheme: https
     tls_config:
@@ -94,7 +92,6 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
           index: <%= blackbox.index %>
           deployment: <%= metric_store_blackbox.p('deployment', 'unknown') %>
       <% end %>
-  <% end %>
 <% end %>
 
 <% if p('healthwatch.exporter.tls.ca_cert') != '' %>
