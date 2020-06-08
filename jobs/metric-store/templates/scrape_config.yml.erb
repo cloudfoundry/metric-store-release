@@ -85,7 +85,7 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
       key_file: "<%= "#{cert_dir}/metric_store_metrics_client.key" %>"
       server_name: metric-store
     static_configs:
-        <% metric_store_blackbox.instances.each do |blackbox| %>
+      <% metric_store_blackbox.instances.each do |blackbox| %>
       - targets:
           - <%= blackbox.address %>:<%= metric_store_blackbox.p('metrics_port') %>
         labels:
@@ -93,9 +93,11 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
           ip: <%= blackbox.address %>
           index: <%= blackbox.index %>
           deployment: <%= metric_store_blackbox.p('deployment', 'unknown') %>
-    <% end %>
-    <% end %>
-    <% end %>
+      <% end %>
+  <% end %>
+<% end %>
+
+<% if p('healthwatch.exporter.tls.ca_cert') != '' %>
   - job_name: healthwatch-pas-exporter
     metrics_path: "/metrics"
     scheme: https
@@ -137,3 +139,4 @@ if_link("metric-store-blackbox") do |metric_store_blackbox|
           - q-s4.pks-sli-exporter.*.*.bosh.
         type: A
         port: 9090
+<% end %>
