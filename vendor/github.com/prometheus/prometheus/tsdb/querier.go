@@ -34,6 +34,9 @@ type Querier interface {
 	// Select returns a set of series that matches the given label matchers.
 	Select(...*labels.Matcher) (SeriesSet, error)
 
+	// SelectSorted returns a sorted set of series that matches the given label matcher.
+	SelectSorted(...*labels.Matcher) (SeriesSet, error)
+
 	// LabelValues returns all potential values for a label name.
 	// It is not safe to use the strings beyond the lifefime of the querier.
 	LabelValues(string) ([]string, error)
@@ -106,14 +109,21 @@ func (q *querier) lvals(qs []Querier, n string) ([]string, error) {
 }
 
 func (q *querier) Select(ms ...*labels.Matcher) (SeriesSet, error) {
+	if len(q.blocks) != 1 {
+		return q.SelectSorted(ms...)
+	}
+	// Sorting Head series is slow, and unneeded when only the
+	// Head is being queried. Sorting blocks is a noop.
+	return q.blocks[0].Select(ms...)
+}
+
+func (q *querier) SelectSorted(ms ...*labels.Matcher) (SeriesSet, error) {
 	if len(q.blocks) == 0 {
 		return EmptySeriesSet(), nil
 	}
 	ss := make([]SeriesSet, len(q.blocks))
-	var s SeriesSet
-	var err error
 	for i, b := range q.blocks {
-		s, err = b.Select(ms...)
+		s, err := b.SelectSorted(ms...)
 		if err != nil {
 			return nil, err
 		}
@@ -142,12 +152,16 @@ func (q *verticalQuerier) Select(ms ...*labels.Matcher) (SeriesSet, error) {
 	return q.sel(q.blocks, ms)
 }
 
+func (q *verticalQuerier) SelectSorted(ms ...*labels.Matcher) (SeriesSet, error) {
+	return q.sel(q.blocks, ms)
+}
+
 func (q *verticalQuerier) sel(qs []Querier, ms []*labels.Matcher) (SeriesSet, error) {
 	if len(qs) == 0 {
 		return EmptySeriesSet(), nil
 	}
 	if len(qs) == 1 {
-		return qs[0].Select(ms...)
+		return qs[0].SelectSorted(ms...)
 	}
 	l := len(qs) / 2
 
@@ -217,21 +231,26 @@ func (q *blockQuerier) Select(ms ...*labels.Matcher) (SeriesSet, error) {
 	}, nil
 }
 
-func (q *blockQuerier) LabelValues(name string) ([]string, error) {
-	tpls, err := q.index.LabelValues(name)
+func (q *blockQuerier) SelectSorted(ms ...*labels.Matcher) (SeriesSet, error) {
+	base, err := LookupChunkSeriesSorted(q.index, q.tombstones, ms...)
 	if err != nil {
 		return nil, err
 	}
-	res := make([]string, 0, tpls.Len())
+	return &blockSeriesSet{
+		set: &populatedChunkSeries{
+			set:    base,
+			chunks: q.chunks,
+			mint:   q.mint,
+			maxt:   q.maxt,
+		},
 
-	for i := 0; i < tpls.Len(); i++ {
-		vals, err := tpls.At(i)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, vals[0])
-	}
-	return res, nil
+		mint: q.mint,
+		maxt: q.maxt,
+	}, nil
+}
+
+func (q *blockQuerier) LabelValues(name string) ([]string, error) {
+	return q.index.LabelValues(name)
 }
 
 func (q *blockQuerier) LabelNames() ([]string, error) {
@@ -312,7 +331,7 @@ func findSetMatches(pattern string) []string {
 }
 
 // PostingsForMatchers assembles a single postings iterator against the index reader
-// based on the given matchers.
+// based on the given matchers. The resulting postings are not ordered by series.
 func PostingsForMatchers(ix IndexReader, ms ...*labels.Matcher) (index.Postings, error) {
 	var its, notIts []index.Postings
 	// See which label must be non-empty.
@@ -392,7 +411,7 @@ func PostingsForMatchers(ix IndexReader, ms ...*labels.Matcher) (index.Postings,
 		it = index.Without(it, n)
 	}
 
-	return ix.SortedPostings(it), nil
+	return it, nil
 }
 
 func postingsForMatcher(ix IndexReader, m *labels.Matcher) (index.Postings, error) {
@@ -412,19 +431,15 @@ func postingsForMatcher(ix IndexReader, m *labels.Matcher) (index.Postings, erro
 		}
 	}
 
-	tpls, err := ix.LabelValues(m.Name)
+	vals, err := ix.LabelValues(m.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []string
-	for i := 0; i < tpls.Len(); i++ {
-		vals, err := tpls.At(i)
-		if err != nil {
-			return nil, err
-		}
-		if m.Matches(vals[0]) {
-			res = append(res, vals[0])
+	for _, val := range vals {
+		if m.Matches(val) {
+			res = append(res, val)
 		}
 	}
 
@@ -437,20 +452,15 @@ func postingsForMatcher(ix IndexReader, m *labels.Matcher) (index.Postings, erro
 
 // inversePostingsForMatcher returns the postings for the series with the label name set but not matching the matcher.
 func inversePostingsForMatcher(ix IndexReader, m *labels.Matcher) (index.Postings, error) {
-	tpls, err := ix.LabelValues(m.Name)
+	vals, err := ix.LabelValues(m.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	var res []string
-	for i := 0; i < tpls.Len(); i++ {
-		vals, err := tpls.At(i)
-		if err != nil {
-			return nil, err
-		}
-
-		if !m.Matches(vals[0]) {
-			res = append(res, vals[0])
+	for _, val := range vals {
+		if !m.Matches(val) {
+			res = append(res, val)
 		}
 	}
 
@@ -711,12 +721,25 @@ type baseChunkSeries struct {
 // LookupChunkSeries retrieves all series for the given matchers and returns a ChunkSeriesSet
 // over them. It drops chunks based on tombstones in the given reader.
 func LookupChunkSeries(ir IndexReader, tr tombstones.Reader, ms ...*labels.Matcher) (ChunkSeriesSet, error) {
+	return lookupChunkSeries(false, ir, tr, ms...)
+}
+
+// LookupChunkSeries retrieves all series for the given matchers and returns a ChunkSeriesSet
+// over them. It drops chunks based on tombstones in the given reader. Series will be in order.
+func LookupChunkSeriesSorted(ir IndexReader, tr tombstones.Reader, ms ...*labels.Matcher) (ChunkSeriesSet, error) {
+	return lookupChunkSeries(true, ir, tr, ms...)
+}
+
+func lookupChunkSeries(sorted bool, ir IndexReader, tr tombstones.Reader, ms ...*labels.Matcher) (ChunkSeriesSet, error) {
 	if tr == nil {
 		tr = tombstones.NewMemTombstones()
 	}
 	p, err := PostingsForMatchers(ir, ms...)
 	if err != nil {
 		return nil, err
+	}
+	if sorted {
+		p = ir.SortedPostings(p)
 	}
 	return &baseChunkSeries{
 		p:          p,

@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"unsafe"
 
 	"github.com/pkg/errors"
@@ -109,12 +108,12 @@ type Writer struct {
 	ctx context.Context
 
 	// For the main index file.
-	f *fileWriter
+	f *FileWriter
 
 	// Temporary file for postings.
-	fP *fileWriter
+	fP *FileWriter
 	// Temporary file for posting offsets table.
-	fPO   *fileWriter
+	fPO   *FileWriter
 	cntPO uint64
 
 	toc           TOC
@@ -195,17 +194,17 @@ func NewWriter(ctx context.Context, fn string) (*Writer, error) {
 	}
 
 	// Main index file we are building.
-	f, err := newFileWriter(fn)
+	f, err := NewFileWriter(fn)
 	if err != nil {
 		return nil, err
 	}
 	// Temporary file for postings.
-	fP, err := newFileWriter(fn + "_tmp_p")
+	fP, err := NewFileWriter(fn + "_tmp_p")
 	if err != nil {
 		return nil, err
 	}
 	// Temporary file for posting offset table.
-	fPO, err := newFileWriter(fn + "_tmp_po")
+	fPO, err := NewFileWriter(fn + "_tmp_po")
 	if err != nil {
 		return nil, err
 	}
@@ -234,30 +233,30 @@ func NewWriter(ctx context.Context, fn string) (*Writer, error) {
 }
 
 func (w *Writer) write(bufs ...[]byte) error {
-	return w.f.write(bufs...)
+	return w.f.Write(bufs...)
 }
 
 func (w *Writer) writeAt(buf []byte, pos uint64) error {
-	return w.f.writeAt(buf, pos)
+	return w.f.WriteAt(buf, pos)
 }
 
 func (w *Writer) addPadding(size int) error {
-	return w.f.addPadding(size)
+	return w.f.AddPadding(size)
 }
 
-type fileWriter struct {
+type FileWriter struct {
 	f    *os.File
 	fbuf *bufio.Writer
 	pos  uint64
 	name string
 }
 
-func newFileWriter(name string) (*fileWriter, error) {
+func NewFileWriter(name string) (*FileWriter, error) {
 	f, err := os.OpenFile(name, os.O_CREATE|os.O_RDWR, 0666)
 	if err != nil {
 		return nil, err
 	}
-	return &fileWriter{
+	return &FileWriter{
 		f:    f,
 		fbuf: bufio.NewWriterSize(f, 1<<22),
 		pos:  0,
@@ -265,7 +264,11 @@ func newFileWriter(name string) (*fileWriter, error) {
 	}, nil
 }
 
-func (fw *fileWriter) write(bufs ...[]byte) error {
+func (fw *FileWriter) Pos() uint64 {
+	return fw.pos
+}
+
+func (fw *FileWriter) Write(bufs ...[]byte) error {
 	for _, b := range bufs {
 		n, err := fw.fbuf.Write(b)
 		fw.pos += uint64(n)
@@ -283,30 +286,34 @@ func (fw *fileWriter) write(bufs ...[]byte) error {
 	return nil
 }
 
-func (fw *fileWriter) flush() error {
+func (fw *FileWriter) Flush() error {
 	return fw.fbuf.Flush()
 }
 
-func (fw *fileWriter) writeAt(buf []byte, pos uint64) error {
-	if err := fw.flush(); err != nil {
+func (fw *FileWriter) WriteAt(buf []byte, pos uint64) error {
+	if err := fw.Flush(); err != nil {
 		return err
 	}
 	_, err := fw.f.WriteAt(buf, int64(pos))
 	return err
 }
 
-// addPadding adds zero byte padding until the file size is a multiple size.
-func (fw *fileWriter) addPadding(size int) error {
+// AddPadding adds zero byte padding until the file size is a multiple size.
+func (fw *FileWriter) AddPadding(size int) error {
 	p := fw.pos % uint64(size)
 	if p == 0 {
 		return nil
 	}
 	p = uint64(size) - p
-	return errors.Wrap(fw.write(make([]byte, p)), "add padding")
+
+	if err := fw.Write(make([]byte, p)); err != nil {
+		return errors.Wrap(err, "add padding")
+	}
+	return nil
 }
 
-func (fw *fileWriter) close() error {
-	if err := fw.flush(); err != nil {
+func (fw *FileWriter) Close() error {
+	if err := fw.Flush(); err != nil {
 		return err
 	}
 	if err := fw.f.Sync(); err != nil {
@@ -315,7 +322,7 @@ func (fw *fileWriter) close() error {
 	return fw.f.Close()
 }
 
-func (fw *fileWriter) remove() error {
+func (fw *FileWriter) Remove() error {
 	return os.Remove(fw.name)
 }
 
@@ -507,7 +514,7 @@ func (w *Writer) finishSymbols() error {
 	if err := w.write([]byte("hash")); err != nil {
 		return err
 	}
-	if err := w.f.flush(); err != nil {
+	if err := w.f.Flush(); err != nil {
 		return err
 	}
 
@@ -532,7 +539,7 @@ func (w *Writer) finishSymbols() error {
 }
 
 func (w *Writer) writeLabelIndices() error {
-	if err := w.fPO.flush(); err != nil {
+	if err := w.fPO.Flush(); err != nil {
 		return err
 	}
 
@@ -674,7 +681,7 @@ func (w *Writer) writeLabelIndexesOffsetTable() error {
 // writePostingsOffsetTable writes the postings offset table.
 func (w *Writer) writePostingsOffsetTable() error {
 	// Ensure everything is in the temporary file.
-	if err := w.fPO.flush(); err != nil {
+	if err := w.fPO.Flush(); err != nil {
 		return err
 	}
 
@@ -728,10 +735,10 @@ func (w *Writer) writePostingsOffsetTable() error {
 		return err
 	}
 	f = nil
-	if err := w.fPO.close(); err != nil {
+	if err := w.fPO.Close(); err != nil {
 		return err
 	}
-	if err := w.fPO.remove(); err != nil {
+	if err := w.fPO.Remove(); err != nil {
 		return err
 	}
 	w.fPO = nil
@@ -773,7 +780,7 @@ func (w *Writer) writePostingsToTmpFiles() error {
 	}
 	sort.Strings(names)
 
-	if err := w.f.flush(); err != nil {
+	if err := w.f.Flush(); err != nil {
 		return err
 	}
 	f, err := fileutil.OpenMmapFile(w.f.name)
@@ -854,7 +861,7 @@ func (w *Writer) writePostingsToTmpFiles() error {
 			// Skip to next series.
 			d.Skip(l - (startLen - d.Len()) + crc32.Size)
 			if err := d.Err(); err != nil {
-				return nil
+				return err
 			}
 		}
 
@@ -893,7 +900,7 @@ func (w *Writer) writePostingsToTmpFiles() error {
 
 func (w *Writer) writePosting(name, value string, offs []uint32) error {
 	// Align beginning to 4 bytes for more efficient postings list scans.
-	if err := w.fP.addPadding(4); err != nil {
+	if err := w.fP.AddPadding(4); err != nil {
 		return err
 	}
 
@@ -903,7 +910,7 @@ func (w *Writer) writePosting(name, value string, offs []uint32) error {
 	w.buf1.PutUvarintStr(name)
 	w.buf1.PutUvarintStr(value)
 	w.buf1.PutUvarint64(w.fP.pos) // This is relative to the postings tmp file, not the final index file.
-	if err := w.fPO.write(w.buf1.Get()); err != nil {
+	if err := w.fPO.Write(w.buf1.Get()); err != nil {
 		return err
 	}
 	w.cntPO++
@@ -921,18 +928,18 @@ func (w *Writer) writePosting(name, value string, offs []uint32) error {
 	w.buf2.Reset()
 	w.buf2.PutBE32int(w.buf1.Len())
 	w.buf1.PutHash(w.crc32)
-	return w.fP.write(w.buf2.Get(), w.buf1.Get())
+	return w.fP.Write(w.buf2.Get(), w.buf1.Get())
 }
 
 func (w *Writer) writePostings() error {
 	// There's padding in the tmp file, make sure it actually works.
-	if err := w.f.addPadding(4); err != nil {
+	if err := w.f.AddPadding(4); err != nil {
 		return err
 	}
 	w.postingsStart = w.f.pos
 
 	// Copy temporary file into main index.
-	if err := w.fP.flush(); err != nil {
+	if err := w.fP.Flush(); err != nil {
 		return err
 	}
 	if _, err := w.fP.f.Seek(0, 0); err != nil {
@@ -948,10 +955,10 @@ func (w *Writer) writePostings() error {
 	}
 	w.f.pos += uint64(n)
 
-	if err := w.fP.close(); err != nil {
+	if err := w.fP.Close(); err != nil {
 		return err
 	}
-	if err := w.fP.remove(); err != nil {
+	if err := w.fP.Remove(); err != nil {
 		return err
 	}
 	w.fP = nil
@@ -979,27 +986,19 @@ func (w *Writer) Close() error {
 		}
 	}
 	if w.fP != nil {
-		if err := w.fP.close(); err != nil {
+		if err := w.fP.Close(); err != nil {
 			return err
 		}
 	}
 	if w.fPO != nil {
-		if err := w.fPO.close(); err != nil {
+		if err := w.fPO.Close(); err != nil {
 			return err
 		}
 	}
-	if err := w.f.close(); err != nil {
+	if err := w.f.Close(); err != nil {
 		return err
 	}
 	return ensureErr
-}
-
-// StringTuples provides access to a sorted list of string tuples.
-type StringTuples interface {
-	// Total number of tuples in the list.
-	Len() int
-	// At returns the tuple at position i.
-	At(i int) ([]string, error)
 }
 
 // StringIter iterates over a sorted list of strings.
@@ -1243,17 +1242,13 @@ func NewSymbols(bs ByteSlice, version int, off int) (*Symbols, error) {
 		version: version,
 		off:     off,
 	}
-	if off == 0 {
-		// Only happens in some tests.
-		return nil, nil
-	}
 	d := encoding.NewDecbufAt(bs, off, castagnoliTable)
 	var (
 		origLen = d.Len()
 		cnt     = d.Be32int()
 		basePos = off + 4
 	)
-	s.offsets = make([]int, 0, cnt/symbolFactor)
+	s.offsets = make([]int, 0, 1+cnt/symbolFactor)
 	for d.Err() == nil && s.seen < cnt {
 		if s.seen%symbolFactor == 0 {
 			s.offsets = append(s.offsets, basePos+origLen-d.Len())
@@ -1271,8 +1266,9 @@ func (s Symbols) Lookup(o uint32) (string, error) {
 	d := encoding.Decbuf{
 		B: s.bs.Range(0, s.bs.Len()),
 	}
+
 	if s.version == FormatV2 {
-		if int(o) > s.seen {
+		if int(o) >= s.seen {
 			return "", errors.Errorf("unknown symbol offset %d", o)
 		}
 		d.Skip(s.offsets[int(o/symbolFactor)])
@@ -1422,32 +1418,29 @@ func (r *Reader) SymbolTableSize() uint64 {
 	return uint64(r.symbols.Size())
 }
 
-// LabelValues returns value tuples that exist for the given label name tuples.
+// LabelValues returns value tuples that exist for the given label name.
 // It is not safe to use the return value beyond the lifetime of the byte slice
 // passed into the Reader.
-func (r *Reader) LabelValues(names ...string) (StringTuples, error) {
-	if len(names) != 1 {
-		return nil, errors.Errorf("only one label name supported")
-	}
+func (r *Reader) LabelValues(name string) ([]string, error) {
 	if r.version == FormatV1 {
-		e, ok := r.postingsV1[names[0]]
+		e, ok := r.postingsV1[name]
 		if !ok {
-			return emptyStringTuples{}, nil
+			return nil, nil
 		}
 		values := make([]string, 0, len(e))
 		for k := range e {
 			values = append(values, k)
 		}
 		sort.Strings(values)
-		return NewStringTuples(values, 1)
+		return values, nil
 
 	}
-	e, ok := r.postings[names[0]]
+	e, ok := r.postings[name]
 	if !ok {
-		return emptyStringTuples{}, nil
+		return nil, nil
 	}
 	if len(e) == 0 {
-		return emptyStringTuples{}, nil
+		return nil, nil
 	}
 	values := make([]string, 0, len(e)*symbolFactor)
 
@@ -1477,13 +1470,8 @@ func (r *Reader) LabelValues(names ...string) (StringTuples, error) {
 	if d.Err() != nil {
 		return nil, errors.Wrap(d.Err(), "get postings offset entry")
 	}
-	return NewStringTuples(values, 1)
+	return values, nil
 }
-
-type emptyStringTuples struct{}
-
-func (emptyStringTuples) At(i int) ([]string, error) { return nil, nil }
-func (emptyStringTuples) Len() int                   { return 0 }
 
 // Series reads the series with the given ID and writes its labels and chunks into lbls and chks.
 func (r *Reader) Series(id uint64, lbls *labels.Labels, chks *[]chunks.Meta) error {
@@ -1623,50 +1611,6 @@ func (r *Reader) LabelNames() ([]string, error) {
 	}
 	sort.Strings(labelNames)
 	return labelNames, nil
-}
-
-type stringTuples struct {
-	length  int      // tuple length
-	entries []string // flattened tuple entries
-	swapBuf []string
-}
-
-func NewStringTuples(entries []string, length int) (*stringTuples, error) {
-	if len(entries)%length != 0 {
-		return nil, errors.Wrap(encoding.ErrInvalidSize, "string tuple list")
-	}
-	return &stringTuples{
-		entries: entries,
-		length:  length,
-	}, nil
-}
-
-func (t *stringTuples) Len() int                   { return len(t.entries) / t.length }
-func (t *stringTuples) At(i int) ([]string, error) { return t.entries[i : i+t.length], nil }
-
-func (t *stringTuples) Swap(i, j int) {
-	if t.swapBuf == nil {
-		t.swapBuf = make([]string, t.length)
-	}
-	copy(t.swapBuf, t.entries[i:i+t.length])
-	for k := 0; k < t.length; k++ {
-		t.entries[i+k] = t.entries[j+k]
-		t.entries[j+k] = t.swapBuf[k]
-	}
-}
-
-func (t *stringTuples) Less(i, j int) bool {
-	for k := 0; k < t.length; k++ {
-		d := strings.Compare(t.entries[i+k], t.entries[j+k])
-
-		if d < 0 {
-			return true
-		}
-		if d > 0 {
-			return false
-		}
-	}
-	return false
 }
 
 // NewStringListIterator returns a StringIter for the given sorted list of strings.
