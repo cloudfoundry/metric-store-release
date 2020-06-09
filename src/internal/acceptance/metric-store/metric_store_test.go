@@ -1,4 +1,4 @@
-package metricstore_test
+package metric_store_test
 
 import (
 	"bytes"
@@ -15,16 +15,6 @@ import (
 	"sync"
 	"time"
 
-	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
-	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
-	"github.com/cloudfoundry/metric-store-release/src/internal/version"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -34,14 +24,25 @@ import (
 	sd_config "github.com/prometheus/prometheus/discovery/config"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
+	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/internal/version"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
 // Sentinel to detect build failures early
-var __ *metricstore.MetricStore
+var __ *metric_store.MetricStore
 
 var storagePaths = []string{"/tmp/metric-store-node1", "/tmp/metric-store-node2", "/tmp/metric-store-node3"}
 var firstTimeMilliseconds = int64(0)
@@ -222,7 +223,7 @@ var _ = Describe("MetricStore", func() {
 		}
 
 		var err error
-		tc.tlsConfig, err = sharedtls.NewMutualTLSClientConfig(tc.caCert, tc.cert, tc.key, "metric-store")
+		tc.tlsConfig, err = shared_tls.NewMutualTLSClientConfig(tc.caCert, tc.cert, tc.key, "metric-store")
 		if err != nil {
 			fmt.Printf("ERROR: invalid mutal TLS config: %s\n", err)
 		}
@@ -336,7 +337,8 @@ var _ = Describe("MetricStore", func() {
 
 		if tc.metricStoreProcesses[0].ExitCode() == -1 {
 			Eventually(func() int {
-				value, _, _ := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				value, warnings, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				fmt.Printf("value: %v\nwarnings: %#v\nerr: %s\n\n", value, warnings, err)
 				return len(value)
 			}, 3).Should(Equal(len(metricNameCounts)))
 		}
@@ -1290,7 +1292,7 @@ scrape_configs:
 		Eventually(checkForRecordedMetric, 65).Should(BeTrue())
 	})
 
-	It("replaces inline certs with a file on remote nodes", func() {
+	FIt("replaces inline certs with a file on remote nodes", func() {
 		tc, cleanup := setup(2)
 		defer cleanup()
 

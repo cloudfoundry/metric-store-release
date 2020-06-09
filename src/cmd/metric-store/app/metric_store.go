@@ -12,7 +12,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
@@ -69,7 +69,7 @@ func (m *MetricStoreApp) Run() {
 		CAFile:     m.cfg.TLS.CAPath,
 		CertFile:   m.cfg.TLS.CertPath,
 		KeyFile:    m.cfg.TLS.KeyPath,
-		ServerName: metricstore.COMMON_NAME,
+		ServerName: metric_store.COMMON_NAME,
 	}
 
 	tlsIngressConfig, err := sharedtls.NewMutualTLSServerConfig(
@@ -94,7 +94,7 @@ func (m *MetricStoreApp) Run() {
 		m.cfg.MetricStoreInternodeTLS.CAPath,
 		m.cfg.MetricStoreInternodeTLS.CertPath,
 		m.cfg.MetricStoreInternodeTLS.KeyPath,
-		metricstore.COMMON_NAME,
+		metric_store.COMMON_NAME,
 	)
 	if err != nil {
 		m.log.Fatal("invalid mTLS configuration for internode client", err)
@@ -121,28 +121,28 @@ func (m *MetricStoreApp) Run() {
 	}
 	scraper := scraping.New(m.cfg.ScrapeConfigPath, m.cfg.AdditionalScrapeConfigDir, m.log, routingTable)
 
-	store := metricstore.New(
+	store := metric_store.New(
 		persistentStore,
 		m.cfg.StoragePath,
 		tlsIngressConfig,
 		tlsInternodeServerConfig,
 		tlsInternodeClientConfig,
 		tlsEgressConfig,
-		metricstore.WithMetrics(m.debugRegistrar),
-		metricstore.WithAddr(m.cfg.Addr),
-		metricstore.WithIngressAddr(m.cfg.IngressAddr),
-		metricstore.WithInternodeAddr(m.cfg.InternodeAddr),
-		metricstore.WithScraper(scraper),
-		metricstore.WithClustered(
+		metric_store.WithMetrics(m.debugRegistrar),
+		metric_store.WithAddr(m.cfg.Addr),
+		metric_store.WithIngressAddr(m.cfg.IngressAddr),
+		metric_store.WithInternodeAddr(m.cfg.InternodeAddr),
+		metric_store.WithScraper(scraper),
+		metric_store.WithClustered(
 			m.cfg.NodeIndex,
 			m.cfg.NodeAddrs,
 			m.cfg.InternodeAddrs,
 		),
-		metricstore.WithReplicationFactor(m.cfg.ReplicationFactor),
-		metricstore.WithHandoffStoragePath(filepath.Join(m.cfg.StoragePath, "handoff")),
-		metricstore.WithLogger(m.log),
-		metricstore.WithQueryTimeout(m.cfg.QueryTimeout),
-		metricstore.WithQueryLogger(filepath.Join(m.cfg.StoragePath, "queryengine")),
+		metric_store.WithReplicationFactor(m.cfg.ReplicationFactor),
+		metric_store.WithHandoffStoragePath(filepath.Join(m.cfg.StoragePath, "handoff")),
+		metric_store.WithLogger(m.log),
+		metric_store.WithQueryTimeout(m.cfg.QueryTimeout),
+		metric_store.WithQueryLogger(filepath.Join(m.cfg.StoragePath, "queryengine")),
 	)
 
 	store.Start()

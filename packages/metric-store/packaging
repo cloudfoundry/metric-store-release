@@ -3,7 +3,7 @@ set -ex
 source /var/vcap/packages/golang-1.13-linux/bosh/compile.env
 export GOPATH=$BOSH_INSTALL_TARGET
 
-module_path="github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+module_path="github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 
 go build -mod=vendor \
   -ldflags "-X ${module_path}.SHA=$(cat sha)" \

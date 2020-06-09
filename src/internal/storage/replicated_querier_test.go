@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -153,7 +153,7 @@ var _ = Describe("Querier", func() {
 				CAFile:     testing.Cert("metric-store-ca.crt"),
 				CertFile:   testing.Cert("metric-store.crt"),
 				KeyFile:    testing.Cert("metric-store.key"),
-				ServerName: metricstore.COMMON_NAME,
+				ServerName: metric_store.COMMON_NAME,
 			}
 			It("returns all nodes when no indexes are specified", func() {
 				expected := []string{"localhost:1234", "localhost:2345", "localhost:3456"}

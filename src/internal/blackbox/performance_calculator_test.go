@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/common/model"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
@@ -120,7 +120,7 @@ func setup() testContext {
 		shared.Cert("metric-store-ca.crt"),
 		shared.Cert("metric-store.crt"),
 		shared.Cert("metric-store.key"),
-		metricstore.COMMON_NAME,
+		metric_store.COMMON_NAME,
 	)
 	addrs := ms.Start()
 	client, err := ingressclient.NewIngressClient(addrs.IngressAddr, tlsClientConfig)

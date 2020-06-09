@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
@@ -101,7 +101,7 @@ func (c *CFAuthProxyApp) Run() {
 			c.cfg.ProxyCAPath,
 			c.cfg.MetricStoreClientTLS.CertPath,
 			c.cfg.MetricStoreClientTLS.KeyPath,
-			metricstore.COMMON_NAME,
+			metric_store.COMMON_NAME,
 		),
 		WithServerTLS(
 			c.cfg.CertPath,

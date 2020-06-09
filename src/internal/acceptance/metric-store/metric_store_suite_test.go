@@ -1,4 +1,4 @@
-package metricstore_test
+package metric_store_test
 
 import (
 	"log"
@@ -13,5 +13,5 @@ func TestMetricStoreAcceptance(t *testing.T) {
 	log.SetOutput(GinkgoWriter)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "MetricStore Acceptance Suite")
+	RunSpecs(t, "Metric Store Acceptance Suite")
 }

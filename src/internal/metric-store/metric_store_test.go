@@ -1,4 +1,4 @@
-package metricstore_test
+package metric_store_test
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"time"
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -49,7 +49,7 @@ type testContext struct {
 	tlsClientConfig *tls.Config
 	egressTLSConfig *config_util.TLSConfig
 
-	store           *metricstore.MetricStore
+	store           *metric_store.MetricStore
 	persistentStore storage.Storage
 	apiClient       prom_api_client.API
 	rulesClient     *rulesclient.RulesClient
@@ -99,26 +99,26 @@ func (tc *testContext) CreateAlertGroup(managerId, alertName, alertExpr string) 
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func (tc *testContext) startMetricStore(storagePath string, opts ...metricstore.MetricStoreOption) {
+func (tc *testContext) startMetricStore(storagePath string, opts ...metric_store.MetricStoreOption) {
 	peerAddrs := tc.peer.Start()
 
-	options := []metricstore.MetricStoreOption{
-		metricstore.WithAddr("127.0.0.1:0"),
-		metricstore.WithIngressAddr("127.0.0.1:0"),
-		metricstore.WithInternodeAddr("127.0.0.1:0"),
-		metricstore.WithClustered(
+	options := []metric_store.MetricStoreOption{
+		metric_store.WithAddr("127.0.0.1:0"),
+		metric_store.WithIngressAddr("127.0.0.1:0"),
+		metric_store.WithInternodeAddr("127.0.0.1:0"),
+		metric_store.WithClustered(
 			0,
 			[]string{"my-addr", peerAddrs.EgressAddr},
 			[]string{"my-addr", peerAddrs.InternodeAddr},
 		),
-		metricstore.WithMetrics(tc.spyMetrics),
-		metricstore.WithLogger(logger.NewTestLogger(GinkgoWriter)),
+		metric_store.WithMetrics(tc.spyMetrics),
+		metric_store.WithLogger(logger.NewTestLogger(GinkgoWriter)),
 	}
 	for _, opt := range opts {
 		options = append(options, opt)
 	}
 
-	tc.store = metricstore.New(
+	tc.store = metric_store.New(
 		tc.persistentStore,
 		storagePath,
 		tc.tlsServerConfig,
@@ -142,7 +142,7 @@ var createAPIClient = func(addr string, tlsConfig *tls.Config) prom_api_client.A
 
 type cleanup func()
 
-func setup(tc *testContext, opts ...metricstore.MetricStoreOption) (*testContext, cleanup) {
+func setup(tc *testContext, opts ...metric_store.MetricStoreOption) (*testContext, cleanup) {
 	storagePath, err := ioutil.TempDir("", storagePathPrefix)
 	if err != nil {
 		panic(err)
@@ -552,7 +552,7 @@ var _ = Describe("MetricStore", func() {
 
 			scraper := scraping.New(scrapeConfig.Name(), "", logger.NewTestLogger(GinkgoWriter), routingTable)
 
-			_, cleanup := setup(tc, metricstore.WithScraper(scraper))
+			_, cleanup := setup(tc, metric_store.WithScraper(scraper))
 			defer cleanup()
 
 			Eventually(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically(">", 0))
@@ -573,7 +573,7 @@ var _ = Describe("MetricStore", func() {
 
 			scraper := scraping.New(scrapeConfig.Name(), "", logger.NewTestLogger(GinkgoWriter), routingTable)
 
-			_, cleanup := setup(tc, metricstore.WithScraper(scraper))
+			_, cleanup := setup(tc, metric_store.WithScraper(scraper))
 			defer cleanup()
 
 			Consistently(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically("==", 0))
@@ -592,7 +592,7 @@ func defaultTestContext() *testContext {
 			CAFile:     testing.Cert("metric-store-ca.crt"),
 			CertFile:   testing.Cert("metric-store.crt"),
 			KeyFile:    testing.Cert("metric-store.key"),
-			ServerName: metricstore.COMMON_NAME,
+			ServerName: metric_store.COMMON_NAME,
 		},
 	}
 }
@@ -610,14 +610,14 @@ func createScrapeConfig(endpoints map[string]string) *os.File {
     ca_file: "%s"
     cert_file: "%s"
     key_file: "%s"
-    server_name: "%s"  
+    server_name: "%s"
   static_configs:
   - targets: ["%s"]`,
 			jobName,
 			testing.Cert("metric-store-ca.crt"),
 			testing.Cert("metric-store.crt"),
 			testing.Cert("metric-store.key"),
-			metricstore.COMMON_NAME,
+			metric_store.COMMON_NAME,
 			endpoint)
 	}
 

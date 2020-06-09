@@ -8,7 +8,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/egressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
@@ -66,7 +66,7 @@ func (b *BlackboxApp) StartCalculators(egressClient blackbox.QueryableClient, st
 		b.cfg.TLS.CAPath,
 		b.cfg.TLS.CertPath,
 		b.cfg.TLS.KeyPath,
-		metricstore.COMMON_NAME,
+		metric_store.COMMON_NAME,
 	)
 	if err != nil {
 		b.log.Fatal("invalid mTLS configuration for metric-store communication", err)

@@ -1,4 +1,4 @@
-package metricstore
+package metric_store
 
 import (
 	"bytes"

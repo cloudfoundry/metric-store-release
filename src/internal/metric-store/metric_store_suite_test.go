@@ -1,4 +1,4 @@
-package metricstore_test
+package metric_store_test
 
 import (
 	. "github.com/onsi/ginkgo"

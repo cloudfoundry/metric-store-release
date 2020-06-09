@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -49,7 +49,7 @@ var _ = Describe("Remote Querier", func() {
 			CAFile:     testing.Cert("metric-store-ca.crt"),
 			CertFile:   testing.Cert("metric-store.crt"),
 			KeyFile:    testing.Cert("metric-store.key"),
-			ServerName: metricstore.COMMON_NAME,
+			ServerName: metric_store.COMMON_NAME,
 		}
 
 		It("connects", func() {

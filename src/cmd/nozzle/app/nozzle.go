@@ -11,7 +11,7 @@ import (
 
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metricstore"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -83,7 +83,7 @@ func (n *NozzleApp) Run() {
 		n.cfg.MetricStoreTLS.CAPath,
 		n.cfg.MetricStoreTLS.CertPath,
 		n.cfg.MetricStoreTLS.KeyPath,
-		metricstore.COMMON_NAME,
+		metric_store.COMMON_NAME,
 	)
 	if err != nil {
 		n.log.Fatal("failed to load tls config for metric store", err)
