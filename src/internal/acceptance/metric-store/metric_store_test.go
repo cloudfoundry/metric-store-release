@@ -337,7 +337,7 @@ var _ = Describe("MetricStore", func() {
 
 		if tc.metricStoreProcesses[0].ExitCode() == -1 {
 			Eventually(func() int {
-				value, warnings, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				value, _, _ := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
 				return len(value)
 			}, 3).Should(Equal(len(metricNameCounts)))
 		}
