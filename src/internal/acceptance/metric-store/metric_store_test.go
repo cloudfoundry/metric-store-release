@@ -338,7 +338,6 @@ var _ = Describe("MetricStore", func() {
 		if tc.metricStoreProcesses[0].ExitCode() == -1 {
 			Eventually(func() int {
 				value, warnings, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
-				fmt.Printf("value: %v\nwarnings: %#v\nerr: %s\n\n", value, warnings, err)
 				return len(value)
 			}, 3).Should(Equal(len(metricNameCounts)))
 		}
@@ -1292,7 +1291,7 @@ scrape_configs:
 		Eventually(checkForRecordedMetric, 65).Should(BeTrue())
 	})
 
-	FIt("replaces inline certs with a file on remote nodes", func() {
+	It("replaces inline certs with a file on remote nodes", func() {
 		tc, cleanup := setup(2)
 		defer cleanup()
 
