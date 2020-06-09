@@ -9,7 +9,7 @@ function squashHead() {
 
 function printUsage() {
   echo -e "\033[32mRun tests and autocommit\033[0m"
-  echo -e "\033[31musage: \033[1;34m$0 path/to/package/to/test\033[0m"
+  echo -e "\033[31musage: \033[1;34m$0 path/to/package/to/test \"Incremental Commit Comment\"\033[0m"
   echo -e "       Watches that package for changes and automatically runs tests on changes"
   echo -e "       Automatically commits when tests pass with [Autocommit] tag"
   echo -e ""
