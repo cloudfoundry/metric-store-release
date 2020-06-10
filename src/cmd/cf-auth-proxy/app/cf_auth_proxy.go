@@ -162,7 +162,6 @@ func (c *CFAuthProxyApp) startDebugServer(tlsConfig *tls.Config) {
 	c.debugRegistrar = debug.NewRegistrar(
 		c.log,
 		"metric_store_cf_auth_proxy",
-		debug.WithDefaultRegistry(),
 		debug.WithConstLabels(map[string]string{
 			"source_id": "cf-auth-proxy",
 		}),

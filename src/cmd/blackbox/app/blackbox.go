@@ -135,7 +135,6 @@ func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 	b.debugRegistrar = debug.NewRegistrar(
 		b.log,
 		"blackbox",
-		debug.WithDefaultRegistry(),
 		debug.WithGauge(blackbox.HttpReliability, prometheus.GaugeOpts{
 			Help: "Proportion of expected metrics posted to metrics queried"}),
 		debug.WithCounter(blackbox.MalfunctioningMetricsTotal, prometheus.CounterOpts{

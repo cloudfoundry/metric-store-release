@@ -147,7 +147,6 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 	n.debugRegistrar = debug.NewRegistrar(
 		n.log,
 		"metric-store-nozzle",
-		debug.WithDefaultRegistry(),
 		debug.WithConstLabels(map[string]string{
 			"source_id": "nozzle",
 		}),

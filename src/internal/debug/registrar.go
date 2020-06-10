@@ -33,6 +33,8 @@ func NewRegistrar(
 	opts ...RegistrarOption,
 ) *Registrar {
 	defaultRegistry := prometheus.NewRegistry()
+	defaultRegistry.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
+	defaultRegistry.MustRegister(prometheus.NewGoCollector())
 
 	r := &Registrar{
 		log:           log,
@@ -148,13 +150,6 @@ func (h *Registrar) Histogram(name string, labels ...string) prometheus.Observer
 // RegistrarOption is a function that can be used to set optional configuration
 // when initializing a new Registrar.
 type RegistrarOption func(*Registrar)
-
-func WithDefaultRegistry() RegistrarOption {
-	return func(r *Registrar) {
-		r.registerer = prometheus.DefaultRegisterer
-		r.gatherer = prometheus.DefaultGatherer
-	}
-}
 
 func WithConstLabels(labels map[string]string) RegistrarOption {
 	return func(r *Registrar) {

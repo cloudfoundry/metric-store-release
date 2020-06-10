@@ -41,17 +41,18 @@ var _ = Describe("Metric Store App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
-			StoragePath: "/tmp/metric-store",
+			StoragePath:       "/tmp/metric-store",
 			ReplicationFactor: 1,
-			NodeAddrs: []string{"localhost:8080"},
+			NodeAddrs:         []string{"localhost:8080"},
 		}, logger.NewTestLogger(GinkgoWriter))
 		go metricStore.Run()
 
-		Eventually(metricStore.DebugAddr).ShouldNot(BeEmpty())
+		Eventually(metricStore.MetricsAddr).ShouldNot(BeEmpty())
 	})
 
 	AfterEach(func() {
-		defer metricStore.Stop()
+		metricStore.Stop()
+		metricStore = nil
 	})
 
 	It("serves metrics on a metrics endpoint", func() {
@@ -70,7 +71,7 @@ var _ = Describe("Metric Store App", func() {
 		}
 
 		fn := func() string {
-			resp, err := httpClient.Get("https://" + metricStore.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + metricStore.MetricsAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}
@@ -88,5 +89,31 @@ var _ = Describe("Metric Store App", func() {
 		Eventually(fn).ShouldNot(BeEmpty())
 		Expect(body).To(ContainSubstring(debug.MetricStoreWrittenPointsTotal))
 		Expect(body).To(ContainSubstring("go_threads"))
+	})
+
+	It("listens with pprof", func() {
+		tlsConfig, err := tls.NewMutualTLSClientConfig(
+			testing.Cert("metric-store-ca.crt"),
+			testing.Cert("metric-store.crt"),
+			testing.Cert("metric-store.key"),
+			"metric-store",
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		httpClient := &http.Client{
+			Transport: &http.Transport{TLSClientConfig: tlsConfig},
+		}
+
+		callPprof := func() int {
+
+			resp, err := httpClient.Get("https://" + metricStore.MetricsAddr() + "/debug/pprof")
+			if err != nil {
+				return -1
+			}
+			defer resp.Body.Close()
+
+			return resp.StatusCode
+		}
+		Eventually(callPprof).Should(Equal(200))
 	})
 })

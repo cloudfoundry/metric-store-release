@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
@@ -27,9 +27,9 @@ type MetricStoreApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	debugMu        sync.Mutex
-	debugLis       net.Listener
-	debugRegistrar *debug.Registrar
+	metricsMutex     sync.Mutex
+	metricsListener  net.Listener
+	metricsRegistrar *debug.Registrar
 }
 
 func NewMetricStoreApp(cfg *Config, log *logger.Logger) *MetricStoreApp {
@@ -39,14 +39,14 @@ func NewMetricStoreApp(cfg *Config, log *logger.Logger) *MetricStoreApp {
 	}
 }
 
-// DebugAddr returns the address (host and port) that the debug server is bound
+// MetricsAddr returns the address (host and port) that the debug server is bound
 // to. If the debug server has not been started an empty string will be returned.
-func (c *MetricStoreApp) DebugAddr() string {
-	c.debugMu.Lock()
-	defer c.debugMu.Unlock()
+func (c *MetricStoreApp) MetricsAddr() string {
+	c.metricsMutex.Lock()
+	defer c.metricsMutex.Unlock()
 
-	if c.debugLis != nil {
-		return c.debugLis.Addr().String()
+	if c.metricsListener != nil {
+		return c.metricsListener.Addr().String()
 	}
 
 	return ""
@@ -100,10 +100,10 @@ func (m *MetricStoreApp) Run() {
 		m.log.Fatal("invalid mTLS configuration for internode client", err)
 	}
 
-	diskFreeReporter := system_stats.NewDiskFreeReporter(m.cfg.StoragePath, m.log, m.debugRegistrar)
+	diskFreeReporter := system_stats.NewDiskFreeReporter(m.cfg.StoragePath, m.log, m.metricsRegistrar)
 	persistentStore := persistence.NewStore(
 		m.cfg.StoragePath,
-		m.debugRegistrar,
+		m.metricsRegistrar,
 		persistence.WithAppenderLabelTruncationLength(m.cfg.LabelTruncationLength),
 		persistence.WithLogger(m.log),
 		persistence.WithRetentionConfig(persistence.RetentionConfig{
@@ -128,7 +128,7 @@ func (m *MetricStoreApp) Run() {
 		tlsInternodeServerConfig,
 		tlsInternodeClientConfig,
 		tlsEgressConfig,
-		metric_store.WithMetrics(m.debugRegistrar),
+		metric_store.WithMetrics(m.metricsRegistrar),
 		metric_store.WithAddr(m.cfg.Addr),
 		metric_store.WithIngressAddr(m.cfg.IngressAddr),
 		metric_store.WithInternodeAddr(m.cfg.InternodeAddr),
@@ -166,21 +166,20 @@ func (m *MetricStoreApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (m *MetricStoreApp) Stop() {
-	m.debugMu.Lock()
-	defer m.debugMu.Unlock()
+	m.metricsMutex.Lock()
+	defer m.metricsMutex.Unlock()
 
-	m.debugLis.Close()
-	m.debugLis = nil
+	m.metricsListener.Close()
+	m.metricsListener = nil
 }
 
 func (m *MetricStoreApp) startDebugServer(tlsConfig *tls.Config) {
-	m.debugMu.Lock()
-	defer m.debugMu.Unlock()
+	m.metricsMutex.Lock()
+	defer m.metricsMutex.Unlock()
 
-	m.debugRegistrar = debug.NewRegistrar(
+	m.metricsRegistrar = debug.NewRegistrar(
 		m.log,
 		"metric-store",
-		debug.WithDefaultRegistry(),
 		debug.WithConstLabels(map[string]string{
 			"source_id": "metric-store",
 		}),
@@ -255,10 +254,10 @@ func (m *MetricStoreApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	m.debugLis = debug.StartServer(
+	m.metricsListener = debug.StartServer(
 		m.cfg.MetricsAddr,
 		tlsConfig,
-		m.debugRegistrar.Gatherer(),
+		m.metricsRegistrar.Gatherer(),
 		m.log,
 	)
 }

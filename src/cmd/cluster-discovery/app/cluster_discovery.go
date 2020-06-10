@@ -149,7 +149,6 @@ func (app *ClusterDiscoveryApp) startHealthServer() {
 	app.metrics = debug.NewRegistrar(
 		app.log,
 		"cluster-discovery",
-		debug.WithDefaultRegistry(),
 		debug.WithConstLabels(map[string]string{
 			"source_id": "cluster-discovery",
 		}),
