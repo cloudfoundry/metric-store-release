@@ -6,15 +6,16 @@ import (
 	"net/http"
 	"time"
 
-	loggregator "code.cloudfoundry.org/go-loggregator"
+	"code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+
 	"github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -49,7 +50,7 @@ var _ = Describe("Nozzle App", func() {
 		}, logger.NewNop())
 		go nozzle.Run()
 
-		Eventually(nozzle.DebugAddr).ShouldNot(BeEmpty())
+		Eventually(nozzle.MetricsAddr).ShouldNot(BeEmpty())
 	})
 
 	AfterEach(func() {
@@ -72,11 +73,11 @@ var _ = Describe("Nozzle App", func() {
 		}
 
 		fn := func() string {
-			resp, err := httpClient.Get("https://" + nozzle.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + nozzle.MetricsAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			bytes, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
@@ -128,18 +129,18 @@ func newStubLoggregator() *stubLoggregator {
 }
 
 func (sl *stubLoggregator) Receiver(
-	r *loggregator_v2.EgressRequest,
-	s loggregator_v2.Egress_ReceiverServer,
+	_ *loggregator_v2.EgressRequest,
+	_ loggregator_v2.Egress_ReceiverServer,
 ) error {
 	panic("not implemented")
 }
 
 func (sl *stubLoggregator) BatchedReceiver(
-	r *loggregator_v2.EgressBatchRequest,
+	_ *loggregator_v2.EgressBatchRequest,
 	s loggregator_v2.Egress_BatchedReceiverServer,
 ) error {
 	for env := range sl.logStream {
-		s.Send(&loggregator_v2.EnvelopeBatch{
+		_ = s.Send(&loggregator_v2.EnvelopeBatch{
 			Batch: []*loggregator_v2.Envelope{env},
 		})
 

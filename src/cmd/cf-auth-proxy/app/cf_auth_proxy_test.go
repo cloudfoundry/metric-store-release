@@ -27,7 +27,7 @@ var _ = Describe("CF Auth Proxy App", func() {
 			"localhost",
 		)
 		spyUAA := testing.NewSpyUAA(uaaTLSConfig)
-		spyUAA.Start()
+		Expect(spyUAA.Start()).To(Succeed())
 
 		cfAuthProxy = app.NewCFAuthProxyApp(&app.Config{
 			CAPI: app.CAPI{
@@ -56,7 +56,7 @@ var _ = Describe("CF Auth Proxy App", func() {
 		}, logger.NewTestLogger(GinkgoWriter))
 		go cfAuthProxy.Run()
 
-		Eventually(cfAuthProxy.DebugAddr).ShouldNot(BeEmpty())
+		Eventually(cfAuthProxy.MetricsAddr).ShouldNot(BeEmpty())
 	})
 
 	AfterEach(func() {
@@ -81,11 +81,11 @@ var _ = Describe("CF Auth Proxy App", func() {
 		}
 
 		fn := func() string {
-			resp, err := httpClient.Get("https://" + cfAuthProxy.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + cfAuthProxy.MetricsAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			bytes, err := ioutil.ReadAll(resp.Body)
 			if err != nil {

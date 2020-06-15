@@ -23,8 +23,8 @@ type CFAuthProxyApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	metrics        *metrics.Server
-	debugRegistrar metrics.Registrar // TODO rename or remove
+	metricsServer     *metrics.Server
+	metrics           metrics.Registrar
 }
 
 func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
@@ -34,14 +34,12 @@ func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
 	}
 }
 
-// DebugAddr returns the address (host and port) that the debug server is bound
-// to. If the debug server has not been started an empty string will be returned.
-func (c *CFAuthProxyApp) DebugAddr() string {
-	if c.metrics != nil {
-		return c.metrics.Addr()
+func (c *CFAuthProxyApp) MetricsAddr() string {
+	if c.metricsServer == nil {
+		return ""
 	}
+	return c.metricsServer.Addr()
 
-	return ""
 }
 
 // Run starts the CFAuthProxyApp, this is a blocking method call.
@@ -60,7 +58,7 @@ func (c *CFAuthProxyApp) Run() {
 	uaaClient := auth.NewUAAClient(
 		c.cfg.UAA.Addr,
 		buildUAAClient(c.cfg, c.log),
-		c.debugRegistrar,
+		c.metrics,
 		c.log,
 	)
 
@@ -73,7 +71,7 @@ func (c *CFAuthProxyApp) Run() {
 	capiClient := auth.NewCAPIClient(
 		c.cfg.CAPI.ExternalAddr,
 		buildCAPIClient(c.cfg, c.log),
-		c.debugRegistrar,
+		c.metrics,
 		c.log,
 	)
 
@@ -83,7 +81,7 @@ func (c *CFAuthProxyApp) Run() {
 		uaaClient,
 		capiClient,
 		queryParser,
-		c.debugRegistrar,
+		c.metrics,
 		c.log,
 	)
 
@@ -144,12 +142,12 @@ func (c *CFAuthProxyApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (c *CFAuthProxyApp) Stop() {
-	c.metrics.Close()
-	c.metrics = nil
+	c.metricsServer.Close()
+	c.metricsServer = nil
 }
 
 func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
-	c.debugRegistrar = metrics.NewRegistrar(
+	c.metrics = metrics.NewRegistrar(
 		c.log,
 		"metric_store_cf_auth_proxy",
 		metrics.WithConstLabels(map[string]string{
@@ -165,11 +163,11 @@ func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	c.metrics = metrics.StartMetricsServer(
+	c.metricsServer = metrics.StartMetricsServer(
 		c.cfg.MetricsAddr,
 		tlsConfig,
 		c.log,
-		c.debugRegistrar,
+		c.metrics,
 	)
 }
 

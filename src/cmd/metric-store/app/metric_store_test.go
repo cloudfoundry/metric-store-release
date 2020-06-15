@@ -76,7 +76,7 @@ var _ = Describe("Metric Store App", func() {
 			if err != nil {
 				return ""
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			bytes, err := ioutil.ReadAll(resp.Body)
 			if err != nil {

@@ -15,8 +15,8 @@ import (
 )
 
 type Server struct {
-	listener     net.Listener
-	registrar    Registrar
+	listener  net.Listener
+	registrar Registrar
 
 	mu sync.Mutex // TODO needed?
 }
@@ -44,7 +44,6 @@ func (s *Server) Registrar() Registrar {
 // a status code of 1.
 func StartMetricsServer(addr string, tlsConfig *tls.Config, log *logger.Logger, registrar Registrar) *Server {
 	router := http.NewServeMux()
-
 	router.Handle("/metrics", promhttp.HandlerFor(registrar.Gatherer(), promhttp.HandlerOpts{}))
 
 	server := http.Server{

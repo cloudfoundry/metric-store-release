@@ -32,11 +32,11 @@ var _ = Describe("Blackbox App", func() {
 			},
 		}, logger.NewTestLogger(GinkgoWriter))
 		go bb.Run()
-		Eventually(bb.DebugAddr).ShouldNot(BeEmpty())
+		Eventually(bb.MetricsAddr).ShouldNot(BeEmpty())
 	})
 
 	AfterEach(func() {
-		defer bb.Stop()
+		bb.Stop()
 	})
 
 	It("serves metrics on a metrics endpoint", func() {
@@ -55,11 +55,11 @@ var _ = Describe("Blackbox App", func() {
 		}
 
 		fn := func() string {
-			resp, err := httpClient.Get("https://" + bb.DebugAddr() + "/metrics")
+			resp, err := httpClient.Get("https://" + bb.MetricsAddr() + "/metrics")
 			if err != nil {
 				return ""
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			bytes, err := ioutil.ReadAll(resp.Body)
 			if err != nil {

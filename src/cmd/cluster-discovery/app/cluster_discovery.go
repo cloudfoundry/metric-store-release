@@ -21,8 +21,8 @@ type ClusterDiscoveryApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	metrics        *metrics.Server
-	debugRegistrar metrics.Registrar
+	metricsServer     *metrics.Server
+	metrics           metrics.Registrar
 }
 
 func NewClusterDiscoveryApp(cfg *Config, log *logger.Logger) *ClusterDiscoveryApp {
@@ -32,13 +32,12 @@ func NewClusterDiscoveryApp(cfg *Config, log *logger.Logger) *ClusterDiscoveryAp
 	}
 }
 
-// HealthAddr returns the address (host and port) of the health server, if any.
-func (app *ClusterDiscoveryApp) HealthAddr() string {
-	if app.metrics != nil {
-		return app.metrics.Addr()
+func (app *ClusterDiscoveryApp) MetricsAddr() string {
+	if app.metricsServer == nil {
+		return ""
 	}
+	return app.metricsServer.Addr()
 
-	return ""
 }
 
 // Run starts the ClusterDiscoveryApp, this is a blocking method call.
@@ -71,7 +70,7 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 		app.log.Fatal("unable to create PKS TLS config", err)
 	}
 
-	uaaTlsConfig, err := sharedtls.NewUAATLSConfig(app.cfg.UAA.CAPath, true)
+	uaaTlsConfig, err := sharedtls.NewUAATLSConfig(app.cfg.UAA.CAPath, true) // TODO skipCertVerify?
 	if err != nil {
 		app.log.Fatal("unable to create UAA TLS config", err)
 	}
@@ -103,14 +102,14 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 			&http.Client{
 				Transport: &http.Transport{TLSClientConfig: uaaTlsConfig},
 			},
-			app.debugRegistrar,
+			app.metrics,
 			app.log,
 			auth.WithClientCredentials(app.cfg.UAA.Client, app.cfg.UAA.ClientSecret),
 		),
 		app.cfg.MetricStoreAPI.Address,
 		metricStoreAPIClient,
 		cluster_discovery.WithLogger(app.log),
-		cluster_discovery.WithMetrics(app.debugRegistrar),
+		cluster_discovery.WithMetrics(app.metrics),
 		cluster_discovery.WithRefreshInterval(app.cfg.RefreshInterval),
 	)
 
@@ -120,8 +119,8 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 
 // Stop stops all the subprocesses for the application.
 func (app *ClusterDiscoveryApp) Stop() {
-	app.metrics.Close()
-	app.metrics = nil
+	app.metricsServer.Close()
+	app.metricsServer = nil
 }
 
 func (app *ClusterDiscoveryApp) startHealthServer() {
@@ -134,7 +133,7 @@ func (app *ClusterDiscoveryApp) startHealthServer() {
 		app.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	app.debugRegistrar = metrics.NewRegistrar(
+	app.metrics = metrics.NewRegistrar(
 		app.log,
 		"cluster-discovery",
 		metrics.WithConstLabels(map[string]string{
@@ -142,10 +141,10 @@ func (app *ClusterDiscoveryApp) startHealthServer() {
 		}),
 	)
 
-	app.metrics = metrics.StartMetricsServer(
+	app.metricsServer = metrics.StartMetricsServer(
 		app.cfg.MetricsAddr,
 		tlsConfig,
 		app.log,
-		app.debugRegistrar,
+		app.metrics,
 	)
 }

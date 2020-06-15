@@ -21,8 +21,8 @@ type NozzleApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	metrics          *metrics.Server
-	metricsRegistrar metrics.Registrar
+	metricsServer     *metrics.Server
+	metrics           metrics.Registrar
 }
 
 func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
@@ -32,14 +32,12 @@ func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
 	}
 }
 
-// DebugAddr returns the address (host and port) that the debug server is bound
-// to. If the debug server has not been started an empty string will be returned.
-func (n *NozzleApp) DebugAddr() string {
-	if n.metrics != nil {
-		return n.metrics.Addr()
+func (n *NozzleApp) MetricsAddr() string {
+	if n.metricsServer == nil {
+		return ""
 	}
+	return n.metricsServer.Addr()
 
-	return ""
 }
 
 // Run starts the Nozzle, this is a blocking method call.
@@ -70,7 +68,7 @@ func (n *NozzleApp) Run() {
 		loggregator.WithEnvelopeStreamLogger(n.log.StdLog("loggregator")),
 		loggregator.WithEnvelopeStreamBuffer(10000, func(missed int) {
 			n.log.Info("dropped envelope batches", logger.Count(missed))
-			n.metricsRegistrar.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
+			n.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
 		}),
 	)
 
@@ -92,7 +90,7 @@ func (n *NozzleApp) Run() {
 		n.cfg.ShardId,
 		n.cfg.NodeIndex,
 		WithNozzleLogger(n.log),
-		WithNozzleDebugRegistrar(n.metricsRegistrar),
+		WithNozzleDebugRegistrar(n.metrics),
 		WithNozzleTimerRollup(
 			10*time.Second,
 			[]string{
@@ -128,12 +126,12 @@ func (n *NozzleApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (n *NozzleApp) Stop() {
-	n.metrics.Close()
-	n.metrics = nil
+	n.metricsServer.Close()
+	n.metricsServer = nil
 }
 
 func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
-	n.metricsRegistrar = metrics.NewRegistrar(
+	n.metrics = metrics.NewRegistrar(
 		n.log,
 		"metric-store-nozzle",
 		metrics.WithConstLabels(map[string]string{
@@ -160,10 +158,10 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	n.metrics = metrics.StartMetricsServer(
+	n.metricsServer = metrics.StartMetricsServer(
 		n.cfg.MetricsAddr,
 		tlsConfig,
 		n.log,
-		n.metricsRegistrar,
+		n.metrics,
 	)
 }

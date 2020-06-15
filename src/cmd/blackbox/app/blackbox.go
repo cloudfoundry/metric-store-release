@@ -22,8 +22,8 @@ type BlackboxApp struct {
 	pc *blackbox.PerformanceCalculator
 	rc *blackbox.ReliabilityCalculator
 
-	metrics        *metrics.Server
-	debugRegistrar metrics.Registrar // TODO: rename / remove?
+	metricsServer *metrics.Server
+	metrics       metrics.Registrar
 }
 
 func NewBlackboxApp(cfg *blackbox.Config, log *logger.Logger) *BlackboxApp {
@@ -79,7 +79,7 @@ func (b *BlackboxApp) StartPerformanceCalculator(tlsConfig *tls.Config, egressCl
 		b.log.Fatal("performance: could not connect metric-store ingress client", err)
 	}
 
-	b.pc = blackbox.NewPerformanceCalculator(b.cfg, b.log, b.debugRegistrar)
+	b.pc = blackbox.NewPerformanceCalculator(b.cfg, b.log, b.metrics)
 	go b.pc.CalculatePerformance(egressClient, stopChan)
 	go b.pc.EmitPerformanceTestMetrics(b.cfg.SourceId, time.Second, ingressClient, stopChan)
 }
@@ -97,30 +97,28 @@ func (b *BlackboxApp) StartReliabilityCalculator(tlsConfig *tls.Config, egressCl
 		EmissionInterval: b.cfg.EmissionInterval,
 		SourceId:         b.cfg.SourceId,
 		Log:              b.log,
-		DebugRegistrar:   b.debugRegistrar,
+		DebugRegistrar:   b.metrics,
 	}
 	go rc.EmitReliabilityMetrics(ingressClient, stopChan)
 	go rc.CalculateReliability(egressClient, stopChan)
 }
 
-// DebugAddr returns the address (host and port) that the debug server is bound
-// to. If the debug server has not been started an empty string will be returned.
-func (b *BlackboxApp) DebugAddr() string {
-	if b.metrics != nil {
-		return b.metrics.Addr()
+func (b *BlackboxApp) MetricsAddr() string {
+	if b.metricsServer == nil {
+		return ""
 	}
+	return b.metricsServer.Addr()
 
-	return ""
 }
 
 // Stop stops all the subprocesses for the application.
 func (b *BlackboxApp) Stop() {
-	b.metrics.Close()
-	b.metrics = nil
+	b.metricsServer.Close()
+	b.metricsServer = nil
 }
 
 func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
-	b.debugRegistrar = metrics.NewRegistrar(
+	b.metrics = metrics.NewRegistrar(
 		b.log,
 		"blackbox",
 		metrics.WithGauge(blackbox.HttpReliability, prometheus.GaugeOpts{
@@ -133,11 +131,12 @@ func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 			Help: "Number of metrics retrieved by benchmark query against blackbox_performance_canary"}),
 	)
 
-	b.log.Info("\n serving metrics on", zap.String("debug address", b.cfg.MetricsAddr))
-	b.metrics = metrics.StartMetricsServer(
+	b.log.Info("\n serving metrics on", zap.String("address", b.cfg.MetricsAddr))
+	b.metricsServer = metrics.StartMetricsServer(
 		b.cfg.MetricsAddr,
 		tlsConfig,
 		b.log,
-		b.debugRegistrar,
+		b.metrics,
 	)
+
 }
