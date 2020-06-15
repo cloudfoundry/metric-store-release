@@ -16,7 +16,7 @@ require (
 	github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a // indirect
 	github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31 // indirect
 	github.com/go-kit/kit v0.9.0
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/influxdata/flux v0.59.4 // indirect
@@ -28,8 +28,8 @@ require (
 	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
 	github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef // indirect
 	github.com/mschoch/smat v0.0.0-20160514031455-90eadee771ae // indirect
-	github.com/onsi/ginkgo v1.12.0
-	github.com/onsi/gomega v1.10.0
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/client_model v0.2.0
@@ -42,7 +42,7 @@ require (
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073 // indirect
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
 	golang.org/x/sys v0.0.0-20200331124033-c3d80250170d
 	google.golang.org/grpc v1.24.0
 	gopkg.in/yaml.v2 v2.3.0
