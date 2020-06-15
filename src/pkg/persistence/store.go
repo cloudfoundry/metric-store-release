@@ -10,7 +10,7 @@ import (
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/influxdata/influxdb/tsdb"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
@@ -35,7 +35,7 @@ type diskFreeReporter func() (float64, error)
 
 type Store struct {
 	adapter *InfluxAdapter
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 	tsStore *tsdb.Store
 	log     *logger.Logger
 
@@ -45,7 +45,7 @@ type Store struct {
 	diskFreeReporter      diskFreeReporter
 }
 
-func NewStore(storagePath string, metrics debug.MetricRegistrar, opts ...StoreOption) *Store {
+func NewStore(storagePath string, metrics metrics.Registrar, opts ...StoreOption) *Store {
 	store := &Store{
 		metrics:               metrics,
 		log:                   logger.NewNop(),
@@ -197,7 +197,7 @@ func (store *Store) deleteOlderThan(cutoff time.Time) {
 		store.log.Error("error deleting old shards", err)
 	}
 
-	store.metrics.Add(debug.MetricStoreExpiredShardsTotal, float64(numShardsExpired))
+	store.metrics.Add(metrics.MetricStoreExpiredShardsTotal, float64(numShardsExpired))
 }
 
 func (store *Store) deleteOldest() {
@@ -205,7 +205,7 @@ func (store *Store) deleteOldest() {
 	if err != nil {
 		store.log.Error("error deleting oldest shard", err)
 	}
-	store.metrics.Inc(debug.MetricStorePrunedShardsTotal)
+	store.metrics.Inc(metrics.MetricStorePrunedShardsTotal)
 }
 
 func (store *Store) emitStorageDurationMetric() {
@@ -215,7 +215,7 @@ func (store *Store) emitStorageDurationMetric() {
 	}
 
 	duration := time.Since(time.Unix(0, int64(oldestShardID)))
-	store.metrics.Set(debug.MetricStoreStorageDays, math.Floor(duration.Hours()/24))
+	store.metrics.Set(metrics.MetricStoreStorageDays, math.Floor(duration.Hours()/24))
 }
 
 func (store *Store) emitStorageMetrics() {
@@ -226,11 +226,11 @@ func (store *Store) emitStorageMetrics() {
 
 		for _, statistic := range statistics {
 			if statistic.Values["numSeries"] != nil {
-				store.metrics.Set(debug.MetricStoreSeriesCount, float64(statistic.Values["numSeries"].(int64)))
+				store.metrics.Set(metrics.MetricStoreSeriesCount, float64(statistic.Values["numSeries"].(int64)))
 			}
 
 			if statistic.Values["numMeasurements"] != nil {
-				store.metrics.Set(debug.MetricStoreMeasurementsCount, float64(statistic.Values["numMeasurements"].(int64)))
+				store.metrics.Set(metrics.MetricStoreMeasurementsCount, float64(statistic.Values["numMeasurements"].(int64)))
 			}
 		}
 	}

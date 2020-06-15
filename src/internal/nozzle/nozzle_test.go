@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -936,14 +936,14 @@ var _ = Describe("Nozzle", func() {
 			addEnvelope(2, "memory", "some-source-id", streamConnector)
 			addEnvelope(3, "memory", "some-source-id", streamConnector)
 
-			Eventually(metricRegistrar.Fetch(debug.NozzleIngressEnvelopesTotal)).Should(Equal(float64(3)))
-			Eventually(metricRegistrar.Fetch(debug.NozzleEgressPointsTotal)).Should(Equal(float64(3)))
-			Eventually(metricRegistrar.Fetch(debug.NozzleEgressErrorsTotal)).Should(Equal(float64(0)))
+			Eventually(metricRegistrar.Fetch(metrics.NozzleIngressEnvelopesTotal)).Should(Equal(float64(3)))
+			Eventually(metricRegistrar.Fetch(metrics.NozzleEgressPointsTotal)).Should(Equal(float64(3)))
+			Eventually(metricRegistrar.Fetch(metrics.NozzleEgressErrorsTotal)).Should(Equal(float64(0)))
 		})
 
 		It("writes duration seconds histogram metrics", func() {
 			addEnvelope(1, "memory", "some-source-id", streamConnector)
-			Eventually(metricRegistrar.FetchHistogram(debug.NozzleEgressDurationSeconds)).Should(HaveLen(1))
+			Eventually(metricRegistrar.FetchHistogram(metrics.NozzleEgressDurationSeconds)).Should(HaveLen(1))
 		})
 	})
 

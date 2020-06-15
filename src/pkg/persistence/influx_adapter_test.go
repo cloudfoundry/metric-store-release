@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -111,7 +111,7 @@ var _ = Describe("Influx Adapter", func() {
 
 			tc.adapter.AllMeasurementNames()
 
-			Expect(tc.metrics.FetchHistogram(debug.MetricStoreMeasurementNamesQueryDurationSeconds)()).To(HaveLen(1))
+			Expect(tc.metrics.FetchHistogram(metrics.MetricStoreMeasurementNamesQueryDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 
@@ -123,7 +123,7 @@ var _ = Describe("Influx Adapter", func() {
 
 			tc.adapter.AllTagValues("source_id")
 
-			Expect(tc.metrics.FetchHistogram(debug.MetricStoreTagValuesQueryDurationSeconds)()).To(HaveLen(1))
+			Expect(tc.metrics.FetchHistogram(metrics.MetricStoreTagValuesQueryDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 

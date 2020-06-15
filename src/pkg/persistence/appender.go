@@ -12,7 +12,7 @@ import (
 	_ "github.com/influxdata/influxdb/tsdb/engine"
 	"github.com/prometheus/prometheus/pkg/labels"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -29,10 +29,10 @@ type Appender struct {
 	labelTruncationLength uint
 
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 }
 
-func NewAppender(adapter Adapter, metrics debug.MetricRegistrar, opts ...AppenderOption) *Appender {
+func NewAppender(adapter Adapter, metrics metrics.Registrar, opts ...AppenderOption) *Appender {
 	appender := &Appender{
 		adapter:               adapter,
 		metrics:               metrics,
@@ -101,8 +101,8 @@ func (a *Appender) AddFast(l labels.Labels, _ uint64, timestamp int64, value flo
 	a.adapter.WritePoints([]*rpc.Point{point})
 
 	duration := transform.DurationToSeconds(time.Since(start))
-	a.metrics.Histogram(debug.MetricStoreWriteDurationSeconds).Observe(duration)
-	a.metrics.Inc(debug.MetricStoreWrittenPointsTotal)
+	a.metrics.Histogram(metrics.MetricStoreWriteDurationSeconds).Observe(duration)
+	a.metrics.Inc(metrics.MetricStoreWrittenPointsTotal)
 
 	return nil
 }
@@ -117,8 +117,8 @@ func (a *Appender) Commit() error {
 
 	if err == nil {
 		duration := transform.DurationToSeconds(time.Since(start))
-		a.metrics.Histogram(debug.MetricStoreWriteDurationSeconds).Observe(duration)
-		a.metrics.Add(debug.MetricStoreWrittenPointsTotal, float64(len(a.points)))
+		a.metrics.Histogram(metrics.MetricStoreWriteDurationSeconds).Observe(duration)
+		a.metrics.Add(metrics.MetricStoreWrittenPointsTotal, float64(len(a.points)))
 	}
 
 	a.points = a.points[:0]

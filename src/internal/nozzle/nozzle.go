@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/nozzle/rollup"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -24,7 +24,7 @@ import (
 // Nozzle reads envelopes and writes points to metric-store.
 type Nozzle struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	s             StreamConnector
 	shardId       string
@@ -57,7 +57,7 @@ const (
 func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
 	n := &Nozzle{
 		log:                   logger.NewNop(),
-		metrics:               &debug.NullRegistrar{},
+		metrics:               &metrics.NullRegistrar{},
 		s:                     c,
 		shardId:               shardId,
 		nodeIndex:             nodeIndex,
@@ -88,12 +88,12 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 	n.client = client
 
 	n.timerBuffer = diodes.NewOneToOne(int(n.timerRollupBufferSize), diodes.AlertFunc(func(missed int) {
-		n.metrics.Add(debug.NozzleDroppedEnvelopesTotal, float64(missed))
+		n.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
 		n.log.Info("timer buffer dropped points", logger.Count(missed))
 	}))
 
 	n.ingressBuffer = diodes.NewOneToOne(100000, diodes.AlertFunc(func(missed int) {
-		n.metrics.Add(debug.NozzleDroppedEnvelopesTotal, float64(missed))
+		n.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
 		n.log.Info("ingress buffer dropped envelopes", logger.Count(missed))
 	}))
 
@@ -110,7 +110,7 @@ func WithNozzleLogger(l *logger.Logger) Option {
 	}
 }
 
-func WithNozzleDebugRegistrar(m debug.MetricRegistrar) Option {
+func WithNozzleDebugRegistrar(m metrics.Registrar) Option {
 	return func(n *Nozzle) {
 		n.metrics = m
 	}
@@ -204,7 +204,7 @@ func (n *Nozzle) writeToChannelOrDiscard(ch chan []*rpc.Point, points []*rpc.Poi
 	default:
 		// if we can't write into the channel, it must be full, so
 		// we probably need to drop these envelopes on the floor
-		n.metrics.Add(debug.NozzleDroppedPointsTotal, float64(len(points)))
+		n.metrics.Add(metrics.NozzleDroppedPointsTotal, float64(len(points)))
 		return points[:0]
 	}
 }
@@ -217,12 +217,12 @@ func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
 		err := n.client.Write(points)
 		if err != nil {
 			n.log.Error("Error writing to metric-store", err)
-			n.metrics.Inc(debug.NozzleEgressErrorsTotal)
+			n.metrics.Inc(metrics.NozzleEgressErrorsTotal)
 			continue
 		}
 
-		n.metrics.Histogram(debug.NozzleEgressDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
-		n.metrics.Add(debug.NozzleEgressPointsTotal, float64(len(points)))
+		n.metrics.Histogram(metrics.NozzleEgressDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
+		n.metrics.Add(metrics.NozzleEgressPointsTotal, float64(len(points)))
 	}
 }
 
@@ -231,7 +231,7 @@ func (n *Nozzle) envelopeReader(rx loggregator.EnvelopeStream) {
 		envelopeBatch := rx()
 		for _, envelope := range envelopeBatch {
 			n.ingressBuffer.Set(diodes.GenericDataType(envelope))
-			n.metrics.Inc(debug.NozzleIngressEnvelopesTotal)
+			n.metrics.Inc(metrics.NozzleIngressEnvelopesTotal)
 		}
 	}
 }

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 )
 
@@ -27,13 +27,13 @@ type CAPIClient struct {
 	tokenPruningInterval    time.Duration
 	cacheExpirationInterval time.Duration
 	log                     *logger.Logger
-	metrics                 debug.MetricRegistrar
+	metrics                 metrics.Registrar
 }
 
 func NewCAPIClient(
 	externalCapiAddr string,
 	client HTTPClient,
-	metrics debug.MetricRegistrar,
+	metrics metrics.Registrar,
 	log *logger.Logger,
 	opts ...CAPIOption,
 ) *CAPIClient {
@@ -295,7 +295,7 @@ func (c *CAPIClient) doRequest(req *http.Request, authToken string) (*http.Respo
 	req.Header.Set("Authorization", authToken)
 	start := time.Now()
 	resp, err := c.client.Do(req)
-	c.metrics.Histogram(debug.AuthProxyCAPIRequestDurationSeconds).Observe(float64(time.Since(start).Seconds()))
+	c.metrics.Histogram(metrics.AuthProxyCAPIRequestDurationSeconds).Observe(float64(time.Since(start).Seconds()))
 
 	if err != nil {
 		c.log.Error("CAPI request failed", err, logger.String("url", req.URL.Path))

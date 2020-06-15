@@ -3,7 +3,7 @@ package persistence_test
 import (
 	"math"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/prometheus/prometheus/storage"
@@ -60,7 +60,7 @@ var _ = Describe("Appender", func() {
 			tc.appender.Commit()
 
 			Eventually(
-				tc.spyMetrics.Fetch(debug.MetricStoreWrittenPointsTotal),
+				tc.spyMetrics.Fetch(metrics.MetricStoreWrittenPointsTotal),
 			).Should(BeEquivalentTo(1))
 		})
 
@@ -72,7 +72,7 @@ var _ = Describe("Appender", func() {
 			tc.appender.Commit()
 
 			Eventually(
-				tc.spyMetrics.FetchHistogram(debug.MetricStoreWriteDurationSeconds),
+				tc.spyMetrics.FetchHistogram(metrics.MetricStoreWriteDurationSeconds),
 			).Should(HaveLen(1))
 		})
 
@@ -83,7 +83,7 @@ var _ = Describe("Appender", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(
-				tc.spyMetrics.FetchHistogram(debug.MetricStoreWriteDurationSeconds),
+				tc.spyMetrics.FetchHistogram(metrics.MetricStoreWriteDurationSeconds),
 			).Should(HaveLen(1))
 		})
 	})

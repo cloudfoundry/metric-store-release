@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -22,7 +22,7 @@ type ReliabilityCalculator struct {
 	EmissionInterval time.Duration
 	SourceId         string
 	Log              *logger.Logger
-	DebugRegistrar   *debug.Registrar
+	DebugRegistrar   metrics.Registrar
 }
 
 const (

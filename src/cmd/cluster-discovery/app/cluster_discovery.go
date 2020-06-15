@@ -1,11 +1,9 @@
 package app
 
 import (
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -13,7 +11,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/store"
 
 	cluster_discovery "github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -23,9 +21,8 @@ type ClusterDiscoveryApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	healthMutex  sync.Mutex
-	healthServer net.Listener
-	metrics      *debug.Registrar
+	metrics        *metrics.Server
+	debugRegistrar metrics.Registrar
 }
 
 func NewClusterDiscoveryApp(cfg *Config, log *logger.Logger) *ClusterDiscoveryApp {
@@ -37,11 +34,8 @@ func NewClusterDiscoveryApp(cfg *Config, log *logger.Logger) *ClusterDiscoveryAp
 
 // HealthAddr returns the address (host and port) of the health server, if any.
 func (app *ClusterDiscoveryApp) HealthAddr() string {
-	app.healthMutex.Lock()
-	defer app.healthMutex.Unlock()
-
-	if app.healthServer != nil {
-		return app.healthServer.Addr().String()
+	if app.metrics != nil {
+		return app.metrics.Addr()
 	}
 
 	return ""
@@ -109,14 +103,14 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 			&http.Client{
 				Transport: &http.Transport{TLSClientConfig: uaaTlsConfig},
 			},
-			app.metrics,
+			app.debugRegistrar,
 			app.log,
 			auth.WithClientCredentials(app.cfg.UAA.Client, app.cfg.UAA.ClientSecret),
 		),
 		app.cfg.MetricStoreAPI.Address,
 		metricStoreAPIClient,
 		cluster_discovery.WithLogger(app.log),
-		cluster_discovery.WithMetrics(app.metrics),
+		cluster_discovery.WithMetrics(app.debugRegistrar),
 		cluster_discovery.WithRefreshInterval(app.cfg.RefreshInterval),
 	)
 
@@ -126,17 +120,11 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 
 // Stop stops all the subprocesses for the application.
 func (app *ClusterDiscoveryApp) Stop() {
-	app.healthMutex.Lock()
-	defer app.healthMutex.Unlock()
-
-	app.healthServer.Close()
-	app.healthServer = nil
+	app.metrics.Close()
+	app.metrics = nil
 }
 
 func (app *ClusterDiscoveryApp) startHealthServer() {
-	app.healthMutex.Lock()
-	defer app.healthMutex.Unlock()
-
 	tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
 		app.cfg.MetricsTLS.CAPath,
 		app.cfg.MetricsTLS.CertPath,
@@ -146,18 +134,18 @@ func (app *ClusterDiscoveryApp) startHealthServer() {
 		app.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	app.metrics = debug.NewRegistrar(
+	app.debugRegistrar = metrics.NewRegistrar(
 		app.log,
 		"cluster-discovery",
-		debug.WithConstLabels(map[string]string{
+		metrics.WithConstLabels(map[string]string{
 			"source_id": "cluster-discovery",
 		}),
 	)
 
-	app.healthServer = debug.StartServer(
+	app.metrics = metrics.StartMetricsServer(
 		app.cfg.MetricsAddr,
 		tlsConfig,
-		app.metrics.Gatherer(),
 		app.log,
+		app.debugRegistrar,
 	)
 }

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -34,13 +34,13 @@ type InfluxStore interface {
 
 type InfluxAdapter struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	influx InfluxStore
 	shards sync.Map
 }
 
-func NewInfluxAdapter(influx InfluxStore, metrics debug.MetricRegistrar, log *logger.Logger) *InfluxAdapter {
+func NewInfluxAdapter(influx InfluxStore, metrics metrics.Registrar, log *logger.Logger) *InfluxAdapter {
 	t := &InfluxAdapter{
 		influx:  influx,
 		metrics: metrics,
@@ -198,7 +198,7 @@ func (t *InfluxAdapter) AllTagValues(tagKey string) []string {
 		}
 	}
 
-	t.metrics.Histogram(debug.MetricStoreTagValuesQueryDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
+	t.metrics.Histogram(metrics.MetricStoreTagValuesQueryDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
 	return values
 }
 
@@ -313,7 +313,7 @@ func (t *InfluxAdapter) AllMeasurementNames() []string {
 	start := time.Now()
 	allShards := t.influx.ShardGroup(t.ShardIDs())
 	measurementNames := allShards.MeasurementsByRegex(regexp.MustCompile(".*"))
-	t.metrics.Histogram(debug.MetricStoreMeasurementNamesQueryDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
+	t.metrics.Histogram(metrics.MetricStoreMeasurementNamesQueryDurationSeconds).Observe(transform.DurationToSeconds(time.Since(start)))
 	return measurementNames
 }
 

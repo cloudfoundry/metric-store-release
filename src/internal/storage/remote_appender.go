@@ -16,19 +16,19 @@ import (
 	"sync"
 	"time"
 
-	diodes "code.cloudfoundry.org/go-diodes"
+	"code.cloudfoundry.org/go-diodes"
+
+	_ "github.com/influxdata/influxdb/tsdb/engine"
+	"github.com/prometheus/prometheus/pkg/labels"
+	prom_storage "github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/batch"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	_ "github.com/influxdata/influxdb/tsdb/engine"
-	"github.com/prometheus/prometheus/pkg/labels"
-	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
 const (
@@ -40,7 +40,7 @@ const (
 
 type RemoteAppender struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	mu     sync.Mutex
 	points []*rpc.Point
@@ -57,7 +57,7 @@ type RemoteAppender struct {
 func NewRemoteAppender(targetNodeIndex string, connection *leanstreams.Connection, done chan struct{}, opts ...RemoteAppenderOption) prom_storage.Appender {
 	appender := &RemoteAppender{
 		log:                logger.NewNop(),
-		metrics:            &debug.NullRegistrar{},
+		metrics:            &metrics.NullRegistrar{},
 		points:             []*rpc.Point{},
 		targetNodeIndex:    targetNodeIndex,
 		connection:         connection,
@@ -95,7 +95,7 @@ func WithRemoteAppenderHandoffStoragePath(handoffStoragePath string) RemoteAppen
 	}
 }
 
-func WithRemoteAppenderMetrics(metrics debug.MetricRegistrar) RemoteAppenderOption {
+func WithRemoteAppenderMetrics(metrics metrics.Registrar) RemoteAppenderOption {
 	return func(a *RemoteAppender) {
 		a.metrics = metrics
 	}

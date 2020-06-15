@@ -2,12 +2,10 @@ package app
 
 import (
 	"crypto/tls"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/egressclient"
@@ -24,9 +22,8 @@ type BlackboxApp struct {
 	pc *blackbox.PerformanceCalculator
 	rc *blackbox.ReliabilityCalculator
 
-	debugMu        sync.Mutex
-	debugLis       net.Listener
-	debugRegistrar *debug.Registrar
+	metrics        *metrics.Server
+	debugRegistrar metrics.Registrar // TODO: rename / remove?
 }
 
 func NewBlackboxApp(cfg *blackbox.Config, log *logger.Logger) *BlackboxApp {
@@ -109,11 +106,8 @@ func (b *BlackboxApp) StartReliabilityCalculator(tlsConfig *tls.Config, egressCl
 // DebugAddr returns the address (host and port) that the debug server is bound
 // to. If the debug server has not been started an empty string will be returned.
 func (b *BlackboxApp) DebugAddr() string {
-	b.debugMu.Lock()
-	defer b.debugMu.Unlock()
-
-	if b.debugLis != nil {
-		return b.debugLis.Addr().String()
+	if b.metrics != nil {
+		return b.metrics.Addr()
 	}
 
 	return ""
@@ -121,35 +115,29 @@ func (b *BlackboxApp) DebugAddr() string {
 
 // Stop stops all the subprocesses for the application.
 func (b *BlackboxApp) Stop() {
-	b.debugMu.Lock()
-	defer b.debugMu.Unlock()
-
-	b.debugLis.Close()
-	b.debugLis = nil
+	b.metrics.Close()
+	b.metrics = nil
 }
 
 func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
-	b.debugMu.Lock()
-	defer b.debugMu.Unlock()
-
-	b.debugRegistrar = debug.NewRegistrar(
+	b.debugRegistrar = metrics.NewRegistrar(
 		b.log,
 		"blackbox",
-		debug.WithGauge(blackbox.HttpReliability, prometheus.GaugeOpts{
+		metrics.WithGauge(blackbox.HttpReliability, prometheus.GaugeOpts{
 			Help: "Proportion of expected metrics posted to metrics queried"}),
-		debug.WithCounter(blackbox.MalfunctioningMetricsTotal, prometheus.CounterOpts{
+		metrics.WithCounter(blackbox.MalfunctioningMetricsTotal, prometheus.CounterOpts{
 			Help: "Number of metric query failues encounters"}),
-		debug.WithGauge(blackbox.BlackboxPerformanceLatency, prometheus.GaugeOpts{
+		metrics.WithGauge(blackbox.BlackboxPerformanceLatency, prometheus.GaugeOpts{
 			Help: "Time to perform a benchmark query against blackbox_performance_canary"}),
-		debug.WithGauge(blackbox.BlackboxPerformanceCount, prometheus.GaugeOpts{
+		metrics.WithGauge(blackbox.BlackboxPerformanceCount, prometheus.GaugeOpts{
 			Help: "Number of metrics retrieved by benchmark query against blackbox_performance_canary"}),
 	)
 
 	b.log.Info("\n serving metrics on", zap.String("debug address", b.cfg.MetricsAddr))
-	b.debugLis = debug.StartServer(
+	b.metrics = metrics.StartMetricsServer(
 		b.cfg.MetricsAddr,
 		tlsConfig,
-		b.debugRegistrar.Gatherer(),
 		b.log,
+		b.debugRegistrar,
 	)
 }

@@ -17,7 +17,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
@@ -61,7 +60,7 @@ type MetricStore struct {
 	internodeTLSServerConfig *tls.Config
 	internodeTLSClientConfig *tls.Config
 	egressTLSConfig          *config_util.TLSConfig
-	metrics                  debug.MetricRegistrar
+	metrics                  metrics.Registrar
 	closing                  int64
 
 	localStore        prom_storage.Storage
@@ -97,7 +96,7 @@ type MetricStore struct {
 func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     logger.NewNop(),
-		metrics: &debug.NullRegistrar{},
+		metrics: &metrics.NullRegistrar{},
 
 		localStore:        localStore,
 		replicationFactor: 1,
@@ -180,7 +179,7 @@ func WithClustered(nodeIndex int, nodeAddrs, internodeAddrs []string) MetricStor
 
 // WithMetrics returns a MetricStoreOption that configures the metrics for the
 // MetricStore. It will add metrics to the given map.
-func WithMetrics(metrics debug.MetricRegistrar) MetricStoreOption {
+func WithMetrics(metrics metrics.Registrar) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.metrics = metrics
 	}
@@ -430,7 +429,7 @@ func (store *MetricStore) setupDirtyListener() {
 		if err != nil {
 			return err
 		}
-		store.metrics.Add(debug.MetricStoreIngressPointsTotal, float64(ingressPointsTotal))
+		store.metrics.Add(metrics.MetricStoreIngressPointsTotal, float64(ingressPointsTotal))
 
 		return nil
 	}

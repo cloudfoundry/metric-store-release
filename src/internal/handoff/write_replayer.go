@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -64,7 +63,7 @@ type WriteReplayer struct {
 	client tcpClient
 
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 }
 
 type tcpClient interface {
@@ -73,7 +72,7 @@ type tcpClient interface {
 
 // NewWriteReplayer returns a new WriteReplayer for the given node, using dir for
 // the hinted-handoff data.
-func NewWriteReplayer(dir string, c tcpClient, metrics debug.MetricRegistrar, targetNodeIndex string, opts ...WriteReplayerOption) *WriteReplayer {
+func NewWriteReplayer(dir string, c tcpClient, metrics metrics.Registrar, targetNodeIndex string, opts ...WriteReplayerOption) *WriteReplayer {
 	w := &WriteReplayer{
 		PurgeInterval:    DefaultPurgeInterval,
 		RetryInterval:    DefaultRetryInterval,

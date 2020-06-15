@@ -1,11 +1,12 @@
 package app_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/cloudfoundry/metric-store-release/src/cmd/metric-store/app"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -87,27 +88,16 @@ var _ = Describe("Metric Store App", func() {
 			return body
 		}
 		Eventually(fn).ShouldNot(BeEmpty())
-		Expect(body).To(ContainSubstring(debug.MetricStoreWrittenPointsTotal))
+		Expect(body).To(ContainSubstring(metrics.MetricStoreWrittenPointsTotal))
 		Expect(body).To(ContainSubstring("go_threads"))
 	})
 
 	It("listens with pprof", func() {
-		tlsConfig, err := tls.NewMutualTLSClientConfig(
-			testing.Cert("metric-store-ca.crt"),
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			"metric-store",
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		httpClient := &http.Client{
-			Transport: &http.Transport{TLSClientConfig: tlsConfig},
-		}
-
 		callPprof := func() int {
 
-			resp, err := httpClient.Get("https://" + metricStore.MetricsAddr() + "/debug/pprof")
+			resp, err := http.Get("http://" + metricStore.ProfilingAddr() + "/debug/pprof")
 			if err != nil {
+				fmt.Printf("calling pprof: %s\n", err)
 				return -1
 			}
 			defer resp.Body.Close()

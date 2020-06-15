@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/cloudfoundry/metric-store-release/src/cmd/cf-auth-proxy/app"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -97,7 +97,7 @@ var _ = Describe("CF Auth Proxy App", func() {
 			return body
 		}
 		Eventually(fn).ShouldNot(BeEmpty())
-		Expect(body).To(ContainSubstring(debug.AuthProxyRequestDurationSeconds))
+		Expect(body).To(ContainSubstring(metrics.AuthProxyRequestDurationSeconds))
 		Expect(body).To(ContainSubstring("go_threads"))
 	})
 })

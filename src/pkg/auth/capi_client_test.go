@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
@@ -351,7 +351,7 @@ var _ = Describe("CAPIClient", func() {
 			}
 			tc.client.AvailableSourceIDs("my-token")
 
-			Expect(tc.metrics.FetchHistogram(debug.AuthProxyCAPIRequestDurationSeconds)()).To(HaveLen(2))
+			Expect(tc.metrics.FetchHistogram(metrics.AuthProxyCAPIRequestDurationSeconds)()).To(HaveLen(2))
 		})
 
 		It("is goroutine safe", func() {
@@ -481,7 +481,7 @@ var _ = Describe("CAPIClient", func() {
 			}
 			tc.client.GetRelatedSourceIds([]string{"app-name"}, "some-token")
 
-			Expect(tc.metrics.FetchHistogram(debug.AuthProxyCAPIRequestDurationSeconds)()).To(HaveLen(1))
+			Expect(tc.metrics.FetchHistogram(metrics.AuthProxyCAPIRequestDurationSeconds)()).To(HaveLen(1))
 		})
 
 		It("returns no source IDs when the request fails", func() {

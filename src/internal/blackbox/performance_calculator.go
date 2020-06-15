@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -16,7 +16,7 @@ import (
 type PerformanceCalculator struct {
 	cfg            *Config
 	log            *logger.Logger
-	debugRegistrar *debug.Registrar
+	debugRegistrar metrics.Registrar
 }
 
 type PerformanceMetrics struct {
@@ -45,7 +45,7 @@ var labels = map[string][]string{
 	"unit":                {"percentage"},
 }
 
-func NewPerformanceCalculator(cfg *Config, log *logger.Logger, debugRegistrar *debug.Registrar) *PerformanceCalculator {
+func NewPerformanceCalculator(cfg *Config, log *logger.Logger, debugRegistrar metrics.Registrar) *PerformanceCalculator {
 	return &PerformanceCalculator{
 		cfg:            cfg,
 		log:            log,

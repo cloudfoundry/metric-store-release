@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	prom_config "github.com/prometheus/prometheus/config"
@@ -22,11 +22,11 @@ type PromRuleManagers struct {
 	engine             *promql.Engine
 	evaluationInterval time.Duration
 	log                *logger.Logger
-	metrics            debug.MetricRegistrar
+	metrics            metrics.Registrar
 	queryTimeout       time.Duration
 }
 
-func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInterval time.Duration, log *logger.Logger, metrics debug.MetricRegistrar, queryTimeout time.Duration) *PromRuleManagers {
+func NewRuleManagers(store storage.Storage, engine *promql.Engine, evaluationInterval time.Duration, log *logger.Logger, metrics metrics.Registrar, queryTimeout time.Duration) *PromRuleManagers {
 	return &PromRuleManagers{
 		store:              store,
 		engine:             engine,

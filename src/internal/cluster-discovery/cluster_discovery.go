@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/internal/cluster-discovery/pks"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	prometheusConfig "github.com/prometheus/prometheus/config"
 	"net/http"
@@ -17,7 +17,7 @@ import (
 // for all the available clusters.
 type ClusterDiscovery struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	auth                  authorizationProvider
 	topology              topologyProvider
@@ -64,7 +64,7 @@ func New(
 		auth:                  authClient,
 		store:                 scrapeConfigStore,
 		log:                   logger.NewNop(),
-		metrics:               &debug.NullRegistrar{},
+		metrics:               &metrics.NullRegistrar{},
 		done:                  make(chan bool, 1),
 		refreshInterval:       time.Minute,
 		metricStoreAPIAddress: metricStoreAPIAddress,
@@ -91,7 +91,7 @@ func WithLogger(log *logger.Logger) WithOption {
 	}
 }
 
-func WithMetrics(metrics debug.MetricRegistrar) WithOption {
+func WithMetrics(metrics metrics.Registrar) WithOption {
 	return func(discovery *ClusterDiscovery) {
 		discovery.metrics = metrics
 	}

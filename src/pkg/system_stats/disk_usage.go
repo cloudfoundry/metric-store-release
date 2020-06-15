@@ -1,10 +1,11 @@
 package system_stats
 
 import (
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"golang.org/x/sys/unix"
+
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
-	"golang.org/x/sys/unix"
 )
 
 func DiskFree(path string) (float64, error) {
@@ -19,7 +20,7 @@ func DiskFree(path string) (float64, error) {
 	return 100 * (float64(fsInfo.Bavail) / float64(fsInfo.Blocks)), nil
 }
 
-func NewDiskFreeReporter(storagePath string, log *logger.Logger, metrics debug.MetricRegistrar) func() (float64, error) {
+func NewDiskFreeReporter(storagePath string, log *logger.Logger, registrar metrics.Registrar) func() (float64, error) {
 	return func() (float64, error) {
 		diskFree, err := DiskFree(storagePath)
 
@@ -28,7 +29,7 @@ func NewDiskFreeReporter(storagePath string, log *logger.Logger, metrics debug.M
 			return persistence.UNKNOWN_DISK_FREE_PERCENT, err
 		}
 
-		metrics.Set(debug.MetricStoreDiskFreeRatio, diskFree/100)
+		registrar.Set(metrics.MetricStoreDiskFreeRatio, diskFree/100)
 		return diskFree, nil
 	}
 }

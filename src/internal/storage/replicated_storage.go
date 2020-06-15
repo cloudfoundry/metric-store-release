@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -23,7 +23,7 @@ import (
 
 type ReplicatedStorage struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	localIndex         int
 	nodeAddrs          []string
@@ -55,7 +55,7 @@ func NewReplicatedStorage(
 ) prom_storage.Storage {
 	store := &ReplicatedStorage{
 		log:                logger.NewNop(),
-		metrics:            &debug.NullRegistrar{},
+		metrics:            &metrics.NullRegistrar{},
 		localStore:         localStore,
 		localIndex:         localIndex,
 		nodeAddrs:          nodeAddrs,
@@ -95,7 +95,7 @@ func WithReplicatedHandoffStoragePath(handoffStoragePath string) ReplicatedOptio
 	}
 }
 
-func WithReplicatedMetrics(metrics debug.MetricRegistrar) ReplicatedOption {
+func WithReplicatedMetrics(metrics metrics.Registrar) ReplicatedOption {
 	return func(s *ReplicatedStorage) {
 		s.metrics = metrics
 	}

@@ -2,29 +2,27 @@ package app
 
 import (
 	"crypto/tls"
-	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
-	loggregator "code.cloudfoundry.org/go-loggregator"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"code.cloudfoundry.org/go-loggregator"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type NozzleApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	debugMu        sync.Mutex
-	debugLis       net.Listener
-	debugRegistrar *debug.Registrar
+	metrics          *metrics.Server
+	metricsRegistrar metrics.Registrar
 }
 
 func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
@@ -37,11 +35,8 @@ func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
 // DebugAddr returns the address (host and port) that the debug server is bound
 // to. If the debug server has not been started an empty string will be returned.
 func (n *NozzleApp) DebugAddr() string {
-	n.debugMu.Lock()
-	defer n.debugMu.Unlock()
-
-	if n.debugLis != nil {
-		return n.debugLis.Addr().String()
+	if n.metrics != nil {
+		return n.metrics.Addr()
 	}
 
 	return ""
@@ -75,7 +70,7 @@ func (n *NozzleApp) Run() {
 		loggregator.WithEnvelopeStreamLogger(n.log.StdLog("loggregator")),
 		loggregator.WithEnvelopeStreamBuffer(10000, func(missed int) {
 			n.log.Info("dropped envelope batches", logger.Count(missed))
-			n.debugRegistrar.Add(debug.NozzleDroppedEnvelopesTotal, float64(missed))
+			n.metricsRegistrar.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
 		}),
 	)
 
@@ -97,7 +92,7 @@ func (n *NozzleApp) Run() {
 		n.cfg.ShardId,
 		n.cfg.NodeIndex,
 		WithNozzleLogger(n.log),
-		WithNozzleDebugRegistrar(n.debugRegistrar),
+		WithNozzleDebugRegistrar(n.metricsRegistrar),
 		WithNozzleTimerRollup(
 			10*time.Second,
 			[]string{
@@ -133,48 +128,42 @@ func (n *NozzleApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (n *NozzleApp) Stop() {
-	n.debugMu.Lock()
-	defer n.debugMu.Unlock()
-
-	n.debugLis.Close()
-	n.debugLis = nil
+	n.metrics.Close()
+	n.metrics = nil
 }
 
 func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
-	n.debugMu.Lock()
-	defer n.debugMu.Unlock()
-
-	n.debugRegistrar = debug.NewRegistrar(
+	n.metricsRegistrar = metrics.NewRegistrar(
 		n.log,
 		"metric-store-nozzle",
-		debug.WithConstLabels(map[string]string{
+		metrics.WithConstLabels(map[string]string{
 			"source_id": "nozzle",
 		}),
-		debug.WithCounter(debug.NozzleIngressEnvelopesTotal, prometheus.CounterOpts{
+		metrics.WithCounter(metrics.NozzleIngressEnvelopesTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes ingressed by the nozzle",
 		}),
-		debug.WithCounter(debug.NozzleDroppedEnvelopesTotal, prometheus.CounterOpts{
+		metrics.WithCounter(metrics.NozzleDroppedEnvelopesTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes dropped within the nozzle",
 		}),
-		debug.WithCounter(debug.NozzleDroppedPointsTotal, prometheus.CounterOpts{
+		metrics.WithCounter(metrics.NozzleDroppedPointsTotal, prometheus.CounterOpts{
 			Help: "Total number of points dropped within the nozzle",
 		}),
-		debug.WithCounter(debug.NozzleEgressPointsTotal, prometheus.CounterOpts{
+		metrics.WithCounter(metrics.NozzleEgressPointsTotal, prometheus.CounterOpts{
 			Help: "Total number of points egressed by the nozzle",
 		}),
-		debug.WithCounter(debug.NozzleEgressErrorsTotal, prometheus.CounterOpts{
+		metrics.WithCounter(metrics.NozzleEgressErrorsTotal, prometheus.CounterOpts{
 			Help: "Total number of egress errors within the nozzle",
 		}),
-		debug.WithHistogram(debug.NozzleEgressDurationSeconds, prometheus.HistogramOpts{
+		metrics.WithHistogram(metrics.NozzleEgressDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Total duration in seconds of egress within the nozzle",
 			Buckets: []float64{.001, .01, .05, .1, .2, 1},
 		}),
 	)
 
-	n.debugLis = debug.StartServer(
+	n.metrics = metrics.StartMetricsServer(
 		n.cfg.MetricsAddr,
 		tlsConfig,
-		n.debugRegistrar.Gatherer(),
 		n.log,
+		n.metricsRegistrar,
 	)
 }

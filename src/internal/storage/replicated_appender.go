@@ -5,7 +5,7 @@ import (
 	// _ "github.com/influxdata/influxdb/tsdb/engine"
 	// the go linter in some instances removes it
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
@@ -16,7 +16,7 @@ import (
 
 type ReplicatedAppender struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	appenders []prom_storage.Appender
 	lookup    routing.Lookup
@@ -27,7 +27,7 @@ func NewReplicatedAppender(appenders []storage.Appender, lookup routing.Lookup, 
 		appenders: appenders,
 		lookup:    lookup,
 		log:       logger.NewNop(),
-		metrics:   &debug.NullRegistrar{},
+		metrics:   &metrics.NullRegistrar{},
 	}
 
 	for _, opt := range opts {
@@ -45,7 +45,7 @@ func WithReplicatedAppenderLogger(log *logger.Logger) ReplicatedAppenderOption {
 	}
 }
 
-func WithReplicatedAppenderMetrics(metrics debug.MetricRegistrar) ReplicatedAppenderOption {
+func WithReplicatedAppenderMetrics(metrics metrics.Registrar) ReplicatedAppenderOption {
 	return func(a *ReplicatedAppender) {
 		a.metrics = metrics
 	}

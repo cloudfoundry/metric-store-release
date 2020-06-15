@@ -6,26 +6,25 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/cfauthproxy"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 type CFAuthProxyApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	debugMu        sync.Mutex
-	debugLis       net.Listener
-	debugRegistrar *debug.Registrar
+	metrics        *metrics.Server
+	debugRegistrar metrics.Registrar // TODO rename or remove
 }
 
 func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
@@ -38,11 +37,8 @@ func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
 // DebugAddr returns the address (host and port) that the debug server is bound
 // to. If the debug server has not been started an empty string will be returned.
 func (c *CFAuthProxyApp) DebugAddr() string {
-	c.debugMu.Lock()
-	defer c.debugMu.Unlock()
-
-	if c.debugLis != nil {
-		return c.debugLis.Addr().String()
+	if c.metrics != nil {
+		return c.metrics.Addr()
 	}
 
 	return ""
@@ -59,7 +55,7 @@ func (c *CFAuthProxyApp) Run() {
 		c.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	c.startDebugServer(tlsMetricsConfig)
+	c.startMetricsServer(tlsMetricsConfig)
 
 	uaaClient := auth.NewUAAClient(
 		c.cfg.UAA.Addr,
@@ -148,38 +144,32 @@ func (c *CFAuthProxyApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (c *CFAuthProxyApp) Stop() {
-	c.debugMu.Lock()
-	defer c.debugMu.Unlock()
-
-	c.debugLis.Close()
-	c.debugLis = nil
+	c.metrics.Close()
+	c.metrics = nil
 }
 
-func (c *CFAuthProxyApp) startDebugServer(tlsConfig *tls.Config) {
-	c.debugMu.Lock()
-	defer c.debugMu.Unlock()
-
-	c.debugRegistrar = debug.NewRegistrar(
+func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
+	c.debugRegistrar = metrics.NewRegistrar(
 		c.log,
 		"metric_store_cf_auth_proxy",
-		debug.WithConstLabels(map[string]string{
+		metrics.WithConstLabels(map[string]string{
 			"source_id": "cf-auth-proxy",
 		}),
-		debug.WithHistogram(debug.AuthProxyRequestDurationSeconds, prometheus.HistogramOpts{
+		metrics.WithHistogram(metrics.AuthProxyRequestDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Duration in seconds of requests made to the auth proxy",
 			Buckets: []float64{.001, .01, .05, .1, .2, 1, 2, 5, 10, 30},
 		}),
-		debug.WithHistogram(debug.AuthProxyCAPIRequestDurationSeconds, prometheus.HistogramOpts{
+		metrics.WithHistogram(metrics.AuthProxyCAPIRequestDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Duration in seconds of external requests made to CAPI",
 			Buckets: []float64{.001, .01, .05, .1, .2, 1, 2, 5, 10, 30},
 		}),
 	)
 
-	c.debugLis = debug.StartServer(
+	c.metrics = metrics.StartMetricsServer(
 		c.cfg.MetricsAddr,
 		tlsConfig,
-		c.debugRegistrar.Gatherer(),
 		c.log,
+		c.debugRegistrar,
 	)
 }
 

@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
@@ -27,11 +27,11 @@ type PromRuleManager struct {
 	promRuleFile           string
 	alertManagers          *prom_config.AlertmanagerConfigs
 	log                    *logger.Logger
-	metrics                debug.MetricRegistrar
+	metrics                metrics.Registrar
 	rulesManagerRegisterer *Registerer
 }
 
-func NewPromRuleManager(managerId, promRuleFile string, alertManagers *prom_config.AlertmanagerConfigs, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics debug.MetricRegistrar, queryTimeout time.Duration) *PromRuleManager {
+func NewPromRuleManager(managerId, promRuleFile string, alertManagers *prom_config.AlertmanagerConfigs, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics metrics.Registrar, queryTimeout time.Duration) *PromRuleManager {
 	rulesManagerRegisterer := NewRegisterer(
 		prometheus.Labels{"manager_id": managerId},
 		metrics.Registerer(),

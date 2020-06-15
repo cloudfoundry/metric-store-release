@@ -1,52 +1,52 @@
-package debug_test
+package metrics_test
 
 import (
 	"crypto/tls"
 	"fmt"
-	"net"
 	"net/http"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
-	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	shared "github.com/cloudfoundry/metric-store-release/src/internal/tls"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	goprom "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	shared "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Registrar", func() {
+var _ = Describe("PrometheusRegistrar", func() {
 	var (
-		h   *debug.Registrar
+		h   *metrics.PrometheusRegistrar
 		mf  metricFetcher
-		lis net.Listener
+		lis *metrics.Server
 	)
 
 	BeforeEach(func() {
 		testLogger := logger.NewNop()
-		h = debug.NewRegistrar(
+		h = metrics.NewRegistrar(
 			testLogger,
 			"source_id",
-			debug.WithConstLabels(map[string]string{"fuz": "baz"}),
-			debug.WithCounter("count", prometheus.CounterOpts{
+			metrics.WithConstLabels(map[string]string{"fuz": "baz"}),
+			metrics.WithCounter("count", prometheus.CounterOpts{
 				Help: "Basic counter metric",
 			}),
-			debug.WithLabelledCounter("labelled_count", prometheus.CounterOpts{
+			metrics.WithLabelledCounter("labelled_count", prometheus.CounterOpts{
 				Help: "Basic counter metric",
 			}, []string{"foo"}),
-			debug.WithGauge("gauge", prometheus.GaugeOpts{
+			metrics.WithGauge("gauge", prometheus.GaugeOpts{
 				Help: "Basic gauge metric",
 			}),
-			debug.WithLabelledGauge("labelled_gauge", prometheus.GaugeOpts{
+			metrics.WithLabelledGauge("labelled_gauge", prometheus.GaugeOpts{
 				Help: "Basic gauge metric",
 			}, []string{"foo"}),
-			debug.WithSummary("summary", "label_name", prometheus.SummaryOpts{
+			metrics.WithSummary("summary", "label_name", prometheus.SummaryOpts{
 				Help: "Basic summary vec",
 			}),
-			debug.WithHistogram("histogram", prometheus.HistogramOpts{
+			metrics.WithHistogram("histogram", prometheus.HistogramOpts{
 				Help: "Basic histogram",
 			}),
 		)
@@ -66,13 +66,13 @@ var _ = Describe("Registrar", func() {
 		)
 		Expect(err).NotTo(HaveOccurred())
 
-		lis = debug.StartServer(
+		lis = metrics.StartMetricsServer(
 			"127.0.0.1:0",
 			tlsServerConfig,
-			h.Gatherer(),
 			testLogger,
+			h,
 		)
-		mf = newMetricFetcher(lis.Addr().String(), tlsClientConfig)
+		mf = newMetricFetcher(lis.Addr(), tlsClientConfig)
 	})
 
 	AfterEach(func() {

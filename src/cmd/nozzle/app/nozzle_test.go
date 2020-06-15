@@ -9,7 +9,7 @@ import (
 	loggregator "code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -88,7 +88,7 @@ var _ = Describe("Nozzle App", func() {
 			return body
 		}
 		Eventually(fn).ShouldNot(BeEmpty())
-		Expect(body).To(ContainSubstring(debug.NozzleIngressEnvelopesTotal))
+		Expect(body).To(ContainSubstring(metrics.NozzleIngressEnvelopesTotal))
 		Expect(body).To(ContainSubstring("go_threads"))
 	})
 })

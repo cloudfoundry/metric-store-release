@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/gorilla/mux"
@@ -14,7 +14,7 @@ import (
 
 type CFAuthMiddlewareProvider struct {
 	log     *logger.Logger
-	metrics debug.MetricRegistrar
+	metrics metrics.Registrar
 
 	oauth2Reader  Oauth2ClientReader
 	logAuthorizer LogAuthorizer
@@ -32,7 +32,7 @@ func NewCFAuthMiddlewareProvider(
 	oauth2Reader Oauth2ClientReader,
 	logAuthorizer LogAuthorizer,
 	queryParser QueryParser,
-	metrics debug.MetricRegistrar,
+	metrics metrics.Registrar,
 	log *logger.Logger,
 ) CFAuthMiddlewareProvider {
 	return CFAuthMiddlewareProvider{
@@ -91,7 +91,7 @@ func (m CFAuthMiddlewareProvider) Middleware(h http.Handler) http.Handler {
 		h.ServeHTTP(w, r)
 
 		totalQueryTime := time.Since(start).Seconds()
-		m.metrics.Histogram(debug.AuthProxyRequestDurationSeconds).Observe(float64(totalQueryTime))
+		m.metrics.Histogram(metrics.AuthProxyRequestDurationSeconds).Observe(float64(totalQueryTime))
 
 	})
 

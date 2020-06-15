@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
 
@@ -157,7 +157,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 			tc.invokeAuthHandler()
 
-			Expect(tc.spyMetricRegistrar.FetchHistogram(debug.AuthProxyRequestDurationSeconds)()).To(HaveLen(1))
+			Expect(tc.spyMetricRegistrar.FetchHistogram(metrics.AuthProxyRequestDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 
@@ -181,7 +181,7 @@ var _ = Describe("CfAuthMiddleware", func() {
 
 			tc.invokeAuthHandler()
 
-			Expect(tc.spyMetricRegistrar.FetchHistogram(debug.AuthProxyRequestDurationSeconds)()).To(HaveLen(1))
+			Expect(tc.spyMetricRegistrar.FetchHistogram(metrics.AuthProxyRequestDurationSeconds)()).To(HaveLen(1))
 		})
 	})
 

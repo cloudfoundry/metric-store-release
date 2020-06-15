@@ -19,7 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	jose "github.com/dvsekhvalnov/jose2go"
 )
@@ -39,7 +39,7 @@ type UAAClient struct {
 func NewUAAClient(
 	uaaAddr string,
 	httpClient HTTPClient,
-	m debug.MetricRegistrar, // TODO remove unused
+	m metrics.Registrar, // TODO remove unused
 	log *logger.Logger,
 	opts ...UAAOption,
 ) *UAAClient {

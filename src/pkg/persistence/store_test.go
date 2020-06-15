@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/debug"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/persistence" // TEMP
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -488,7 +488,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(oneHourBeforeTodayInMilliseconds, "counter", 2)
 
 			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStoreExpiredShardsTotal)() == 1
+				return tc.metrics.Fetch(metrics.MetricStoreExpiredShardsTotal)() == 1
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
@@ -522,7 +522,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(nowInMilliseconds, "counter", 2)
 
 			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStorePrunedShardsTotal)() >= 1
+				return tc.metrics.Fetch(metrics.MetricStorePrunedShardsTotal)() >= 1
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
@@ -553,7 +553,7 @@ var _ = Describe("Persistent Store", func() {
 
 			time.Sleep(50 * time.Millisecond)
 
-			Expect(tc.metrics.Fetch(debug.MetricStorePrunedShardsTotal)()).To(Equal(float64(0)))
+			Expect(tc.metrics.Fetch(metrics.MetricStorePrunedShardsTotal)()).To(Equal(float64(0)))
 		})
 	})
 
@@ -573,18 +573,18 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storePoint(threeDaysAgoInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 3
+				return tc.metrics.Fetch(metrics.MetricStoreStorageDays)() == 3
 			}, 3).Should(BeTrue())
 
 			tc.storePoint(todayInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				val := tc.metrics.FetchOption(debug.MetricStoreStorageDays)()
+				val := tc.metrics.FetchOption(metrics.MetricStoreStorageDays)()
 				return val != nil && *val == 0
 			}, 3).Should(BeTrue())
 
 			tc.storePoint(oneDayAgoInMilliseconds, "counter", 1)
 			Eventually(func() bool {
-				return tc.metrics.Fetch(debug.MetricStoreStorageDays)() == 1
+				return tc.metrics.Fetch(metrics.MetricStoreStorageDays)() == 1
 			}, 3).Should(BeTrue())
 		})
 	})
