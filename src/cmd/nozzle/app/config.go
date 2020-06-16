@@ -20,7 +20,8 @@ type Config struct {
 	TimerRollupBufferSize uint   `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
 	NodeIndex             int    `env:"NODE_INDEX, required, report"`
 
-	LogLevel string `env:"LOG_LEVEL, report"`
+	LogLevel      string `env:"LOG_LEVEL, report"`
+	ProfilingAddr string `env:"PROFILING_ADDR, report"`
 }
 
 type MetricStoreClientTLS struct {
@@ -48,6 +49,7 @@ func LoadConfig() *Config {
 		MetricStoreAddr:       ":8080",
 		IngressAddr:           ":8090",
 		MetricsAddr:           ":6061",
+		ProfilingAddr:         "localhost:6071",
 		ShardId:               "metric-store",
 		TimerRollupBufferSize: 16384,
 	}

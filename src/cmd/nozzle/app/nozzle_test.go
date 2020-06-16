@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -92,6 +93,22 @@ var _ = Describe("Nozzle App", func() {
 		Expect(body).To(ContainSubstring(metrics.NozzleIngressEnvelopesTotal))
 		Expect(body).To(ContainSubstring("go_threads"))
 	})
+
+	It("listens with pprof", func() {
+		callPprof := func() int {
+
+			resp, err := http.Get("http://" + nozzle.ProfilingAddr() + "/debug/pprof")
+			if err != nil {
+				fmt.Printf("calling pprof: %s\n", err)
+				return -1
+			}
+			defer resp.Body.Close()
+
+			return resp.StatusCode
+		}
+		Eventually(callPprof).Should(Equal(200))
+	})
+
 })
 
 type stubLoggregator struct {

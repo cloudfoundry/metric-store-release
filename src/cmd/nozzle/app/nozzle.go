@@ -2,6 +2,7 @@ package app
 
 import (
 	"crypto/tls"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
@@ -25,6 +26,9 @@ type NozzleApp struct {
 	metricsMutex  sync.Mutex
 	metricsServer *metrics.Server
 	metrics       metrics.Registrar
+
+	profilingMutex sync.Mutex
+	profilingListener net.Listener
 }
 
 func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
@@ -56,7 +60,8 @@ func (n *NozzleApp) Run() {
 		n.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	n.startDebugServer(tlsMetricsConfig)
+	n.startDebugServer(tlsMetricsConfig) // TODO rename
+	n.startProfilingServer()
 
 	loggregatorTLSConfig, err := loggregator.NewEgressTLSConfig(
 		n.cfg.LogsProviderTLS.LogProviderCA,
@@ -132,11 +137,14 @@ func (n *NozzleApp) Run() {
 // Stop stops all the subprocesses for the application.
 func (n *NozzleApp) Stop() {
 	n.metricsMutex.Lock()
-
 	n.metricsServer.Close()
 	n.metricsServer = nil
-
 	n.metricsMutex.Unlock()
+
+	n.profilingMutex.Lock()
+	n.profilingListener.Close()
+	n.profilingListener = nil
+	n.profilingMutex.Unlock()
 }
 
 func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
@@ -175,4 +183,22 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		n.metrics,
 	)
 	n.metricsMutex.Unlock()
+}
+
+func (n *NozzleApp) ProfilingAddr() string {
+	n.profilingMutex.Lock()
+	defer n.profilingMutex.Unlock()
+
+	if n.profilingListener == nil {
+		return ""
+	}
+
+	return n.profilingListener.Addr().String()
+
+}
+
+func (n *NozzleApp) startProfilingServer() {
+	n.profilingMutex.Lock()
+	n.profilingListener = metrics.StartProfilingServer(n.cfg.ProfilingAddr, n.log)
+	n.profilingMutex.Unlock()
 }
