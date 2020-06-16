@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,8 +22,9 @@ type NozzleApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	metricsServer     *metrics.Server
-	metrics           metrics.Registrar
+	metricsMutex  sync.Mutex
+	metricsServer *metrics.Server
+	metrics       metrics.Registrar
 }
 
 func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
@@ -33,6 +35,9 @@ func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
 }
 
 func (n *NozzleApp) MetricsAddr() string {
+	n.metricsMutex.Lock()
+	defer n.metricsMutex.Unlock()
+
 	if n.metricsServer == nil {
 		return ""
 	}
@@ -126,8 +131,12 @@ func (n *NozzleApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (n *NozzleApp) Stop() {
+	n.metricsMutex.Lock()
+
 	n.metricsServer.Close()
 	n.metricsServer = nil
+
+	n.metricsMutex.Unlock()
 }
 
 func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
@@ -158,10 +167,12 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
+	n.metricsMutex.Lock()
 	n.metricsServer = metrics.StartMetricsServer(
 		n.cfg.MetricsAddr,
 		tlsConfig,
 		n.log,
 		n.metrics,
 	)
+	n.metricsMutex.Unlock()
 }
