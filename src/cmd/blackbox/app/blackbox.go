@@ -2,6 +2,7 @@ package app
 
 import (
 	"crypto/tls"
+	"sync"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
@@ -22,6 +23,7 @@ type BlackboxApp struct {
 	pc *blackbox.PerformanceCalculator
 	rc *blackbox.ReliabilityCalculator
 
+	metricsMutex  sync.Mutex
 	metricsServer *metrics.Server
 	metrics       metrics.Registrar
 }
@@ -104,6 +106,9 @@ func (b *BlackboxApp) StartReliabilityCalculator(tlsConfig *tls.Config, egressCl
 }
 
 func (b *BlackboxApp) MetricsAddr() string {
+	b.metricsMutex.Lock()
+	defer b.metricsMutex.Unlock()
+
 	if b.metricsServer == nil {
 		return ""
 	}
@@ -113,8 +118,12 @@ func (b *BlackboxApp) MetricsAddr() string {
 
 // Stop stops all the subprocesses for the application.
 func (b *BlackboxApp) Stop() {
+	b.metricsMutex.Lock()
+
 	b.metricsServer.Close()
 	b.metricsServer = nil
+
+	b.metricsMutex.Unlock()
 }
 
 func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
@@ -132,6 +141,9 @@ func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 	)
 
 	b.log.Info("\n serving metrics on", zap.String("address", b.cfg.MetricsAddr))
+
+	b.metricsMutex.Lock()
+
 	b.metricsServer = metrics.StartMetricsServer(
 		b.cfg.MetricsAddr,
 		tlsConfig,
@@ -139,4 +151,5 @@ func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 		b.metrics,
 	)
 
+	b.metricsMutex.Unlock()
 }

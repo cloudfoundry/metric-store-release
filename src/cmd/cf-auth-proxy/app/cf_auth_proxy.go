@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,8 +24,9 @@ type CFAuthProxyApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	metricsServer     *metrics.Server
-	metrics           metrics.Registrar
+	metricsMutex  sync.Mutex
+	metricsServer *metrics.Server
+	metrics       metrics.Registrar
 }
 
 func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
@@ -35,6 +37,9 @@ func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
 }
 
 func (c *CFAuthProxyApp) MetricsAddr() string {
+	c.metricsMutex.Lock()
+	defer c.metricsMutex.Unlock()
+
 	if c.metricsServer == nil {
 		return ""
 	}
@@ -142,8 +147,12 @@ func (c *CFAuthProxyApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (c *CFAuthProxyApp) Stop() {
+	c.metricsMutex.Lock()
+
 	c.metricsServer.Close()
 	c.metricsServer = nil
+
+	c.metricsMutex.Unlock()
 }
 
 func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
@@ -163,12 +172,16 @@ func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
 		}),
 	)
 
+	c.metricsMutex.Lock()
+
 	c.metricsServer = metrics.StartMetricsServer(
 		c.cfg.MetricsAddr,
 		tlsConfig,
 		c.log,
 		c.metrics,
 	)
+
+	c.metricsMutex.Unlock()
 }
 
 func buildUAAClient(cfg *Config, log *logger.Logger) *http.Client {

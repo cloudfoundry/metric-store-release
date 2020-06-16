@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -26,8 +27,10 @@ type MetricStoreApp struct {
 	cfg *Config
 	log *logger.Logger
 
+	profilingMutex sync.Mutex
 	profilingListener net.Listener
 
+	metricsMutex sync.Mutex
 	metricsServer *metrics.Server
 }
 
@@ -153,8 +156,13 @@ func (app *MetricStoreApp) Run() {
 
 // Stop stops all the subprocesses for the application.
 func (app *MetricStoreApp) Stop() {
+	app.metricsMutex.Lock()
 	app.metricsServer.Close()
+	app.metricsMutex.Unlock()
+
+	app.profilingMutex.Lock()
 	app.profilingListener.Close()
+	app.profilingMutex.Unlock()
 }
 
 func (app *MetricStoreApp) startMetricsServer(tlsConfig *tls.Config) {
@@ -234,15 +242,21 @@ func (app *MetricStoreApp) startMetricsServer(tlsConfig *tls.Config) {
 			Help: "Number of points collected by a metric-store instance from remote nodes",
 		}),
 	)
+
+	app.metricsMutex.Lock()
 	app.metricsServer = metrics.StartMetricsServer(
 		app.cfg.MetricsAddr,
 		tlsConfig,
 		app.log,
 		registrar,
 	)
+	app.metricsMutex.Unlock()
 }
 
 func (app *MetricStoreApp) ProfilingAddr() string {
+	app.profilingMutex.Lock()
+	defer app.profilingMutex.Unlock()
+
 	if app.profilingListener == nil {
 		return ""
 	}
@@ -250,6 +264,9 @@ func (app *MetricStoreApp) ProfilingAddr() string {
 }
 
 func (app *MetricStoreApp) MetricsAddr() string {
+	app.metricsMutex.Lock()
+	defer app.metricsMutex.Unlock()
+
 	if app.metricsServer == nil {
 		return ""
 	}
@@ -257,5 +274,7 @@ func (app *MetricStoreApp) MetricsAddr() string {
 }
 
 func (app *MetricStoreApp) startDebugServer() {
+	app.profilingMutex.Lock()
 	app.profilingListener = metrics.StartProfilingServer(":55355", app.log)
+	app.profilingMutex.Unlock()
 }

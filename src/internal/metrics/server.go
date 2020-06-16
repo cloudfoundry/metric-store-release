@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -17,8 +16,6 @@ import (
 type Server struct {
 	listener  net.Listener
 	registrar Registrar
-
-	mu sync.Mutex // TODO needed?
 }
 
 func (s *Server) Close() error {
