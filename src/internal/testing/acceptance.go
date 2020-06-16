@@ -20,7 +20,7 @@ func WaitForHealthCheck(metricsAddr string, tlsConfig *tls.Config) {
 			Transport: &http.Transport{TLSClientConfig: tlsConfig},
 		}
 
-		resp, err := client.Get("https://" + metricsAddr + "/debug/vars")
+		resp, err := client.Get("https://" + metricsAddr + "/metrics")
 		if err != nil {
 			return err
 		}
