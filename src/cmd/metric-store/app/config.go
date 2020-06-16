@@ -49,7 +49,8 @@ type Config struct {
 	ScrapeConfigPath          string `env:"SCRAPE_CONFIG_PATH, report"`
 	AdditionalScrapeConfigDir string `env:"ADDITIONAL_SCRAPE_CONFIGS_DIR, report"`
 
-	LogLevel string `env:"LOG_LEVEL, report"`
+	LogLevel      string `env:"LOG_LEVEL, report"`
+	ProfilingAddr string `env:"PROFILING_ADDR, report"`
 }
 
 type MetricStoreServerTLS struct {
@@ -81,6 +82,7 @@ func LoadConfig() *Config {
 		IngressAddr:           ":8090",
 		InternodeAddr:         ":8091",
 		MetricsAddr:           ":6060",
+		ProfilingAddr:         "localhost:6070",
 		StoragePath:           "/tmp/metric-store",
 		RetentionPeriod:       7 * 24 * time.Hour,
 		DiskFreePercentTarget: 20,

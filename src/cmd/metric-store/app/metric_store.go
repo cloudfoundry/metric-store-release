@@ -275,6 +275,6 @@ func (app *MetricStoreApp) MetricsAddr() string {
 
 func (app *MetricStoreApp) startDebugServer() {
 	app.profilingMutex.Lock()
-	app.profilingListener = metrics.StartProfilingServer(":55355", app.log)
+	app.profilingListener = metrics.StartProfilingServer(app.cfg.ProfilingAddr, app.log)
 	app.profilingMutex.Unlock()
 }
