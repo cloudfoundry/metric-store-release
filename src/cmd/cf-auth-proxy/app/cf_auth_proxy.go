@@ -24,6 +24,9 @@ type CFAuthProxyApp struct {
 	cfg *Config
 	log *logger.Logger
 
+	profilingMutex    sync.Mutex
+	profilingListener net.Listener
+
 	metricsMutex  sync.Mutex
 	metricsServer *metrics.Server
 	metrics       metrics.Registrar
@@ -59,6 +62,7 @@ func (c *CFAuthProxyApp) Run() {
 	}
 
 	c.startMetricsServer(tlsMetricsConfig)
+	c.startProfilingServer()
 
 	uaaClient := auth.NewUAAClient(
 		c.cfg.UAA.Addr,
@@ -148,11 +152,14 @@ func (c *CFAuthProxyApp) Run() {
 // Stop stops all the subprocesses for the application.
 func (c *CFAuthProxyApp) Stop() {
 	c.metricsMutex.Lock()
-
 	c.metricsServer.Close()
 	c.metricsServer = nil
-
 	c.metricsMutex.Unlock()
+
+	c.profilingMutex.Lock()
+	c.profilingListener.Close()
+	c.profilingListener = nil
+	c.profilingMutex.Unlock()
 }
 
 func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
@@ -173,15 +180,29 @@ func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
 	)
 
 	c.metricsMutex.Lock()
-
 	c.metricsServer = metrics.StartMetricsServer(
 		c.cfg.MetricsAddr,
 		tlsConfig,
 		c.log,
 		c.metrics,
 	)
-
 	c.metricsMutex.Unlock()
+}
+
+func (c *CFAuthProxyApp) ProfilingAddr() string {
+	c.profilingMutex.Lock()
+	defer c.profilingMutex.Unlock()
+
+	if c.profilingListener == nil {
+		return ""
+	}
+	return c.profilingListener.Addr().String()
+}
+
+func (c *CFAuthProxyApp) startProfilingServer() {
+	c.profilingMutex.Lock()
+	c.profilingListener = metrics.StartProfilingServer(c.cfg.ProfilingAddr, c.log)
+	c.profilingMutex.Unlock()
 }
 
 func buildUAAClient(cfg *Config, log *logger.Logger) *http.Client {

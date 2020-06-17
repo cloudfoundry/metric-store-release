@@ -35,7 +35,8 @@ type Config struct {
 	CAPI CAPI
 	UAA  UAA
 
-	LogLevel string `env:"LOG_LEVEL,                      report"`
+	LogLevel      string `env:"LOG_LEVEL,                      report"`
+	ProfilingAddr string `env:"PROFILING_ADDR"`
 }
 
 type MetricStoreClientTLS struct {
@@ -56,6 +57,7 @@ func LoadConfig() *Config {
 		Addr:            ":8083",
 		InternalIP:      "0.0.0.0",
 		MetricsAddr:     ":6065",
+		ProfilingAddr: "localhost:6075",
 		MetricStoreAddr: "localhost:8080",
 	}
 
