@@ -1,6 +1,7 @@
 package app
 
 import (
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -21,6 +22,9 @@ import (
 type ClusterDiscoveryApp struct {
 	cfg *Config
 	log *logger.Logger
+
+	profilingMutex    sync.Mutex
+	profilingListener net.Listener
 
 	metricsMutex  sync.Mutex
 	metricsServer *metrics.Server
@@ -45,9 +49,21 @@ func (app *ClusterDiscoveryApp) MetricsAddr() string {
 
 }
 
+func (app *ClusterDiscoveryApp) ProfilingAddr() string {
+	app.profilingMutex.Lock()
+	defer app.profilingMutex.Unlock()
+
+	if app.profilingListener == nil {
+		return ""
+	}
+
+	return app.profilingListener.Addr().String()
+}
+
 // Run starts the ClusterDiscoveryApp, this is a blocking method call.
 func (app *ClusterDiscoveryApp) Run() {
 	app.startMetricsServer()
+	app.startProfilingServer()
 	clusterDiscovery := app.startClusterDiscovery()
 	app.waitForSigTerm(clusterDiscovery)
 }
@@ -128,6 +144,11 @@ func (app *ClusterDiscoveryApp) Stop() {
 	app.metricsServer.Close()
 	app.metricsServer = nil
 	app.metricsMutex.Unlock()
+
+	app.profilingMutex.Lock()
+	app.profilingListener.Close()
+	app.profilingListener = nil
+	app.profilingMutex.Unlock()
 }
 
 func (app *ClusterDiscoveryApp) startMetricsServer() {
@@ -156,4 +177,10 @@ func (app *ClusterDiscoveryApp) startMetricsServer() {
 		app.metrics,
 	)
 	app.metricsMutex.Unlock()
+}
+
+func (app *ClusterDiscoveryApp) startProfilingServer() {
+	app.profilingMutex.Lock()
+	app.profilingListener = metrics.StartProfilingServer(app.cfg.ProfilingAddr, app.log)
+	app.profilingMutex.Unlock()
 }

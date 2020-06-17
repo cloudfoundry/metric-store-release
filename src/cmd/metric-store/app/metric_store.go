@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"

@@ -10,6 +10,7 @@ import (
 // Config is the configuration for a ClusterDiscovery.
 type Config struct {
 	MetricsAddr     string `env:"METRICS_ADDR, report"`
+	ProfilingAddr   string `env:"PROFILING_ADDR"`
 	StoragePath     string `env:"STORAGE_DIR, required, report"`
 	LogLevel        string `env:"LOG_LEVEL, report"`
 	MetricsTLS      ClusterDiscoveryMetricsTLS
@@ -23,7 +24,8 @@ type Config struct {
 func LoadConfig() *Config {
 	cfg := &Config{
 		LogLevel:        "info",
-		MetricsAddr:     ":6060",
+		MetricsAddr:     ":6065",
+		ProfilingAddr:   "localhost:6075",
 		RefreshInterval: 1 * time.Minute,
 	}
 
