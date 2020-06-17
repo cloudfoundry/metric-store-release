@@ -32,7 +32,6 @@ properties:
 
   cluster_discovery.metrics_port:
     description: "The port to bind a prometheus metrics endpoint"
-    default: 6065
   cluster_discovery.pks.addr:
     description: "PKS API endpoint"
   cluster_discovery.pks.skip_ssl_validation:

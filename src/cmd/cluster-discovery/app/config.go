@@ -24,8 +24,8 @@ type Config struct {
 func LoadConfig() *Config {
 	cfg := &Config{
 		LogLevel:        "info",
-		MetricsAddr:     ":6065",
-		ProfilingAddr:   "localhost:6075",
+		MetricsAddr:     ":6062",
+		ProfilingAddr:   "localhost:6072",
 		RefreshInterval: 1 * time.Minute,
 	}
 
