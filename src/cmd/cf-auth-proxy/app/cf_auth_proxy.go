@@ -118,8 +118,12 @@ func (app *CFAuthProxyApp) Run() {
 			app.log.Panic("unable to open access log", logger.Error(err))
 		}
 		defer func() {
-			accessLog.Sync()
-			accessLog.Close()
+			if err := accessLog.Sync(); err != nil {
+				app.log.Error("syncing access log", err)
+			}
+			if err := accessLog.Close(); err != nil {
+				app.log.Error("closing access log", err)
+			}
 		}()
 
 		_, localPort, err := net.SplitHostPort(app.cfg.Addr)
@@ -152,13 +156,15 @@ func (app *CFAuthProxyApp) Run() {
 // Stop stops all the subprocesses for the application.
 func (app *CFAuthProxyApp) Stop() {
 	app.metricsMutex.Lock()
-	app.metricsServer.Close()
-	app.metricsServer = nil
+	if err := app.metricsServer.Close(); err != nil {
+		app.log.Error("closing metrics server", err)
+	}
 	app.metricsMutex.Unlock()
 
 	app.profilingMutex.Lock()
-	app.profilingListener.Close()
-	app.profilingListener = nil
+	if err := app.profilingListener.Close(); err != nil {
+		app.log.Error("closing profiling server", err)
+	}
 	app.profilingMutex.Unlock()
 }
 

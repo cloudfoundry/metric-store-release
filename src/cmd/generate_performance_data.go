@@ -67,9 +67,15 @@ func main() {
 				Value: l.Value[r.Intn(len(l.Value))],
 			})
 		}
-		appender.Add(tl, time.Now().Add(time.Duration(-i)*time.Second).UnixNano(), .5)
+		_, err := appender.Add(tl, time.Now().Add(time.Duration(-i)*time.Second).UnixNano(), .5)
+		if err != nil {
+			panic(err)
+		}
 	}
-	appender.Commit()
+	err := appender.Commit()
+	if err != nil {
+		panic(err)
+	}
 
 	fmt.Println(" - compacting data")
 	persistentStore.Compact()

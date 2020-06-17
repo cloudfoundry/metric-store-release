@@ -141,13 +141,15 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 // Stop stops all the subprocesses for the application.
 func (app *ClusterDiscoveryApp) Stop() {
 	app.metricsMutex.Lock()
-	app.metricsServer.Close()
-	app.metricsServer = nil
+	if err := app.metricsServer.Close(); err != nil {
+		app.log.Error("closing metrics server", err)
+	}
 	app.metricsMutex.Unlock()
 
 	app.profilingMutex.Lock()
-	app.profilingListener.Close()
-	app.profilingListener = nil
+	if err := app.profilingListener.Close(); err != nil {
+		app.log.Error("closing profiling server", err)
+	}
 	app.profilingMutex.Unlock()
 }
 

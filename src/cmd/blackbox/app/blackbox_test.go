@@ -84,7 +84,7 @@ var _ = Describe("Blackbox App", func() {
 				fmt.Printf("calling pprof: %s\n", err)
 				return -1
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			return resp.StatusCode
 		}

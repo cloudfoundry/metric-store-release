@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	config_util "github.com/prometheus/common/config"
+	"github.com/prometheus/common/config"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
@@ -55,7 +55,7 @@ func (app *MetricStoreApp) Run() {
 	app.startMetricsServer(tlsMetricsConfig)
 	app.startDebugServer()
 
-	tlsEgressConfig := &config_util.TLSConfig{
+	tlsEgressConfig := &config.TLSConfig{
 		CAFile:     app.cfg.TLS.CAPath,
 		CertFile:   app.cfg.TLS.CertPath,
 		KeyFile:    app.cfg.TLS.KeyPath,
@@ -145,8 +145,12 @@ func (app *MetricStoreApp) Run() {
 	go func() {
 		sig := <-sigs
 		app.log.Info("received signal", logger.String("signal", sig.String()))
-		store.Close()
-		persistentStore.Close()
+		if err := store.Close(); err != nil {
+			app.log.Error("closing metric store", err)
+		}
+		if err := persistentStore.Close(); err != nil {
+			app.log.Error("closing persistent store", err)
+		}
 		app.Stop()
 		close(done)
 	}()
@@ -157,11 +161,15 @@ func (app *MetricStoreApp) Run() {
 // Stop stops all the subprocesses for the application.
 func (app *MetricStoreApp) Stop() {
 	app.metricsMutex.Lock()
-	app.metricsServer.Close()
+	if err := app.metricsServer.Close(); err != nil {
+		app.log.Error("closing metrics server", err)
+	}
 	app.metricsMutex.Unlock()
 
 	app.profilingMutex.Lock()
-	app.profilingListener.Close()
+	if err := app.profilingListener.Close(); err != nil {
+		app.log.Error("closing profiling server", err)
+	}
 	app.profilingMutex.Unlock()
 }
 

@@ -102,7 +102,7 @@ var _ = Describe("Nozzle App", func() {
 				fmt.Printf("calling pprof: %s\n", err)
 				return -1
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			return resp.StatusCode
 		}
@@ -140,7 +140,7 @@ func newStubLoggregator() *stubLoggregator {
 
 	loggregator_v2.RegisterEgressServer(sl.grpcServer, sl)
 
-	go sl.grpcServer.Serve(lis)
+	go func() { _ = sl.grpcServer.Serve(lis) }()
 
 	return sl
 }

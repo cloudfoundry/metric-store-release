@@ -6,15 +6,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
+
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/egressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 type BlackboxApp struct {
@@ -124,13 +125,15 @@ func (app *BlackboxApp) MetricsAddr() string {
 // Stop stops all the subprocesses for the application.
 func (app *BlackboxApp) Stop() {
 	app.metricsMutex.Lock()
-	app.metricsServer.Close()
-	app.metricsServer = nil
+	if err := app.metricsServer.Close(); err != nil {
+		app.log.Error("closing metrics server", err)
+	}
 	app.metricsMutex.Unlock()
 
 	app.profilingMutex.Lock()
-	app.profilingListener.Close()
-	app.profilingListener = nil
+	if err := app.profilingListener.Close(); err != nil {
+		app.log.Error("closing profiling server", err)
+	}
 	app.profilingMutex.Unlock()
 }
 
