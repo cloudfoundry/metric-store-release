@@ -39,104 +39,104 @@ func NewBlackboxApp(cfg *blackbox.Config, log *logger.Logger) *BlackboxApp {
 	}
 }
 
-func (b *BlackboxApp) Run() {
+func (app *BlackboxApp) Run() {
 	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
-		b.cfg.MetricStoreMetricsTLS.CAPath,
-		b.cfg.MetricStoreMetricsTLS.CertPath,
-		b.cfg.MetricStoreMetricsTLS.KeyPath,
+		app.cfg.MetricStoreMetricsTLS.CAPath,
+		app.cfg.MetricStoreMetricsTLS.CertPath,
+		app.cfg.MetricStoreMetricsTLS.KeyPath,
 	)
 	if err != nil {
-		b.log.Fatal("unable to create metrics TLS config", err)
+		app.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	b.startMetricsServer(tlsMetricsConfig)
-	b.startProfilingServer()
+	app.startMetricsServer(tlsMetricsConfig)
+	app.startProfilingServer()
 	// resolver, _ := naming.NewDNSResolverWithFreq(1 * time.Minute)
 
 	stopChan := make(chan bool)
 
-	egressClient, err := egressclient.NewEgressClient(b.cfg.MetricStoreHTTPAddr, b.cfg.UaaAddr, b.cfg.ClientID, b.cfg.ClientSecret)
+	egressClient, err := egressclient.NewEgressClient(app.cfg.MetricStoreHTTPAddr, app.cfg.UaaAddr, app.cfg.ClientID, app.cfg.ClientSecret)
 	if err != nil {
-		b.log.Fatal("error creating egress client", err)
+		app.log.Fatal("error creating egress client", err)
 	}
 
-	b.StartCalculators(egressClient, stopChan)
+	app.StartCalculators(egressClient, stopChan)
 
 	<-stopChan
 }
 
-func (b *BlackboxApp) StartCalculators(egressClient blackbox.QueryableClient, stopChan chan bool) {
+func (app *BlackboxApp) StartCalculators(egressClient blackbox.QueryableClient, stopChan chan bool) {
 	tlsConfig, err := sharedtls.NewMutualTLSClientConfig(
-		b.cfg.TLS.CAPath,
-		b.cfg.TLS.CertPath,
-		b.cfg.TLS.KeyPath,
+		app.cfg.TLS.CAPath,
+		app.cfg.TLS.CertPath,
+		app.cfg.TLS.KeyPath,
 		metric_store.COMMON_NAME,
 	)
 	if err != nil {
-		b.log.Fatal("invalid mTLS configuration for metric-store communication", err)
+		app.log.Fatal("invalid mTLS configuration for metric-store communication", err)
 	}
 
-	b.StartReliabilityCalculator(tlsConfig, egressClient, stopChan)
-	b.StartPerformanceCalculator(tlsConfig, egressClient, stopChan)
+	app.StartReliabilityCalculator(tlsConfig, egressClient, stopChan)
+	app.StartPerformanceCalculator(tlsConfig, egressClient, stopChan)
 }
 
-func (b *BlackboxApp) StartPerformanceCalculator(tlsConfig *tls.Config, egressClient blackbox.QueryableClient, stopChan chan bool) {
-	ingressClient, err := ingressclient.NewIngressClient(b.cfg.MetricStoreIngressAddr, tlsConfig)
+func (app *BlackboxApp) StartPerformanceCalculator(tlsConfig *tls.Config, egressClient blackbox.QueryableClient, stopChan chan bool) {
+	ingressClient, err := ingressclient.NewIngressClient(app.cfg.MetricStoreIngressAddr, tlsConfig)
 	if err != nil {
-		b.log.Fatal("performance: could not connect metric-store ingress client", err)
+		app.log.Fatal("performance: could not connect metric-store ingress client", err)
 	}
 
-	b.pc = blackbox.NewPerformanceCalculator(b.cfg, b.log, b.metrics)
-	go b.pc.CalculatePerformance(egressClient, stopChan)
-	go b.pc.EmitPerformanceTestMetrics(b.cfg.SourceId, time.Second, ingressClient, stopChan)
+	app.pc = blackbox.NewPerformanceCalculator(app.cfg, app.log, app.metrics)
+	go app.pc.CalculatePerformance(egressClient, stopChan)
+	go app.pc.EmitPerformanceTestMetrics(app.cfg.SourceId, time.Second, ingressClient, stopChan)
 }
 
-func (b *BlackboxApp) StartReliabilityCalculator(tlsConfig *tls.Config, egressClient blackbox.QueryableClient, stopChan chan bool) {
-	ingressClient, err := ingressclient.NewIngressClient(b.cfg.MetricStoreIngressAddr, tlsConfig)
+func (app *BlackboxApp) StartReliabilityCalculator(tlsConfig *tls.Config, egressClient blackbox.QueryableClient, stopChan chan bool) {
+	ingressClient, err := ingressclient.NewIngressClient(app.cfg.MetricStoreIngressAddr, tlsConfig)
 	if err != nil {
-		b.log.Fatal("reliability: could not connect metric-store ingress client", err)
+		app.log.Fatal("reliability: could not connect metric-store ingress client", err)
 	}
 
 	rc := &blackbox.ReliabilityCalculator{
-		SampleInterval:   b.cfg.SampleInterval,
-		WindowInterval:   b.cfg.WindowInterval,
-		WindowLag:        b.cfg.WindowLag,
-		EmissionInterval: b.cfg.EmissionInterval,
-		SourceId:         b.cfg.SourceId,
-		Log:              b.log,
-		DebugRegistrar:   b.metrics,
+		SampleInterval:   app.cfg.SampleInterval,
+		WindowInterval:   app.cfg.WindowInterval,
+		WindowLag:        app.cfg.WindowLag,
+		EmissionInterval: app.cfg.EmissionInterval,
+		SourceId:         app.cfg.SourceId,
+		Log:              app.log,
+		DebugRegistrar:   app.metrics,
 	}
 	go rc.EmitReliabilityMetrics(ingressClient, stopChan)
 	go rc.CalculateReliability(egressClient, stopChan)
 }
 
-func (b *BlackboxApp) MetricsAddr() string {
-	b.metricsMutex.Lock()
-	defer b.metricsMutex.Unlock()
+func (app *BlackboxApp) MetricsAddr() string {
+	app.metricsMutex.Lock()
+	defer app.metricsMutex.Unlock()
 
-	if b.metricsServer == nil {
+	if app.metricsServer == nil {
 		return ""
 	}
-	return b.metricsServer.Addr()
+	return app.metricsServer.Addr()
 
 }
 
 // Stop stops all the subprocesses for the application.
-func (b *BlackboxApp) Stop() {
-	b.metricsMutex.Lock()
-	b.metricsServer.Close()
-	b.metricsServer = nil
-	b.metricsMutex.Unlock()
+func (app *BlackboxApp) Stop() {
+	app.metricsMutex.Lock()
+	app.metricsServer.Close()
+	app.metricsServer = nil
+	app.metricsMutex.Unlock()
 
-	b.profilingMutex.Lock()
-	b.profilingListener.Close()
-	b.profilingListener = nil
-	b.profilingMutex.Unlock()
+	app.profilingMutex.Lock()
+	app.profilingListener.Close()
+	app.profilingListener = nil
+	app.profilingMutex.Unlock()
 }
 
-func (b *BlackboxApp) startMetricsServer(tlsConfig *tls.Config) {
-	b.metrics = metrics.NewRegistrar(
-		b.log,
+func (app *BlackboxApp) startMetricsServer(tlsConfig *tls.Config) {
+	app.metrics = metrics.NewRegistrar(
+		app.log,
 		"blackbox",
 		metrics.WithGauge(blackbox.HttpReliability, prometheus.GaugeOpts{
 			Help: "Proportion of expected metrics posted to metrics queried"}),
@@ -148,32 +148,32 @@ func (b *BlackboxApp) startMetricsServer(tlsConfig *tls.Config) {
 			Help: "Number of metrics retrieved by benchmark query against blackbox_performance_canary"}),
 	)
 
-	b.log.Info("\n serving metrics on", zap.String("address", b.cfg.MetricsAddr))
+	app.log.Info("\n serving metrics on", zap.String("address", app.cfg.MetricsAddr))
 
-	b.metricsMutex.Lock()
+	app.metricsMutex.Lock()
 
-	b.metricsServer = metrics.StartMetricsServer(
-		b.cfg.MetricsAddr,
+	app.metricsServer = metrics.StartMetricsServer(
+		app.cfg.MetricsAddr,
 		tlsConfig,
-		b.log,
-		b.metrics,
+		app.log,
+		app.metrics,
 	)
 
-	b.metricsMutex.Unlock()
+	app.metricsMutex.Unlock()
 }
 
-func (b *BlackboxApp) ProfilingAddr() string {
-	b.profilingMutex.Lock()
-	defer b.profilingMutex.Unlock()
+func (app *BlackboxApp) ProfilingAddr() string {
+	app.profilingMutex.Lock()
+	defer app.profilingMutex.Unlock()
 
-	if b.profilingListener == nil {
+	if app.profilingListener == nil {
 		return ""
 	}
-	return b.profilingListener.Addr().String()
+	return app.profilingListener.Addr().String()
 }
 
-func (b *BlackboxApp) startProfilingServer() {
-	b.profilingMutex.Lock()
-	b.profilingListener = metrics.StartProfilingServer(b.cfg.ProfilingAddr, b.log)
-	b.profilingMutex.Unlock()
+func (app *BlackboxApp) startProfilingServer() {
+	app.profilingMutex.Lock()
+	app.profilingListener = metrics.StartProfilingServer(app.cfg.ProfilingAddr, app.log)
+	app.profilingMutex.Unlock()
 }

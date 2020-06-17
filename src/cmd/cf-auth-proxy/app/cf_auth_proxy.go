@@ -39,49 +39,49 @@ func NewCFAuthProxyApp(cfg *Config, log *logger.Logger) *CFAuthProxyApp {
 	}
 }
 
-func (c *CFAuthProxyApp) MetricsAddr() string {
-	c.metricsMutex.Lock()
-	defer c.metricsMutex.Unlock()
+func (app *CFAuthProxyApp) MetricsAddr() string {
+	app.metricsMutex.Lock()
+	defer app.metricsMutex.Unlock()
 
-	if c.metricsServer == nil {
+	if app.metricsServer == nil {
 		return ""
 	}
-	return c.metricsServer.Addr()
+	return app.metricsServer.Addr()
 
 }
 
 // Run starts the CFAuthProxyApp, this is a blocking method call.
-func (c *CFAuthProxyApp) Run() {
+func (app *CFAuthProxyApp) Run() {
 	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
-		c.cfg.MetricStoreMetricsTLS.CAPath,
-		c.cfg.MetricStoreMetricsTLS.CertPath,
-		c.cfg.MetricStoreMetricsTLS.KeyPath,
+		app.cfg.MetricStoreMetricsTLS.CAPath,
+		app.cfg.MetricStoreMetricsTLS.CertPath,
+		app.cfg.MetricStoreMetricsTLS.KeyPath,
 	)
 	if err != nil {
-		c.log.Fatal("unable to create metrics TLS config", err)
+		app.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	c.startMetricsServer(tlsMetricsConfig)
-	c.startProfilingServer()
+	app.startMetricsServer(tlsMetricsConfig)
+	app.startProfilingServer()
 
 	uaaClient := auth.NewUAAClient(
-		c.cfg.UAA.Addr,
-		buildUAAClient(c.cfg, c.log),
-		c.metrics,
-		c.log,
+		app.cfg.UAA.Addr,
+		buildUAAClient(app.cfg, app.log),
+		app.metrics,
+		app.log,
 	)
 
 	// try to get our first token key, but bail out if we can't talk to UAA
 	err = uaaClient.RefreshTokenKeys()
 	if err != nil {
-		c.log.Fatal("failed to fetch token from UAA", err)
+		app.log.Fatal("failed to fetch token from UAA", err)
 	}
 
 	capiClient := auth.NewCAPIClient(
-		c.cfg.CAPI.ExternalAddr,
-		buildCAPIClient(c.cfg, c.log),
-		c.metrics,
-		c.log,
+		app.cfg.CAPI.ExternalAddr,
+		buildCAPIClient(app.cfg, app.log),
+		app.metrics,
+		app.log,
 	)
 
 	queryParser := &QueryParser{}
@@ -90,45 +90,45 @@ func (c *CFAuthProxyApp) Run() {
 		uaaClient,
 		capiClient,
 		queryParser,
-		c.metrics,
-		c.log,
+		app.metrics,
+		app.log,
 	)
 
 	proxy := NewCFAuthProxy(
-		c.cfg.MetricStoreAddr,
-		c.cfg.Addr,
-		c.cfg.ProxyCAPath,
-		c.log,
+		app.cfg.MetricStoreAddr,
+		app.cfg.Addr,
+		app.cfg.ProxyCAPath,
+		app.log,
 		WithAuthMiddleware(middlewareProvider.Middleware),
 		WithClientTLS(
-			c.cfg.ProxyCAPath,
-			c.cfg.MetricStoreClientTLS.CertPath,
-			c.cfg.MetricStoreClientTLS.KeyPath,
+			app.cfg.ProxyCAPath,
+			app.cfg.MetricStoreClientTLS.CertPath,
+			app.cfg.MetricStoreClientTLS.KeyPath,
 			metric_store.COMMON_NAME,
 		),
 		WithServerTLS(
-			c.cfg.CertPath,
-			c.cfg.KeyPath,
+			app.cfg.CertPath,
+			app.cfg.KeyPath,
 		),
 	)
 
-	if c.cfg.SecurityEventLog != "" {
-		accessLog, err := os.OpenFile(c.cfg.SecurityEventLog, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
+	if app.cfg.SecurityEventLog != "" {
+		accessLog, err := os.OpenFile(app.cfg.SecurityEventLog, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			c.log.Panic("unable to open access log", logger.Error(err))
+			app.log.Panic("unable to open access log", logger.Error(err))
 		}
 		defer func() {
 			accessLog.Sync()
 			accessLog.Close()
 		}()
 
-		_, localPort, err := net.SplitHostPort(c.cfg.Addr)
+		_, localPort, err := net.SplitHostPort(app.cfg.Addr)
 		if err != nil {
-			c.log.Panic("unable to determine local port", logger.Error(err))
+			app.log.Panic("unable to determine local port", logger.Error(err))
 		}
 
-		accessLogger := auth.NewAccessLogger(accessLog, c.log)
-		accessMiddleware := auth.NewAccessMiddleware(accessLogger, c.cfg.InternalIP, localPort, c.log)
+		accessLogger := auth.NewAccessLogger(accessLog, app.log)
+		accessMiddleware := auth.NewAccessMiddleware(accessLogger, app.cfg.InternalIP, localPort, app.log)
 		WithAccessMiddleware(accessMiddleware)(proxy)
 	}
 
@@ -141,8 +141,8 @@ func (c *CFAuthProxyApp) Run() {
 
 	go func() {
 		sig := <-sigs
-		c.log.Info("received signal", logger.String("signal", sig.String()))
-		c.Stop()
+		app.log.Info("received signal", logger.String("signal", sig.String()))
+		app.Stop()
 		close(done)
 	}()
 
@@ -150,21 +150,21 @@ func (c *CFAuthProxyApp) Run() {
 }
 
 // Stop stops all the subprocesses for the application.
-func (c *CFAuthProxyApp) Stop() {
-	c.metricsMutex.Lock()
-	c.metricsServer.Close()
-	c.metricsServer = nil
-	c.metricsMutex.Unlock()
+func (app *CFAuthProxyApp) Stop() {
+	app.metricsMutex.Lock()
+	app.metricsServer.Close()
+	app.metricsServer = nil
+	app.metricsMutex.Unlock()
 
-	c.profilingMutex.Lock()
-	c.profilingListener.Close()
-	c.profilingListener = nil
-	c.profilingMutex.Unlock()
+	app.profilingMutex.Lock()
+	app.profilingListener.Close()
+	app.profilingListener = nil
+	app.profilingMutex.Unlock()
 }
 
-func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
-	c.metrics = metrics.NewRegistrar(
-		c.log,
+func (app *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
+	app.metrics = metrics.NewRegistrar(
+		app.log,
 		"metric_store_cf_auth_proxy",
 		metrics.WithConstLabels(map[string]string{
 			"source_id": "cf-auth-proxy",
@@ -179,30 +179,30 @@ func (c *CFAuthProxyApp) startMetricsServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	c.metricsMutex.Lock()
-	c.metricsServer = metrics.StartMetricsServer(
-		c.cfg.MetricsAddr,
+	app.metricsMutex.Lock()
+	app.metricsServer = metrics.StartMetricsServer(
+		app.cfg.MetricsAddr,
 		tlsConfig,
-		c.log,
-		c.metrics,
+		app.log,
+		app.metrics,
 	)
-	c.metricsMutex.Unlock()
+	app.metricsMutex.Unlock()
 }
 
-func (c *CFAuthProxyApp) ProfilingAddr() string {
-	c.profilingMutex.Lock()
-	defer c.profilingMutex.Unlock()
+func (app *CFAuthProxyApp) ProfilingAddr() string {
+	app.profilingMutex.Lock()
+	defer app.profilingMutex.Unlock()
 
-	if c.profilingListener == nil {
+	if app.profilingListener == nil {
 		return ""
 	}
-	return c.profilingListener.Addr().String()
+	return app.profilingListener.Addr().String()
 }
 
-func (c *CFAuthProxyApp) startProfilingServer() {
-	c.profilingMutex.Lock()
-	c.profilingListener = metrics.StartProfilingServer(c.cfg.ProfilingAddr, c.log)
-	c.profilingMutex.Unlock()
+func (app *CFAuthProxyApp) startProfilingServer() {
+	app.profilingMutex.Lock()
+	app.profilingListener = metrics.StartProfilingServer(app.cfg.ProfilingAddr, app.log)
+	app.profilingMutex.Unlock()
 }
 
 func buildUAAClient(cfg *Config, log *logger.Logger) *http.Client {

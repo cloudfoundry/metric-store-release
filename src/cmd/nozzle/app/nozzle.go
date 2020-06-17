@@ -38,69 +38,69 @@ func NewNozzleApp(cfg *Config, log *logger.Logger) *NozzleApp {
 	}
 }
 
-func (n *NozzleApp) MetricsAddr() string {
-	n.metricsMutex.Lock()
-	defer n.metricsMutex.Unlock()
+func (app *NozzleApp) MetricsAddr() string {
+	app.metricsMutex.Lock()
+	defer app.metricsMutex.Unlock()
 
-	if n.metricsServer == nil {
+	if app.metricsServer == nil {
 		return ""
 	}
-	return n.metricsServer.Addr()
+	return app.metricsServer.Addr()
 
 }
 
 // Run starts the Nozzle, this is a blocking method call.
-func (n *NozzleApp) Run() {
+func (app *NozzleApp) Run() {
 	tlsMetricsConfig, err := sharedtls.NewMutualTLSServerConfig(
-		n.cfg.MetricStoreMetricsTLS.CAPath,
-		n.cfg.MetricStoreMetricsTLS.CertPath,
-		n.cfg.MetricStoreMetricsTLS.KeyPath,
+		app.cfg.MetricStoreMetricsTLS.CAPath,
+		app.cfg.MetricStoreMetricsTLS.CertPath,
+		app.cfg.MetricStoreMetricsTLS.KeyPath,
 	)
 	if err != nil {
-		n.log.Fatal("unable to create metrics TLS config", err)
+		app.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	n.startDebugServer(tlsMetricsConfig) // TODO rename
-	n.startProfilingServer()
+	app.startDebugServer(tlsMetricsConfig) // TODO rename
+	app.startProfilingServer()
 
 	loggregatorTLSConfig, err := loggregator.NewEgressTLSConfig(
-		n.cfg.LogsProviderTLS.LogProviderCA,
-		n.cfg.LogsProviderTLS.LogProviderCert,
-		n.cfg.LogsProviderTLS.LogProviderKey,
+		app.cfg.LogsProviderTLS.LogProviderCA,
+		app.cfg.LogsProviderTLS.LogProviderCert,
+		app.cfg.LogsProviderTLS.LogProviderKey,
 	)
 	if err != nil {
-		n.log.Fatal("failed to load tls config for loggregator", err)
+		app.log.Fatal("failed to load tls config for loggregator", err)
 	}
 
 	streamConnector := loggregator.NewEnvelopeStreamConnector(
-		n.cfg.LogProviderAddr,
+		app.cfg.LogProviderAddr,
 		loggregatorTLSConfig,
-		loggregator.WithEnvelopeStreamLogger(n.log.StdLog("loggregator")),
+		loggregator.WithEnvelopeStreamLogger(app.log.StdLog("loggregator")),
 		loggregator.WithEnvelopeStreamBuffer(10000, func(missed int) {
-			n.log.Info("dropped envelope batches", logger.Count(missed))
-			n.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
+			app.log.Info("dropped envelope batches", logger.Count(missed))
+			app.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
 		}),
 	)
 
 	metricStoreTLSConfig, err := sharedtls.NewMutualTLSClientConfig(
-		n.cfg.MetricStoreTLS.CAPath,
-		n.cfg.MetricStoreTLS.CertPath,
-		n.cfg.MetricStoreTLS.KeyPath,
+		app.cfg.MetricStoreTLS.CAPath,
+		app.cfg.MetricStoreTLS.CertPath,
+		app.cfg.MetricStoreTLS.KeyPath,
 		metric_store.COMMON_NAME,
 	)
 	if err != nil {
-		n.log.Fatal("failed to load tls config for metric store", err)
+		app.log.Fatal("failed to load tls config for metric store", err)
 	}
 
 	nozzle := NewNozzle(
 		streamConnector,
-		n.cfg.MetricStoreAddr,
-		n.cfg.IngressAddr,
+		app.cfg.MetricStoreAddr,
+		app.cfg.IngressAddr,
 		metricStoreTLSConfig,
-		n.cfg.ShardId,
-		n.cfg.NodeIndex,
-		WithNozzleLogger(n.log),
-		WithNozzleDebugRegistrar(n.metrics),
+		app.cfg.ShardId,
+		app.cfg.NodeIndex,
+		WithNozzleLogger(app.log),
+		WithNozzleDebugRegistrar(app.metrics),
 		WithNozzleTimerRollup(
 			10*time.Second,
 			[]string{
@@ -114,7 +114,7 @@ func (n *NozzleApp) Run() {
 				"process_instance_id", "process_type",
 			},
 		),
-		WithNozzleTimerRollupBufferSize(n.cfg.TimerRollupBufferSize),
+		WithNozzleTimerRollupBufferSize(app.cfg.TimerRollupBufferSize),
 	)
 
 	nozzle.Start()
@@ -126,8 +126,8 @@ func (n *NozzleApp) Run() {
 
 	go func() {
 		sig := <-sigs
-		n.log.Info("received signal", logger.String("signal", sig.String()))
-		n.Stop()
+		app.log.Info("received signal", logger.String("signal", sig.String()))
+		app.Stop()
 		close(done)
 	}()
 
@@ -135,21 +135,21 @@ func (n *NozzleApp) Run() {
 }
 
 // Stop stops all the subprocesses for the application.
-func (n *NozzleApp) Stop() {
-	n.metricsMutex.Lock()
-	n.metricsServer.Close()
-	n.metricsServer = nil
-	n.metricsMutex.Unlock()
+func (app *NozzleApp) Stop() {
+	app.metricsMutex.Lock()
+	app.metricsServer.Close()
+	app.metricsServer = nil
+	app.metricsMutex.Unlock()
 
-	n.profilingMutex.Lock()
-	n.profilingListener.Close()
-	n.profilingListener = nil
-	n.profilingMutex.Unlock()
+	app.profilingMutex.Lock()
+	app.profilingListener.Close()
+	app.profilingListener = nil
+	app.profilingMutex.Unlock()
 }
 
-func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
-	n.metrics = metrics.NewRegistrar(
-		n.log,
+func (app *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
+	app.metrics = metrics.NewRegistrar(
+		app.log,
 		"metric-store-nozzle",
 		metrics.WithConstLabels(map[string]string{
 			"source_id": "nozzle",
@@ -175,30 +175,30 @@ func (n *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		}),
 	)
 
-	n.metricsMutex.Lock()
-	n.metricsServer = metrics.StartMetricsServer(
-		n.cfg.MetricsAddr,
+	app.metricsMutex.Lock()
+	app.metricsServer = metrics.StartMetricsServer(
+		app.cfg.MetricsAddr,
 		tlsConfig,
-		n.log,
-		n.metrics,
+		app.log,
+		app.metrics,
 	)
-	n.metricsMutex.Unlock()
+	app.metricsMutex.Unlock()
 }
 
-func (n *NozzleApp) ProfilingAddr() string {
-	n.profilingMutex.Lock()
-	defer n.profilingMutex.Unlock()
+func (app *NozzleApp) ProfilingAddr() string {
+	app.profilingMutex.Lock()
+	defer app.profilingMutex.Unlock()
 
-	if n.profilingListener == nil {
+	if app.profilingListener == nil {
 		return ""
 	}
 
-	return n.profilingListener.Addr().String()
+	return app.profilingListener.Addr().String()
 
 }
 
-func (n *NozzleApp) startProfilingServer() {
-	n.profilingMutex.Lock()
-	n.profilingListener = metrics.StartProfilingServer(n.cfg.ProfilingAddr, n.log)
-	n.profilingMutex.Unlock()
+func (app *NozzleApp) startProfilingServer() {
+	app.profilingMutex.Lock()
+	app.profilingListener = metrics.StartProfilingServer(app.cfg.ProfilingAddr, app.log)
+	app.profilingMutex.Unlock()
 }
