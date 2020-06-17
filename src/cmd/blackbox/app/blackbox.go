@@ -2,6 +2,7 @@ package app
 
 import (
 	"crypto/tls"
+	"net"
 	"sync"
 	"time"
 
@@ -23,9 +24,12 @@ type BlackboxApp struct {
 	pc *blackbox.PerformanceCalculator
 	rc *blackbox.ReliabilityCalculator
 
-	metricsMutex  sync.Mutex
-	metricsServer *metrics.Server
-	metrics       metrics.Registrar
+	profilingMutex    sync.Mutex
+	profilingListener net.Listener
+
+	metricsMutex      sync.Mutex
+	metricsServer     *metrics.Server
+	metrics           metrics.Registrar
 }
 
 func NewBlackboxApp(cfg *blackbox.Config, log *logger.Logger) *BlackboxApp {
@@ -45,7 +49,8 @@ func (b *BlackboxApp) Run() {
 		b.log.Fatal("unable to create metrics TLS config", err)
 	}
 
-	b.startDebugServer(tlsMetricsConfig)
+	b.startMetricsServer(tlsMetricsConfig)
+	b.startProfilingServer()
 	// resolver, _ := naming.NewDNSResolverWithFreq(1 * time.Minute)
 
 	stopChan := make(chan bool)
@@ -119,14 +124,17 @@ func (b *BlackboxApp) MetricsAddr() string {
 // Stop stops all the subprocesses for the application.
 func (b *BlackboxApp) Stop() {
 	b.metricsMutex.Lock()
-
 	b.metricsServer.Close()
 	b.metricsServer = nil
-
 	b.metricsMutex.Unlock()
+
+	b.profilingMutex.Lock()
+	b.profilingListener.Close()
+	b.profilingListener = nil
+	b.profilingMutex.Unlock()
 }
 
-func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
+func (b *BlackboxApp) startMetricsServer(tlsConfig *tls.Config) {
 	b.metrics = metrics.NewRegistrar(
 		b.log,
 		"blackbox",
@@ -152,4 +160,20 @@ func (b *BlackboxApp) startDebugServer(tlsConfig *tls.Config) {
 	)
 
 	b.metricsMutex.Unlock()
+}
+
+func (b *BlackboxApp) ProfilingAddr() string {
+	b.profilingMutex.Lock()
+	defer b.profilingMutex.Unlock()
+
+	if b.profilingListener == nil {
+		return ""
+	}
+	return b.profilingListener.Addr().String()
+}
+
+func (b *BlackboxApp) startProfilingServer() {
+	b.profilingMutex.Lock()
+	b.profilingListener = metrics.StartProfilingServer(b.cfg.ProfilingAddr, b.log)
+	b.profilingMutex.Unlock()
 }

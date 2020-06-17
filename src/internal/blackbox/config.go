@@ -28,7 +28,8 @@ type Config struct {
 	TLS                   sharedtls.TLS
 	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
-	LogLevel string `env:"LOG_LEVEL,                      report"`
+	LogLevel      string `env:"LOG_LEVEL,                      report"`
+	ProfilingAddr string `env:"PROFILING_ADDR"`
 }
 
 type MetricStoreMetricsTLS struct {
@@ -39,8 +40,9 @@ type MetricStoreMetricsTLS struct {
 
 func LoadConfig() *Config {
 	cfg := &Config{
-		LogLevel:    "info",
-		MetricsAddr: ":6066",
+		LogLevel:      "info",
+		MetricsAddr:   ":6066",
+		ProfilingAddr: "localhost:6076",
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -74,4 +75,20 @@ var _ = Describe("Blackbox App", func() {
 		Expect(body).To(ContainSubstring("blackbox_http_reliability"))
 		Expect(body).To(ContainSubstring("go_threads"))
 	})
+
+	It("listens with pprof", func() {
+		callPprof := func() int {
+
+			resp, err := http.Get("http://" + bb.ProfilingAddr() + "/debug/pprof")
+			if err != nil {
+				fmt.Printf("calling pprof: %s\n", err)
+				return -1
+			}
+			defer resp.Body.Close()
+
+			return resp.StatusCode
+		}
+		Eventually(callPprof).Should(Equal(200))
+	})
+
 })
