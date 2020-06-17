@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,8 +22,9 @@ type ClusterDiscoveryApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	metricsServer     *metrics.Server
-	metrics           metrics.Registrar
+	metricsMutex  sync.Mutex
+	metricsServer *metrics.Server
+	metrics       metrics.Registrar
 }
 
 func NewClusterDiscoveryApp(cfg *Config, log *logger.Logger) *ClusterDiscoveryApp {
@@ -33,6 +35,9 @@ func NewClusterDiscoveryApp(cfg *Config, log *logger.Logger) *ClusterDiscoveryAp
 }
 
 func (app *ClusterDiscoveryApp) MetricsAddr() string {
+	app.metricsMutex.Lock()
+	defer app.metricsMutex.Unlock()
+
 	if app.metricsServer == nil {
 		return ""
 	}
@@ -42,7 +47,7 @@ func (app *ClusterDiscoveryApp) MetricsAddr() string {
 
 // Run starts the ClusterDiscoveryApp, this is a blocking method call.
 func (app *ClusterDiscoveryApp) Run() {
-	app.startHealthServer()
+	app.startMetricsServer()
 	clusterDiscovery := app.startClusterDiscovery()
 	app.waitForSigTerm(clusterDiscovery)
 }
@@ -119,11 +124,13 @@ func (app *ClusterDiscoveryApp) startClusterDiscovery() *cluster_discovery.Clust
 
 // Stop stops all the subprocesses for the application.
 func (app *ClusterDiscoveryApp) Stop() {
+	app.metricsMutex.Lock()
 	app.metricsServer.Close()
 	app.metricsServer = nil
+	app.metricsMutex.Unlock()
 }
 
-func (app *ClusterDiscoveryApp) startHealthServer() {
+func (app *ClusterDiscoveryApp) startMetricsServer() {
 	tlsConfig, err := sharedtls.NewMutualTLSServerConfig(
 		app.cfg.MetricsTLS.CAPath,
 		app.cfg.MetricsTLS.CertPath,
@@ -141,10 +148,12 @@ func (app *ClusterDiscoveryApp) startHealthServer() {
 		}),
 	)
 
+	app.metricsMutex.Lock()
 	app.metricsServer = metrics.StartMetricsServer(
 		app.cfg.MetricsAddr,
 		tlsConfig,
 		app.log,
 		app.metrics,
 	)
+	app.metricsMutex.Unlock()
 }
