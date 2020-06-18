@@ -103,22 +103,24 @@ const (
 
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
-		numNodes                   int
-		addrs                      []string
-		internodeAddrs             []string
-		ingressAddrs               []string
-		metricsAddrs               []string
-		metricStoreProcesses       []*gexec.Session
-		tlsConfig                  *tls.Config
-		caCert                     string
-		cert                       string
-		key                        string
-		scrapeConfigPath           string
-		additionalScrapeConfigsDir string
-		localEgressClient          prom_versioned_api_client.API
-		peerEgressClient           prom_versioned_api_client.API
-		replicationFactor          int
-	}
+	numNodes                   int
+	addrs                      []string
+	internodeAddrs             []string
+	ingressAddrs               []string
+	metricsAddrs               []string
+	profilingAddrs             []string
+
+	metricStoreProcesses       []*gexec.Session
+	tlsConfig                  *tls.Config
+	caCert                     string
+	cert                       string
+	key                        string
+	scrapeConfigPath           string
+	additionalScrapeConfigsDir string
+	localEgressClient          prom_versioned_api_client.API
+	peerEgressClient           prom_versioned_api_client.API
+	replicationFactor          int
+}
 
 	var portAvailable = func(port int) bool {
 		for _, claimedPort := range claimedPorts {
@@ -152,6 +154,7 @@ var _ = Describe("MetricStore", func() {
 				"INGRESS_ADDR=" + tc.ingressAddrs[index],
 				"INTERNODE_ADDR=" + tc.internodeAddrs[index],
 				"METRICS_ADDR=" + tc.metricsAddrs[index],
+				"PROFILING_ADDR=" + tc.profilingAddrs[index],
 				"STORAGE_PATH=" + storagePaths[index],
 				"RETENTION_PERIOD_IN_DAYS=1",
 				fmt.Sprintf("NODE_INDEX=%d", index),
@@ -175,7 +178,7 @@ var _ = Describe("MetricStore", func() {
 			},
 		)
 
-		shared.WaitForHealthCheck(tc.metricsAddrs[index], tc.tlsConfig)
+		shared.WaitForHealthCheck(tc.profilingAddrs[index], tc.tlsConfig)
 		tc.metricStoreProcesses[index] = metricStoreProcess
 	}
 
@@ -216,6 +219,7 @@ var _ = Describe("MetricStore", func() {
 			tc.ingressAddrs = append(tc.ingressAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
 			tc.internodeAddrs = append(tc.internodeAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
 			tc.metricsAddrs = append(tc.metricsAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
+			tc.profilingAddrs = append(tc.profilingAddrs, fmt.Sprintf("localhost:%d", getFreePort(tc)))
 		}
 
 		for _, opt := range opts {

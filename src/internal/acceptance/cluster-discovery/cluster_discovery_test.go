@@ -30,6 +30,7 @@ var _ = Describe("ClusterDiscovery", func() {
 		cert             string
 		key              string
 		metricsAddr      string
+		profilingAddr    string
 		scrapeConfigPath string
 		storagePath      string
 
@@ -39,8 +40,7 @@ var _ = Describe("ClusterDiscovery", func() {
 		pksSpy     *testing.PKSSpy
 		kubeAPISpy *testing.K8sSpy
 
-		app     *app.ClusterDiscoveryApp
-		MetricS interface{}
+		app *app.ClusterDiscoveryApp
 	}
 
 	var readCertFile = func(path string) []byte {
@@ -60,6 +60,7 @@ var _ = Describe("ClusterDiscovery", func() {
 
 		cfg := &app.Config{
 			MetricsAddr:     tc.metricsAddr,
+			ProfilingAddr:   tc.profilingAddr,
 			StoragePath:     tmpDir,
 			LogLevel:        "DEBUG",
 			RefreshInterval: time.Minute,
@@ -91,7 +92,7 @@ var _ = Describe("ClusterDiscovery", func() {
 		tc.app = app.NewClusterDiscoveryApp(cfg, logger.NewTestLogger(GinkgoWriter))
 		go tc.app.Run()
 		time.Sleep(5 * time.Second)
-		shared.WaitForHealthCheck(tc.metricsAddr, tc.tlsConfig)
+		shared.WaitForHealthCheck(tc.profilingAddr, tc.tlsConfig)
 
 	}
 
@@ -103,10 +104,11 @@ var _ = Describe("ClusterDiscovery", func() {
 
 	var setup = func(numNodes int, opts ...WithTestContextOption) (*testContext, func()) {
 		tc := &testContext{
-			caCert:      shared.Cert("metric-store-ca.crt"),
-			cert:        shared.Cert("metric-store.crt"),
-			key:         shared.Cert("metric-store.key"),
-			metricsAddr: fmt.Sprintf(":%d", shared.GetFreePort()),
+			caCert:        shared.Cert("metric-store-ca.crt"),
+			cert:          shared.Cert("metric-store.crt"),
+			key:           shared.Cert("metric-store.key"),
+			metricsAddr:   fmt.Sprintf(":%d", shared.GetFreePort()),
+			profilingAddr: fmt.Sprintf(":%d", shared.GetFreePort()),
 		}
 
 		var err error

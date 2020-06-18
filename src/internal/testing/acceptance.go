@@ -14,23 +14,23 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-func WaitForHealthCheck(metricsAddr string, tlsConfig *tls.Config) {
+func WaitForHealthCheck(profilingAddr string, tlsConfig *tls.Config) {
 	Eventually(func() error {
 		client := &http.Client{
 			Transport: &http.Transport{TLSClientConfig: tlsConfig},
 		}
 
-		resp, err := client.Get("https://" + metricsAddr + "/metrics")
+		resp, err := client.Get("http://" + profilingAddr + "/debug/vars")
 		if err != nil {
 			return err
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("healthcheck returned non-OK status: %d", resp.StatusCode)
+			return fmt.Errorf("debug endpoint returned non-OK status: %d", resp.StatusCode)
 		}
 
 		return nil
-	}, 5).Should(Succeed())
+	}, 15).Should(Succeed())
 }
 
 var builtPathsCache = &sync.Map{}
