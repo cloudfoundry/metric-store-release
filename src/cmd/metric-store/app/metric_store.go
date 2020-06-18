@@ -53,7 +53,6 @@ func (app *MetricStoreApp) Run() {
 	}
 
 	app.startMetricsServer(tlsMetricsConfig)
-	app.startDebugServer()
 
 	tlsEgressConfig := &config.TLSConfig{
 		CAFile:     app.cfg.TLS.CAPath,
@@ -154,6 +153,8 @@ func (app *MetricStoreApp) Run() {
 		app.Stop()
 		close(done)
 	}()
+
+	app.startDebugServer()
 
 	<-done
 }
