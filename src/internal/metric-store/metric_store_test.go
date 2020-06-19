@@ -69,14 +69,14 @@ func (tc *testContext) CreateRuleManager(managerId string, alertManagers *prom_c
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func (tc *testContext) CreateRuleGroup(managerId, alertName, alertExpr string) (*rulesclient.RuleGroup, error) {
+func (tc *testContext) CreateRuleGroup(managerId, recordName, recordExpr string) (*rulesclient.RuleGroup, error) {
 	group := rulesclient.RuleGroup{
 		Name:     "my-example-group",
 		Interval: rulesclient.Duration(time.Minute),
 		Rules: []rulesclient.Rule{
 			{
-				Record: alertName,
-				Expr:   alertExpr,
+				Record: recordName,
+				Expr:   recordExpr,
 			},
 		},
 	}

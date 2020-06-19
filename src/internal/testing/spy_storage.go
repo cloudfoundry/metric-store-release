@@ -20,12 +20,10 @@ func (s *SpyStorage) StartTime() (int64, error) {
 }
 
 func (s *SpyStorage) Appender() (storage.Appender, error) {
-	//	panic("not implemented")
 	return &SpyAppender{}, nil
 }
 
 func (s *SpyStorage) Close() error {
-	//	panic("not implemented")
 	return nil
 }
 
@@ -39,7 +37,6 @@ type SpyAppender struct {
 }
 
 func (s SpyAppender) Add(l labels.Labels, t int64, v float64) (uint64, error) {
-	//	panic("implement me")
 	return 0, nil
 }
 
@@ -48,7 +45,6 @@ func (s SpyAppender) AddFast(l labels.Labels, ref uint64, t int64, v float64) er
 }
 
 func (s SpyAppender) Commit() error {
-	// panic("implement me")
 	return nil
 }
 

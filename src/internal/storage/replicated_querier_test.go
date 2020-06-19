@@ -59,7 +59,7 @@ var _ = Describe("Querier", func() {
 
 	Context("Select", func() {
 		var createTestSubject = func(localQuerier, remoteQuerier prom_storage.Querier) *storage.ReplicatedQuerier {
-			router := &mockRouting{ lookupNodes: []int{1, 2, 3} }
+			router := &mockRouting{lookupNodes: []int{1, 2, 3}}
 
 			factory := &testFactory{
 				queriers: []prom_storage.Querier{remoteQuerier, remoteQuerier, remoteQuerier},
@@ -88,7 +88,7 @@ var _ = Describe("Querier", func() {
 				localQuerier := newSpyQuerier()
 				remoteQuerier := newSpyQuerier()
 
-				router := &mockRouting{ lookupNodes: []int{0, 1} }
+				router := &mockRouting{lookupNodes: []int{0, 1}}
 
 				subject := storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
 					&testFactory{queriers: []prom_storage.Querier{localQuerier, remoteQuerier}},

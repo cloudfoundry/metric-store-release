@@ -86,9 +86,9 @@ type MetricStore struct {
 	// externally and instead will store all of it.
 	internodeAddrs []string
 
-	scraper *scraping.Scraper
-	storagePath               string
-	queryLogPath              string
+	scraper      *scraping.Scraper
+	storagePath  string
+	queryLogPath string
 
 	replicatedStorage prom_storage.Storage
 }
