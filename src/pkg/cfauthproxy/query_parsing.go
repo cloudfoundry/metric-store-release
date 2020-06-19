@@ -55,7 +55,7 @@ func (s *sourceIdVisitor) Visit(node promql.Node, _ []promql.Node) (promql.Visit
 	case *promql.VectorSelector:
 		err = s.addSourceIdsFromMatchers(selector.LabelMatchers)
 	case *promql.MatrixSelector:
-		err = s.addSourceIdsFromMatchers(selector.LabelMatchers)
+		err = s.addSourceIdsFromMatchers(selector.VectorSelector.(*promql.VectorSelector).LabelMatchers)
 	}
 
 	if err != nil {

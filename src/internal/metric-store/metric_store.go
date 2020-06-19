@@ -235,7 +235,6 @@ func (store *MetricStore) Start() {
 
 	maxConcurrentQueries := 20
 	engineOpts := promql.EngineOpts{
-		MaxConcurrent:      maxConcurrentQueries,
 		MaxSamples:         20e6,
 		Timeout:            store.queryTimeout,
 		Logger:             store.log,

@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+
 	prom_config "github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/pkg/rulefmt"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
+	yamlj "sigs.k8s.io/yaml"
 )
 
 type ManagerStoreError string
@@ -90,7 +91,7 @@ func (f *RuleManagerFiles) Load(managerId string) (string, *prom_config.Alertman
 	return rulesFilePath, &alertManagers, nil
 }
 
-func (f *RuleManagerFiles) UpsertRuleGroup(managerId string, ruleGroup *rulefmt.RuleGroup) error {
+func (f *RuleManagerFiles) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
 	exists, err := f.rulesManagerExists(managerId)
 	if err != nil {
 		return err
@@ -113,15 +114,15 @@ func (f *RuleManagerFiles) writeAlertManager(managerId string, alertmanagers *pr
 	return ioutil.WriteFile(alertManagerFilePath, outBytes, os.ModePerm)
 }
 
-func (f *RuleManagerFiles) writeRules(managerId string, ruleGroup *rulefmt.RuleGroup) error {
+func (f *RuleManagerFiles) writeRules(managerId string, ruleGroup *rulesclient.RuleGroup) error {
 	managerFilePath := f.rulesFilePath(managerId)
 
-	ruleGroups := rulefmt.RuleGroups{}
+	ruleGroups := rulesclient.RuleGroups{}
 	if ruleGroup != nil {
-		ruleGroups.Groups = []rulefmt.RuleGroup{*ruleGroup}
+		ruleGroups.Groups = []rulesclient.RuleGroup{*ruleGroup}
 	}
 
-	outBytes, err := yaml.Marshal(ruleGroups)
+	outBytes, err := yamlj.Marshal(ruleGroups)
 	if err != nil {
 		return err
 	}

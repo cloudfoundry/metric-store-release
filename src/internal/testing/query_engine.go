@@ -10,10 +10,9 @@ import (
 
 func NewQueryEngine() *promql.Engine {
 	engineOpts := promql.EngineOpts{
-		MaxConcurrent: 10,
-		MaxSamples:    20e6,
-		Timeout:       time.Minute,
-		Logger:        logger.NewTestLogger(ginkgo.GinkgoWriter),
+		MaxSamples: 20e6,
+		Timeout:    time.Minute,
+		Logger:     logger.NewTestLogger(ginkgo.GinkgoWriter),
 	}
 	return promql.NewEngine(engineOpts)
 }

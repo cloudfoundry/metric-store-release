@@ -229,11 +229,10 @@ func setupDependencies(rules string) (*ruleManagerDependencies, func()) {
 	loadMetric(persistentStore)
 
 	queryEngine := promql.NewEngine(promql.EngineOpts{
-		MaxConcurrent: 10,
-		MaxSamples:    1e6,
-		Timeout:       time.Second,
-		Logger:        logger.NewTestLogger(GinkgoWriter),
-		Reg:           spyMetrics.Registerer(),
+		MaxSamples: 1e6,
+		Timeout:    time.Second,
+		Logger:     logger.NewTestLogger(GinkgoWriter),
+		Reg:        spyMetrics.Registerer(),
 	})
 
 	deps := &ruleManagerDependencies{

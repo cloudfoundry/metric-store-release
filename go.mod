@@ -46,6 +46,7 @@ require (
 	golang.org/x/sys v0.0.0-20200331124033-c3d80250170d
 	google.golang.org/grpc v1.24.0
 	gopkg.in/yaml.v2 v2.3.0
+	gopkg.in/yaml.v3 v3.0.0-20191120175047-4206685974f2
 	k8s.io/api v0.0.0-20190813020757-36bff7324fb7
 	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v0.0.0-20190620085101-78d2af792bab

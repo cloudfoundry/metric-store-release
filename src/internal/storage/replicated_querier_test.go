@@ -246,6 +246,10 @@ func (q *spyQuerier) Select(*prom_storage.SelectParams, ...*labels.Matcher) (pro
 	return nil, nil, err
 }
 
+func (q *spyQuerier) SelectSorted(params *prom_storage.SelectParams, labelMatchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	return q.Select(params, labelMatchers...)
+}
+
 func (*spyQuerier) LabelValues(_ string) ([]string, prom_storage.Warnings, error) {
 	panic("implement me")
 }

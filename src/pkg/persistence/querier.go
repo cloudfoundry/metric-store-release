@@ -67,6 +67,10 @@ func (q *Querier) Select(params *storage.SelectParams, labelMatchers ...*labels.
 	return builder.SeriesSet(), nil, nil
 }
 
+func (q *Querier) SelectSorted(params *storage.SelectParams, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
+	return q.Select(params, labelMatchers...)
+}
+
 func (q *Querier) LabelNames() ([]string, storage.Warnings, error) {
 	distinctKeys := make(map[string]struct{})
 

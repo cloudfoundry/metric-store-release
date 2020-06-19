@@ -122,6 +122,10 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 	return r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), params, matchers...)
 }
 
+func (r *ReplicatedQuerier) SelectSorted(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	return r.Select(params, matchers...)
+}
+
 func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (string, error) {
 	for _, matcher := range matchers {
 		if matcher.Name == labels.MetricName {

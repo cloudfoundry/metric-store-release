@@ -44,12 +44,7 @@ func (l *LocalRuleManager) DeleteManager(managerId string) error {
 }
 
 func (l *LocalRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulesclient.RuleGroup) error {
-	promRuleGroup, err := ruleGroup.ConvertToPromRuleGroup()
-	if err != nil {
-		return err
-	}
-
-	err = l.rulesManagerFiles.UpsertRuleGroup(managerId, promRuleGroup)
+	err := l.rulesManagerFiles.UpsertRuleGroup(managerId, ruleGroup)
 	if err != nil {
 		return err
 	}

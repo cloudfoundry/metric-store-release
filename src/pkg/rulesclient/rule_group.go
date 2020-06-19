@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/prometheus/common/model"
-	"github.com/prometheus/prometheus/pkg/rulefmt"
 )
 
 type RuleGroupData struct {
 	Data RuleGroup `json:"data"`
+}
+
+type RuleGroups struct {
+	Groups []RuleGroup `json:"groups"`
 }
 
 type RuleGroup struct {
@@ -43,24 +44,6 @@ func (rg *RuleGroup) Validate() error {
 	}
 
 	return nil
-}
-
-func (rg *RuleGroup) ConvertToPromRuleGroup() (*rulefmt.RuleGroup, error) {
-	var promRules []rulefmt.Rule
-	for _, rule := range rg.Rules {
-		promRule, err := rule.convertToPromRule()
-		if err != nil {
-			return nil, err
-		}
-
-		promRules = append(promRules, promRule)
-	}
-
-	return &rulefmt.RuleGroup{
-		Name:     rg.Name,
-		Interval: model.Duration(rg.Interval),
-		Rules:    promRules,
-	}, nil
 }
 
 func (d *Duration) Type() string {
