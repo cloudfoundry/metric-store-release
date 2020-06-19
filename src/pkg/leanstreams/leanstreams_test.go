@@ -6,12 +6,14 @@ import (
 	"log"
 	"runtime"
 	"sync"
+	gotest "testing"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
+	"github.com/fortytw2/leaktest"
 	"github.com/golang/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -277,3 +279,57 @@ var _ = Describe("Leanstreams", func() {
 		})
 	})
 })
+
+func TestMemoryLeak(t *gotest.T) {
+	var leakTester func()
+	var setup = func() (tc *leanstreamsTestContext, cleanup func()) {
+		tc = &leanstreamsTestContext{}
+
+		maxMessageSize := 5
+		listenConfig := TCPListenerConfig{
+			MaxMessageSize: maxMessageSize,
+			Logger:         log.New(GinkgoWriter, "leanstreams", log.LstdFlags),
+			Address:        ":0",
+			Callback:       tc.Callback,
+		}
+		listener, err := ListenTCP(listenConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		listener.StartListeningAsync()
+		tc.Listener = listener
+
+		writeConfig := TCPClientConfig{
+			MaxMessageSize: maxMessageSize,
+			Address:        listener.Address,
+		}
+
+		leakTester = leaktest.Check(t)
+		connection, err := DialTCP(&writeConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+		tc.Client = connection
+
+		return tc, func() {
+			tc.Client.Close()
+		}
+	}
+
+	tc, cleanup := setup()
+	defer cleanup()
+
+	n, err := tc.Write("This is an example message")
+	if n != 60 {
+		t.Fail()
+	}
+
+	if err != nil {
+		t.Fail()
+	}
+
+	// Check for any go routine leaks after the server has started
+	// and received a failed connection
+	leakTester()
+	tc.Listener.Close()
+}

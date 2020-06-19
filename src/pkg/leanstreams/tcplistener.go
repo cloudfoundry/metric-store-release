@@ -1,6 +1,7 @@
 package leanstreams
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"sync"
@@ -16,14 +17,15 @@ type ListenCallback func([]byte) error
 // TCPListener represents the abstraction over a raw TCP socket for reading streaming
 // protocolbuffer data without having to write a ton of boilerplate
 type TCPListener struct {
-	socket          net.Listener
-	logger          Logger
-	callback        ListenCallback
-	shutdownChannel chan struct{}
-	shutdownGroup   *sync.WaitGroup
-	ConnConfig      *TCPServerConfig
-	tlsConfig       *tls.Config
-	Address         string
+	socket        net.Listener
+	logger        Logger
+	callback      ListenCallback
+	shutdown      func()
+	shutdownCtx   context.Context
+	shutdownGroup *sync.WaitGroup
+	ConnConfig    *TCPServerConfig
+	tlsConfig     *tls.Config
+	Address       string
 
 	connectionCount           int
 	connectionCountMetricName string
@@ -79,10 +81,13 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 		TLSConfig:      cfg.TLSConfig,
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	btl := &TCPListener{
 		logger:                    cfg.Logger,
 		callback:                  cfg.Callback,
-		shutdownChannel:           make(chan struct{}),
+		shutdown:                  cancel,
+		shutdownCtx:               ctx,
 		shutdownGroup:             &sync.WaitGroup{},
 		ConnConfig:                &connCfg,
 		tlsConfig:                 cfg.TLSConfig,
@@ -110,11 +115,9 @@ func (t *TCPListener) blockListen() error {
 			if t.logger != nil {
 				t.logger.Printf("Error attempting to accept connection: %s", err)
 			}
-			// Stole this approach from http://zhen.org/blog/graceful-shutdown-of-go-net-dot-listeners/
-			// Benefits of a channel for the simplicity of use, but don't have to even check it
-			// unless theres an error, so performance impact to incoming conns should be lower
+
 			select {
-			case <-t.shutdownChannel:
+			case <-t.shutdownCtx.Done():
 				return nil
 			default:
 				// Nothing, continue to the top of the loop
@@ -197,15 +200,18 @@ func (t *TCPListener) reopenSocket() error {
 
 	conn := tls.NewListener(receiveSocket, t.tlsConfig)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	t.socket = conn
-	t.shutdownChannel = make(chan struct{})
+	t.shutdown = cancel
+	t.shutdownCtx = ctx
 	return err
 }
 
 // Close represents a way to signal to the Listener that it should no longer accept
 // incoming connections, and shutdown
 func (t *TCPListener) Close() {
-	close(t.shutdownChannel)
+	t.shutdown()
 	t.socket.Close()
 
 	t.groupMu.Lock()
@@ -243,17 +249,17 @@ func (t *TCPListener) RestartListeningAsync() error {
 // Handles each incoming connection, run within it's own goroutine. This method will
 // loop until the client disconnects or another error occurs and is not handled
 func (t *TCPListener) readLoop(conn *TCPServer) {
-	defer t.shutdownGroup.Done()
+	ctx, cancel := context.WithCancel(t.shutdownCtx)
+	defer cancel()
+
+	go func(ctx context.Context, conn *TCPServer) {
+		<-ctx.Done()
+		conn.Close()
+		t.shutdownGroup.Done()
+	}(ctx, conn)
+
 	// dataBuffer will hold the message from each read
 	dataBuffer := make([]byte, conn.MaxMessageSize)
-
-	// Start an asyncrhonous call that will wait on the shutdown channel, and then close
-	// the connection. This will let us respond to the shutdown but also not incur
-	// a cost for checking the channel on each run of the loop
-	go func(c *TCPServer, s <-chan struct{}) {
-		<-s
-		c.Close()
-	}(conn, t.shutdownChannel)
 
 	// Begin the read loop
 	// If there is any error, close the connection officially and break out of the listen-loop.
@@ -266,7 +272,6 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 			if t.logger != nil {
 				t.logger.Printf("Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
 			}
-			conn.Close()
 			t.countMu.Lock()
 			t.connectionCount -= 1
 			t.updateConnectionCountMetric(t.connectionCount)
