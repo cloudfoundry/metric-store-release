@@ -15,7 +15,7 @@ import (
 	"time"
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -661,7 +661,8 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 	if localPointCount > 0 {
 		f := func() error {
 			seriesSet, _, err := querier.Select(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: MAGIC_MEASUREMENT_NAME, Type: labels.MatchEqual},
 			)
 			if err != nil {

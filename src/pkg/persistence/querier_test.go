@@ -18,7 +18,7 @@ var _ = Describe("Querier", func() {
 			func(in []*labels.Matcher, out error) {
 
 				querier := persistence.NewQuerier(nil, nil, nil)
-				_, _, err := querier.Select(nil, in...)
+				_, _, err := querier.Select(false, nil, in...)
 				Expect(err).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{

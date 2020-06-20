@@ -75,16 +75,5 @@ var _ = Describe("Appender", func() {
 				tc.spyMetrics.FetchHistogram(metrics.MetricStoreWriteDurationSeconds),
 			).Should(HaveLen(1))
 		})
-
-		It("updates the duration metrics in AddFast", func() {
-			tc := setup()
-
-			err := tc.appender.AddFast(nil, 0, 1, 1.0)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(
-				tc.spyMetrics.FetchHistogram(metrics.MetricStoreWriteDurationSeconds),
-			).Should(HaveLen(1))
-		})
 	})
 })

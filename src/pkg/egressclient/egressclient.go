@@ -54,7 +54,7 @@ func NewEgressClient(httpAddr, uaaAddr, uaaClientId, uaaClientSecret string) (pr
 //
 // Do modifies the given Request. It is invalid to use the same Request
 // instance on multiple go-routines.
-func (c *EgressClient) Do(ctx context.Context, req *http.Request) (*http.Response, []byte, prom_api_client.Warnings, error) {
+func (c *EgressClient) Do(ctx context.Context, req *http.Request) (*http.Response, []byte, error) {
 	req.Header.Add("Accept-Encoding", "text/plain")
 
 	if _, ok := req.Header["Authorization"]; ok {
@@ -64,24 +64,24 @@ func (c *EgressClient) Do(ctx context.Context, req *http.Request) (*http.Respons
 
 	token, err := c.getToken()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	req.Header.Set("Authorization", token)
 
-	res, body, _, err := c.client.Do(ctx, req)
+	res, body, err := c.client.Do(ctx, req)
 
 	if err != nil {
 		c.token = ""
-		return res, body, nil, err
+		return res, body, err
 	}
 
 	if res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices {
 		c.token = ""
-		return res, body, nil, nil
+		return res, body, nil
 	}
 
-	return res, body, nil, nil
+	return res, body, nil
 }
 
 func (c *EgressClient) URL(ep string, args map[string]string) *url.URL {
@@ -118,7 +118,7 @@ func (c *EgressClient) getToken() (string, error) {
 }
 
 func (c *EgressClient) doTokenRequest(req *http.Request) (string, error) {
-	res, body, _, err := c.client.Do(context.Background(), req)
+	res, body, err := c.client.Do(context.Background(), req)
 	if err != nil {
 		return "", err
 	}

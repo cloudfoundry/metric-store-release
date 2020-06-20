@@ -9,7 +9,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	prom_http_client "github.com/prometheus/client_golang/api"
+	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	. "github.com/onsi/ginkgo"
@@ -119,7 +119,7 @@ type mockClient struct {
 	responseErrors []error
 }
 
-func (c *mockClient) Query(context.Context, string, time.Time) (model.Value, prom_http_client.Warnings, error) {
+func (c *mockClient) Query(context.Context, string, time.Time) (model.Value, prom_versioned_api_client.Warnings, error) {
 	var points []model.SamplePair
 
 	responseCount := c.responseCounts[0]
@@ -148,17 +148,17 @@ func (c *mockClient) Query(context.Context, string, time.Time) (model.Value, pro
 	}, nil, nil
 }
 
-func (c *mockClient) LabelValues(context.Context, string) (model.LabelValues, prom_http_client.Warnings, error) {
+func (c *mockClient) LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
 	return nil, nil, fmt.Errorf("unexpected status code 500")
 }
 
 type mockUnresponsiveClient struct {
 }
 
-func (c *mockUnresponsiveClient) Query(context.Context, string, time.Time) (model.Value, prom_http_client.Warnings, error) {
+func (c *mockUnresponsiveClient) Query(context.Context, string, time.Time) (model.Value, prom_versioned_api_client.Warnings, error) {
 	return nil, nil, fmt.Errorf("unexpected status code 500")
 }
 
-func (c *mockUnresponsiveClient) LabelValues(context.Context, string) (model.LabelValues, prom_http_client.Warnings, error) {
+func (c *mockUnresponsiveClient) LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
 	panic("unimplemented")
 }

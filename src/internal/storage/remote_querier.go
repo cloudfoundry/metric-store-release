@@ -72,7 +72,7 @@ func NewRemoteQuerier(
 	return querier, nil
 }
 
-func (r *RemoteQuerier) Select(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	query, err := remote.ToQuery(0, 0, matchers, params)
 	if err != nil {
 		return nil, nil, err
@@ -82,11 +82,7 @@ func (r *RemoteQuerier) Select(params *prom_storage.SelectParams, matchers ...*l
 	if err != nil {
 		return nil, nil, err
 	}
-	return remote.FromQueryResult(res), nil, nil
-}
-
-func (r *RemoteQuerier) SelectSorted(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	return r.Select(params, matchers...)
+	return remote.FromQueryResult(sortSeries, res), nil, nil
 }
 
 func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {

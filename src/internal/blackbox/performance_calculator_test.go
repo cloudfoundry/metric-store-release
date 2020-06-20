@@ -6,18 +6,17 @@ import (
 	"sync"
 	"time"
 
-	prom_api_client "github.com/prometheus/client_golang/api"
-	prom_http_client "github.com/prometheus/client_golang/api"
+	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -88,7 +87,7 @@ type mockPerfClient struct {
 	query string
 }
 
-func (c *mockPerfClient) Query(ctx context.Context, query string, ts time.Time) (model.Value, prom_api_client.Warnings, error) {
+func (c *mockPerfClient) Query(ctx context.Context, query string, ts time.Time) (model.Value, prom_versioned_api_client.Warnings, error) {
 	c.query = query
 
 	value := model.Vector{
@@ -102,7 +101,7 @@ func (c *mockPerfClient) Query(ctx context.Context, query string, ts time.Time) 
 	return value, nil, nil
 }
 
-func (c *mockPerfClient) LabelValues(context.Context, string) (model.LabelValues, prom_http_client.Warnings, error) {
+func (c *mockPerfClient) LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
 	return nil, nil, fmt.Errorf("unexpected status code 500")
 }
 

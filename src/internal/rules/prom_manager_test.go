@@ -229,10 +229,11 @@ func setupDependencies(rules string) (*ruleManagerDependencies, func()) {
 	loadMetric(persistentStore)
 
 	queryEngine := promql.NewEngine(promql.EngineOpts{
-		MaxSamples: 1e6,
-		Timeout:    time.Second,
-		Logger:     logger.NewTestLogger(GinkgoWriter),
-		Reg:        spyMetrics.Registerer(),
+		MaxSamples:    1e6,
+		Timeout:       time.Second,
+		Logger:        logger.NewTestLogger(GinkgoWriter),
+		Reg:           spyMetrics.Registerer(),
+		LookbackDelta: 5 * time.Minute,
 	})
 
 	deps := &ruleManagerDependencies{
@@ -251,8 +252,7 @@ func setupDependencies(rules string) (*ruleManagerDependencies, func()) {
 
 // TODO minimize scope -> use TestContext
 func loadMetric(store *persistence.Store) {
-	appender, err := store.Appender()
-	Expect(err).ToNot(HaveOccurred())
+	appender := store.Appender()
 	appender.Add(
 		labels.FromMap(map[string]string{"__name__": "metric_store_test_metric"}),
 		time.Now().UnixNano(),
@@ -270,7 +270,8 @@ func loadMetric(store *persistence.Store) {
 
 func queryByName(querier storage.Querier, name string) []testing.Point {
 	seriesSet, _, err := querier.Select(
-		&storage.SelectParams{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
+		false,
+		&storage.SelectHints{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 		&labels.Matcher{Name: "__name__", Value: name, Type: labels.MatchEqual},
 	)
 	if err != nil {

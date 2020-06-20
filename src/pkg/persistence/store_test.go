@@ -131,7 +131,8 @@ var _ = Describe("Persistent Store", func() {
 				tc.storePointWithLabels(10, "counter", 1.0, map[string]string{"source_id": "source_id"})
 
 				seriesSet, _, err := tc.querier.Select(
-					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+					false,
+					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -160,7 +161,8 @@ var _ = Describe("Persistent Store", func() {
 				})
 
 				seriesSet, _, err := tc.querier.Select(
-					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+					false,
+					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -192,7 +194,8 @@ var _ = Describe("Persistent Store", func() {
 				})
 
 				seriesSet, _, err := tc.querier.Select(
-					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+					false,
+					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -222,7 +225,8 @@ var _ = Describe("Persistent Store", func() {
 				tc.storeDefaultFilteringPoints()
 
 				seriesSet, _, err := tc.querier.Select(
-					&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+					false,
+					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 					&labels.Matcher{Name: "deployment", Value: expression, Type: operator},
 				)
@@ -244,7 +248,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storeDefaultFilteringPoints()
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
 				&labels.Matcher{Name: "deployment", Value: "der-schnitzel", Type: labels.MatchEqual},
 				&labels.Matcher{Name: "unit", Value: "microns", Type: labels.MatchEqual},
@@ -279,7 +284,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(40, "counter", 4)
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: 10, End: 30},
+				false,
+				&storage.SelectHints{Start: 10, End: 30},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -305,7 +311,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(20, "memory", 2)
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "cpu", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -330,6 +337,7 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(now, "point-to-test-nil-default", 2)
 
 			seriesSet, _, err := tc.querier.Select(
+				false,
 				nil,
 				&labels.Matcher{Name: "__name__", Value: "point-to-test-nil-default", Type: labels.MatchEqual},
 			)
@@ -356,7 +364,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(now, "point-to-test-empty-default", 2)
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{},
+				false,
+				&storage.SelectHints{},
 				&labels.Matcher{Name: "__name__", Value: "point-to-test-empty-default", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -382,7 +391,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(now, "point-to-test-end-default", 2)
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: 0},
+				false,
+				&storage.SelectHints{Start: 0},
 				&labels.Matcher{Name: "__name__", Value: "point-to-test-end-default", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -404,7 +414,8 @@ var _ = Describe("Persistent Store", func() {
 			defer teardown(tc)
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "i-definitely-do-not-exist", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -492,7 +503,8 @@ var _ = Describe("Persistent Store", func() {
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -526,7 +538,8 @@ var _ = Describe("Persistent Store", func() {
 			}, 3).Should(BeTrue())
 
 			seriesSet, _, err := tc.querier.Select(
-				&storage.SelectParams{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -595,11 +608,12 @@ func (tc *storeTestContext) storePoint(ts int64, name string, value float64) {
 }
 
 func (tc *storeTestContext) storePointWithLabels(ts int64, name string, value float64, addLabels map[string]string) {
-	appender, _ := tc.store.Appender()
+	appender := tc.store.Appender()
 	pointLabels := labels.FromMap(addLabels)
 	pointLabels = append(pointLabels, labels.Label{Name: "__name__", Value: name})
 
-	appender.AddFast(pointLabels, 0, ts*int64(time.Millisecond), value)
+	appender.Add(pointLabels, ts*int64(time.Millisecond), value)
+	appender.Commit()
 }
 
 func (tc *storeTestContext) storeDefaultFilteringPoints() {

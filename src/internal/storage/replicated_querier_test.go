@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -35,7 +35,7 @@ var _ = Describe("Querier", func() {
 				factory := &testFactory{}
 				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, factory, 5*time.Second,
 					nil, logger.NewTestLogger(GinkgoWriter))
-				_, _, err := querier.Select(nil, in...)
+				_, _, err := querier.Select(false, nil, in...)
 				Expect(err).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{
@@ -71,7 +71,7 @@ var _ = Describe("Querier", func() {
 		Context("happy path", func() {
 			It("doesn't nil-ref on duplicate node addresses", func() {
 				subject := createTestSubject(nil, nil)
-				Expect(func() { _, _, _ = subject.Select(nil) }).NotTo(Panic())
+				Expect(func() { _, _, _ = subject.Select(false, nil) }).NotTo(Panic())
 			})
 
 			It("calls remote node", func() {
@@ -79,7 +79,7 @@ var _ = Describe("Querier", func() {
 				subject := createTestSubject(nil, spy)
 
 				var err error
-				_, _, err = subject.Select(nil, simpleQuery)
+				_, _, err = subject.Select(false, nil, simpleQuery)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
@@ -98,7 +98,7 @@ var _ = Describe("Querier", func() {
 				Consistently(func() bool {
 					attempts++
 					var err error
-					_, _, err = subject.Select(nil, simpleQuery)
+					_, _, err = subject.Select(false, nil, simpleQuery)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(remoteQuerier.callCount).To(Equal(0))
 					return localQuerier.callCount == attempts
@@ -111,7 +111,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(errors.New("expected"), 3)
 				subject := createTestSubject(nil, spy)
 				var err error
-				_, _, err = subject.Select(nil, simpleQuery)
+				_, _, err = subject.Select(false, nil, simpleQuery)
 				Expect(err).To(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
@@ -120,7 +120,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 3)
 				subject := createTestSubject(nil, spy)
 				var err error
-				_, _, err = subject.Select(nil, simpleQuery)
+				_, _, err = subject.Select(false, nil, simpleQuery)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(BeNumerically(">=", 3))
 			})
@@ -129,7 +129,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 1)
 				subject := createTestSubject(nil, spy)
 				var err error
-				_, _, err = subject.Select(nil, simpleQuery)
+				_, _, err = subject.Select(false, nil, simpleQuery)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(2))
 			})
@@ -140,7 +140,7 @@ var _ = Describe("Querier", func() {
 					localQuerier := newSpyQuerier()
 					subject := createTestSubject(localQuerier, spy)
 					var err error
-					_, _, err = subject.Select(nil, simpleQuery)
+					_, _, err = subject.Select(false, nil, simpleQuery)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(spy.callCount).To(Equal(8))
 					Expect(localQuerier.callCount).To(Equal(0))
@@ -236,7 +236,7 @@ func newSpyQuerierWithRepeatedErrors(err error, count int) *spyQuerier {
 	return spy
 }
 
-func (q *spyQuerier) Select(*prom_storage.SelectParams, ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (q *spyQuerier) Select(bool, *prom_storage.SelectHints, ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	q.callCount++
 	var err error
 	select {
@@ -244,10 +244,6 @@ func (q *spyQuerier) Select(*prom_storage.SelectParams, ...*labels.Matcher) (pro
 	default:
 	}
 	return nil, nil, err
-}
-
-func (q *spyQuerier) SelectSorted(params *prom_storage.SelectParams, labelMatchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	return q.Select(params, labelMatchers...)
 }
 
 func (*spyQuerier) LabelValues(_ string) ([]string, prom_storage.Warnings, error) {

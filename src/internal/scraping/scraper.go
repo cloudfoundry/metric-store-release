@@ -7,6 +7,7 @@ import (
 	"github.com/go-kit/kit/log"
 	prom_config "github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/scrape"
+	"github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
@@ -31,7 +32,7 @@ func New(scrapeConfigFile, additionalScrapeConfigDir string, log *logger.Logger,
 	}
 }
 
-func (store *Scraper) Run(storage scrape.Appendable) {
+func (store *Scraper) Run(storage storage.Appendable) {
 	// TODO refactor this so the control flow is less weird
 	// note that LoadConfigs is passed to the reload api
 	// RS & JG 05/12/2020

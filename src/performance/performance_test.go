@@ -42,7 +42,8 @@ var _ = Describe("Performance", func() {
 		query := b.Time("query", func() {
 			querier, _ := persistentStore.Querier(context.Background(), 0, 0)
 			seriesSet, _, err = querier.Select(
-				&storage.SelectParams{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
+				false,
+				&storage.SelectHints{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "bigmetric", Type: labels.MatchEqual},
 			)
 		})

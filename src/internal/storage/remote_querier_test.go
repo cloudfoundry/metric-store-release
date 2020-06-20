@@ -5,11 +5,11 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/prompb"
@@ -63,7 +63,7 @@ var _ = Describe("Remote Querier", func() {
 
 			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
-			_, _, err = querier.Select(nil, &labels.Matcher{
+			_, _, err = querier.Select(false, nil, &labels.Matcher{
 				Name:  "__name__",
 				Type:  labels.MatchEqual,
 				Value: "irrelevantapp",
@@ -83,7 +83,7 @@ var _ = Describe("Remote Querier", func() {
 			cancel()
 			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
-			querier.Select(nil, &labels.Matcher{
+			querier.Select(false, nil, &labels.Matcher{
 				Name:  "__name__",
 				Type:  labels.MatchEqual,
 				Value: "irrelevantapp",

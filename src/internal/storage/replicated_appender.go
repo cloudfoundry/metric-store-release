@@ -60,12 +60,7 @@ func (a *ReplicatedAppender) Add(l labels.Labels, time int64, value float64) (ui
 	return 0, nil
 }
 
-func (a *ReplicatedAppender) AddFast(l labels.Labels, ref uint64, time int64, value float64) error {
-
-	for _, nodeIndex := range a.lookup(l.Get(labels.MetricName)) {
-		a.appenders[nodeIndex].AddFast(l, ref, time, value)
-	}
-
+func (a *ReplicatedAppender) AddFast(_ uint64, _ int64, _ float64) error {
 	return nil
 }
 

@@ -4,20 +4,20 @@ import (
 	"errors"
 
 	"github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/promql"
+	"github.com/prometheus/prometheus/promql/parser"
 )
 
 type QueryParser struct{}
 
 func (q *QueryParser) ExtractSourceIds(query string) ([]string, error) {
-	expr, err := promql.ParseExpr(query)
+	expr, err := parser.ParseExpr(query)
 	if err != nil {
 		return nil, err
 	}
 
 	visitor := newSourceIdVisitor()
 
-	err = promql.Walk(
+	err = parser.Walk(
 		visitor,
 		expr,
 		nil,
@@ -45,17 +45,17 @@ func newSourceIdVisitor() *sourceIdVisitor {
 	}
 }
 
-func (s *sourceIdVisitor) Visit(node promql.Node, _ []promql.Node) (promql.Visitor, error) {
+func (s *sourceIdVisitor) Visit(node parser.Node, _ []parser.Node) (parser.Visitor, error) {
 	if node == nil {
 		return nil, nil
 	}
 
 	var err error
 	switch selector := node.(type) {
-	case *promql.VectorSelector:
+	case *parser.VectorSelector:
 		err = s.addSourceIdsFromMatchers(selector.LabelMatchers)
-	case *promql.MatrixSelector:
-		err = s.addSourceIdsFromMatchers(selector.VectorSelector.(*promql.VectorSelector).LabelMatchers)
+	case *parser.MatrixSelector:
+		err = s.addSourceIdsFromMatchers(selector.VectorSelector.(*parser.VectorSelector).LabelMatchers)
 	}
 
 	if err != nil {

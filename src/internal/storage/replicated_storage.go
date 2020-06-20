@@ -122,10 +122,7 @@ func (r *ReplicatedStorage) createAppenders() error {
 			continue
 		}
 
-		localAppender, err := r.localStore.Appender()
-		if err != nil {
-			return err
-		}
+		localAppender := r.localStore.Appender()
 		r.appenders[nodeIndex] = localAppender
 	}
 
@@ -150,13 +147,13 @@ func (r *ReplicatedStorage) StartTime() (int64, error) {
 	panic("not implemented")
 }
 
-func (r *ReplicatedStorage) Appender() (storage.Appender, error) {
+func (r *ReplicatedStorage) Appender() storage.Appender {
 	return NewReplicatedAppender(
 		r.appenders,
 		r.routingTable.Lookup,
 		WithReplicatedAppenderLogger(r.log),
 		WithReplicatedAppenderMetrics(r.metrics),
-	), nil
+	)
 }
 
 func (r *ReplicatedStorage) Close() error {

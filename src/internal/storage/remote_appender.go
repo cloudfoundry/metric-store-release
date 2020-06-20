@@ -23,8 +23,8 @@ import (
 	prom_storage "github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/batch"
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
@@ -178,7 +178,7 @@ func (a *RemoteAppender) Add(l labels.Labels, timestamp int64, value float64) (u
 	return 0, nil
 }
 
-func (a *RemoteAppender) AddFast(l labels.Labels, ref uint64, t int64, v float64) error {
+func (a *RemoteAppender) AddFast(ref uint64, t int64, v float64) error {
 	panic("not implemented")
 }
 

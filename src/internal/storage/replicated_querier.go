@@ -102,7 +102,7 @@ func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, 
 	}
 }
 
-func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	ctx, cancel := context.WithTimeout(r.ctx, r.queryTimeout)
 	defer cancel()
 
@@ -116,14 +116,10 @@ func (r *ReplicatedQuerier) Select(params *prom_storage.SelectParams, matchers .
 		if err != nil {
 			return nil, nil, err
 		}
-		return localQuerier.Select(params, matchers...)
+		return localQuerier.Select(sortSeries, params, matchers...)
 	}
 
-	return r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), params, matchers...)
-}
-
-func (r *ReplicatedQuerier) SelectSorted(params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	return r.Select(params, matchers...)
+	return r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), sortSeries, params, matchers...)
 }
 
 func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (string, error) {
@@ -138,17 +134,17 @@ func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (strin
 	return "", errors.New("no metric name present")
 }
 
-func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	result, warnings, err := r.queryWithNodeFailover(ctx, nodes, params, matchers...)
+func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+	result, warnings, err := r.queryWithNodeFailover(ctx, nodes, sortSeries, params, matchers...)
 
 	if isConnectionError(err) {
-		return r.retryQueryWithBackoff(ctx, nodes, params, matchers...)
+		return r.retryQueryWithBackoff(ctx, nodes, sortSeries, params, matchers...)
 	} else {
 		return result, warnings, err
 	}
 }
 
-func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	r.log.Info("unable to contact nodes to read. attempting retries",
 		logger.String("nodes", fmt.Sprintf("%v", nodes)))
 
@@ -158,7 +154,7 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []i
 	for {
 		select {
 		case <-ticker:
-			result, warnings, err := r.queryWithNodeFailover(ctx, nodes, params, matchers...)
+			result, warnings, err := r.queryWithNodeFailover(ctx, nodes, sortSeries, params, matchers...)
 			if err == nil {
 				r.log.Info("read retry successful")
 				return result, warnings, nil
@@ -170,7 +166,7 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []i
 	}
 }
 
-func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []int, params *prom_storage.SelectParams, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
 	routing.Shuffle(nodes)
 	queriers := r.querierFactory.Build(ctx, nodes...)
 
@@ -183,7 +179,7 @@ func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []i
 			continue
 		}
 
-		result, warnings, err = remoteQuerier.Select(params, matchers...)
+		result, warnings, err = remoteQuerier.Select(sortSeries, params, matchers...)
 		if !isConnectionError(err) {
 			return result, warnings, err
 		}

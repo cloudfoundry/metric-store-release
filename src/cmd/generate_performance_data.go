@@ -27,7 +27,7 @@ func main() {
 		spyPersistentStoreMetrics,
 	)
 
-	appender, _ := persistentStore.Appender()
+	appender := persistentStore.Appender()
 
 	type label struct {
 		Name  string

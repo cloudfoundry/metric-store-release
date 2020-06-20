@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/promql"
@@ -64,6 +64,7 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		ruleManager,
 		func() config.Config { return config.Config{} },
 		nil,
+		prom_api.GlobalURLOptions{},
 		func(h http.HandlerFunc) http.HandlerFunc { return h },
 		func() prom_api.TSDBAdmin { return &nullTSDBAdmin{} },
 		false,

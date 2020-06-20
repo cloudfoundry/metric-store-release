@@ -127,13 +127,13 @@ func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Quer
 	), nil
 }
 
-func (store *Store) Appender() (storage.Appender, error) {
+func (store *Store) Appender() storage.Appender {
 	return NewAppender(
 		store.adapter,
 		store.metrics,
 		WithLabelTruncationLength(store.labelTruncationLength),
 		WithAppenderLogger(store.log),
-	), nil
+	)
 }
 
 func (s *Store) Close() error {

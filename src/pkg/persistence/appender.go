@@ -81,29 +81,8 @@ func (a *Appender) Add(l labels.Labels, time int64, value float64) (uint64, erro
 	return 0, nil
 }
 
-func (a *Appender) AddFast(l labels.Labels, _ uint64, timestamp int64, value float64) error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if !transform.IsValidFloat(value) {
-		return errors.New("NaN float cannot be added")
-	}
-
-	point := &rpc.Point{
-		Name:      l.Get(labels.MetricName),
-		Timestamp: timestamp,
-		Value:     value,
-		Labels:    a.cleanLabels(l),
-	}
-
-	start := time.Now()
-
-	a.adapter.WritePoints([]*rpc.Point{point})
-
-	duration := transform.DurationToSeconds(time.Since(start))
-	a.metrics.Histogram(metrics.MetricStoreWriteDurationSeconds).Observe(duration)
-	a.metrics.Inc(metrics.MetricStoreWrittenPointsTotal)
-
+func (a *Appender) AddFast(_ uint64, _ int64, _ float64) error {
+	// no longer useful in our implementation, use Add instead
 	return nil
 }
 

@@ -240,6 +240,7 @@ func (store *MetricStore) Start() {
 		Logger:             store.log,
 		Reg:                store.metrics.Registerer(),
 		ActiveQueryTracker: promql.NewActiveQueryTracker(store.queryLogPath, maxConcurrentQueries, store.log),
+		LookbackDelta:      5 * time.Minute,
 	}
 	queryEngine := promql.NewEngine(engineOpts)
 
@@ -384,7 +385,7 @@ func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
 }
 
 func (store *MetricStore) setupDirtyListener() {
-	appender, _ := store.replicatedStorage.Appender()
+	appender := store.replicatedStorage.Appender()
 
 	queuePoints := func(payload []byte) error {
 		network := bytes.NewBuffer(payload)
@@ -453,7 +454,7 @@ func (store *MetricStore) setupDirtyListener() {
 
 // TODO - skip if no remote nodes?
 func (store *MetricStore) setupSanitizedListener() {
-	appender, _ := store.localStore.Appender()
+	appender := store.localStore.Appender()
 
 	writePoints := func(payload []byte) error {
 		// TODO: queue in diode
