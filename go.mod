@@ -33,10 +33,10 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/philhofer/fwd v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.5.1
+	github.com/prometheus/client_golang v1.6.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.10.0
-	github.com/prometheus/prometheus v1.8.2-0.20200609090129-a6600f564e3c
+	github.com/prometheus/prometheus v1.8.2-0.20200618163059-eba3fdcbf0d3
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
@@ -44,12 +44,13 @@ require (
 	go.uber.org/zap v1.15.0
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
-	google.golang.org/grpc v1.29.0
+	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	k8s.io/api v0.17.5
+	gopkg.in/yaml.v3 v3.0.0-20200603094226-e3079894b1e8
+	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.5
-	k8s.io/client-go v0.17.5
+	k8s.io/client-go v0.18.3
+	sigs.k8s.io/structured-merge-diff/v2 v2.0.1 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 

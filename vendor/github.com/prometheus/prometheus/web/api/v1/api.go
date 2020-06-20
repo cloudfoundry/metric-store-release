@@ -105,12 +105,14 @@ type TargetRetriever interface {
 	TargetsDropped() map[string][]*scrape.Target
 }
 
-type alertmanagerRetriever interface {
+// AlertmanagerRetriever provides a list of all/dropped AlertManager URLs.
+type AlertmanagerRetriever interface {
 	Alertmanagers() []*url.URL
 	DroppedAlertmanagers() []*url.URL
 }
 
-type rulesRetriever interface {
+// RulesRetriever provides a list of active rules and alerts.
+type RulesRetriever interface {
 	RuleGroups() []*rules.Group
 	AlertingRules() []*rules.AlertingRule
 }
@@ -174,8 +176,8 @@ type API struct {
 	QueryEngine *promql.Engine
 
 	targetRetriever       func(context.Context) TargetRetriever
-	alertmanagerRetriever alertmanagerRetriever
-	rulesRetriever        rulesRetriever
+	alertmanagerRetriever func(context.Context) AlertmanagerRetriever
+	rulesRetriever        func(context.Context) RulesRetriever
 	now                   func() time.Time
 	config                func() config.Config
 	flagsMap              map[string]string
@@ -204,7 +206,7 @@ func NewAPI(
 	qe *promql.Engine,
 	q storage.Queryable,
 	tr func(context.Context) TargetRetriever,
-	ar alertmanagerRetriever,
+	ar func(context.Context) AlertmanagerRetriever,
 	configFunc func() config.Config,
 	flagsMap map[string]string,
 	globalURLOptions GlobalURLOptions,
@@ -213,7 +215,7 @@ func NewAPI(
 	dbDir string,
 	enableAdmin bool,
 	logger log.Logger,
-	rr rulesRetriever,
+	rr func(context.Context) RulesRetriever,
 	remoteReadSampleLimit int,
 	remoteReadConcurrencyLimit int,
 	remoteReadMaxBytesInFrame int,
@@ -480,7 +482,16 @@ func returnAPIError(err error) *apiError {
 }
 
 func (api *API) labelNames(r *http.Request) apiFuncResult {
-	q, err := api.Queryable.Querier(r.Context(), math.MinInt64, math.MaxInt64)
+	start, err := parseTimeParam(r, "start", minTime)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{errorBadData, errors.Wrap(err, "invalid parameter 'start'")}, nil, nil}
+	}
+	end, err := parseTimeParam(r, "end", maxTime)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{errorBadData, errors.Wrap(err, "invalid parameter 'end'")}, nil, nil}
+	}
+
+	q, err := api.Queryable.Querier(r.Context(), timestamp.FromTime(start), timestamp.FromTime(end))
 	if err != nil {
 		return apiFuncResult{nil, &apiError{errorExec, err}, nil, nil}
 	}
@@ -500,7 +511,17 @@ func (api *API) labelValues(r *http.Request) (result apiFuncResult) {
 	if !model.LabelNameRE.MatchString(name) {
 		return apiFuncResult{nil, &apiError{errorBadData, errors.Errorf("invalid label name: %q", name)}, nil, nil}
 	}
-	q, err := api.Queryable.Querier(ctx, math.MinInt64, math.MaxInt64)
+
+	start, err := parseTimeParam(r, "start", minTime)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{errorBadData, errors.Wrap(err, "invalid parameter 'start'")}, nil, nil}
+	}
+	end, err := parseTimeParam(r, "end", maxTime)
+	if err != nil {
+		return apiFuncResult{nil, &apiError{errorBadData, errors.Wrap(err, "invalid parameter 'end'")}, nil, nil}
+	}
+
+	q, err := api.Queryable.Querier(r.Context(), timestamp.FromTime(start), timestamp.FromTime(end))
 	if err != nil {
 		return apiFuncResult{nil, &apiError{errorExec, err}, nil, nil}
 	}
@@ -847,8 +868,8 @@ type AlertmanagerTarget struct {
 }
 
 func (api *API) alertmanagers(r *http.Request) apiFuncResult {
-	urls := api.alertmanagerRetriever.Alertmanagers()
-	droppedURLS := api.alertmanagerRetriever.DroppedAlertmanagers()
+	urls := api.alertmanagerRetriever(r.Context()).Alertmanagers()
+	droppedURLS := api.alertmanagerRetriever(r.Context()).DroppedAlertmanagers()
 	ams := &AlertmanagerDiscovery{ActiveAlertmanagers: make([]*AlertmanagerTarget, len(urls)), DroppedAlertmanagers: make([]*AlertmanagerTarget, len(droppedURLS))}
 	for i, url := range urls {
 		ams.ActiveAlertmanagers[i] = &AlertmanagerTarget{URL: url.String()}
@@ -874,7 +895,7 @@ type Alert struct {
 }
 
 func (api *API) alerts(r *http.Request) apiFuncResult {
-	alertingRules := api.rulesRetriever.AlertingRules()
+	alertingRules := api.rulesRetriever(r.Context()).AlertingRules()
 	alerts := []*Alert{}
 
 	for _, alertingRule := range alertingRules {
@@ -1021,7 +1042,7 @@ type recordingRule struct {
 }
 
 func (api *API) rules(r *http.Request) apiFuncResult {
-	ruleGroups := api.rulesRetriever.RuleGroups()
+	ruleGroups := api.rulesRetriever(r.Context()).RuleGroups()
 	res := &RuleDiscovery{RuleGroups: make([]*RuleGroup, len(ruleGroups))}
 	typeParam := strings.ToLower(r.URL.Query().Get("type"))
 
