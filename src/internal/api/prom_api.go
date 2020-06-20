@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 	"time"
@@ -33,6 +34,12 @@ func NewPromAPI(promQLEngine *promql.Engine, log *logger.Logger) *PromAPI {
 }
 
 func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.RuleManager) *route.Router {
+	targetRetriever := func(context.Context) prom_api.TargetRetriever {
+		return &nullTargetRetriever{}
+	}
+
+	nullDBDir := ""
+
 	prometheusVersion := &prom_api.PrometheusVersion{
 		Version:   "2.14.0",
 		Revision:  "edeb7a44cbf745f1d8be4ea6f215e79e651bfe19",
@@ -60,13 +67,14 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 	promAPI := prom_api.NewAPI(
 		api.promQLEngine,
 		storage,
-		&nullTargetRetriever{},
+		targetRetriever,
 		ruleManager,
 		func() config.Config { return config.Config{} },
 		nil,
 		prom_api.GlobalURLOptions{},
 		func(h http.HandlerFunc) http.HandlerFunc { return h },
-		func() prom_api.TSDBAdmin { return &nullTSDBAdmin{} },
+		&nullTSDBAdminStats{},
+		nullDBDir,
 		false,
 		api.log,
 		ruleManager,

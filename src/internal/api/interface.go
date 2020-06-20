@@ -16,13 +16,12 @@ type nullTargetRetriever struct{}
 func (tr *nullTargetRetriever) TargetsActive() map[string][]*scrape.Target  { return nil }
 func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { return nil }
 
-type nullTSDBAdmin struct{}
+type nullTSDBAdminStats struct{}
 
-func (a *nullTSDBAdmin) CleanTombstones() error                             { return nil }
-func (a *nullTSDBAdmin) Delete(int64, int64, ...*prom_labels.Matcher) error { return nil }
-func (a *nullTSDBAdmin) Dir() string                                        { return "" }
-func (a *nullTSDBAdmin) Snapshot(string, bool) error                        { return nil }
-func (a *nullTSDBAdmin) Head() *tsdb.Head                                   { return nil }
+func (a *nullTSDBAdminStats) CleanTombstones() error                             { return nil }
+func (a *nullTSDBAdminStats) Delete(int64, int64, ...*prom_labels.Matcher) error { return nil }
+func (a *nullTSDBAdminStats) Snapshot(string, bool) error                        { return nil }
+func (a *nullTSDBAdminStats) Stats(string) (*tsdb.Stats, error)                  { return nil, nil }
 
 type Rule struct {
 	Record      string            `yaml:"record,omitempty"`
