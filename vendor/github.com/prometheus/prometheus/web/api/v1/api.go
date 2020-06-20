@@ -37,7 +37,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/common/route"
-
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/pkg/gate"
 	"github.com/prometheus/prometheus/pkg/labels"
@@ -100,7 +99,8 @@ func (e *apiError) Error() string {
 	return fmt.Sprintf("%s: %s", e.typ, e.err)
 }
 
-type targetRetriever interface {
+// TargetRetriever provides the list of active/dropped targets to scrape or not.
+type TargetRetriever interface {
 	TargetsActive() map[string][]*scrape.Target
 	TargetsDropped() map[string][]*scrape.Target
 }
@@ -158,13 +158,13 @@ type apiFuncResult struct {
 
 type apiFunc func(r *http.Request) apiFuncResult
 
-// TSDBAdmin defines the tsdb interfaces used by the v1 API for admin operations.
-type TSDBAdmin interface {
+// TSDBAdminStats defines the tsdb interfaces used by the v1 API for admin operations as well as statistics.
+type TSDBAdminStats interface {
 	CleanTombstones() error
 	Delete(mint, maxt int64, ms ...*labels.Matcher) error
-	Dir() string
 	Snapshot(dir string, withHead bool) error
-	Head() *tsdb.Head
+
+	Stats(statsByLabelName string) (*tsdb.Stats, error)
 }
 
 // API can register a set of endpoints in a router and handle
@@ -173,7 +173,7 @@ type API struct {
 	Queryable   storage.Queryable
 	QueryEngine *promql.Engine
 
-	targetRetriever       targetRetriever
+	targetRetriever       func(context.Context) TargetRetriever
 	alertmanagerRetriever alertmanagerRetriever
 	rulesRetriever        rulesRetriever
 	now                   func() time.Time
@@ -182,7 +182,8 @@ type API struct {
 	ready                 func(http.HandlerFunc) http.HandlerFunc
 	globalURLOptions      GlobalURLOptions
 
-	db                        func() TSDBAdmin
+	db                        TSDBAdminStats
+	dbDir                     string
 	enableAdmin               bool
 	logger                    log.Logger
 	remoteReadSampleLimit     int
@@ -202,13 +203,14 @@ func init() {
 func NewAPI(
 	qe *promql.Engine,
 	q storage.Queryable,
-	tr targetRetriever,
+	tr func(context.Context) TargetRetriever,
 	ar alertmanagerRetriever,
 	configFunc func() config.Config,
 	flagsMap map[string]string,
 	globalURLOptions GlobalURLOptions,
 	readyFunc func(http.HandlerFunc) http.HandlerFunc,
-	db func() TSDBAdmin,
+	db TSDBAdminStats,
+	dbDir string,
 	enableAdmin bool,
 	logger log.Logger,
 	rr rulesRetriever,
@@ -231,6 +233,7 @@ func NewAPI(
 		ready:                     readyFunc,
 		globalURLOptions:          globalURLOptions,
 		db:                        db,
+		dbDir:                     dbDir,
 		enableAdmin:               enableAdmin,
 		rulesRetriever:            rr,
 		remoteReadSampleLimit:     remoteReadSampleLimit,
@@ -243,22 +246,32 @@ func NewAPI(
 	}
 }
 
+func setUnavailStatusOnTSDBNotReady(r apiFuncResult) apiFuncResult {
+	if r.err != nil && errors.Cause(r.err.err) == tsdb.ErrNotReady {
+		r.err.typ = errorUnavailable
+	}
+	return r
+}
+
 // Register the API's endpoints in the given router.
 func (api *API) Register(r *route.Router) {
 	wrap := func(f apiFunc) http.HandlerFunc {
 		hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			httputil.SetCORS(w, api.CORSOrigin, r)
-			result := f(r)
+			result := setUnavailStatusOnTSDBNotReady(f(r))
 			if result.finalizer != nil {
 				defer result.finalizer()
 			}
 			if result.err != nil {
 				api.respondError(w, result.err, result.data)
-			} else if result.data != nil {
-				api.respond(w, result.data, result.warnings)
-			} else {
-				w.WriteHeader(http.StatusNoContent)
+				return
 			}
+
+			if result.data != nil {
+				api.respond(w, result.data, result.warnings)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
 		})
 		return api.ready(httputil.CompressionHandler{
 			Handler: hf,
@@ -572,7 +585,7 @@ func (api *API) series(r *http.Request) (result apiFuncResult) {
 		sets = append(sets, s)
 	}
 
-	set := storage.NewMergeSeriesSet(sets, nil)
+	set := storage.NewMergeSeriesSet(sets, storage.ChainedSeriesMerge)
 	metrics := []labels.Labels{}
 	for set.Next() {
 		metrics = append(metrics, set.At().Labels())
@@ -692,7 +705,7 @@ func (api *API) targets(r *http.Request) apiFuncResult {
 	res := &TargetDiscovery{}
 
 	if showActive {
-		targetsActive := api.targetRetriever.TargetsActive()
+		targetsActive := api.targetRetriever(r.Context()).TargetsActive()
 		activeKeys, numTargets := sortKeys(targetsActive)
 		res.ActiveTargets = make([]*Target, 0, numTargets)
 
@@ -730,7 +743,7 @@ func (api *API) targets(r *http.Request) apiFuncResult {
 		res.ActiveTargets = []*Target{}
 	}
 	if showDropped {
-		tDropped := flatten(api.targetRetriever.TargetsDropped())
+		tDropped := flatten(api.targetRetriever(r.Context()).TargetsDropped())
 		res.DroppedTargets = make([]*DroppedTarget, 0, len(tDropped))
 		for _, t := range tDropped {
 			res.DroppedTargets = append(res.DroppedTargets, &DroppedTarget{
@@ -777,7 +790,7 @@ func (api *API) targetMetadata(r *http.Request) apiFuncResult {
 	metric := r.FormValue("metric")
 
 	res := []metricMetadata{}
-	for _, tt := range api.targetRetriever.TargetsActive() {
+	for _, tt := range api.targetRetriever(r.Context()).TargetsActive() {
 		for _, t := range tt {
 			if limit >= 0 && len(res) >= limit {
 				break
@@ -910,7 +923,7 @@ func (api *API) metricMetadata(r *http.Request) apiFuncResult {
 
 	metric := r.FormValue("metric")
 
-	for _, tt := range api.targetRetriever.TargetsActive() {
+	for _, tt := range api.targetRetriever(r.Context()).TargetsActive() {
 		for _, t := range tt {
 
 			if metric == "" {
@@ -1123,29 +1136,27 @@ type tsdbStatus struct {
 	SeriesCountByLabelValuePair []stat `json:"seriesCountByLabelValuePair"`
 }
 
-func (api *API) serveTSDBStatus(r *http.Request) apiFuncResult {
-	db := api.db()
-	if db == nil {
-		return apiFuncResult{nil, &apiError{errorUnavailable, errors.New("TSDB not ready")}, nil, nil}
+func convertStats(stats []index.Stat) []stat {
+	result := make([]stat, 0, len(stats))
+	for _, item := range stats {
+		item := stat{Name: item.Name, Value: item.Count}
+		result = append(result, item)
 	}
-	convert := func(stats []index.Stat) []stat {
-		result := make([]stat, 0, len(stats))
-		for _, item := range stats {
-			item := stat{Name: item.Name, Value: item.Count}
-			result = append(result, item)
-		}
-		return result
+	return result
+}
+
+func (api *API) serveTSDBStatus(*http.Request) apiFuncResult {
+	s, err := api.db.Stats("__name__")
+	if err != nil {
+		return apiFuncResult{nil, &apiError{errorInternal, err}, nil, nil}
 	}
 
-	posting := db.Head().PostingsCardinalityStats(model.MetricNameLabel)
-	response := tsdbStatus{
-		SeriesCountByMetricName:     convert(posting.CardinalityMetricsStats),
-		LabelValueCountByLabelName:  convert(posting.CardinalityLabelStats),
-		MemoryInBytesByLabelName:    convert(posting.LabelValueStats),
-		SeriesCountByLabelValuePair: convert(posting.LabelValuePairsStats),
-	}
-
-	return apiFuncResult{response, nil, nil, nil}
+	return apiFuncResult{tsdbStatus{
+		SeriesCountByMetricName:     convertStats(s.IndexPostingStats.CardinalityMetricsStats),
+		LabelValueCountByLabelName:  convertStats(s.IndexPostingStats.CardinalityLabelStats),
+		MemoryInBytesByLabelName:    convertStats(s.IndexPostingStats.LabelValueStats),
+		SeriesCountByLabelValuePair: convertStats(s.IndexPostingStats.LabelValuePairsStats),
+	}, nil, nil, nil}
 }
 
 func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
@@ -1298,7 +1309,7 @@ func (api *API) remoteReadQuery(ctx context.Context, query *prompb.Query, extern
 	}
 	defer func() {
 		if err := querier.Close(); err != nil {
-			level.Warn(api.logger).Log("msg", "error on querier close", "err", err.Error())
+			level.Warn(api.logger).Log("msg", "Error on querier close", "err", err.Error())
 		}
 	}()
 
@@ -1321,11 +1332,6 @@ func (api *API) deleteSeries(r *http.Request) apiFuncResult {
 	if !api.enableAdmin {
 		return apiFuncResult{nil, &apiError{errorUnavailable, errors.New("admin APIs disabled")}, nil, nil}
 	}
-	db := api.db()
-	if db == nil {
-		return apiFuncResult{nil, &apiError{errorUnavailable, errors.New("TSDB not ready")}, nil, nil}
-	}
-
 	if err := r.ParseForm(); err != nil {
 		return apiFuncResult{nil, &apiError{errorBadData, errors.Wrap(err, "error parsing form values")}, nil, nil}
 	}
@@ -1347,8 +1353,7 @@ func (api *API) deleteSeries(r *http.Request) apiFuncResult {
 		if err != nil {
 			return apiFuncResult{nil, &apiError{errorBadData, err}, nil, nil}
 		}
-
-		if err := db.Delete(timestamp.FromTime(start), timestamp.FromTime(end), matchers...); err != nil {
+		if err := api.db.Delete(timestamp.FromTime(start), timestamp.FromTime(end), matchers...); err != nil {
 			return apiFuncResult{nil, &apiError{errorInternal, err}, nil, nil}
 		}
 	}
@@ -1371,13 +1376,8 @@ func (api *API) snapshot(r *http.Request) apiFuncResult {
 		}
 	}
 
-	db := api.db()
-	if db == nil {
-		return apiFuncResult{nil, &apiError{errorUnavailable, errors.New("TSDB not ready")}, nil, nil}
-	}
-
 	var (
-		snapdir = filepath.Join(db.Dir(), "snapshots")
+		snapdir = filepath.Join(api.dbDir, "snapshots")
 		name    = fmt.Sprintf("%s-%x",
 			time.Now().UTC().Format("20060102T150405Z0700"),
 			rand.Int())
@@ -1386,7 +1386,7 @@ func (api *API) snapshot(r *http.Request) apiFuncResult {
 	if err := os.MkdirAll(dir, 0777); err != nil {
 		return apiFuncResult{nil, &apiError{errorInternal, errors.Wrap(err, "create snapshot directory")}, nil, nil}
 	}
-	if err := db.Snapshot(dir, !skipHead); err != nil {
+	if err := api.db.Snapshot(dir, !skipHead); err != nil {
 		return apiFuncResult{nil, &apiError{errorInternal, errors.Wrap(err, "create snapshot")}, nil, nil}
 	}
 
@@ -1399,12 +1399,7 @@ func (api *API) cleanTombstones(r *http.Request) apiFuncResult {
 	if !api.enableAdmin {
 		return apiFuncResult{nil, &apiError{errorUnavailable, errors.New("admin APIs disabled")}, nil, nil}
 	}
-	db := api.db()
-	if db == nil {
-		return apiFuncResult{nil, &apiError{errorUnavailable, errors.New("TSDB not ready")}, nil, nil}
-	}
-
-	if err := db.CleanTombstones(); err != nil {
+	if err := api.db.CleanTombstones(); err != nil {
 		return apiFuncResult{nil, &apiError{errorInternal, err}, nil, nil}
 	}
 
@@ -1490,7 +1485,7 @@ func parseTime(s string) (time.Time, error) {
 	if t, err := strconv.ParseFloat(s, 64); err == nil {
 		s, ns := math.Modf(t)
 		ns = math.Round(ns*1000) / 1000
-		return time.Unix(int64(s), int64(ns*float64(time.Second))), nil
+		return time.Unix(int64(s), int64(ns*float64(time.Second))).UTC(), nil
 	}
 	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
 		return t, nil

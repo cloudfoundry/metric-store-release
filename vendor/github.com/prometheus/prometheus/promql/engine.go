@@ -32,6 +32,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
+	"github.com/uber/jaeger-client-go"
 
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/pkg/timestamp"
@@ -308,7 +309,7 @@ func NewEngine(opts EngineOpts) *Engine {
 	if opts.LookbackDelta == 0 {
 		opts.LookbackDelta = defaultLookbackDelta
 		if l := opts.Logger; l != nil {
-			level.Debug(l).Log("msg", "lookback delta is zero, setting to default value", "value", defaultLookbackDelta)
+			level.Debug(l).Log("msg", "Lookback delta is zero, setting to default value", "value", defaultLookbackDelta)
 		}
 	}
 
@@ -345,7 +346,7 @@ func (ng *Engine) SetQueryLogger(l QueryLogger) {
 		// not make reload fail; only log a warning.
 		err := ng.queryLogger.Close()
 		if err != nil {
-			level.Warn(ng.logger).Log("msg", "error while closing the previous query log file", "err", err)
+			level.Warn(ng.logger).Log("msg", "Error while closing the previous query log file", "err", err)
 		}
 	}
 
@@ -439,6 +440,11 @@ func (ng *Engine) exec(ctx context.Context, q *query) (v parser.Value, w storage
 				f = append(f, "error", err)
 			}
 			f = append(f, "stats", stats.NewQueryStats(q.Stats()))
+			if span := opentracing.SpanFromContext(ctx); span != nil {
+				if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
+					f = append(f, "spanID", spanCtx.SpanID())
+				}
+			}
 			if origin := ctx.Value(queryOrigin{}); origin != nil {
 				for k, v := range origin.(map[string]interface{}) {
 					f = append(f, k, v)

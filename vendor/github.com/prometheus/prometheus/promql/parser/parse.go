@@ -94,12 +94,11 @@ type ParseErrors []ParseErr
 func (errs ParseErrors) Error() string {
 	if len(errs) != 0 {
 		return errs[0].Error()
-	} else {
-		// Should never happen
-		// Panicking while printing an error seems like a bad idea, so the
-		// situation is explained in the error message instead.
-		return "error contains no error message"
 	}
+	// Should never happen
+	// Panicking while printing an error seems like a bad idea, so the
+	// situation is explained in the error message instead.
+	return "error contains no error message"
 }
 
 // ParseExpr returns the expression parsed from the input.
@@ -243,6 +242,11 @@ func (p *parser) addParseErr(positionRange PositionRange, err error) {
 func (p *parser) unexpected(context string, expected string) {
 	var errMsg strings.Builder
 
+	// Do not report lexer errors twice
+	if p.yyParser.lval.item.Typ == ERROR {
+		return
+	}
+
 	errMsg.WriteString("unexpected ")
 	errMsg.WriteString(p.yyParser.lval.item.desc())
 
@@ -291,22 +295,26 @@ func (p *parser) Lex(lval *yySymType) int {
 	if p.injecting {
 		p.injecting = false
 		return int(p.inject)
-	} else {
-		// Skip comments.
-		for {
-			p.lex.NextItem(&lval.item)
-			typ = lval.item.Typ
-			if typ != COMMENT {
-				break
-			}
+	}
+	// Skip comments.
+	for {
+		p.lex.NextItem(&lval.item)
+		typ = lval.item.Typ
+		if typ != COMMENT {
+			break
 		}
 	}
 
 	switch typ {
-
 	case ERROR:
-		p.addParseErrf(lval.item.PositionRange(), "%s", lval.item.Val)
-		p.InjectItem(0)
+		pos := PositionRange{
+			Start: p.lex.start,
+			End:   Pos(len(p.lex.input)),
+		}
+		p.addParseErr(pos, errors.New(p.yyParser.lval.item.Val))
+
+		// Tells yacc that this is the end of input.
+		return 0
 	case EOF:
 		lval.item.Typ = EOF
 		p.InjectItem(0)

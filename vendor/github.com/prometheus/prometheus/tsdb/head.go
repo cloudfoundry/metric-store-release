@@ -555,7 +555,7 @@ func (h *Head) loadWAL(r *wal.Reader, multiRef map[uint64]uint64) (err error) {
 	}
 
 	if unknownRefs > 0 {
-		level.Warn(h.logger).Log("msg", "unknown series references", "count", unknownRefs)
+		level.Warn(h.logger).Log("msg", "Unknown series references", "count", unknownRefs)
 	}
 	return nil
 }
@@ -572,7 +572,7 @@ func (h *Head) Init(minValidTime int64) error {
 		return nil
 	}
 
-	level.Info(h.logger).Log("msg", "replaying WAL, this may take awhile")
+	level.Info(h.logger).Log("msg", "Replaying WAL, this may take awhile")
 	start := time.Now()
 	// Backfill the checkpoint first if it exists.
 	dir, startFrom, err := wal.LastCheckpoint(h.wal.Dir())
@@ -587,7 +587,7 @@ func (h *Head) Init(minValidTime int64) error {
 		}
 		defer func() {
 			if err := sr.Close(); err != nil {
-				level.Warn(h.logger).Log("msg", "error while closing the wal segments reader", "err", err)
+				level.Warn(h.logger).Log("msg", "Error while closing the wal segments reader", "err", err)
 			}
 		}()
 
@@ -616,7 +616,7 @@ func (h *Head) Init(minValidTime int64) error {
 		sr := wal.NewSegmentBufReader(s)
 		err = h.loadWAL(wal.NewReader(sr), multiRef)
 		if err := sr.Close(); err != nil {
-			level.Warn(h.logger).Log("msg", "error while closing the wal segments reader", "err", err)
+			level.Warn(h.logger).Log("msg", "Error while closing the wal segments reader", "err", err)
 		}
 		if err != nil {
 			return err
@@ -659,7 +659,7 @@ func (h *Head) Truncate(mint int64) (err error) {
 	start := time.Now()
 
 	h.gc()
-	level.Info(h.logger).Log("msg", "head GC completed", "duration", time.Since(start))
+	level.Info(h.logger).Log("msg", "Head GC completed", "duration", time.Since(start))
 	h.metrics.gcDuration.Observe(time.Since(start).Seconds())
 
 	if h.wal == nil {
@@ -681,9 +681,11 @@ func (h *Head) Truncate(mint int64) (err error) {
 	if last < 0 {
 		return nil // no segments yet.
 	}
-	// The lower third of segments should contain mostly obsolete samples.
-	// If we have less than three segments, it's not worth checkpointing yet.
-	last = first + (last-first)/3
+	// The lower two thirds of segments should contain mostly obsolete samples.
+	// If we have less than two segments, it's not worth checkpointing yet.
+	// With the default 2h blocks, this will keeping up to around 3h worth
+	// of WAL segments.
+	last = first + (last-first)*2/3
 	if last <= first {
 		return nil
 	}
@@ -747,6 +749,23 @@ func (h *Head) initTime(t int64) (initialized bool) {
 	atomic.CompareAndSwapInt64(&h.maxTime, math.MinInt64, t)
 
 	return true
+}
+
+type Stats struct {
+	NumSeries         uint64
+	MinTime, MaxTime  int64
+	IndexPostingStats *index.PostingsStats
+}
+
+// Stats returns important current HEAD statistics. Note that it is expensive to
+// calculate these.
+func (h *Head) Stats(statsByLabelName string) *Stats {
+	return &Stats{
+		NumSeries:         h.NumSeries(),
+		MaxTime:           h.MaxTime(),
+		MinTime:           h.MinTime(),
+		IndexPostingStats: h.PostingsCardinalityStats(statsByLabelName),
+	}
 }
 
 type RangeHead struct {
@@ -1393,7 +1412,7 @@ func (h *headIndexReader) SortedPostings(p index.Postings) index.Postings {
 	for p.Next() {
 		s := h.head.series.getByID(p.At())
 		if s == nil {
-			level.Debug(h.head.logger).Log("msg", "looked up series not found")
+			level.Debug(h.head.logger).Log("msg", "Looked up series not found")
 		} else {
 			series = append(series, s)
 		}

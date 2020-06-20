@@ -25,10 +25,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/model"
-
 	"github.com/prometheus/prometheus/pkg/labels"
 	"github.com/prometheus/prometheus/promql/parser"
 	"github.com/prometheus/prometheus/storage"
+	"github.com/prometheus/prometheus/tsdb"
 	"github.com/prometheus/prometheus/util/teststorage"
 	"github.com/prometheus/prometheus/util/testutil"
 )
@@ -45,7 +45,7 @@ const (
 	epsilon = 0.000001 // Relative error allowed for sample values.
 )
 
-var testStartTime = time.Unix(0, 0)
+var testStartTime = time.Unix(0, 0).UTC()
 
 // Test is a sequence of read and write commands that are run
 // against a test storage.
@@ -54,7 +54,7 @@ type Test struct {
 
 	cmds []testCommand
 
-	storage storage.Storage
+	storage *teststorage.TestStorage
 
 	queryEngine *Engine
 	context     context.Context
@@ -99,6 +99,11 @@ func (t *Test) Context() context.Context {
 // Storage returns the test's storage.
 func (t *Test) Storage() storage.Storage {
 	return t.storage
+}
+
+// TSDB returns test's TSDB.
+func (t *Test) TSDB() *tsdb.DB {
+	return t.storage.DB
 }
 
 func raise(line int, format string, v ...interface{}) error {
@@ -660,7 +665,7 @@ func (ll *LazyLoader) appendTill(ts int64) error {
 
 // WithSamplesTill loads the samples till given timestamp and executes the given function.
 func (ll *LazyLoader) WithSamplesTill(ts time.Time, fn func(error)) {
-	tsMilli := ts.Sub(time.Unix(0, 0)) / time.Millisecond
+	tsMilli := ts.Sub(time.Unix(0, 0).UTC()) / time.Millisecond
 	fn(ll.appendTill(int64(tsMilli)))
 }
 

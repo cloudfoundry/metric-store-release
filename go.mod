@@ -21,7 +21,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/influxdata/flux v0.69.2 // indirect
-	github.com/influxdata/influxdb v1.7.9
+	github.com/influxdata/influxdb v1.8.0
 	github.com/influxdata/influxql v1.1.0
 	github.com/influxdata/roaring v0.4.12 // indirect
 	github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368 // indirect
@@ -35,20 +35,21 @@ require (
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.9.1
-	github.com/prometheus/prometheus v1.8.2-0.20200420081721-18254838fbe2
+	github.com/prometheus/prometheus v1.8.2-0.20200609090129-a6600f564e3c
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	go.uber.org/atomic v1.6.0
 	go.uber.org/zap v1.14.1
 	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
-	golang.org/x/sys v0.0.0-20200331124033-c3d80250170d
-	google.golang.org/grpc v1.27.1
+	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
+	google.golang.org/grpc v1.29.0
 	gopkg.in/yaml.v2 v2.3.0
-	gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71
-	k8s.io/api v0.17.3
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+	k8s.io/api v0.17.5
 	k8s.io/apimachinery v0.18.2
-	k8s.io/client-go v0.17.3
+	k8s.io/client-go v0.17.5
+	sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
