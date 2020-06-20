@@ -103,24 +103,24 @@ const (
 
 var _ = Describe("MetricStore", func() {
 	type testContext struct {
-	numNodes                   int
-	addrs                      []string
-	internodeAddrs             []string
-	ingressAddrs               []string
-	metricsAddrs               []string
-	profilingAddrs             []string
+		numNodes       int
+		addrs          []string
+		internodeAddrs []string
+		ingressAddrs   []string
+		metricsAddrs   []string
+		profilingAddrs []string
 
-	metricStoreProcesses       []*gexec.Session
-	tlsConfig                  *tls.Config
-	caCert                     string
-	cert                       string
-	key                        string
-	scrapeConfigPath           string
-	additionalScrapeConfigsDir string
-	localEgressClient          prom_versioned_api_client.API
-	peerEgressClient           prom_versioned_api_client.API
-	replicationFactor          int
-}
+		metricStoreProcesses       []*gexec.Session
+		tlsConfig                  *tls.Config
+		caCert                     string
+		cert                       string
+		key                        string
+		scrapeConfigPath           string
+		additionalScrapeConfigsDir string
+		localEgressClient          prom_versioned_api_client.API
+		peerEgressClient           prom_versioned_api_client.API
+		replicationFactor          int
+	}
 
 	var portAvailable = func(port int) bool {
 		for _, claimedPort := range claimedPorts {
