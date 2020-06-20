@@ -1,6 +1,7 @@
 module github.com/cloudfoundry/metric-store-release
 
 require (
+	cloud.google.com/go/bigtable v1.3.0 // indirect
 	code.cloudfoundry.org/go-diodes v0.0.0-20190809170250-f77fb823c7ee
 	code.cloudfoundry.org/go-envstruct v1.5.0
 	code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a
@@ -49,7 +50,6 @@ require (
 	k8s.io/api v0.17.5
 	k8s.io/apimachinery v0.18.2
 	k8s.io/client-go v0.17.5
-	sigs.k8s.io/structured-merge-diff v0.0.0-20190525122527-15d366b2352e // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
