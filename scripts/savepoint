@@ -1,17 +1,18 @@
 #!/bin/bash -e
 
 function printUsage() {
-  echo -e "\033[32mRun tests and autocommit\033[0m"
-  echo -e "\033[31musage: \033[1;34m$0 path/to/package/to/test \"Incremental Commit Comment\"\033[0m"
+  local scriptname=$(basename $0)
+  echo -e "\033[32mRun tests and autocommit on green\033[0m"
+  echo -e "\033[31musage: \033[1;34m$scriptname path/to/package/to/test \"Incremental Commit Comment\"\033[0m"
   echo -e "       Watches that package for changes and automatically runs tests on changes"
-  echo -e "       Automatically commits when tests pass with [Autocommit] tag"
+  echo -e "       Automatically commits when tests pass with [AutoSave] tag"
   echo -e ""
   echo -e "\033[32mDiff squash\033[0m"
-  echo -e "\033[31musage: \033[1;34m$0 diff\033[0m"
+  echo -e "\033[31musage: \033[1;34m$scriptname diff\033[0m"
   echo -e "       show the diff of all that you are about to squash but don't squash"
   echo -e ""
   echo -e "\033[32mUnroll commits\033[0m"
-  echo -e "\033[31musage: \033[1;34m$0 unroll [-f]\033[0m"
+  echo -e "\033[31musage: \033[1;34m$scriptname unroll [-f]\033[0m"
   echo -e "       unroll your autocommits but do not automatically commit the squash"
   echo -e "       -f: skip linting"
 }
@@ -34,7 +35,7 @@ function unroll() {
 
 function squashHead() {
   branch=$(git branch --show-current)
-  prevCommit=$(git log --oneline "${branch}" | grep -v '\[Autocommit\]' | head -1 | awk '{print $1}')
+  prevCommit=$(git log --oneline "${branch}" | grep -v '\[AutoSave\]' | head -1 | awk '{print $1}')
 
   echo ${prevCommit}
 }
@@ -51,7 +52,7 @@ function watch() {
 }
 
 function commit() {
-  if [[ $1 == "*PASS*" ]]; then
+  if [[ $1 == *"PASS"* ]]; then
     if [[ $(git status -s) == "" ]]; then
       echo "No changes"
       exit 0
@@ -60,7 +61,7 @@ function commit() {
     shift
 
     git add .
-    git commit -m "[Autocommit] $*"
+    git commit -m "[AutoSave] $*"
   else
     echo "No commit"
   fi
