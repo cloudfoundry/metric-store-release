@@ -1,12 +1,5 @@
 #!/bin/bash -e
 
-function squashHead() {
-  branch=$(git branch --show-current)
-  prevCommit=$(git log --oneline "${branch}" | grep -v '\[Autocommit\]' | head -1 | awk '{print $1}')
-
-  echo ${prevCommit}
-}
-
 function printUsage() {
   echo -e "\033[32mRun tests and autocommit\033[0m"
   echo -e "\033[31musage: \033[1;34m$0 path/to/package/to/test \"Incremental Commit Comment\"\033[0m"
@@ -23,17 +16,8 @@ function printUsage() {
   echo -e "       -f: skip linting"
 }
 
-if [[ $# -lt 1 || $1 == "-h" ]]; then
-  printUsage
-  exit 1
-fi
-
-scriptdir=$(dirname "$0")
-projectdir=$(git rev-parse --show-toplevel)
-testdir="${projectdir}/$1"
-
-if [[ $1 == "unroll" ]]; then
-  if [[ $2 != '-f' ]]; then
+function unroll() {
+  if [[ $1 != '-f' ]]; then
     if ! git diff-index --quiet HEAD; then
       echo "Dirty Repo, aborting"
       exit 1
@@ -46,15 +30,64 @@ if [[ $1 == "unroll" ]]; then
   fi
 
   git reset "$(squashHead)"
-elif [[ $1 == "diff" ]]; then
-  git diff "$(squashHead)"
-else
+}
+
+function squashHead() {
+  branch=$(git branch --show-current)
+  prevCommit=$(git log --oneline "${branch}" | grep -v '\[Autocommit\]' | head -1 | awk '{print $1}')
+
+  echo ${prevCommit}
+}
+
+function watch() {
   if [ ! -d "${testdir}" ]; then
     echo "path ${testdir} does not exist"
     exit 1
   fi
 
   shift
-  ginkgo watch --succinct --afterSuiteHook="${scriptdir}/commitOnPass.sh (ginkgo-suite-passed) $*" \
+  ginkgo watch --succinct --afterSuiteHook="${script} commit (ginkgo-suite-passed) $*" \
     "${testdir}"
-fi
+}
+
+function commit() {
+  if [[ $1 == "[PASS]" ]]; then
+    if [[ $(git status -s) == "" ]]; then
+      echo "No changes"
+      exit 0
+    fi
+
+    shift
+
+    git add .
+    git commit -m "[Autocommit] $*"
+  else
+    echo "No commit"
+  fi
+}
+
+function main() {
+  script="$0"
+  scriptdir=$(dirname "$0")
+  projectdir=$(git rev-parse --show-toplevel)
+  testdir="${projectdir}/$1"
+
+  if [[ $# -lt 1 || $1 == "-h" ]]; then
+    printUsage
+    exit 1
+  fi
+
+  if [[ $1 == "unroll" ]]; then
+    shift
+    unroll $*
+  elif [[ $1 == "diff" ]]; then
+    git diff "$(squashHead)"
+  elif [[ $1 == "commit" ]]; then
+    shift
+    commit $*
+  else
+    watch $*
+  fi
+}
+
+main $*
