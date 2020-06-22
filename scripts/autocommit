@@ -51,7 +51,7 @@ function watch() {
 }
 
 function commit() {
-  if [[ $1 == "[PASS]" ]]; then
+  if [[ $1 == "*PASS*" ]]; then
     if [[ $(git status -s) == "" ]]; then
       echo "No changes"
       exit 0
