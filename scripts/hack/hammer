@@ -1,0 +1,147 @@
+#!/bin/zsh
+
+queries=(
+    "# label replace the empty placement tag to cf
+    label_replace(
+      (sum by (placement_tag) (CapacityTotalMemory) - sum by (placement_tag) (CapacityRemainingMemory))
+          /
+            sum by (placement_tag) (CapacityTotalMemory)
+              , \"placement_tag\", \"cf\", \"placement_tag\", \"\"
+              )"
+    "(sum(CapacityTotalContainers)- sum(CapacityRemainingContainers))"
+    "(sum(CapacityTotalDisk)- sum(CapacityRemainingDisk))"
+    "(sum(CapacityTotalMemory)- sum(CapacityRemainingMemory))"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\"}[3h]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\"}[3h])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\"}[60s])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\"}[60s])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\"}[3h]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\"}[3h])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\"}[60s])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\"}[3h]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\"}[3h])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\"}[60s])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\"}[3h]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\"}[3h])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\"}[60s])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\"}[3h]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\"}[3h])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\"}[60s])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\"}[3h]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\"}[3h])) * 1000) or vector(0)"
+    "(sum(rate(http_duration_seconds_sum{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\"}[60s]) or vector(0)) / sum(rate(http_duration_seconds_count{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\"}[60s])) * 1000) or vector(0)"
+    "avg(avg_over_time(disk{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}[3h])) / avg(avg_over_time(disk_quota{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(disk{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}[3h])) / avg(avg_over_time(disk_quota{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(disk{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}[3h])) / avg(avg_over_time(disk_quota{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(disk{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}[3h])) / avg(avg_over_time(disk_quota{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(disk{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}[3h])) / avg(avg_over_time(disk_quota{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(disk{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}[3h])) / avg(avg_over_time(disk_quota{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(avg_over_time(memory{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}[3h])) / avg(avg_over_time(memory_quota{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}[3h])) or vector(0)"
+    "avg(disk{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"} / disk_quota{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}) or vector(0)"
+    "avg(disk{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",process_type=\"web\"} / disk_quota{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",process_type=\"web\"}) or vector(0)"
+    "avg(disk{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"} / disk_quota{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}) or vector(0)"
+    "avg(disk{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"} / disk_quota{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}) or vector(0)"
+    "avg(disk{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"} / disk_quota{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}) or vector(0)"
+    "avg(disk{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"} / disk_quota{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}) or vector(0)"
+    "avg(disk{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"} / disk_quota{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"} / memory_quota{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"} / memory_quota{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"} / memory_quota{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"} / memory_quota{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\",process_type=\"web\"} / memory_quota{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"} / memory_quota{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}) or vector(0)"
+    "avg(memory{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"} / memory_quota{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}) or vector(0)"
+    "histogram_quantile(0.95, sum(rate(metric_store_nozzle_egress_duration_seconds_bucket{deployment=\"metric-store-edge\"}
+    [5m])) by (le))"
+    "label_replace(
+      (sum by (placement_tag) (CapacityTotalDisk) - sum by (placement_tag) (CapacityRemainingDisk))
+          /
+            sum by (placement_tag) (CapacityTotalDisk)
+              , \"placement_tag\", \"cf\", \"placement_tag\", \"\"
+              )"
+    "label_replace(
+      sum by (placement_tag) (CapacityTotalContainers)
+          -
+            sum by (placement_tag) (CapacityRemainingContainers)
+              , \"placement_tag\", \"cf\", \"placement_tag\", \"\"
+              )"
+    "label_replace(
+      sum by (placement_tag) (floor(CapacityTotalDisk / (4*1024)))
+          -
+            sum by (placement_tag) (floor(CapacityRemainingDisk / (4*1024)))
+              , \"placement_tag\", \"cf\", \"placement_tag\", \"\"
+              )"
+    "label_replace(
+      sum by (placement_tag)(floor(CapacityTotalMemory / (6*1024)))
+          -
+            sum by (placement_tag)(floor(CapacityRemainingMemory / (6*1024)))
+              , \"placement_tag\", \"cf\", \"placement_tag\", \"\"
+              )"
+    "max(file_descriptors)"
+    "sum by(organization_name, space_name, app_name) (rate(http_total{organization_name=~\".+\"}[1m:15s]))"
+    "sum by(status_code) (rate(http_total{organization_name=~\".+\",status_code=~\"[45]..\"}[5m:1m]))"
+    "sum(CapacityTotalContainers)"
+    "sum(CapacityTotalDisk)"
+    "sum(CapacityTotalMemory)"
+    "sum(avg_over_time(cpu{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}[3h])) or vector(0)"
+    "sum(avg_over_time(cpu{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",process_type=\"web\"}[60s])) or vector(0)"
+    "sum(floor(CapacityTotalDisk / (4*1024)))"
+    "sum(floor(CapacityTotalMemory / (6*1024)))"
+    "sum(rate(http_total{organization_name=~\".+\"}[1m:15s]))"
+    "sum(rate(http_total{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"0867b5a7-759c-43b1-9e0f-df533334608f\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"13de2352-86cb-49d7-a9c4-25e330aa40b2\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"5fefa929-9218-40e8-bd9f-f82b592a16e3\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"7f9de943-1907-47a1-a20a-f6f2aca2d319\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"b263b1dc-a9a6-4421-9ec5-a3e5605cf336\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d2ed76dc-7695-4719-9dde-aa25f259394f\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"d706fb45-7035-443a-a093-81295b7d6172\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",status_code=\"500\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\",status_code=\"500\"}[60s:30s]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\"}[3h]) * 60) or vector(0)"
+    "sum(rate(http_total{source_id=\"dea26189-886b-413d-8348-0d116a7171e0\"}[60s:30s]) * 60) or vector(0)"
+    "system_cpu_user{deployment=\"metric-store-edge\", job=\"metric-store\"} + system_cpu_wait{deployment=\"metric-store-edge\", job=\"metric-store\"} + system_cpu_sys{deployment=\"metric-store-edge\", job=\"metric-store\"}"
+    "system_cpu_user{job=\"router\", origin=\"system_metrics_agent\"}"
+    "system_healthy{job=\"router\"}"
+    "system_healthy{job=\"uaa\"}"
+)
+
+token=$(cf oauth-token)
+
+while true; do
+ for query in $queries; do
+   curl -H "Authorization: $token" -sS -G https://metric-store-edge.run.pivotal.io/api/v1/query \
+    --data-urlencode "query=$query" &
+ done
+ sleep 30
+done
