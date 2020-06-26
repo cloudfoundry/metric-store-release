@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/gob"
 	"encoding/json"
+	"github.com/prometheus/prometheus/pkg/logging"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -91,9 +92,11 @@ type MetricStore struct {
 	queryLogPath string
 
 	replicatedStorage prom_storage.Storage
+	logQueries        bool
 }
 
-func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config, egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
+func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config,
+	egressTLSConfig *config_util.TLSConfig, opts ...MetricStoreOption) *MetricStore {
 	store := &MetricStore{
 		log:     logger.NewNop(),
 		metrics: &metrics.NullRegistrar{},
@@ -112,6 +115,7 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		egressTLSConfig:          egressTLSConfig,
 		storagePath:              storagePath,
 		queryLogPath:             "/tmp/metric-store/query.log",
+		logQueries:               false,
 	}
 
 	for _, o := range opts {
@@ -124,9 +128,15 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 // MetricStoreOption configures a MetricStore.
 type MetricStoreOption func(*MetricStore)
 
-func WithQueryLogger(path string) MetricStoreOption {
+func WithActiveQueryLogging(path string) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.queryLogPath = path
+	}
+}
+
+func WithQueryLogging(doLog bool) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.logQueries = doLog
 	}
 }
 
@@ -243,6 +253,16 @@ func (store *MetricStore) Start() {
 		LookbackDelta:      5 * time.Minute,
 	}
 	queryEngine := promql.NewEngine(engineOpts)
+
+	if store.logQueries {
+		// Is there a way to not have to hardcode this path?
+		queryLogger, err := logging.NewJSONFileLogger("/var/vcap/sys/log/metric-store/query.log")
+		if err != nil {
+			store.log.Error("Unable to create query log", err)
+		} else {
+			queryEngine.SetQueryLogger(queryLogger)
+		}
+	}
 
 	store.promRuleManagers = rules.NewRuleManagers(
 		store.replicatedStorage,

@@ -51,6 +51,7 @@ type Config struct {
 
 	LogLevel      string `env:"LOG_LEVEL, report"`
 	ProfilingAddr string `env:"PROFILING_ADDR, report"`
+	LogQueries    bool   `env:"LOG_QUERIES, report"`
 }
 
 type MetricStoreServerTLS struct {
@@ -89,6 +90,7 @@ func LoadConfig() *Config {
 		ReplicationFactor:     1,
 		LabelTruncationLength: 256,
 		QueryTimeout:          10 * time.Second,
+		LogQueries:            false,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

@@ -27,10 +27,10 @@ type MetricStoreApp struct {
 	cfg *Config
 	log *logger.Logger
 
-	profilingMutex sync.Mutex
+	profilingMutex    sync.Mutex
 	profilingListener net.Listener
 
-	metricsMutex sync.Mutex
+	metricsMutex  sync.Mutex
 	metricsServer *metrics.Server
 }
 
@@ -131,7 +131,8 @@ func (app *MetricStoreApp) Run() {
 		metric_store.WithHandoffStoragePath(filepath.Join(app.cfg.StoragePath, "handoff")),
 		metric_store.WithLogger(app.log),
 		metric_store.WithQueryTimeout(app.cfg.QueryTimeout),
-		metric_store.WithQueryLogger(filepath.Join(app.cfg.StoragePath, "queryengine")),
+		metric_store.WithActiveQueryLogging(filepath.Join(app.cfg.StoragePath, "queryengine")),
+		metric_store.WithQueryLogging(app.cfg.LogQueries),
 	)
 
 	store.Start()
