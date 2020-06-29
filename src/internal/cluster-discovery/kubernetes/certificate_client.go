@@ -1,11 +1,15 @@
 package kubernetes
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
+	"net/http"
+	"time"
+
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/google/uuid"
@@ -14,8 +18,6 @@ import (
 	typedCertificates "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate/csr"
-	"net/http"
-	"time"
 )
 
 type CertificateSigningRequestClient interface {
@@ -31,14 +33,16 @@ type csrClient struct {
 	api                   typedCertificates.CertificateSigningRequestInterface
 	metricStoreCommonName string
 	name                  string
+	timeout               time.Duration
 	log                   *logger.Logger
 }
 
-func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface, options ...WithOption, ) *csrClient {
+func NewCSRClient(client typedCertificates.CertificateSigningRequestInterface, options ...WithOption) *csrClient {
 	csrClient := &csrClient{
 		api:                   client,
 		metricStoreCommonName: "metricstore",
 		name:                  uniqueCSRName(),
+		timeout:               time.Minute,
 		log:                   logger.NewNop(),
 	}
 
@@ -56,26 +60,36 @@ func WithLogger(log *logger.Logger) WithOption {
 	}
 }
 
+func WithTimeout(t time.Duration) WithOption {
+	return func(client *csrClient) {
+		client.timeout = t
+	}
+}
+
 func uniqueCSRName() string {
 	return "metricstore-" + uuid.New().String()
 }
 
 func (client *csrClient) Submit(csrData []byte, privateKey interface{}) (req *certificates.CertificateSigningRequest, err error) {
 	usages := []certificates.KeyUsage{certificates.UsageClientAuth}
-	return csr.RequestCertificate(client.api, csrData, client.name, usages, privateKey)
+	return csr.RequestCertificate(client.api, csrData, client.name, "metric-store", usages, privateKey)
 }
 
 func (client *csrClient) Approve(certificateSigningRequest *certificates.CertificateSigningRequest) (result *certificates.CertificateSigningRequest, err error) {
 	certificateSigningRequest.Status.Conditions = append(certificateSigningRequest.Status.Conditions, certificates.CertificateSigningRequestCondition{Type: certificates.CertificateApproved})
-	return client.api.UpdateApproval(certificateSigningRequest)
+
+	ctx, _ := context.WithTimeout(context.Background(), client.timeout)
+	return client.api.UpdateApproval(ctx, certificateSigningRequest, v1.UpdateOptions{})
 }
 
 func (client *csrClient) Get(options v1.GetOptions) (*certificates.CertificateSigningRequest, error) {
-	return client.api.Get(client.name, options)
+	ctx, _ := context.WithTimeout(context.Background(), client.timeout)
+	return client.api.Get(ctx, client.name, options)
 }
 
 func (client *csrClient) Delete() error {
-	return client.api.Delete(client.name, &v1.DeleteOptions{})
+	ctx, _ := context.WithTimeout(context.Background(), client.timeout)
+	return client.api.Delete(ctx, client.name, v1.DeleteOptions{})
 }
 
 func (client *csrClient) Generate() ([]byte, *rsa.PrivateKey, error) {

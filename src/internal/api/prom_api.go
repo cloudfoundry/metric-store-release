@@ -38,6 +38,14 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		return &nullTargetRetriever{}
 	}
 
+	alertmanagerRetriever := func(context.Context) prom_api.AlertmanagerRetriever {
+		return ruleManager
+	}
+
+	rulesRetriever := func(context.Context) prom_api.RulesRetriever {
+		return ruleManager
+	}
+
 	nullDBDir := ""
 
 	prometheusVersion := &prom_api.PrometheusVersion{
@@ -68,7 +76,7 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		api.promQLEngine,
 		storage,
 		targetRetriever,
-		ruleManager,
+		alertmanagerRetriever,
 		func() config.Config { return config.Config{} },
 		nil,
 		prom_api.GlobalURLOptions{},
@@ -77,7 +85,7 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		nullDBDir,
 		false,
 		api.log,
-		ruleManager,
+		rulesRetriever,
 		REMOTE_READ_SAMPLE_LIMIT,
 		REMOTE_READ_CONCURRENCY_LIMIT,
 		REMOTE_READ_MAX_BYTES_IN_FRAME,
