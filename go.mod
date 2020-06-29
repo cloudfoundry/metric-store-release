@@ -50,7 +50,6 @@ require (
 	k8s.io/api v0.18.3
 	k8s.io/apimachinery v0.18.5
 	k8s.io/client-go v0.18.3
-	sigs.k8s.io/structured-merge-diff/v2 v2.0.1 // indirect
 	sigs.k8s.io/yaml v1.2.0
 )
 
