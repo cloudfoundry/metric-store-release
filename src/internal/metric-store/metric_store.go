@@ -67,7 +67,6 @@ type MetricStore struct {
 	localStore        prom_storage.Storage
 	promRuleManagers  rules.RuleManagers
 	replicationFactor uint
-	queryTimeout      time.Duration
 
 	addr               string
 	ingressAddr        string
@@ -87,12 +86,15 @@ type MetricStore struct {
 	// externally and instead will store all of it.
 	internodeAddrs []string
 
-	scraper      *scraping.Scraper
-	storagePath  string
-	queryLogPath string
+	scraper     *scraping.Scraper
+	storagePath string
 
 	replicatedStorage prom_storage.Storage
-	logQueries        bool
+
+	// Query Engine Parameters
+	queryTimeout time.Duration
+	queryLogPath string
+	logQueries   bool
 }
 
 func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config,
@@ -127,18 +129,6 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 
 // MetricStoreOption configures a MetricStore.
 type MetricStoreOption func(*MetricStore)
-
-func WithActiveQueryLogging(path string) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.queryLogPath = path
-	}
-}
-
-func WithQueryLogging(doLog bool) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.logQueries = doLog
-	}
-}
 
 // WithLogger returns a MetricStoreOption that configures the logger used for
 // the MetricStore. Defaults to silent logger.
@@ -211,6 +201,26 @@ func WithHandoffStoragePath(handoffStoragePath string) MetricStoreOption {
 	}
 }
 
+func WithScraper(scraper *scraping.Scraper) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.scraper = scraper
+	}
+}
+
+/////////////////////////////////////////////////
+// Query Engine Options
+func WithActiveQueryLogging(path string) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.queryLogPath = path
+	}
+}
+
+func WithQueryLogging(doLog bool) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.logQueries = doLog
+	}
+}
+
 // WithQueryTimeout sets the maximum duration of a PromQL query.
 func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	return func(store *MetricStore) {
@@ -218,11 +228,8 @@ func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	}
 }
 
-func WithScraper(scraper *scraping.Scraper) MetricStoreOption {
-	return func(store *MetricStore) {
-		store.scraper = scraper
-	}
-}
+// End Query Engine Options
+////////////////////////////////////////////////////
 
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
@@ -243,6 +250,29 @@ func (store *MetricStore) Start() {
 		storage.WithReplicatedMetrics(store.metrics),
 	)
 
+	queryEngine := store.createEngine()
+
+	store.promRuleManagers = rules.NewRuleManagers(
+		store.replicatedStorage,
+		queryEngine,
+		time.Duration(promql.DefaultEvaluationInterval)*time.Millisecond,
+		store.log,
+		store.metrics,
+		store.queryTimeout,
+	)
+
+	store.setupIngressListener()
+	store.setupDistributionListener()
+
+	if store.scraper != nil {
+		store.scraper.Run(storage.NewScrapeStorage(store.replicatedStorage))
+	}
+
+	store.setupRouting(queryEngine)
+	go store.loadRules(queryEngine)
+}
+
+func (store *MetricStore) createEngine() *promql.Engine {
 	maxConcurrentQueries := 20
 	engineOpts := promql.EngineOpts{
 		MaxSamples:         20e6,
@@ -263,25 +293,7 @@ func (store *MetricStore) Start() {
 			queryEngine.SetQueryLogger(queryLogger)
 		}
 	}
-
-	store.promRuleManagers = rules.NewRuleManagers(
-		store.replicatedStorage,
-		queryEngine,
-		time.Duration(promql.DefaultEvaluationInterval)*time.Millisecond,
-		store.log,
-		store.metrics,
-		store.queryTimeout,
-	)
-
-	store.setupDirtyListener()
-	store.setupSanitizedListener()
-
-	if store.scraper != nil {
-		store.scraper.Run(storage.NewScrapeStorage(store.replicatedStorage))
-	}
-
-	store.setupRouting(queryEngine)
-	go store.loadRules(queryEngine)
+	return queryEngine
 }
 
 func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
@@ -303,19 +315,9 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 	if err != nil {
 		store.log.Fatal("failed to convert TLS egressServer config", err)
 	}
-	tlsClientConfig, err := shared_tls.NewMutualTLSClientConfig(
-		store.egressTLSConfig.CAFile,
-		store.egressTLSConfig.CertFile,
-		store.egressTLSConfig.KeyFile,
-		store.egressTLSConfig.ServerName,
-	)
-	if err != nil {
-		store.log.Fatal("failed to convert TLS client config", err)
-	}
 
 	secureConnection := tls.NewListener(insecureConnection, tlsServerConfig)
 	store.lis = secureConnection
-	// TODO is this necessary?
 	if store.extAddr == "" {
 		store.extAddr = store.lis.Addr().String()
 	}
@@ -329,6 +331,18 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		rulesStoragePath,
 		store.promRuleManagers,
 	)
+
+	// TODO is this necessary?
+	tlsClientConfig, err := shared_tls.NewMutualTLSClientConfig(
+		store.egressTLSConfig.CAFile,
+		store.egressTLSConfig.CertFile,
+		store.egressTLSConfig.KeyFile,
+		store.egressTLSConfig.ServerName,
+	)
+	if err != nil {
+		store.log.Fatal("failed to convert TLS client config", err)
+	}
+
 	replicatedRuleManager := rules.NewReplicatedRuleManager(
 		localRuleManager,
 		store.nodeIndex,
@@ -404,7 +418,8 @@ func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
 	}
 }
 
-func (store *MetricStore) setupDirtyListener() {
+// ingress is for a points not necessarily stored on this node
+func (store *MetricStore) setupIngressListener() {
 	appender := store.replicatedStorage.Appender()
 
 	queuePoints := func(payload []byte) error {
@@ -473,7 +488,8 @@ func (store *MetricStore) setupDirtyListener() {
 }
 
 // TODO - skip if no remote nodes?
-func (store *MetricStore) setupSanitizedListener() {
+// collected is a point from another node for storage
+func (store *MetricStore) setupDistributionListener() {
 	appender := store.localStore.Appender()
 
 	writePoints := func(payload []byte) error {
@@ -505,7 +521,7 @@ func (store *MetricStore) setupSanitizedListener() {
 		if err != nil {
 			return err
 		}
-		store.metrics.Add(metrics.MetricStoreCollectedPointsTotal, float64(collectedPointsTotal))
+		store.metrics.Add(metrics.MetricStoreCollectedPointsTotal, float64(collectedPointsTotal)) // TODO: better name?
 
 		return nil
 	}
