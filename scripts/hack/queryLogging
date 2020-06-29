@@ -1,0 +1,12 @@
+#!/bin/zsh
+
+if [[ $2 == "on" ]]
+then
+  echo "Turning on query logging on deployment $1"
+  bosh -d $1 ssh metric-store 'sudo sed -i "/env:/ a \    LOG_QUERIES: true" /var/vcap/jobs/metric-store/config/bpm.yml; sudo monit restart metric-store; sudo monit summary'
+elif [[ $2 == "off" ]]
+then
+  echo "Unimplemented, fill it in!"
+else
+  echo "Usage: $0 deployment_name on|off  # toggle query logging for deployment"
+fi
