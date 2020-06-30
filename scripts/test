@@ -12,11 +12,13 @@ function print_usage {
     echo "usage: test [subcommand] [go test args]"
     echo
     echo -e "\033[1mSubcommands:\033[0m"
-    echo "   all               Run all the tests, excluding linters"
+    echo "   unit              Run all the tests, excluding cleaners (default)"
     echo "   acceptance        Run just the acceptance tests"
     echo "   cleaners          Run tools that clean the code base"
     echo "   fast              Run a subset of quick tests"
-    echo "   unit              Run the default set of tests (default)"
+    echo "   race              Run just race detection"
+    echo "   norace            Run all the tests, minus race detection"
+    echo "   all               Run all the tests, including cleaners"
 }
 
 function print_checkpoint {
@@ -77,7 +79,7 @@ function run_cleaners {
     return 0
 }
 
-function run_unit {
+function run_race {
   TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20"
 
   # The race detector dramatically increases the runtime of certain tests, particularly
@@ -100,11 +102,24 @@ function run_unit {
   fi
   rm ${race_log}
   echo "No races found"
+}
+
+function run_unit {
+  check_output run_norace $@
+  check_output run_race $@
+}
+
+function run_norace() {
+  TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20"
+
+  # Run all tests, exclude acceptance tests
+  tests=$(go list -mod=vendor ./... | grep -v pkg/acceptance)
 
   print_checkpoint "Running Tests"
   go test -mod=vendor $tests \
     ${TEST_OPTIONS} \
     $@
+
 }
 
 function run_acceptance {
@@ -133,7 +148,8 @@ function run_fast {
 
 function run_all {
     check_output run_cleaners
-    check_output run_unit $@
+    check_output run_race $@
+    check_output run_norace $@
 }
 
 function parse_argc {
@@ -148,7 +164,7 @@ function parse_argc {
             print_usage
             exit 0
             ;;
-        acceptance|all|cleaners|fast|unit)
+        acceptance|all|cleaners|fast|unit|race|norace)
             command=run_$arg
             ;;
         *)
