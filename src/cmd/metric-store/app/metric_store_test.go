@@ -48,7 +48,7 @@ var _ = Describe("Metric Store App", func() {
 		}, logger.NewTestLogger(GinkgoWriter))
 		go metricStore.Run()
 
-		Eventually(metricStore.MetricsAddr).ShouldNot(BeEmpty())
+		Eventually(metricStore.ProfilingAddr, 15).ShouldNot(BeEmpty())
 	})
 
 	AfterEach(func() {
