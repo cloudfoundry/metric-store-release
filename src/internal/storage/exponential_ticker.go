@@ -52,11 +52,11 @@ func validateConfig(cfg TickerConfig) TickerConfig {
 func tick(ticker chan struct{}, cfg TickerConfig) {
 	delay := cfg.BaseDelay
 	for {
+		time.Sleep(delay)
 		select {
 		case <-cfg.Context.Done():
 			return
 		default:
-			time.Sleep(delay)
 			ticker <- struct{}{}
 			nextDelayInNanos := float64(delay.Nanoseconds()) * cfg.Multiplier
 			if cfg.MaxDelay != 0 {
