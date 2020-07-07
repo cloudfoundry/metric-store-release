@@ -71,7 +71,7 @@ func NewRemoteAppender(targetNodeIndex string, connection *leanstreams.Connectio
 
 	appender.nodeBuffer = diodes.NewOneToOne(16384, diodes.AlertFunc(func(missed int) {
 		appender.metrics.Add(metrics.MetricStoreDroppedPointsTotal, float64(missed), appender.targetNodeIndex)
-		appender.log.Info("dropped points for remote node", logger.Count(missed), logger.String("remote_node", appender.targetNodeIndex))
+		appender.log.Info("diode: dropped points for remote node", logger.Count(missed), logger.String("remote_node", appender.targetNodeIndex))
 	}))
 
 	// Starting this in a goroutine otherwise connecting to each other node
@@ -158,6 +158,7 @@ func (a *RemoteAppender) createWriter() {
 		a.done,
 		func(count int) {
 			a.metrics.Add(metrics.MetricStoreDroppedPointsTotal, float64(count), a.targetNodeIndex)
+			a.log.Info("batcher: dropped points for remote node", logger.Count(count), logger.String("remote_node", a.targetNodeIndex))
 		},
 	)
 	batcher.Start()
