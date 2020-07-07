@@ -3,10 +3,11 @@ package testing
 import (
 	"crypto/tls"
 	"fmt"
-	"go.uber.org/atomic"
 	"net"
 	"net/http"
 	"sync"
+
+	"go.uber.org/atomic"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
