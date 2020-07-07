@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"runtime"
 	"time"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/rules"
@@ -120,9 +119,6 @@ groups:
 
 	Describe("#Create", func() {
 		It("creates a rule manager from a given file", func() {
-			if runtime.GOOS == "darwin" {
-				Skip("doesn't work on Mac OS")
-			}
 			ruleManagers.Create("appmetrics", createRuleFile("appmetrics"), alertManagerConfigs)
 
 			Expect(len(ruleManagers.RuleGroups())).To(Equal(1))
@@ -162,9 +158,6 @@ groups:
 
 	Describe("#Alertmanagers", func() {
 		It("Returns unique alertmanagers", func() {
-			if runtime.GOOS == "darwin" {
-				Skip("doesn't work on Mac OS")
-			}
 			ruleManagers.Create("manager1", createRuleFile("manager1"), alertManagerConfigs)
 			ruleManagers.Create("manager2", createRuleFile("manager2"), alertManagerConfigs)
 

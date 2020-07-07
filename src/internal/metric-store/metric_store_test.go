@@ -11,7 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"runtime"
 	"time"
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
@@ -328,10 +327,6 @@ var _ = Describe("MetricStore", func() {
 	It("replays writes to internode connections when they come back online", func() {
 		tc, cleanup := setup(defaultTestContext())
 		defer cleanup()
-
-		if runtime.GOOS == "darwin" {
-			Skip("doesn't work on Mac OS")
-		}
 
 		tc.peer.Stop()
 		now := time.Now()
