@@ -20,7 +20,7 @@ type SpyMetricStore struct {
 	ReloadRequestsCount       atomic.Int32
 	queryResultValue          float64
 	QueryError                error
-	remoteConnection          *SpyTCPListener
+	ingressListener           *SpyTCPListener
 	remoteInternodeConnection *SpyTCPListener
 
 	sentPoints []*rpc.Point
@@ -48,18 +48,14 @@ func NewSpyMetricStore(tlsConfig *tls.Config) *SpyMetricStore {
 }
 
 func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
-	// ingress listener
-	listener := NewSpyTCPListener(s.tlsConfig)
-	err := listener.Start()
-	s.remoteConnection = listener
+	s.ingressListener = NewSpyTCPListener(s.tlsConfig)
+	err := s.ingressListener.Start()
 	if err != nil {
 		fmt.Printf("failed to listen: %v", err)
 	}
 
-	// internode listener
-	listener = NewSpyTCPListener(s.tlsConfig)
-	err = listener.Start()
-	s.remoteInternodeConnection = listener
+	s.remoteInternodeConnection = NewSpyTCPListener(s.tlsConfig)
+	err = s.remoteInternodeConnection.Start()
 	if err != nil {
 		fmt.Printf("failed to listen: %v", err)
 	}
@@ -80,7 +76,7 @@ func (s *SpyMetricStore) Start() SpyMetricStoreAddrs {
 
 	return SpyMetricStoreAddrs{
 		EgressAddr:    secureConnection.Addr().String(),
-		IngressAddr:   s.remoteConnection.Address(),
+		IngressAddr:   s.ingressListener.Address(),
 		InternodeAddr: s.remoteInternodeConnection.Address(),
 	}
 }
@@ -101,7 +97,7 @@ func (s *SpyMetricStore) Stop() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.remoteConnection.Stop()
+	s.ingressListener.Stop()
 	s.remoteInternodeConnection.Stop()
 }
 
@@ -109,7 +105,7 @@ func (s *SpyMetricStore) Resume() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	err := s.remoteConnection.Resume()
+	err := s.ingressListener.Resume()
 	if err != nil {
 		fmt.Printf("failed to restart ingress listener: %v", err)
 	}
@@ -124,7 +120,7 @@ func (s *SpyMetricStore) GetPoints() []*rpc.Point {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	return s.remoteConnection.GetPoints()
+	return s.ingressListener.GetPoints()
 }
 
 func (s *SpyMetricStore) GetInternodePoints() []*rpc.Point {
