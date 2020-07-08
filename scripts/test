@@ -89,8 +89,7 @@ function run_race {
   print_checkpoint "Checking for Data Races"
   race_log=$(mktemp)
 
-  # Run all tests, exclude acceptance tests
-  tests=$(go list -mod=vendor ./... | grep -v pkg/acceptance)
+  tests=$(go list -mod=vendor ./...)
 
   go test -mod=vendor -race $tests \
     ${TEST_OPTIONS} \
@@ -112,8 +111,7 @@ function run_unit {
 function run_norace() {
   TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20"
 
-  # Run all tests, exclude acceptance tests
-  tests=$(go list -mod=vendor ./... | grep -v pkg/acceptance)
+  tests=$(go list -mod=vendor ./...)
 
   print_checkpoint "Running Tests"
   go test -mod=vendor $tests \
