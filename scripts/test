@@ -82,10 +82,6 @@ function run_cleaners {
 function run_race {
   TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20"
 
-  # The race detector dramatically increases the runtime of certain tests, particularly
-  # those that cover the scheduler. As a result, we first run the tests with race detection
-  # enabled, but only consider actual data races as failures. We then run the test suite
-  # without race detection and assert on test correctness.
   print_checkpoint "Checking for Data Races"
   race_log=$(mktemp)
 
