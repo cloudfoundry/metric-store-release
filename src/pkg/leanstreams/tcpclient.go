@@ -24,10 +24,6 @@ type TCPClient struct {
 	// For processing incoming data
 	incomingHeaderBuffer []byte
 
-	// For processing outgoing data
-	writeLock          sync.Mutex
-	outgoingDataBuffer []byte
-
 	done chan struct{}
 	sync.Mutex
 }
@@ -58,8 +54,6 @@ func newTCPClient(cfg *TCPClientConfig) *TCPClient {
 		headerByteSize:       headerByteSize,
 		address:              cfg.Address,
 		incomingHeaderBuffer: make([]byte, headerByteSize),
-		writeLock:            sync.Mutex{},
-		outgoingDataBuffer:   make([]byte, maxMessageSize),
 		tlsConfig:            cfg.TLSConfig,
 		done:                 make(chan struct{}),
 	}
@@ -164,10 +158,10 @@ func (c *TCPClient) closeSocket() error {
 func (c *TCPClient) write(data []byte) (int, error) {
 	// Calculate how big the message is, using a consistent header size.
 	// Append the size to the message, so now it has a header
-	c.outgoingDataBuffer = append(int64ToByteArray(int64(len(data)), c.headerByteSize), data...)
+	outgoingDataBuffer := append(int64ToByteArray(int64(len(data)), c.headerByteSize), data...)
 	emptyBuffer := append(int64ToByteArray(int64(len([]byte(""))), c.headerByteSize), []byte("")...)
 
-	toWriteLen := len(c.outgoingDataBuffer)
+	toWriteLen := len(outgoingDataBuffer)
 
 	// Three conditions could have occurred:
 	// 1. There was an error
@@ -196,7 +190,7 @@ func (c *TCPClient) write(data []byte) (int, error) {
 		// While we haven't read enough yet
 		// If there are remainder bytes, adjust the contents of toWrite
 		// totalBytesWritten will be the index of the nextByte waiting to be read
-		bytesWritten, writeError = c.socket.Write(c.outgoingDataBuffer[totalBytesWritten:])
+		bytesWritten, writeError = c.socket.Write(outgoingDataBuffer[totalBytesWritten:])
 
 		if writeError != nil {
 			c.closeSocket()

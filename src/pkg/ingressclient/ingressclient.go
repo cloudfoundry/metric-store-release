@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/gob"
-	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
 
@@ -21,7 +20,6 @@ type IngressClient struct {
 	connection  *leanstreams.TCPClient
 	log         *logger.Logger
 	dialTimeout time.Duration
-	sync.Mutex
 }
 
 func NewIngressClient(ingressAddress string, tlsConfig *tls.Config, opts ...IngressClientOption) (*IngressClient, error) {
@@ -72,9 +70,7 @@ func (c *IngressClient) Write(points []*rpc.Point) error {
 		return err
 	}
 	// TODO: consider adding back in a timeout (i.e. 3 seconds)
-	c.Lock()
 	bytesWritten, err := c.connection.Write(payload.Bytes())
-	c.Unlock()
 	if err == nil {
 		c.log.Info("wrote bytes", logger.Count(bytesWritten))
 	}
