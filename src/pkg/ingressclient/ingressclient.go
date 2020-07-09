@@ -69,6 +69,7 @@ func (c *IngressClient) Write(points []*rpc.Point) error {
 		c.log.Error("gob encode error", err)
 		return err
 	}
+
 	// TODO: consider adding back in a timeout (i.e. 3 seconds)
 	bytesWritten, err := c.connection.Write(payload.Bytes())
 	if err == nil {

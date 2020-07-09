@@ -41,6 +41,7 @@ type Nozzle struct {
 	ingressAddr string
 	client      *ingressclient.IngressClient
 	tlsConfig   *tls.Config
+	pointBuffer chan []*rpc.Point
 }
 
 // StreamConnector reads envelopes from the the logs provider.
@@ -67,6 +68,7 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		addr:                  metricStoreAddr,
 		ingressAddr:           ingressAddr,
 		tlsConfig:             tlsConfig,
+		pointBuffer:           make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
 	}
 
 	for _, o := range opts {
@@ -138,21 +140,19 @@ func WithNozzleTimerRollup(interval time.Duration, totalRollupTags, durationRoll
 func (n *Nozzle) Start() {
 	rx := n.s.Stream(context.Background(), n.buildBatchReq())
 
-	ch := make(chan []*rpc.Point, BATCH_CHANNEL_SIZE)
-
 	go n.timerProcessor()
-	go n.timerEmitter(ch)
+	go n.timerEmitter()
 	go n.envelopeReader(rx)
 
 	n.log.Info("starting workers", logger.Count(2*runtime.NumCPU()))
 	for i := 0; i < 2*runtime.NumCPU(); i++ {
-		go n.pointWriter(ch)
+		go n.pointWriter()
 	}
 
-	go n.pointBatcher(ch)
+	go n.pointBatcher()
 }
 
-func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
+func (n *Nozzle) pointBatcher() {
 	var size int
 
 	poller := diodes.NewPoller(n.ingressBuffer)
@@ -172,7 +172,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 		select {
 		case <-t.C:
 			if len(points) > 0 {
-				points = n.writeToChannelOrDiscard(ch, points)
+				points = n.writeToChannelOrDiscard(points)
 			}
 			t.Reset(BATCH_FLUSH_INTERVAL)
 			size = 0
@@ -182,7 +182,7 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 
 			// if len(points) >= BATCH_CHANNEL_SIZE {
 			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
-				points = n.writeToChannelOrDiscard(ch, points)
+				points = n.writeToChannelOrDiscard(points)
 				t.Reset(BATCH_FLUSH_INTERVAL)
 				size = 0
 			}
@@ -197,9 +197,9 @@ func (n *Nozzle) pointBatcher(ch chan []*rpc.Point) {
 	}
 }
 
-func (n *Nozzle) writeToChannelOrDiscard(ch chan []*rpc.Point, points []*rpc.Point) []*rpc.Point {
+func (n *Nozzle) writeToChannelOrDiscard(points []*rpc.Point) []*rpc.Point {
 	select {
-	case ch <- points:
+	case n.pointBuffer <- points:
 		return make([]*rpc.Point, 0)
 	default:
 		// if we can't write into the channel, it must be full, so
@@ -209,9 +209,9 @@ func (n *Nozzle) writeToChannelOrDiscard(ch chan []*rpc.Point, points []*rpc.Poi
 	}
 }
 
-func (n *Nozzle) pointWriter(ch chan []*rpc.Point) {
+func (n *Nozzle) pointWriter() {
 	for {
-		points := <-ch
+		points := <- n.pointBuffer
 		start := time.Now()
 
 		err := n.client.Write(points)
@@ -250,7 +250,7 @@ func (n *Nozzle) timerProcessor() {
 	}
 }
 
-func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
+func (n *Nozzle) timerEmitter() {
 	ticker := time.NewTicker(n.rollupInterval)
 
 	for t := range ticker.C {
@@ -264,7 +264,7 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			size += pointsBatch.Size
 
 			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
-				points = n.writeToChannelOrDiscard(ch, points)
+				points = n.writeToChannelOrDiscard(points)
 				size = 0
 			}
 		}
@@ -274,13 +274,13 @@ func (n *Nozzle) timerEmitter(ch chan []*rpc.Point) {
 			size += pointsBatch.Size
 
 			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
-				points = n.writeToChannelOrDiscard(ch, points)
+				points = n.writeToChannelOrDiscard(points)
 				size = 0
 			}
 		}
 
 		if len(points) > 0 {
-			points = n.writeToChannelOrDiscard(ch, points)
+			points = n.writeToChannelOrDiscard(points)
 		}
 	}
 }
