@@ -1,8 +1,0 @@
-set -ex
-
-source /var/vcap/packages/golang-1.13-linux/bosh/compile.env
-export GOPATH=$BOSH_INSTALL_TARGET
-
-go test -mod=vendor ./src/pkg/acceptance -c
-
-mv acceptance.test ${BOSH_INSTALL_TARGET}/acceptance-tests
