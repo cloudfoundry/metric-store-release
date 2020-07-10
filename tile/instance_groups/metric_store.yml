@@ -7,7 +7,6 @@ templates:
   - $( job "metric-store-cf-auth-proxy" )
   - $( job "route_registrar" )
   - $( job "bpm" )
-  - $( job "metric-store-smoke-tests" )
 
 resource_definitions:
 - name: cpu

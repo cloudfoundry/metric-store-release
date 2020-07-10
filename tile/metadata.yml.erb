@@ -31,8 +31,7 @@ releases:
 job_types:
   - $( instance_group "metric-store" )
 
-post_deploy_errands:
-  - $( job "metric-store-smoke-tests" )
+post_deploy_errands: []
 
 pre_delete_errands: []
 
