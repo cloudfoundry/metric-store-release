@@ -92,6 +92,7 @@ func LoadConfig() *Config {
 		LabelTruncationLength: 256,
 		QueryTimeout:          10 * time.Second,
 		LogQueries:            false,
+		MaxConcurrentQueries:  20,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

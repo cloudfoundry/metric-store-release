@@ -42,9 +42,10 @@ var _ = Describe("Metric Store App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
-			StoragePath:       "/tmp/metric-store",
-			ReplicationFactor: 1,
-			NodeAddrs:         []string{"localhost:8080"},
+			StoragePath:          "/tmp/metric-store",
+			ReplicationFactor:    1,
+			NodeAddrs:            []string{"localhost:8080"},
+			MaxConcurrentQueries: 20,
 		}, logger.NewTestLogger(GinkgoWriter))
 		go metricStore.Run()
 

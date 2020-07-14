@@ -119,7 +119,7 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		storagePath:              storagePath,
 
 		activeQueryLogPath:   filepath.Join(storagePath, "activequeries"),
-		maxConcurrentQueries: 10,
+		maxConcurrentQueries: 20,
 		logQueries:           false,
 	}
 
