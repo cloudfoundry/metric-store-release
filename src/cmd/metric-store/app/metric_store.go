@@ -131,10 +131,9 @@ func (app *MetricStoreApp) Run() {
 		metric_store.WithHandoffStoragePath(filepath.Join(app.cfg.StoragePath, "handoff")),
 		metric_store.WithLogger(app.log),
 		metric_store.WithQueryTimeout(app.cfg.QueryTimeout),
-		metric_store.WithActiveQueryLogging(filepath.Join(app.cfg.StoragePath, "queryengine")),
 		metric_store.WithQueryLogging(app.cfg.LogQueries),
+		metric_store.WithConcurrentQueryLimit(app.cfg.MaxConcurrentQueries),
 	)
-
 	store.Start()
 
 	sigs := make(chan os.Signal, 1)

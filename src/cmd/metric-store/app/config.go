@@ -49,9 +49,10 @@ type Config struct {
 	ScrapeConfigPath          string `env:"SCRAPE_CONFIG_PATH, report"`
 	AdditionalScrapeConfigDir string `env:"ADDITIONAL_SCRAPE_CONFIGS_DIR, report"`
 
-	LogLevel      string `env:"LOG_LEVEL, report"`
-	ProfilingAddr string `env:"PROFILING_ADDR, report"`
-	LogQueries    bool   `env:"LOG_QUERIES, report"`
+	LogLevel             string `env:"LOG_LEVEL, report"`
+	ProfilingAddr        string `env:"PROFILING_ADDR, report"`
+	LogQueries           bool   `env:"LOG_QUERIES, report"`
+	MaxConcurrentQueries int    `env:"MAX_CONCURRENT_QUERIES, report"`
 }
 
 type MetricStoreServerTLS struct {

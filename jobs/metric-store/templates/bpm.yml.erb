@@ -27,51 +27,52 @@
 %>
 ---
 processes:
-- name: metric-store
-  executable: /var/vcap/packages/metric-store/metric-store
-  persistent_disk: true
-  hooks:
-    pre_start: /var/vcap/jobs/metric-store/bin/pre-start.sh
-  env:
-    ADDR:                     ":<%= p('port') %>"
-    INGRESS_ADDR:             ":<%= p('ingress_port') %>"
-    INTERNODE_ADDR:           ":<%= p('internode_port') %>"
-    METRICS_ADDR:             ":<%= p('metrics_port') %>"
-    STORAGE_PATH:             "<%= p('storage_path') %>"
-    RETENTION_PERIOD_IN_DAYS: "<%= p('retention_period_in_days') %>"
-    DISK_FREE_PERCENT_TARGET: "<%= p('disk_free_percent_target') %>"
-    REPLICATION_FACTOR:       "<%= p('replication_factor') %>"
-    LABEL_TRUNCATION_LENGTH:  "<%= p('label_truncation_length') %>"
-    QUERY_TIMEOUT:            "<%= p('promql.query_timeout') %>"
+  - name: metric-store
+    executable: /var/vcap/packages/metric-store/metric-store
+    persistent_disk: true
+    hooks:
+      pre_start: /var/vcap/jobs/metric-store/bin/pre-start.sh
+    env:
+      ADDR:                     ":<%= p('port') %>"
+      INGRESS_ADDR:             ":<%= p('ingress_port') %>"
+      INTERNODE_ADDR:           ":<%= p('internode_port') %>"
+      METRICS_ADDR:             ":<%= p('metrics_port') %>"
+      STORAGE_PATH:             "<%= p('storage_path') %>"
+      RETENTION_PERIOD_IN_DAYS: "<%= p('retention_period_in_days') %>"
+      DISK_FREE_PERCENT_TARGET: "<%= p('disk_free_percent_target') %>"
+      REPLICATION_FACTOR:       "<%= p('replication_factor') %>"
+      LABEL_TRUNCATION_LENGTH:  "<%= p('label_truncation_length') %>"
+      QUERY_TIMEOUT:            "<%= p('promql.query_timeout') %>"
+      MAX_CONCURRENT_QUERIES:   "<%= p('max_concurrent_queries') %>"
 
-    # Mutual TLS
-    CA_PATH:   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
-    CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
-    KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
+      # Mutual TLS
+      CA_PATH:   "<%= "#{cert_dir}/metric_store_ca.crt" %>"
+      CERT_PATH: "<%= "#{cert_dir}/metric_store.crt" %>"
+      KEY_PATH:  "<%= "#{cert_dir}/metric_store.key" %>"
 
-    # Metric Store Server Mutual TLS
-    METRIC_STORE_SERVER_CA_PATH:   "<%= "#{cert_dir}/metric_store_server_ca.crt" %>"
-    METRIC_STORE_SERVER_CERT_PATH: "<%= "#{cert_dir}/metric_store_server.crt" %>"
-    METRIC_STORE_SERVER_KEY_PATH:  "<%= "#{cert_dir}/metric_store_server.key" %>"
+      # Metric Store Server Mutual TLS
+      METRIC_STORE_SERVER_CA_PATH:   "<%= "#{cert_dir}/metric_store_server_ca.crt" %>"
+      METRIC_STORE_SERVER_CERT_PATH: "<%= "#{cert_dir}/metric_store_server.crt" %>"
+      METRIC_STORE_SERVER_KEY_PATH:  "<%= "#{cert_dir}/metric_store_server.key" %>"
 
-    # Metric Store Internode Mutual TLS
-    METRIC_STORE_INTERNODE_CA_PATH:   "<%= "#{cert_dir}/metric_store_internode_ca.crt" %>"
-    METRIC_STORE_INTERNODE_CERT_PATH: "<%= "#{cert_dir}/metric_store_internode.crt" %>"
-    METRIC_STORE_INTERNODE_KEY_PATH:  "<%= "#{cert_dir}/metric_store_internode.key" %>"
+      # Metric Store Internode Mutual TLS
+      METRIC_STORE_INTERNODE_CA_PATH:   "<%= "#{cert_dir}/metric_store_internode_ca.crt" %>"
+      METRIC_STORE_INTERNODE_CERT_PATH: "<%= "#{cert_dir}/metric_store_internode.crt" %>"
+      METRIC_STORE_INTERNODE_KEY_PATH:  "<%= "#{cert_dir}/metric_store_internode.key" %>"
 
-    # Metric Store Metrics Server Mutual TLS
-    METRIC_STORE_METRICS_CA_PATH:   "<%= "#{cert_dir}/metric_store_metrics_server_ca.crt" %>"
-    METRIC_STORE_METRICS_CERT_PATH: "<%= "#{cert_dir}/metric_store_metrics_server.crt" %>"
-    METRIC_STORE_METRICS_KEY_PATH:  "<%= "#{cert_dir}/metric_store_metrics_server.key" %>"
+      # Metric Store Metrics Server Mutual TLS
+      METRIC_STORE_METRICS_CA_PATH:   "<%= "#{cert_dir}/metric_store_metrics_server_ca.crt" %>"
+      METRIC_STORE_METRICS_CERT_PATH: "<%= "#{cert_dir}/metric_store_metrics_server.crt" %>"
+      METRIC_STORE_METRICS_KEY_PATH:  "<%= "#{cert_dir}/metric_store_metrics_server.key" %>"
 
-    # Cluster Configuration
-    NODE_INDEX:      "<%= index %>"
-    NODE_ADDRS:      "<%= store_addrs.join(",") %>"
-    INTERNODE_ADDRS: "<%= internode_addrs.join(",") %>"
+      # Cluster Configuration
+      NODE_INDEX:      "<%= index %>"
+      NODE_ADDRS:      "<%= store_addrs.join(",") %>"
+      INTERNODE_ADDRS: "<%= internode_addrs.join(",") %>"
 
-    # Config for Prometheus metric scrapers
-    SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
-    ADDITIONAL_SCRAPE_CONFIGS_DIR: "/var/vcap/store/metric-store/scrape_configs"
+      # Config for Prometheus metric scrapers
+      SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
+      ADDITIONAL_SCRAPE_CONFIGS_DIR: "/var/vcap/store/metric-store/scrape_configs"
 
-  limits:
-    open_files: 65536
+    limits:
+      open_files: 65536

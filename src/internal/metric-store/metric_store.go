@@ -92,9 +92,10 @@ type MetricStore struct {
 	replicatedStorage prom_storage.Storage
 
 	// Query Engine Parameters
-	queryTimeout time.Duration
-	queryLogPath string
-	logQueries   bool
+	queryTimeout         time.Duration
+	activeQueryLogPath   string
+	logQueries           bool
+	maxConcurrentQueries int
 }
 
 func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, internodeTLSServerConfig, internodeTLSClientConfig *tls.Config,
@@ -116,8 +117,10 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		internodeTLSClientConfig: internodeTLSClientConfig,
 		egressTLSConfig:          egressTLSConfig,
 		storagePath:              storagePath,
-		queryLogPath:             "/tmp/metric-store/query.log",
-		logQueries:               false,
+
+		activeQueryLogPath:   filepath.Join(storagePath, "activequeries"),
+		maxConcurrentQueries: 10,
+		logQueries:           false,
 	}
 
 	for _, o := range opts {
@@ -209,12 +212,12 @@ func WithScraper(scraper *scraping.Scraper) MetricStoreOption {
 
 /////////////////////////////////////////////////
 // Query Engine Options
-func WithActiveQueryLogging(path string) MetricStoreOption {
+
+func WithConcurrentQueryLimit(maxQueries int) MetricStoreOption {
 	return func(store *MetricStore) {
-		store.queryLogPath = path
+		store.maxConcurrentQueries = maxQueries
 	}
 }
-
 func WithQueryLogging(doLog bool) MetricStoreOption {
 	return func(store *MetricStore) {
 		store.logQueries = doLog
@@ -273,13 +276,12 @@ func (store *MetricStore) Start() {
 }
 
 func (store *MetricStore) createEngine() *promql.Engine {
-	maxConcurrentQueries := 20
 	engineOpts := promql.EngineOpts{
 		MaxSamples:         20e6,
 		Timeout:            store.queryTimeout,
 		Logger:             store.log,
 		Reg:                store.metrics.Registerer(),
-		ActiveQueryTracker: promql.NewActiveQueryTracker(store.queryLogPath, maxConcurrentQueries, store.log),
+		ActiveQueryTracker: promql.NewActiveQueryTracker(store.activeQueryLogPath, store.maxConcurrentQueries, store.log),
 		LookbackDelta:      5 * time.Minute,
 	}
 	queryEngine := promql.NewEngine(engineOpts)
