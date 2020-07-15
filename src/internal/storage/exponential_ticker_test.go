@@ -1,76 +1,74 @@
-package storage_test
+package storage
 
 import (
 	"context"
 	"time"
-
-	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("A ticker for exponential backoffs", func() {
-	var expectTickerTiming = func(ticker chan struct{}, minWait time.Duration, maxWait time.Duration) {
-		startTime := time.Now()
-		Eventually(ticker, time.Second, time.Millisecond).Should(Receive())
-		endTime := time.Now()
-
-		Expect(endTime.Sub(startTime)).To(BeNumerically(">", minWait))
-		Expect(endTime.Sub(startTime)).To(BeNumerically("<", maxWait))
-	}
-
-	It("ticks on first interval", func() {
-		ticker, _ := storage.NewExponentialTicker(storage.TickerConfig{
-			BaseDelay: 10 * time.Millisecond,
-		})
-		expectTickerTiming(ticker, 10*time.Millisecond, 20*time.Millisecond)
-	})
-
 	It("ticks exponentially", func() {
-		ticker, _ := storage.NewExponentialTicker(storage.TickerConfig{
+		config := TickerConfig{
 			BaseDelay:  10 * time.Millisecond,
 			Multiplier: 2,
-		})
-		expectTickerTiming(ticker, 10*time.Millisecond, 20*time.Millisecond)
-		expectTickerTiming(ticker, 20*time.Millisecond, 40*time.Millisecond)
-		expectTickerTiming(ticker, 40*time.Millisecond, 80*time.Millisecond)
+		}
+
+		delay := config.BaseDelay
+
+		delay = calculateNextDelay(delay, config)
+		Expect(delay).To(Equal(20 * time.Millisecond))
+
+		delay = calculateNextDelay(delay, config)
+		Expect(delay).To(Equal(40 * time.Millisecond))
+
+		delay = calculateNextDelay(delay, config)
+		Expect(delay).To(Equal(80 * time.Millisecond))
 	})
 
 	It("caps at max", func() {
-		ticker, _ := storage.NewExponentialTicker(storage.TickerConfig{
+		config := TickerConfig{
 			BaseDelay:  10 * time.Millisecond,
 			Multiplier: 10,
 			MaxDelay:   10 * time.Millisecond,
-		})
+		}
 
-		expectTickerTiming(ticker, 10*time.Millisecond, 20*time.Millisecond)
-		expectTickerTiming(ticker, 10*time.Millisecond, 20*time.Millisecond)
-		expectTickerTiming(ticker, 10*time.Millisecond, 20*time.Millisecond)
+		delay := config.BaseDelay
+
+		delay = calculateNextDelay(delay, config)
+		Expect(delay).To(Equal(10 * time.Millisecond))
+
+		delay = calculateNextDelay(delay, config)
+		Expect(delay).To(Equal(10 * time.Millisecond))
+
+		delay = calculateNextDelay(delay, config)
+		Expect(delay).To(Equal(10 * time.Millisecond))
 	})
 
 	It("default inputs", func() {
 		// default multiplier of 2, delay of 100ms, no max
-		ticker, _ := storage.NewExponentialTicker(storage.TickerConfig{})
+		cfg := TickerConfig{}
+		cfg = validateConfig(cfg)
 
-		expectTickerTiming(ticker, 100*time.Millisecond, 200*time.Millisecond)
-		expectTickerTiming(ticker, 200*time.Millisecond, 400*time.Millisecond)
-		expectTickerTiming(ticker, 400*time.Millisecond, 800*time.Millisecond)
+		Expect(cfg.BaseDelay).To(Equal(100 * time.Millisecond))
+		Expect(cfg.Multiplier).To(Equal(2.0))
+		Expect(cfg.MaxDelay).To(Equal(0 * time.Millisecond))
 	})
 
 	It("validate inputs", func() {
 		Expect(func() {
-			storage.NewExponentialTicker(storage.TickerConfig{
+			NewExponentialTicker(TickerConfig{
 				BaseDelay: -10 * time.Millisecond,
 			})
 		}).To(Panic())
 		Expect(func() {
-			storage.NewExponentialTicker(storage.TickerConfig{
+			NewExponentialTicker(TickerConfig{
 				Multiplier: -1,
 			})
 		}).To(Panic())
 		Expect(func() {
-			storage.NewExponentialTicker(storage.TickerConfig{
+			NewExponentialTicker(TickerConfig{
 				MaxDelay: -999 * time.Hour,
 			})
 		}).To(Panic())
@@ -78,7 +76,7 @@ var _ = Describe("A ticker for exponential backoffs", func() {
 
 	It("respects context", func() {
 		ctx, cancel := context.WithCancel(context.Background())
-		ticker, _ := storage.NewExponentialTicker(storage.TickerConfig{
+		ticker, _ := NewExponentialTicker(TickerConfig{
 			MaxDelay: 10 * time.Millisecond,
 			Context:  ctx,
 		})
@@ -88,7 +86,7 @@ var _ = Describe("A ticker for exponential backoffs", func() {
 	})
 
 	It("respects cancel", func() {
-		ticker, cancel := storage.NewExponentialTicker(storage.TickerConfig{
+		ticker, cancel := NewExponentialTicker(TickerConfig{
 			MaxDelay: 10 * time.Millisecond,
 		})
 		Eventually(ticker, time.Second, time.Millisecond).Should(Receive())

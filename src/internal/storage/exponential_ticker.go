@@ -58,11 +58,15 @@ func tick(ticker chan struct{}, cfg TickerConfig) {
 			return
 		default:
 			ticker <- struct{}{}
-			nextDelayInNanos := float64(delay.Nanoseconds()) * cfg.Multiplier
-			if cfg.MaxDelay != 0 {
-				nextDelayInNanos = math.Min(nextDelayInNanos, float64(cfg.MaxDelay))
-			}
-			delay = time.Duration(nextDelayInNanos)
+			delay = calculateNextDelay(delay, cfg)
 		}
 	}
+}
+
+func calculateNextDelay(delay time.Duration, cfg TickerConfig) time.Duration {
+	nextDelayInNanos := float64(delay.Nanoseconds()) * cfg.Multiplier
+	if cfg.MaxDelay != 0 {
+		nextDelayInNanos = math.Min(nextDelayInNanos, float64(cfg.MaxDelay))
+	}
+	return time.Duration(nextDelayInNanos)
 }
