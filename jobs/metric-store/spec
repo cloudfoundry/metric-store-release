@@ -80,8 +80,8 @@ properties:
     description: "Maximum length of any label value; longer values will be automatically truncated"
     default: 256
   max_concurrent_queries:
-    description: "Queue queries after this aaximum number of queries running concurrently"
-    default: 10
+    description: "Queue queries after this maximum number of queries running concurrently"
+    default: 1
   promql.query_timeout:
     description: "The maximum allowed runtime for a single PromQL query. Smaller timeouts are recommended."
     default: "60s"
