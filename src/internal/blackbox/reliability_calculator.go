@@ -26,23 +26,23 @@ type ReliabilityCalculator struct {
 }
 
 const (
-	// https://play.golang.org/p/Qroq0HGXjdL
-	MAGIC_METRIC_NAME_NODE_1_OF_6 = "blackbox_test_metric_001"
-	MAGIC_METRIC_NAME_NODE_2_OF_6 = "blackbox_test_metric_002"
-	MAGIC_METRIC_NAME_NODE_3_OF_6 = "blackbox_test_metric_005"
-	MAGIC_METRIC_NAME_NODE_4_OF_6 = "blackbox_test_metric_007"
-	MAGIC_METRIC_NAME_NODE_5_OF_6 = "blackbox_test_metric_021"
-	MAGIC_METRIC_NAME_NODE_6_OF_6 = "blackbox_test_metric_003"
+	// see scripts/hack/hash.go
+	MAGIC_METRIC_NAME_NODES_0_AND_1 = "blackbox_test_metric_003"
+	MAGIC_METRIC_NAME_NODES_1_AND_2 = "blackbox_test_metric_021"
+	MAGIC_METRIC_NAME_NODES_2_AND_3 = "blackbox_test_metric_001"
+	MAGIC_METRIC_NAME_NODES_3_AND_4 = "blackbox_test_metric_010"
+	MAGIC_METRIC_NAME_NODES_4_AND_5 = "blackbox_test_metric_005"
+	MAGIC_METRIC_NAME_NODES_5_AND_0 = "blackbox_test_metric_002"
 )
 
 func MagicMetricNames() []string {
 	return []string{
-		MAGIC_METRIC_NAME_NODE_1_OF_6,
-		MAGIC_METRIC_NAME_NODE_2_OF_6,
-		MAGIC_METRIC_NAME_NODE_3_OF_6,
-		MAGIC_METRIC_NAME_NODE_4_OF_6,
-		MAGIC_METRIC_NAME_NODE_5_OF_6,
-		MAGIC_METRIC_NAME_NODE_6_OF_6,
+		MAGIC_METRIC_NAME_NODES_0_AND_1,
+		MAGIC_METRIC_NAME_NODES_1_AND_2,
+		MAGIC_METRIC_NAME_NODES_2_AND_3,
+		MAGIC_METRIC_NAME_NODES_3_AND_4,
+		MAGIC_METRIC_NAME_NODES_4_AND_5,
+		MAGIC_METRIC_NAME_NODES_5_AND_0,
 	}
 }
 
