@@ -3,17 +3,6 @@
   options:
     is_ca: true
     common_name: metric-store
-- name: metric_store
-  type: certificate
-  options:
-    ca: (( $ops_manager.ca_certificate ))
-    common_name: metric-store
-    alternative_names:
-    - metric_store
-    - metric-store
-    extended_key_usage:
-    - client_auth
-    - server_auth
 - name: metric_store_internode
   type: certificate
   options:

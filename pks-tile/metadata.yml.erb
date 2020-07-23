@@ -37,10 +37,10 @@ pre_delete_errands: []
 
 property_blueprints:
   - $( property "pks_cluster_discovery" )
+  - $( property "metric_store_mtls" )
 
 variables:
   - $( bosh_variable "metric_store_ca" )
-  - $( bosh_variable "metric_store" )
   - $( bosh_variable "metric_store_proxy_tls" )
   - $( bosh_variable "metric_store_internode" )
   - $( bosh_variable "metric_store_server" )

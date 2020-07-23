@@ -37,12 +37,12 @@ post_deploy_errands: []
 pre_delete_errands: []
 
 property_blueprints:
+  - $( property "metric_store_mtls" )
   - $( property "metrics_provider_mtls" )
   - $( property "routing_provider_tls" )
 
 variables:
   - $( bosh_variable "metric_store_ca" )
-  - $( bosh_variable "metric_store" )
   - $( bosh_variable "metric_store_proxy_tls" )
   - $( bosh_variable "metric_store_internode" )
   - $( bosh_variable "metric_store_server" )
