@@ -6,7 +6,7 @@
 - name: metric_store
   type: certificate
   options:
-    ca: metric_store_ca
+    ca: (( $ops_manager.ca_certificate ))
     common_name: metric-store
     alternative_names:
     - metric_store
