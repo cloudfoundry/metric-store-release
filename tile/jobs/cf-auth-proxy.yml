@@ -10,7 +10,7 @@ manifest: |
   proxy_port: 8083
   external_cert: (( .properties.routing_provider_tls.cert_pem ))
   external_key: (( .properties.routing_provider_tls.private_key_pem ))
-  proxy_ca_cert: (((metric_store_proxy_tls.ca)))
+  proxy_ca_cert: (( $ops_manager.ca_certificate ))
   uaa:
     ca_cert: (( $ops_manager.ca_certificate ))
     client_id: (( ..cf.uaa.doppler_client_credentials.identity ))
@@ -18,7 +18,6 @@ manifest: |
     internal_addr: https://uaa.service.cf.internal:8443
   metric_store_client:
     tls:
-      ca_cert: (( $ops_manager.ca_certificate ))
       cert: (( .properties.metric_store_mtls.cert_pem ))
       key: (( .properties.metric_store_mtls.private_key_pem ))
   metric_store_metrics:

@@ -31,11 +31,6 @@
     - metric-store
     extended_key_usage:
     - client_auth
-- name: metric_store_proxy_tls
-  type: certificate
-  options:
-    ca: metric_store_ca
-    common_name: localhost
 - name: metric_store_metrics_server
   type: certificate
   options:
