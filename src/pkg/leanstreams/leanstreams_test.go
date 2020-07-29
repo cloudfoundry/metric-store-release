@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	. "github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams/test/message"
 	"github.com/fortytw2/leaktest"
@@ -81,24 +80,9 @@ func (tc *leanstreamsTestContext) Results() []string {
 
 var _ = Describe("Leanstreams", func() {
 	var setup = func() (tc *leanstreamsTestContext, cleanup func()) {
-		tc = &leanstreamsTestContext{}
-
-		tlsServerConfig, err := sharedtls.NewMutualTLSServerConfig(
-			testing.Cert("metric-store-ca.crt"),
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		tlsClientConfig, err := sharedtls.NewMutualTLSClientConfig(
-			testing.Cert("metric-store-ca.crt"),
-			testing.Cert("metric-store.crt"),
-			testing.Cert("metric-store.key"),
-			"metric-store",
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		tc.MetricRegistrar = testing.NewSpyMetricRegistrar()
+		tc = &leanstreamsTestContext{
+			MetricRegistrar: testing.NewSpyMetricRegistrar(),
+		}
 
 		maxMessageSize := 100
 		listenConfig := TCPListenerConfig{
@@ -106,7 +90,7 @@ var _ = Describe("Leanstreams", func() {
 			Logger:              log.New(GinkgoWriter, "leanstreams", log.LstdFlags),
 			Address:             ":0",
 			Callback:            tc.Callback,
-			TLSConfig:           tlsServerConfig,
+			TLSConfig:           testing.MutualTLSServerConfig(),
 			MetricRegistrar:     tc.MetricRegistrar,
 			ConnCountMetricName: serverConnCount,
 		}
@@ -120,7 +104,7 @@ var _ = Describe("Leanstreams", func() {
 		writeConfig := TCPClientConfig{
 			MaxMessageSize: maxMessageSize,
 			Address:        listener.Address,
-			TLSConfig:      tlsClientConfig,
+			TLSConfig:      testing.MutualTLSClientConfig(),
 		}
 		connection, err := DialTCP(&writeConfig)
 		if err != nil {
