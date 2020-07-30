@@ -107,7 +107,14 @@ func (r *RemoteRuleManager) UpsertRuleGroup(managerId string, ruleGroup *rulescl
 
 func (r *RemoteRuleManager) RuleGroups() []*rules.Group {
 	var ruleGroups []*rules.Group
-	return ruleGroups
+
+	// TODO: use appropriate context
+	rulesResult, err := r.apiClient.Rules(context.Background())
+	if err != nil {
+		return ruleGroups
+	}
+
+	return ConvertAPIRuleGroupToGroup(rulesResult.Groups)
 }
 
 func (r *RemoteRuleManager) AlertingRules() []*rules.AlertingRule {

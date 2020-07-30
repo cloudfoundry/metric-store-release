@@ -145,6 +145,19 @@ func (a *RulesApiSpy) upsertGroup(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (a *RulesApiSpy) rules(rw http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	atomic.AddInt64(a.requestsReceived, 1)
+	a.lastRequestPathChan <- r.URL.String()
+
+	// body, _ := ioutil.ReadAll(r.Body)
+
+	if !a.writeError(rw) {
+		rw.WriteHeader(http.StatusOK)
+	}
+}
+
 func (a *RulesApiSpy) Start() error {
 	insecureConnection, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -159,6 +172,7 @@ func (a *RulesApiSpy) Start() error {
 	mux.HandleFunc("/private/rules/manager/{manager_id}/group", a.upsertGroup)
 	mux.HandleFunc("/rules/manager/{manager_id}", a.deleteManager)
 	mux.HandleFunc("/private/rules/manager/{manager_id}", a.deleteManager)
+	mux.HandleFunc("/private/api/v1/rules", a.rules)
 	a.server = &http.Server{Handler: mux, Addr: secureConnection.Addr().String()}
 
 	go a.server.Serve(secureConnection)

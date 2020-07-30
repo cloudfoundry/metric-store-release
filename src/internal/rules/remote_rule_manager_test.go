@@ -7,6 +7,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	"github.com/prometheus/prometheus/rules"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -172,6 +173,19 @@ var _ = Describe("RemoteRuleManager", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err).NotTo(MatchError(ManagerNotExistsError))
+		})
+	})
+
+	Describe("#RuleGroups", func() {
+		It("returns remote rule groups", func() {
+			tc, cleanup := setup()
+			defer cleanup()
+
+			remoteRuleManager := NewRemoteRuleManager(tc.rulesApiSpy.Addr(), tc.tlsClientConfig)
+			ruleGroup := &rules.Group{}
+
+			ruleGroups := remoteRuleManager.RuleGroups()
+			Expect(ruleGroups).To(ContainElement(ruleGroup))
 		})
 	})
 })
