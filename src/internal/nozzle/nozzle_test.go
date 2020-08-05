@@ -32,6 +32,7 @@ var _ = Describe("Nozzle", func() {
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
+				"rolled_timer",
 				[]string{"tag1", "tag2", "status_code"},
 				[]string{"tag1", "tag2"},
 			),

@@ -26,6 +26,7 @@ var _ = Describe("collect nozzle metrics", func() {
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
+				"http",
 				[]string{"tag1", "tag2", "status_code"},
 				[]string{"tag1", "tag2"},
 			),
@@ -55,6 +56,7 @@ var _ = Describe("collect nozzle metrics", func() {
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
+				"http",
 				[]string{"tag1", "tag2", "status_code"},
 				[]string{"tag1", "tag2"},
 			),

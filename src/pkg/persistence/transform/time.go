@@ -25,14 +25,6 @@ func NanosecondsToMilliseconds(ns int64) int64 {
 	return (ns * int64(time.Nanosecond)) / int64(time.Millisecond)
 }
 
-func NanosecondsToSeconds(ns int64) float64 {
-	return float64(ns*int64(time.Nanosecond)) / float64(time.Second)
-}
-
 func DurationToSeconds(t time.Duration) float64 {
 	return float64(t) / float64(time.Second)
-}
-
-func DurationToNanoseconds(t time.Duration) int64 {
-	return int64(t) / int64(time.Nanosecond)
 }

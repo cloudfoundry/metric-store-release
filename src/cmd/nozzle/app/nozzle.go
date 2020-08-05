@@ -103,6 +103,7 @@ func (app *NozzleApp) Run() {
 		WithNozzleDebugRegistrar(app.metrics),
 		WithNozzleTimerRollup(
 			10*time.Second,
+			"http",
 			[]string{
 				"status_code", "app_name", "app_id", "space_name",
 				"space_id", "organization_name", "organization_id",
