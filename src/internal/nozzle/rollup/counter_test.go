@@ -1,8 +1,6 @@
 package rollup_test
 
 import (
-	"time"
-
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle/rollup"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -146,55 +144,5 @@ var _ = Describe("Counter Rollup", func() {
 		points := extract(counterRollup.Rollup(0))
 		Expect(len(points)).To(Equal(1))
 		Expect(points[0].Value).To(BeNumerically("==", 2))
-	})
-
-	It("returns counters even when we no new metrics were rolled up recently", func() {
-		counterRollup := NewCounterRollup(
-			logger.NewTestLogger(GinkgoWriter),
-			"0",
-			[]string{"included-tag"},
-		)
-
-		counterRollup.Record(
-			0,
-			"source-id",
-			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
-			1,
-		)
-
-		points := extract(counterRollup.Rollup(0))
-		Expect(len(points)).To(Equal(1))
-		Expect(points[0].Value).To(BeNumerically("==", 1))
-
-		points = extract(counterRollup.Rollup(1))
-		Expect(len(points)).To(Equal(1))
-		Expect(points[0].Value).To(BeNumerically("==", 1))
-	})
-
-	It("expires counter totals after no new metrics were seen for a given amount of time", func() {
-		counterRollup := NewCounterRollup(
-			logger.NewTestLogger(GinkgoWriter),
-			"0",
-			[]string{"included-tag"},
-			WithCounterRollupExpiration(2*time.Nanosecond),
-		)
-
-		counterRollup.Record(
-			0,
-			"source-id",
-			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
-			1,
-		)
-
-		points := extract(counterRollup.Rollup(0))
-		Expect(len(points)).To(Equal(1))
-		Expect(points[0].Value).To(BeNumerically("==", 1))
-
-		points = extract(counterRollup.Rollup(1))
-		Expect(len(points)).To(Equal(1))
-		Expect(points[0].Value).To(BeNumerically("==", 1))
-
-		points = extract(counterRollup.Rollup(2))
-		Expect(points).To(BeEmpty())
 	})
 })

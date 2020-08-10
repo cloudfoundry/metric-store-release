@@ -730,7 +730,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 		streamConnector.envelopes <- []*loggregator_v2.Envelope{&secondTimer, &thirdTimer}
 
 		// wait for emit interval to elapse, adding 15 more per series
-		Eventually(metricStore.GetPoints).Should(HaveLen(45))
+		Eventually(metricStore.GetPoints).Should(HaveLen(30))
 
 		point := rpc.Point{
 			Labels: map[string]string{
@@ -741,13 +741,6 @@ var _ = Describe("when the envelope is a Timer", func() {
 			},
 		}
 
-		firstIntervalHistogram := point
-		firstIntervalHistogram.Name = "http_duration_seconds_count"
-		firstIntervalHistogram.Value = 1
-		firstIntervalTotal := point
-		firstIntervalTotal.Name = "http_total"
-		firstIntervalTotal.Value = 1
-
 		secondIntervalHistogram := point
 		secondIntervalHistogram.Name = "http_duration_seconds_count"
 		secondIntervalHistogram.Value = 3
@@ -756,8 +749,6 @@ var _ = Describe("when the envelope is a Timer", func() {
 		secondIntervalTotal.Value = 3
 
 		Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
-			&firstIntervalHistogram,
-			&firstIntervalTotal,
 			&secondIntervalHistogram,
 			&secondIntervalTotal,
 		}))

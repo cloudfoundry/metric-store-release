@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"go.uber.org/zap"
+
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
 
 const (
@@ -76,8 +76,4 @@ func labelsFromKey(key, nodeIndex string, rollupTags []string, log *logger.Logge
 	labels["node_index"] = nodeIndex
 
 	return labels, nil
-}
-
-func expired(lastSeen, now int64, expiration time.Duration) bool {
-	return expiration != 0 && (lastSeen+transform.DurationToNanoseconds(expiration)) <= now
 }

@@ -2,7 +2,6 @@ package rollup
 
 import (
 	"sync"
-	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -11,47 +10,31 @@ import (
 type counterRollup struct {
 	log *logger.Logger
 
-	nodeIndex  string
-	rollupTags []string
-	counters   map[string]int64
-	lastSeen   map[string]int64
-	expiration time.Duration
+	nodeIndex          string
+	rollupTags         []string
+	countersInInterval map[string]struct{}
+	counters           map[string]int64
 
 	mu sync.Mutex
 }
 
-func NewCounterRollup(log *logger.Logger, nodeIndex string, rollupTags []string, opts ...CounterRollupOption) *counterRollup {
-	counterRollup := &counterRollup{
-		log:        log,
-		nodeIndex:  nodeIndex,
-		rollupTags: rollupTags,
-		counters:   make(map[string]int64),
-		lastSeen:   make(map[string]int64),
-		expiration: EXPIRATION,
-	}
-
-	for _, o := range opts {
-		o(counterRollup)
-	}
-
-	return counterRollup
-}
-
-type CounterRollupOption func(*counterRollup)
-
-func WithCounterRollupExpiration(expiration time.Duration) CounterRollupOption {
-	return func(rollup *counterRollup) {
-		rollup.expiration = expiration
+func NewCounterRollup(log *logger.Logger, nodeIndex string, rollupTags []string) *counterRollup {
+	return &counterRollup{
+		log:                log,
+		nodeIndex:          nodeIndex,
+		rollupTags:         rollupTags,
+		countersInInterval: make(map[string]struct{}),
+		counters:           make(map[string]int64),
 	}
 }
 
-func (r *counterRollup) Record(timestamp int64, sourceId string, tags map[string]string, value int64) {
+func (r *counterRollup)  Record(_ int64, sourceId string, tags map[string]string, value int64) {
 	key := keyFromTags(r.rollupTags, sourceId, tags)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.lastSeen[key] = timestamp
+	r.countersInInterval[key] = struct{}{}
 	r.counters[key] += value
 }
 
@@ -61,13 +44,7 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for k := range r.counters {
-		if expired(r.lastSeen[k], timestamp, r.expiration) {
-			delete(r.lastSeen, k)
-			delete(r.counters, k)
-			continue
-		}
-
+	for k := range r.countersInInterval {
 		labels, err := labelsFromKey(k, r.nodeIndex, r.rollupTags, r.log)
 		if err != nil {
 			continue
@@ -85,6 +62,8 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 			Size:   countPoint.EstimatePointSize(),
 		})
 	}
+
+	r.countersInInterval = make(map[string]struct{})
 
 	return batches
 }
