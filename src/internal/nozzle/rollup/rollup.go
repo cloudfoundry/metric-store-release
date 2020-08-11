@@ -4,8 +4,6 @@ import (
 	"encoding/csv"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
@@ -45,8 +43,8 @@ func labelsFromKey(key, nodeIndex string, rollupTags []string, log *logger.Logge
 		log.Error(
 			"skipping rollup metric",
 			err,
-			zap.String("reason", "failed to decode"),
-			zap.String("key", key),
+			logger.String("reason", "failed to decode"),
+			logger.String("key", key),
 		)
 		return nil, err
 	}
@@ -56,8 +54,8 @@ func labelsFromKey(key, nodeIndex string, rollupTags []string, log *logger.Logge
 	if len(keyParts) != len(rollupTags)+1 {
 		log.Info(
 			"skipping rollup metric",
-			zap.String("reason", "wrong number of parts"),
-			zap.String("key", key),
+			logger.String("reason", "wrong number of parts"),
+			logger.String("key", key),
 			logger.Count(len(keyParts)),
 		)
 		return nil, err

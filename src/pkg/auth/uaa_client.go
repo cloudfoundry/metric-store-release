@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -110,7 +109,7 @@ func (uaa *UAAClient) getAuthToken() (tokenType, token string, err error) {
 	tokenRequest.Header.Add("Accept", "application/json")
 
 	dump, err := httputil.DumpRequestOut(tokenRequest, true)
-	uaa.log.Debug("tokenRequest", zap.ByteString("tokenRequest", dump))
+	uaa.log.Debug("tokenRequest", logger.ByteString("tokenRequest", dump))
 
 	responseBody, err := uaa.doRequest(tokenRequest)
 	if err != nil {

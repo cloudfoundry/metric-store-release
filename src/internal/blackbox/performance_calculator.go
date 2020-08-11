@@ -10,7 +10,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/prometheus/common/model"
-	"go.uber.org/zap"
 )
 
 type PerformanceCalculator struct {
@@ -87,7 +86,7 @@ func (pc *PerformanceCalculator) CalculatePerformance(egressClient QueryableClie
 
 		pc.debugRegistrar.Set(BlackboxPerformanceLatency, latency)
 		pc.debugRegistrar.Set(BlackboxPerformanceCount, quantity)
-		pc.log.Info("performance: ", zap.Float64("duration", latency), zap.Float64("count", quantity))
+		pc.log.Info("performance: ", logger.Float64("duration", latency), logger.Float64("count", quantity))
 	}
 }
 

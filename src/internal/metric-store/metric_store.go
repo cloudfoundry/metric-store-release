@@ -15,8 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
@@ -440,7 +438,7 @@ func (store *MetricStore) setupIngressListener() {
 
 		for _, point := range points {
 			if !transform.IsValidFloat(point.Value) {
-				store.log.Debug("skipping point with invalid value", zap.Float64("value", point.Value))
+				store.log.Debug("skipping point with invalid value", logger.Float64("value", point.Value))
 				continue
 			}
 

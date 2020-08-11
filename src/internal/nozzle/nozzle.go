@@ -17,7 +17,6 @@ import (
 	"code.cloudfoundry.org/go-diodes"
 	"code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	"go.uber.org/zap"
 	"golang.org/x/net/context"
 )
 
@@ -84,7 +83,7 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 	if err != nil {
 		n.log.Panic(
 			"Could not connect to ingress server",
-			zap.String("address", ingressAddr),
+			logger.String("address", ingressAddr),
 		)
 	}
 	n.client = client

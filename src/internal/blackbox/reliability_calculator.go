@@ -12,7 +12,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/prometheus/common/model"
-	"go.uber.org/zap"
 )
 
 type ReliabilityCalculator struct {
@@ -215,6 +214,6 @@ func (rc *ReliabilityCalculator) CalculateReliability(egressClient QueryableClie
 		}
 
 		rc.DebugRegistrar.Set(BlackboxHTTPReliability, httpReliability)
-		rc.Log.Info("reliability: ", zap.Float64("percent", httpReliability*100))
+		rc.Log.Info("reliability: ", logger.Float64("percent", httpReliability*100))
 	}
 }

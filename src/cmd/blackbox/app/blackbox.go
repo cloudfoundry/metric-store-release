@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/blackbox"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
@@ -151,7 +150,7 @@ func (app *BlackboxApp) startMetricsServer(tlsConfig *tls.Config) {
 			Help: "Number of metrics retrieved by benchmark query against blackbox_performance_canary"}),
 	)
 
-	app.log.Info("\n serving metrics on", zap.String("address", app.cfg.MetricsAddr))
+	app.log.Info("\n serving metrics on", logger.String("address", app.cfg.MetricsAddr))
 
 	app.metricsMutex.Lock()
 

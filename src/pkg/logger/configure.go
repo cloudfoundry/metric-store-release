@@ -73,8 +73,16 @@ func NewNop() *Logger {
 	}
 }
 
+func ByteString(key string, value []byte) zap.Field {
+	return zap.ByteString(key, value)
+}
+
 func Count(count int) zap.Field {
 	return zap.Int("count", count)
+}
+
+func Float64(key string, value float64) zap.Field {
+	return zap.Float64(key, value)
 }
 
 func Int(key string, value int64) zap.Field {
