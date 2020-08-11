@@ -28,7 +28,7 @@ func NewCounterRollup(log *logger.Logger, nodeIndex string, rollupTags []string)
 	}
 }
 
-func (r *counterRollup)  Record(_ int64, sourceId string, tags map[string]string, value int64) {
+func (r *counterRollup) Record(sourceId string, tags map[string]string, value int64) {
 	key := keyFromTags(r.rollupTags, sourceId, tags)
 
 	r.mu.Lock()

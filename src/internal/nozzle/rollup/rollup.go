@@ -3,7 +3,6 @@ package rollup
 import (
 	"encoding/csv"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -12,7 +11,6 @@ import (
 )
 
 const (
-	EXPIRATION             = 10 * time.Minute
 	GorouterHttpMetricName = "http"
 )
 
@@ -22,7 +20,7 @@ type PointsBatch struct {
 }
 
 type Rollup interface {
-	Record(timestamp int64, sourceId string, tags map[string]string, value int64)
+	Record(sourceId string, tags map[string]string, value int64)
 	Rollup(timestamp int64) []*PointsBatch
 }
 
@@ -35,7 +33,7 @@ func keyFromTags(rollupTags []string, sourceId string, tags map[string]string) s
 
 	csvOutput := &strings.Builder{}
 	csvWriter := csv.NewWriter(csvOutput)
-	csvWriter.Write(filteredTags)
+	_ = csvWriter.Write(filteredTags)
 	csvWriter.Flush()
 	return csvOutput.String()
 }

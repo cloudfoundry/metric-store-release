@@ -30,7 +30,6 @@ var _ = Describe("Counter Rollup", func() {
 		)
 
 		counterRollup.Record(
-			0,
 			"source-id",
 			nil,
 			1,
@@ -49,7 +48,6 @@ var _ = Describe("Counter Rollup", func() {
 		)
 
 		counterRollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
 			1,
@@ -60,7 +58,6 @@ var _ = Describe("Counter Rollup", func() {
 		Expect(points[0].Value).To(BeNumerically("==", 1))
 
 		counterRollup.Record(
-			1,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
 			1,
@@ -79,13 +76,11 @@ var _ = Describe("Counter Rollup", func() {
 		)
 
 		counterRollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo"},
 			1,
 		)
 		counterRollup.Record(
-			0,
 			"other-source-id",
 			map[string]string{"included-tag": "foo"},
 			1,
@@ -103,13 +98,11 @@ var _ = Describe("Counter Rollup", func() {
 		)
 
 		counterRollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo"},
 			1,
 		)
 		counterRollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "other-foo"},
 			1,
@@ -129,13 +122,11 @@ var _ = Describe("Counter Rollup", func() {
 		)
 
 		counterRollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
 			1,
 		)
 		counterRollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "other-bar"},
 			1,

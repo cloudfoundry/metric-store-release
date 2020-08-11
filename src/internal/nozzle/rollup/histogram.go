@@ -33,7 +33,7 @@ func NewHistogramRollup(log *logger.Logger, nodeIndex string, rollupTags []strin
 	}
 }
 
-func (r *histogramRollup) Record(_ int64, sourceId string, tags map[string]string, value int64) {
+func (r *histogramRollup) Record(sourceId string, tags map[string]string, value int64) {
 	key := keyFromTags(r.rollupTags, sourceId, tags)
 
 	r.mu.Lock()
@@ -66,7 +66,7 @@ func (r *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 		}
 
 		m := &dto.Metric{}
-		r.histograms[k].Write(m)
+		_ = r.histograms[k].Write(m)
 		histogram := m.GetHistogram()
 
 		for _, bucket := range histogram.Bucket {

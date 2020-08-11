@@ -244,9 +244,8 @@ func (n *Nozzle) timerProcessor() {
 		envelope := *(*loggregator_v2.Envelope)(data)
 		timer := envelope.GetTimer()
 
-		now := time.Now().UnixNano()
-		n.totalRollup.Record(now, envelope.SourceId, envelope.Tags, 1)
-		n.durationRollup.Record(now, envelope.SourceId, envelope.Tags, timer.GetStop()-timer.GetStart())
+		n.totalRollup.Record(envelope.SourceId, envelope.Tags, 1)
+		n.durationRollup.Record(envelope.SourceId, envelope.Tags, timer.GetStop()-timer.GetStart())
 	}
 }
 

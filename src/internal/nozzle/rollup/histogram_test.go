@@ -73,13 +73,11 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			10*int64(time.Second),
 		)
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			5*int64(time.Second),
@@ -99,7 +97,6 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			10*int64(time.Second),
@@ -118,19 +115,16 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			2*int64(time.Second),
 		)
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			7*int64(time.Second),
 		)
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			8*int64(time.Second),
@@ -153,7 +147,6 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			nil,
 			1,
@@ -174,7 +167,6 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
 			1,
@@ -199,7 +191,6 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
 			1,
@@ -210,7 +201,6 @@ var _ = Describe("Histogram Rollup", func() {
 		Expect(histograms[0].Count()).To(Equal(1))
 
 		rollup.Record(
-			1,
 			"source-id",
 			map[string]string{"included-tag": "foo", "excluded-tag": "bar"},
 			1,
@@ -229,13 +219,11 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo"},
 			1,
 		)
 		rollup.Record(
-			0,
 			"other-source-id",
 			map[string]string{"included-tag": "foo"},
 			1,
@@ -255,13 +243,11 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "foo"},
 			1,
 		)
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"included-tag": "other-foo"},
 			1,
@@ -281,13 +267,11 @@ var _ = Describe("Histogram Rollup", func() {
 		)
 
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"excluded-tag": "bar"},
 			1,
 		)
 		rollup.Record(
-			0,
 			"source-id",
 			map[string]string{"excluded-tag": "other-bar"},
 			1,
