@@ -112,7 +112,6 @@ var _ = Describe("Nozzle", func() {
 		}))
 	})
 
-
 	Describe("when the envelope is a Counter", func() {
 		It("converts the envelope to a Point", func() {
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{

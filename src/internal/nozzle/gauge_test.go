@@ -36,7 +36,6 @@ var _ = Describe("Nozzle", func() {
 			)
 			go n.Start()
 
-
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{
 				{
 					Timestamp: 20,
@@ -100,7 +99,6 @@ var _ = Describe("Nozzle", func() {
 				WithNozzleLogger(logger.NewTestLogger(GinkgoWriter)),
 			)
 			go n.Start()
-
 
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{
 				{

@@ -19,7 +19,6 @@ func TestNozzle(t *testing.T) {
 	RunSpecs(t, "Nozzle Suite")
 }
 
-
 func addEnvelope(timestamp int64, name, sourceId string, c *spyStreamConnector) {
 	c.envelopes <- []*loggregator_v2.Envelope{
 		{
@@ -31,7 +30,6 @@ func addEnvelope(timestamp int64, name, sourceId string, c *spyStreamConnector) 
 		},
 	}
 }
-
 
 type spyStreamConnector struct {
 	mu        sync.Mutex

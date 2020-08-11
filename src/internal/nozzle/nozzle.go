@@ -211,7 +211,7 @@ func (n *Nozzle) writeToChannelOrDiscard(points []*rpc.Point) []*rpc.Point {
 
 func (n *Nozzle) pointWriter() {
 	for {
-		points := <- n.pointBuffer
+		points := <-n.pointBuffer
 		start := time.Now()
 
 		err := n.client.Write(points)

@@ -772,4 +772,3 @@ func buildTLSConfigs() (server *tls.Config, client *tls.Config) {
 	Expect(err).ToNot(HaveOccurred())
 	return tlsServerConfig, tlsClientConfig
 }
-
