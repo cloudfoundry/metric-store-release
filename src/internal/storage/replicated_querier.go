@@ -13,6 +13,7 @@ import (
 	config_util "github.com/prometheus/common/config"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
+	"github.com/cloudfoundry/metric-store-release/src/internal/ticker"
 	"github.com/prometheus/prometheus/pkg/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
@@ -148,7 +149,7 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []i
 	r.log.Info("unable to contact nodes to read. attempting retries",
 		logger.String("nodes", fmt.Sprintf("%v", nodes)))
 
-	ticker, stop := NewExponentialTicker(TickerConfig{Context: ctx, MaxDelay: 30 * time.Second})
+	ticker, stop := ticker.New(ticker.Config{Context: ctx, MaxDelay: 30 * time.Second})
 	defer stop()
 
 	for {

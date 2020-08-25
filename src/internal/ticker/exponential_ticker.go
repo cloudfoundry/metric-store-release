@@ -1,4 +1,4 @@
-package storage
+package ticker
 
 import (
 	"context"
@@ -6,14 +6,14 @@ import (
 	"time"
 )
 
-type TickerConfig struct {
+type Config struct {
 	BaseDelay  time.Duration
 	Multiplier float64
 	MaxDelay   time.Duration
 	Context    context.Context
 }
 
-func NewExponentialTicker(cfg TickerConfig) (chan struct{}, func()) {
+func New(cfg Config) (chan struct{}, func()) {
 	var cancel func()
 	cfg = validateConfig(cfg)
 	cfg.Context, cancel = context.WithCancel(cfg.Context)
@@ -24,7 +24,8 @@ func NewExponentialTicker(cfg TickerConfig) (chan struct{}, func()) {
 	return ticker, cancel
 }
 
-func validateConfig(cfg TickerConfig) TickerConfig {
+//TODO Config.validate?
+func validateConfig(cfg Config) Config {
 	if cfg.BaseDelay < 0 {
 		panic("BaseDelay must be non-negative")
 	}
@@ -49,10 +50,11 @@ func validateConfig(cfg TickerConfig) TickerConfig {
 	return cfg
 }
 
-func tick(ticker chan struct{}, cfg TickerConfig) {
+func tick(ticker chan struct{}, cfg Config) {
 	delay := cfg.BaseDelay
 	for {
 		time.Sleep(delay)
+		
 		select {
 		case <-cfg.Context.Done():
 			return
@@ -63,7 +65,7 @@ func tick(ticker chan struct{}, cfg TickerConfig) {
 	}
 }
 
-func calculateNextDelay(delay time.Duration, cfg TickerConfig) time.Duration {
+func calculateNextDelay(delay time.Duration, cfg Config) time.Duration {
 	nextDelayInNanos := float64(delay.Nanoseconds()) * cfg.Multiplier
 	if cfg.MaxDelay != 0 {
 		nextDelayInNanos = math.Min(nextDelayInNanos, float64(cfg.MaxDelay))
