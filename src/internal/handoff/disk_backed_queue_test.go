@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Queue of writes", func() {
+var _ = Describe("Disk backed queue of writes", func() {
 	It("appends one entry to the file", func() {
 		tc, cleanup := setupHandoffTestContext(1024)
 		defer cleanup()
@@ -217,8 +217,7 @@ var _ = Describe("Queue of writes", func() {
 		fileToCorrupt.Sync()
 		fileToCorrupt.Close()
 
-		q, err := handoff.NewQueue(tc.dir, 1024)
-		Expect(err).NotTo(HaveOccurred())
+		q := handoff.NewDiskBackedQueue(tc.dir)
 
 		err = q.Open()
 		Expect(err).NotTo(HaveOccurred())
@@ -252,14 +251,14 @@ var _ = Describe("Queue of writes", func() {
 
 type handoffTestContext struct {
 	dir   string
-	queue *handoff.Queue
+	queue handoff.Queue
 }
 
 func setupHandoffTestContext(queueSize int64) (*handoffTestContext, func()) {
 	dir, err := ioutil.TempDir("", "hh_queue")
 	Expect(err).NotTo(HaveOccurred())
 
-	q, err := handoff.NewQueue(dir, queueSize)
+	q := handoff.NewDiskBackedQueue(dir, handoff.WithDiskBackedQueueMaxSize(queueSize))
 	Expect(err).NotTo(HaveOccurred())
 
 	err = q.Open()

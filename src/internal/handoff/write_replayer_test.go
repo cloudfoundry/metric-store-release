@@ -28,16 +28,18 @@ var _ = Describe("WriteReplayer", func() {
 		dir, err := ioutil.TempDir("", "node_processor_test")
 		Expect(err).ToNot(HaveOccurred())
 
+		queue := handoff.NewDiskBackedQueue(dir)
+
 		spyMetrics := shared.NewSpyMetricRegistrar()
 		spyClient := testing.NewSpyTCPClient()
 
-		n := handoff.NewWriteReplayer(dir, spyClient, spyMetrics, "0")
+		writeReplayer := handoff.NewWriteReplayer(queue, spyClient, spyMetrics, "0")
 
 		done := make(chan struct{})
-		err = n.Open(done)
+		err = writeReplayer.Open(done)
 		Expect(err).ToNot(HaveOccurred())
 
-		err = n.Write(batch)
+		err = writeReplayer.Write(batch)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(spyMetrics.Fetch(metrics.MetricStoreReplayerQueuedBytesTotal)()).To(BeNumerically(">", 0))
 
@@ -59,17 +61,38 @@ var _ = Describe("WriteReplayer", func() {
 
 			Eventually(spyMetrics.Fetch(metrics.MetricStoreReplayerReplayedBytesTotal)).Should(BeNumerically(">", 0))
 		})
+	})
 
+	It("purges the queue", func() {
+		dir, err := ioutil.TempDir("", "node_processor_test")
+		Expect(err).ToNot(HaveOccurred())
+
+		spyMetrics := &metrics.NullRegistrar{}
+		spyClient := testing.NewSpyTCPClient()
+		spyQueue := testing.NewSpyQueue(dir)
+
+		writeReplayer := handoff.NewWriteReplayer(spyQueue, spyClient, spyMetrics, "0")
+		writeReplayer.RetryInterval = time.Hour
+		writeReplayer.PurgeInterval = time.Millisecond
+		writeReplayer.MaxAge = time.Nanosecond
+
+		done := make(chan struct{})
+		err = writeReplayer.Open(done)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() int { return spyQueue.PurgeCalls }).Should(BeNumerically(">", 1))
 	})
 
 	It("closes when the done channel is closed", func() {
 		dir, err := ioutil.TempDir("", "node_processor_test")
 		Expect(err).ToNot(HaveOccurred())
 
+		queue := handoff.NewDiskBackedQueue(dir)
+
 		spyMetrics := shared.NewSpyMetricRegistrar()
 		spyClient := testing.NewSpyTCPClient()
 
-		n := handoff.NewWriteReplayer(dir, spyClient, spyMetrics, "0")
+		n := handoff.NewWriteReplayer(queue, spyClient, spyMetrics, "0")
 
 		done := make(chan struct{})
 		err = n.Open(done)

@@ -17,9 +17,6 @@ import (
 const (
 	GiB = 1 << 30
 
-	// DefaultMaxSize is the default maximum size of all hinted handoff queues in bytes.
-	DefaultMaxSize = 10 * GiB
-
 	// DefaultMaxAge is the default maximum amount of time that a hinted handoff write
 	// can stay in the queue.  After this time, the write will be purged.
 	DefaultMaxAge = 7 * 24 * time.Hour
@@ -49,7 +46,6 @@ type WriteReplayer struct {
 	PurgeInterval    time.Duration // Interval between periodic purge checks
 	RetryInterval    time.Duration // Interval between periodic write-to-node attempts.
 	RetryMaxInterval time.Duration // Max interval between periodic write-to-node attempts.
-	MaxSize          int64         // Maximum size an underlying queue can get.
 	MaxAge           time.Duration // Maximum age queue data can get before purging.
 	RetryRateLimit   int64         // Limits the rate data is sent to node.
 	dir              string
@@ -59,7 +55,7 @@ type WriteReplayer struct {
 	mu   sync.RWMutex
 	done chan struct{}
 
-	queue  *Queue
+	queue  Queue
 	client tcpClient
 
 	log     *logger.Logger
@@ -70,16 +66,26 @@ type tcpClient interface {
 	Write(data []byte) (int, error)
 }
 
+type Queue interface {
+	Advance() error
+	Append([]byte) error
+	Close() error
+	Current() ([]byte, error)
+	DiskUsage() int64
+	Open() error
+	PurgeOlderThan(time.Time) error
+	SetMaxSegmentSize(size int64) error
+}
+
 // NewWriteReplayer returns a new WriteReplayer for the given node, using dir for
 // the hinted-handoff data.
-func NewWriteReplayer(dir string, c tcpClient, metrics metrics.Registrar, targetNodeIndex string, opts ...WriteReplayerOption) *WriteReplayer {
+func NewWriteReplayer(queue Queue, c tcpClient, metrics metrics.Registrar, targetNodeIndex string, opts ...WriteReplayerOption) *WriteReplayer {
 	w := &WriteReplayer{
 		PurgeInterval:    DefaultPurgeInterval,
 		RetryInterval:    DefaultRetryInterval,
 		RetryMaxInterval: DefaultRetryMaxInterval,
-		MaxSize:          DefaultMaxSize,
 		MaxAge:           DefaultMaxAge,
-		dir:              dir,
+		queue:            queue,
 		client:           c,
 		targetNodeIndex:  targetNodeIndex,
 
@@ -103,12 +109,6 @@ func WithWriteReplayerLogger(log *logger.Logger) WriteReplayerOption {
 	}
 }
 
-func WithWriteReplayerMaxQueueSize(maxSize int64) WriteReplayerOption {
-	return func(w *WriteReplayer) {
-		w.MaxSize = maxSize
-	}
-}
-
 // Open opens the WriteReplayer. It will read and write data present in dir, and
 // start transmitting data to the node. A WriteReplayer must be opened before it
 // can accept hinted data.
@@ -122,20 +122,9 @@ func (w *WriteReplayer) Open(done chan struct{}) error {
 	}
 	w.done = done
 
-	// Create the queue directory if it doesn't already exist.
-	if err := os.MkdirAll(w.dir, 0700); err != nil {
-		return fmt.Errorf("mkdir all: %s", err)
-	}
-
-	// Create the queue of hinted-handoff data.
-	queue, err := NewQueue(w.dir, w.MaxSize)
-	if err != nil {
+	if err := w.queue.Open(); err != nil {
 		return err
 	}
-	if err := queue.Open(); err != nil {
-		return err
-	}
-	w.queue = queue
 
 	go w.run()
 

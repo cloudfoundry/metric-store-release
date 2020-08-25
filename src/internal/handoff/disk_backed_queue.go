@@ -23,6 +23,9 @@ var (
 const (
 	defaultSegmentSize = 10 * 1024 * 1024
 	footerSize         = 8
+
+	// DefaultMaxSize is the default maximum size of all disk backed queues in bytes.
+	DefaultMaxSize = 10 * GiB
 )
 
 // queue is a bounded, disk-backed, append-only type that combines queue and
@@ -54,7 +57,7 @@ const (
 //                                                    ┌─────┤
 //                                                    │Tail │
 //                                                    └─────┘
-type Queue struct {
+type DiskBackedQueue struct {
 	mu sync.RWMutex
 
 	// Directory to create segments
@@ -81,19 +84,33 @@ type queuePos struct {
 
 type segments []*segment
 
-// NewQueue create a queue that will store segments in dir and that will
+// NewDiskBackedQueue create a queue that will store segments in dir and that will
 // consume more than maxSize on disk.
-func NewQueue(dir string, maxSize int64) (*Queue, error) {
-	return &Queue{
+func NewDiskBackedQueue(dir string, opts ...DiskBackedQueueOption) *DiskBackedQueue {
+	q := &DiskBackedQueue{
 		dir:            dir,
 		maxSegmentSize: defaultSegmentSize,
-		maxSize:        maxSize,
+		maxSize:        DefaultMaxSize,
 		segments:       segments{},
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(q)
+	}
+
+	return q
+}
+
+type DiskBackedQueueOption func(*DiskBackedQueue)
+
+func WithDiskBackedQueueMaxSize(size int64) DiskBackedQueueOption {
+	return func(q *DiskBackedQueue) {
+		q.maxSize = size
+	}
 }
 
 // Open opens the queue for reading and writing
-func (l *Queue) Open() error {
+func (l *DiskBackedQueue) Open() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -125,7 +142,7 @@ func (l *Queue) Open() error {
 }
 
 // Close stops the queue for reading and writing
-func (l *Queue) Close() error {
+func (l *DiskBackedQueue) Close() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -142,7 +159,7 @@ func (l *Queue) Close() error {
 
 // Remove removes all underlying file-based resources for the queue.
 // It is an error to call this on an open queue.
-func (l *Queue) Remove() error {
+func (l *DiskBackedQueue) Remove() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -155,7 +172,7 @@ func (l *Queue) Remove() error {
 
 // SetMaxSegmentSize updates the max segment size for new and existing
 // segments.
-func (l *Queue) SetMaxSegmentSize(size int64) error {
+func (l *DiskBackedQueue) SetMaxSegmentSize(size int64) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -175,7 +192,7 @@ func (l *Queue) SetMaxSegmentSize(size int64) error {
 	return nil
 }
 
-func (l *Queue) PurgeOlderThan(when time.Time) error {
+func (l *DiskBackedQueue) PurgeOlderThan(when time.Time) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -210,7 +227,7 @@ func (l *Queue) PurgeOlderThan(when time.Time) error {
 }
 
 // LastModified returns the last time the queue was modified.
-func (l *Queue) LastModified() (time.Time, error) {
+func (l *DiskBackedQueue) LastModified() (time.Time, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -220,7 +237,7 @@ func (l *Queue) LastModified() (time.Time, error) {
 	return time.Time{}.UTC(), nil
 }
 
-func (l *Queue) Position() (*queuePos, error) {
+func (l *DiskBackedQueue) Position() (*queuePos, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
@@ -235,7 +252,7 @@ func (l *Queue) Position() (*queuePos, error) {
 }
 
 // DiskUsage returns the total size on disk used by the queue
-func (l *Queue) DiskUsage() int64 {
+func (l *DiskBackedQueue) DiskUsage() int64 {
 	var size int64
 	for _, s := range l.segments {
 		size += s.diskUsage()
@@ -244,7 +261,7 @@ func (l *Queue) DiskUsage() int64 {
 }
 
 // addSegment creates a new empty segment file
-func (l *Queue) addSegment() (*segment, error) {
+func (l *DiskBackedQueue) addSegment() (*segment, error) {
 	nextID, err := l.nextSegmentID()
 	if err != nil {
 		return nil, err
@@ -260,7 +277,7 @@ func (l *Queue) addSegment() (*segment, error) {
 }
 
 // loadSegments loads all segments on disk
-func (l *Queue) loadSegments() (segments, error) {
+func (l *DiskBackedQueue) loadSegments() (segments, error) {
 	segments := []*segment{}
 
 	files, err := ioutil.ReadDir(l.dir)
@@ -298,7 +315,7 @@ func (l *Queue) loadSegments() (segments, error) {
 }
 
 // nextSegmentID returns the next segment ID that is free
-func (l *Queue) nextSegmentID() (uint64, error) {
+func (l *DiskBackedQueue) nextSegmentID() (uint64, error) {
 	segments, err := ioutil.ReadDir(l.dir)
 	if err != nil {
 		return 0, err
@@ -326,7 +343,7 @@ func (l *Queue) nextSegmentID() (uint64, error) {
 }
 
 // Append appends a byte slice to the end of the queue
-func (l *Queue) Append(b []byte) error {
+func (l *DiskBackedQueue) Append(b []byte) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -352,7 +369,7 @@ func (l *Queue) Append(b []byte) error {
 }
 
 // Current returns the current byte slice at the head of the queue
-func (l *Queue) Current() ([]byte, error) {
+func (l *DiskBackedQueue) Current() ([]byte, error) {
 	if l.head == nil {
 		return nil, ErrNotOpen
 	}
@@ -361,7 +378,7 @@ func (l *Queue) Current() ([]byte, error) {
 }
 
 // Advance moves the head point to the next byte slice in the queue
-func (l *Queue) Advance() error {
+func (l *DiskBackedQueue) Advance() error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.head == nil {
@@ -378,7 +395,7 @@ func (l *Queue) Advance() error {
 	return nil
 }
 
-func (l *Queue) trimHead() error {
+func (l *DiskBackedQueue) trimHead() error {
 	if len(l.segments) > 1 {
 		l.segments = l.segments[1:]
 

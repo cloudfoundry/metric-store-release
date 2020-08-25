@@ -110,8 +110,10 @@ func (a *RemoteAppender) createWriter() {
 		a.log.Panic("failed to create handoff storage directory", logger.Error(err), logger.String("path", nodeHandoffStoragePath))
 	}
 
+	queue := handoff.NewDiskBackedQueue(nodeHandoffStoragePath)
+
 	writeReplayer := handoff.NewWriteReplayer(
-		nodeHandoffStoragePath,
+		queue,
 		a.connection.Client(),
 		a.metrics,
 		a.targetNodeIndex,
