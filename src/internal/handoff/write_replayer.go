@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
-	"os"
 	"sync"
 	"time"
 
@@ -178,12 +177,15 @@ func (w *WriteReplayer) run() {
 		currInterval = w.RetryMaxInterval
 	}
 
+	purgeTicker := time.NewTicker(w.PurgeInterval)
+	defer purgeTicker.Stop()
+
 	for {
 		select {
 		case <-w.done:
 			return
 
-		case <-time.After(w.PurgeInterval):
+		case <-purgeTicker.C:
 			if err := w.queue.PurgeOlderThan(time.Now().Add(-w.MaxAge)); err != nil {
 				w.log.Error("failed to purge", err)
 			}

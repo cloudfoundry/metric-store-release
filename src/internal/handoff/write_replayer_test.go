@@ -3,6 +3,7 @@ package handoff_test
 import (
 	"errors"
 	"io/ioutil"
+	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/handoff"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
@@ -50,7 +51,8 @@ var _ = Describe("WriteReplayer", func() {
 
 		By("queuing writes while the ingress client is failing", func() {
 			spyClient.SetErr(errors.New("metric_store_some_error"))
-			err = n.Write(batch)
+			err = writeReplayer.Write(batch)
+			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(spyMetrics.Fetch(metrics.MetricStoreReplayerDiskUsageBytes)).Should(BeNumerically(">", 0))
 			Eventually(spyMetrics.Fetch(metrics.MetricStoreReplayerReplayErrorsTotal)).Should(BeNumerically(">", 0))
