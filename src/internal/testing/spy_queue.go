@@ -1,9 +1,13 @@
 package testing
 
-import "time"
+import (
+	"time"
+
+	"go.uber.org/atomic"
+)
 
 type SpyQueue struct {
-	PurgeCalls int
+	PurgeCalls atomic.Int64
 }
 
 func NewSpyQueue(dir string) *SpyQueue {
@@ -35,7 +39,7 @@ func (spy *SpyQueue) Open() error {
 }
 
 func (spy *SpyQueue) PurgeOlderThan(_ time.Time) error {
-	spy.PurgeCalls++
+	spy.PurgeCalls.Inc()
 	return nil
 }
 

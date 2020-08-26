@@ -149,12 +149,13 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []i
 	r.log.Info("unable to contact nodes to read. attempting retries",
 		logger.String("nodes", fmt.Sprintf("%v", nodes)))
 
-	ticker, stop := ticker.New(ticker.Config{Context: ctx, MaxDelay: 30 * time.Second})
-	defer stop()
+	delay := ticker.NewExponentialDelay(&ticker.Config{MaxDelay: 30 * time.Second})
+	ticker := ticker.New(delay, ticker.WithContext(ctx))
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			result, warnings, err := r.queryWithNodeFailover(ctx, nodes, sortSeries, params, matchers...)
 			if err == nil {
 				r.log.Info("read retry successful")

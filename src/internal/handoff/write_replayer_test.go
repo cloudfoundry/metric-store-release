@@ -82,7 +82,7 @@ var _ = Describe("WriteReplayer", func() {
 		err = writeReplayer.Open(done)
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() int { return spyQueue.PurgeCalls }).Should(BeNumerically(">", 1))
+		Eventually(spyQueue.PurgeCalls.Load).Should(BeNumerically(">", 1))
 	})
 
 	It("closes when the done channel is closed", func() {

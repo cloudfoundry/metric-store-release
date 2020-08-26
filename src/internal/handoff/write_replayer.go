@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	"github.com/cloudfoundry/metric-store-release/src/internal/ticker"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
@@ -172,13 +173,17 @@ func (w *WriteReplayer) Write(points []*rpc.Point) error {
 func (w *WriteReplayer) run() {
 	defer w.close()
 
-	currInterval := w.RetryInterval
-	if currInterval > w.RetryMaxInterval {
-		currInterval = w.RetryMaxInterval
-	}
-
 	purgeTicker := time.NewTicker(w.PurgeInterval)
 	defer purgeTicker.Stop()
+
+	tickerConfig := &ticker.Config{
+		BaseDelay:  w.RetryInterval,
+		Multiplier: 2,
+		MaxDelay:   w.RetryMaxInterval,
+	}
+	delay := ticker.NewExponentialDelay(tickerConfig)
+	writeTicker := ticker.New(delay)
+	defer writeTicker.Stop()
 
 	for {
 		select {
@@ -190,17 +195,10 @@ func (w *WriteReplayer) run() {
 				w.log.Error("failed to purge", err)
 			}
 
-		case <-time.After(currInterval):
+		case <-writeTicker.C:
 			_, err := w.SendWrite()
 			if err == nil {
-				// Success! Ensure backoff is cancelled.
-				currInterval = w.RetryInterval
-			} else {
-				currInterval = currInterval * 2
-				if currInterval > w.RetryMaxInterval {
-					currInterval = w.RetryMaxInterval
-				}
-				break
+				writeTicker.Reset()
 			}
 		}
 	}
