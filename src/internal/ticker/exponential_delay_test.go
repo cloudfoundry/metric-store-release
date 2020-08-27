@@ -24,26 +24,20 @@ var _ = Describe("A delay for exponential backoffs", func() {
 		}
 
 		delay := NewExponentialDelay(config)
-		now := time.Now()
-		Expect(delay.Ready(now)).To(BeFalse())
 
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(20 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(40 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(80 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(20 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(40 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(80 * time.Millisecond))
 	})
 
 	It("does not race when multi-threaded", func() {
 		delay := NewExponentialDelay(&Config{})
 		for i := 0; i < 100; i++ {
-			go delay.Reset(time.Now())
+			go delay.Reset()
 		}
 		for i := 0; i < 100; i++ {
-			go delay.Ready(time.Now())
+			go delay.Step()
 		}
 	})
 
@@ -55,16 +49,11 @@ var _ = Describe("A delay for exponential backoffs", func() {
 		}
 
 		delay := NewExponentialDelay(config)
-		now := time.Now()
 
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
 	})
 
 	It("resets", func() {
@@ -74,18 +63,11 @@ var _ = Describe("A delay for exponential backoffs", func() {
 		}
 
 		delay := NewExponentialDelay(config)
-		now := time.Now()
 
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-		now = now.Add(20 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
+		Expect(delay.Step()).To(Equal(20 * time.Millisecond))
 
-		delay.Reset(now)
-		now = now.Add(10 * time.Millisecond)
-		Expect(delay.Ready(now)).To(BeTrue())
-
-		// i have the codecraft meetup until lunch
-		// if you're interested, https://VMware.zoom.us/j/97902403110?pwd=Lzl6RmZWejd6Z1FYU2JjZXhvbTlRQT09
+		delay.Reset()
+		Expect(delay.Step()).To(Equal(10 * time.Millisecond))
 	})
 })

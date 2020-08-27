@@ -6,8 +6,8 @@ import (
 )
 
 type Delay interface {
-	Reset(time.Time)
-	Ready(time.Time) bool
+	Reset()
+	Step() time.Duration
 }
 
 type VariableTicker struct {
@@ -47,7 +47,11 @@ func WithContext(ctx context.Context) Option {
 }
 
 func (t *VariableTicker) Reset() {
-	t.delay.Reset(time.Now())
+	t.delay.Reset()
+	t.cancel()
+
+	t.ctx, t.cancel = context.WithCancel(t.originalContext)
+	go t.tick()
 }
 
 func (t *VariableTicker) Stop() {
@@ -56,15 +60,12 @@ func (t *VariableTicker) Stop() {
 
 func (t *VariableTicker) tick() {
 	for {
+		time.Sleep(t.delay.Step())
 		select {
 		case <-t.ctx.Done():
 			return
 		default:
-			if t.delay.Ready(time.Now()) {
-				t.C <- struct{}{}
-			} else {
-				time.Sleep(time.Millisecond)
-			}
+			t.C <- struct{}{}
 		}
 	}
 }
