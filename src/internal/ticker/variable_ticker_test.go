@@ -57,18 +57,18 @@ var _ = Describe("A ticker for exponential backoffs", func() {
 			ticker := New(&fakeDelay{duration: time.Hour, nextDuration: time.Microsecond})
 			defer ticker.Stop()
 
-			Consistently(ticker.C, 10*time.Millisecond, time.Millisecond).ShouldNot(Receive())
+			Consistently(ticker.C).ShouldNot(Receive())
 			ticker.Reset()
-			Eventually(ticker.C, 10*time.Millisecond, time.Millisecond).Should(Receive())
+			Eventually(ticker.C).Should(Receive())
 		})
 
 		It("cancels the existing goroutine", func() {
 			ticker := New(&fakeDelay{duration: time.Microsecond, nextDuration: time.Hour})
 			defer ticker.Stop()
 
-			Eventually(ticker.C, 10*time.Millisecond, time.Millisecond).Should(Receive())
+			Eventually(ticker.C).Should(Receive())
 			ticker.Reset()
-			Consistently(ticker.C, 10*time.Millisecond, time.Millisecond).ShouldNot(Receive())
+			Consistently(ticker.C).ShouldNot(Receive())
 		})
 	})
 })

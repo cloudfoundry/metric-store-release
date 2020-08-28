@@ -14,26 +14,23 @@ type VariableTicker struct {
 	C               chan struct{}
 	delay           Delay
 	originalContext context.Context
-	ctx             context.Context
 	cancel          func()
-
-	StartTime time.Time
 }
 
 func New(delay Delay, opts ...Option) *VariableTicker {
 	t := &VariableTicker{
 		C:               make(chan struct{}),
 		delay:           delay,
-		originalContext: context.Background(),
-		cancel:          func() {},
+		originalContext: context.Background(), // TODO should not be an unbounded context
 	}
 
 	for _, opt := range opts {
 		opt(t)
 	}
 
-	t.ctx, t.cancel = context.WithCancel(t.originalContext)
-	go t.tick()
+	var ctx context.Context
+	ctx, t.cancel = context.WithCancel(t.originalContext)
+	go t.tick(ctx)
 
 	return t
 }
@@ -50,19 +47,20 @@ func (t *VariableTicker) Reset() {
 	t.delay.Reset()
 	t.cancel()
 
-	t.ctx, t.cancel = context.WithCancel(t.originalContext)
-	go t.tick()
+	var ctx context.Context
+	ctx, t.cancel = context.WithCancel(t.originalContext)
+	go t.tick(ctx)
 }
 
 func (t *VariableTicker) Stop() {
 	t.cancel()
 }
 
-func (t *VariableTicker) tick() {
+func (t *VariableTicker) tick(ctx context.Context) {
 	for {
 		time.Sleep(t.delay.Step())
 		select {
-		case <-t.ctx.Done():
+		case <-ctx.Done():
 			return
 		default:
 			t.C <- struct{}{}
