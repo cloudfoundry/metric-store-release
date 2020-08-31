@@ -129,7 +129,7 @@ function run_acceptance {
 
 function run_fast {
   TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 2"
-  exclude="pkg/auth internal/rules acceptance performance"
+  exclude="pkg/auth internal/rules acceptance"
   tests=$(find ./src -name '*_suite_test.go' -exec dirname \{\} \; | egrep -v "/${exclude// /|}/")
 
   print_checkpoint "Running Fast Tests"
