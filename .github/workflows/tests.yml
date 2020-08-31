@@ -1,0 +1,29 @@
+name: Metric Store - Go Tests
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - "release-elect"
+      - "master"
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '1.14.7'
+        id: go
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Build
+        run: |
+          echo "Git HEAD at:"
+          git rev-parse HEAD
+          go mod vendor
+          ./scripts/test unit
