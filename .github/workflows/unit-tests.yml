@@ -1,4 +1,4 @@
-name: Tests
+name: Unit Tests
 on:
   pull_request:
   push:
@@ -6,8 +6,8 @@ on:
       - "release-elect"
       - "master"
 jobs:
-  run-tests:
-    name: Run Tests
+  unit-tests:
+    name: Unit Tests
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/setup-go@v2
@@ -21,7 +21,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: "Unit Tests"
+      - name: "Run Unit Tests"
         run: |
           echo "Git HEAD at:"
           git rev-parse HEAD
