@@ -1,4 +1,4 @@
-name: Metric Store - Go Tests
+name: Tests
 on:
   pull_request:
   push:
@@ -6,8 +6,8 @@ on:
       - "release-elect"
       - "master"
 jobs:
-  build:
-    name: Build
+  run-tests:
+    name: Run Tests
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/setup-go@v2
@@ -21,7 +21,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Build
+      - name: "Unit Tests"
         run: |
           echo "Git HEAD at:"
           git rev-parse HEAD

@@ -18,7 +18,8 @@ on:
       - completed
   status: {}
 jobs:
-  vendor-dependabot:
+  auto-merge-with-vendoring:
+    name: Auto Merge with gomod vendoring
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v2
@@ -36,7 +37,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: gomod
+      - name: gomod-vendor
         run: |
           go mod tidy
           go mod vendor
