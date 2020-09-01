@@ -44,7 +44,7 @@ require (
 	go.uber.org/zap v1.15.0
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
-	google.golang.org/grpc v1.29.1
+	google.golang.org/grpc v1.31.1
 	gopkg.in/yaml.v2 v2.3.0
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 	k8s.io/apimachinery v0.18.5 // indirect
