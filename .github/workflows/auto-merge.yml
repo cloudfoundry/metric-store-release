@@ -1,4 +1,4 @@
-name: auto-merge-with-vendoring
+name: Auto Merge Pull Requests
 on:
   pull_request:
     types:
@@ -13,13 +13,10 @@ on:
   pull_request_review:
     types:
       - submitted
-  check_suite:
-    types:
-      - completed
   status: {}
 jobs:
-  auto-merge-with-vendoring:
-    name: Auto Merge with gomod vendoring
+  auto-merge-job:
+    name: Vendor, Test and Merge
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-go@v2
@@ -37,7 +34,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: gomod-vendor
+      - name: Vendor Dependencies
         run: |
           go mod tidy
           go mod vendor
@@ -50,7 +47,13 @@ jobs:
             git commit -m "Updating vendored dependencies"
             git push
           fi
-      - name: merge-vendor-changes
+      - name: Run Tests
+        run: |
+          echo "Git HEAD at:"
+          git rev-parse HEAD
+          go mod vendor
+          ./scripts/test unit
+      - name: Merge
         uses: "pascalgn/automerge-action@fc8281547d24638fac1e4149bbde710cced773d1"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
@@ -59,3 +62,4 @@ jobs:
           MERGE_RETRIES: 60
           MERGE_RETRY_SLEEP: 10000
           MERGE_METHOD: "rebase"
+          MERGE_FORKS: false
