@@ -2,7 +2,7 @@
 name: metric-store-cf-auth-proxy
 
 dependencies:
-- golang-1.13-linux
+- golang-1-linux
 
 files:
 - cmd/**/*.go

@@ -1,6 +1,6 @@
 set -ex
 
-source /var/vcap/packages/golang-1.13-linux/bosh/compile.env
+source /var/vcap/packages/golang-1-linux/bosh/compile.env
 export GOPATH=$BOSH_INSTALL_TARGET
 
 go build -mod=vendor -o ${BOSH_INSTALL_TARGET}/metric-store-nozzle ./src/cmd/nozzle
