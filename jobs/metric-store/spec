@@ -22,9 +22,6 @@ templates:
   rules.yml: config/rules.yml
   scrape_config.yml.erb: config/scrape_config.yml
   pre-start.sh: bin/pre-start.sh
-  certs/healthwatch_exporter_ca.crt.erb: config/certs/healthwatch_exporter_ca.crt
-  certs/healthwatch_exporter.crt.erb: config/certs/healthwatch_exporter.crt
-  certs/healthwatch_exporter.key.erb: config/certs/healthwatch_exporter.key
 
 packages:
 - metric-store
@@ -117,13 +114,3 @@ properties:
     description: "The cert for metric-store metrics mutual TLS client."
   metric_store_metrics_client.tls.key:
     description: "The private key for metric-store metrics mutual TLS client."
-
-  healthwatch.exporter.tls.ca_cert:
-    description: "The Certificate Authority for Healthwatch Exporter mutual TLS client."
-    default: ""
-  healthwatch.exporter.tls.cert:
-    description: "The cert for Healthwatch Exporter mutual TLS client."
-    default: ""
-  healthwatch.exporter.tls.key:
-    description: "The key for Healthwatch Exporter mutual TLS client."
-    default: ""
