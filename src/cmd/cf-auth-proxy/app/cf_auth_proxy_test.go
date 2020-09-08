@@ -116,5 +116,4 @@ var _ = Describe("CF Auth Proxy App", func() {
 		}
 		Eventually(callPprof).Should(Equal(200))
 	})
-
 })
