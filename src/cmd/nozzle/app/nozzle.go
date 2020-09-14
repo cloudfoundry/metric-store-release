@@ -27,7 +27,7 @@ type NozzleApp struct {
 	metricsServer *metrics.Server
 	metrics       metrics.Registrar
 
-	profilingMutex sync.Mutex
+	profilingMutex    sync.Mutex
 	profilingListener net.Listener
 }
 
@@ -107,11 +107,12 @@ func (app *NozzleApp) Run() {
 				"status_code", "app_name", "app_id", "space_name",
 				"space_id", "organization_name", "organization_id",
 				"process_id", "process_instance_id", "process_type",
+				"instance_id",
 			},
 			[]string{
 				"app_name", "app_id", "space_name", "space_id",
 				"organization_name", "organization_id", "process_id",
-				"process_instance_id", "process_type",
+				"process_instance_id", "process_type", "instance_id",
 			},
 		),
 		WithNozzleTimerRollupBufferSize(app.cfg.TimerRollupBufferSize),
