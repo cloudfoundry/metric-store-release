@@ -74,5 +74,8 @@ processes:
       SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
       ADDITIONAL_SCRAPE_CONFIGS_DIR: "/var/vcap/store/metric-store/scrape_configs"
 
+      GODEBUG: "x509ignoreCN=0" # temporary (15Sep2020) while we wait for upstream (firehose) certs to be updated
+      GRPC_GO_LOG_SEVERITY_LEVEL: "warning"
+      GRPC_GO_LOG_VERBOSITY_LEVEL: "1"
     limits:
       open_files: 65536

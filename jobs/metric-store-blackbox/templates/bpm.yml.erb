@@ -38,5 +38,8 @@ processes:
     METRIC_STORE_METRICS_CERT_PATH: "<%= "#{cert_dir}/metric_store_metrics.crt" %>"
     METRIC_STORE_METRICS_KEY_PATH:  "<%= "#{cert_dir}/metric_store_metrics.key" %>"
 
+    GODEBUG: "x509ignoreCN=0" # temporary (15Sep2020) while we wait for upstream (firehose) certs to be updated
+    GRPC_GO_LOG_SEVERITY_LEVEL: "warning"
+    GRPC_GO_LOG_VERBOSITY_LEVEL: "1"
   limits:
     open_files: 8192
