@@ -1,0 +1,35 @@
+name: Vendoring
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+jobs:
+  vendor-job:
+    name: Vendor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.15.1'
+        id: go
+      - uses: actions/checkout@v2
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Vendor Dependencies
+        run: |
+          go mod tidy
+          go mod vendor
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit"
+          else
+            git add -A
+            git config --global user.name "Metric Store Bot"
+            git config --global user.email "cf-log-cache+github@pivotal.io"
+            git commit -m "Updating vendored dependencies"
+            git push
+          fi

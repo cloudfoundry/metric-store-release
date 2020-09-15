@@ -2,7 +2,7 @@ version: 2
 updates:
 - package-ecosystem: gomod
   labels:
-    - "auto-merge"
+    - "dependabot"
   directory: "/"
   schedule:
     interval: daily
