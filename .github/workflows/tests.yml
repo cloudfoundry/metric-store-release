@@ -17,7 +17,32 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'tests-passed'
+            })
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
           ./scripts/test
+  success-job:
+    needs: test-job
+    name: Add Label
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['tests-passed']
+            })

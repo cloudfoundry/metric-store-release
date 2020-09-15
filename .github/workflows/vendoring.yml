@@ -33,3 +33,13 @@ jobs:
             git commit -m "Updating vendored dependencies"
             git push
           fi
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['auto-merge']
+            })
