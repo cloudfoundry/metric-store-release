@@ -58,3 +58,5 @@
     common_name: metric-store-client
     extended_key_usage:
     - client_auth
+    alternative_names:
+    - metric-store-client

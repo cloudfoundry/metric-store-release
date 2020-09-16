@@ -5,7 +5,7 @@
   configurable: false
   default:
     domains:
-      - metric-store
+    - metric-store
     extended_key_usage:
     - client_auth
     - server_auth

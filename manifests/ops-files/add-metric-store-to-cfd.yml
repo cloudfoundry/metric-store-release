@@ -98,6 +98,8 @@
     options:
       ca: loggregator_ca
       common_name: metric-store
+      alternative_names:
+      - metric-store
       extended_key_usage:
       - client_auth
       - server_auth
@@ -110,6 +112,8 @@
     options:
       is_ca: true
       common_name: metric-store
+      alternative_names:
+      - metric-store
 
 - type: replace
   path: /variables/-
@@ -121,7 +125,6 @@
       common_name: metric-store
       alternative_names:
       - ms
-      - metric-store
       - metric-store
       extended_key_usage:
       - client_auth
@@ -162,6 +165,7 @@
       ca: service_cf_internal_ca
       common_name: metric-store
       alternative_names:
+      - metric-store
       - metric-store.((system_domain))
       - '*.metric-store.((system_domain))'
 
@@ -173,3 +177,5 @@
     options:
       ca: metric_store_ca
       common_name: localhost
+      alternative_names:
+      - localhost
