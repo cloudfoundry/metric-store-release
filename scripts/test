@@ -8,6 +8,8 @@ trap "echo Exited!; exit 1;" SIGINT SIGTERM
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
 
+exit 1
+
 function print_usage {
     echo "usage: test [subcommand] [go test args]"
     echo

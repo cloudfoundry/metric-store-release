@@ -1,6 +1,10 @@
 name: Test Everything
 on:
   pull_request:
+  push:
+    branches-ignore:
+       - "release-elect"
+       - "master"
 jobs:
   test-job:
     name: All Tests
@@ -18,17 +22,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - uses: actions/github-script@v3
+        continue-on-error: true
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            try {
-              github.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'tests-passed'
-              })
-            } catch(err) {}
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'tests-passed'
+            })
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
