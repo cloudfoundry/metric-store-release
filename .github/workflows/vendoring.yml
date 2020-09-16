@@ -14,6 +14,11 @@ jobs:
           go-version: '^1.15.1'
         id: go
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -21,6 +26,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - name: Vendor Dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.METRIC_STORE_BOT_TOKEN }}
         run: |
           go mod tidy
           go mod vendor
