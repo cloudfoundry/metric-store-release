@@ -21,12 +21,14 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            github.issues.removeLabel({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              name: 'tests-passed'
-            })
+            try {
+              github.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'tests-passed'
+              })
+            } catch(err) {}
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
