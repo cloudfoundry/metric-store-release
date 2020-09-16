@@ -1,10 +1,6 @@
 name: Test Everything
 on:
   pull_request:
-  push:
-    branches-ignore:
-       - "release-elect"
-       - "master"
 jobs:
   test-job:
     name: All Tests
