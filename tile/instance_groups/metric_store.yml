@@ -54,5 +54,5 @@ instance_definition:
   configurable: true
   default: 3
   constraints:
-    min: 1
+    min: 2
     max: 9
