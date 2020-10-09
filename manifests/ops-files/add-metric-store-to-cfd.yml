@@ -85,6 +85,10 @@
             uris:
             - metric-store.((system_domain))
             - "*.metric-store.((system_domain))"
+            health_check:
+              name: metric-store-health
+              script_path: /var/vcap/jobs/metric-store/bin/health-check.sh
+              timeout: 2s
     - name: metric-store-cf-auth-proxy
       release: metric-store
       provides:

@@ -15,3 +15,7 @@ manifest: |
       uris:
       - metric-store.((..cf.cloud_controller.system_domain.value))
       - "*.metric-store.((..cf.cloud_controller.system_domain.value))"
+      health_check:
+        name: metric-store-health
+        script_path: /var/vcap/jobs/metric-store/bin/health-check.sh
+        timeout: 2s
