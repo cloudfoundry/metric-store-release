@@ -9,8 +9,9 @@
     ca: (( $ops_manager.ca_certificate ))
     common_name: metric-store
     alternative_names:
-    - metric_store
     - metric-store
+    - metric_store
+    - localhost
     extended_key_usage:
     - client_auth
     - server_auth
