@@ -10,8 +10,8 @@ manifest: |
   replication_factor: 2
   tls:
     ca_cert: (( $ops_manager.ca_certificate ))
-    cert: (( .properties.metric_store_mtls.cert_pem ))
-    key: (( .properties.metric_store_mtls.private_key_pem ))
+    cert: (( .properties.metric_store_egress_mtls.cert_pem ))
+    key: (( .properties.metric_store_egress_mtls.private_key_pem ))
   metric_store_server:
     tls:
       ca_cert: (((metric_store_server.ca)))

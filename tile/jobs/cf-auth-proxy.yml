@@ -18,8 +18,8 @@ manifest: |
     internal_addr: https://uaa.service.cf.internal:8443
   metric_store_client:
     tls:
-      cert: (( .properties.metric_store_mtls.cert_pem ))
-      key: (( .properties.metric_store_mtls.private_key_pem ))
+      cert: (( .properties.metric_store_egress_mtls.cert_pem ))
+      key: (( .properties.metric_store_egress_mtls.private_key_pem ))
   metric_store_metrics:
     tls:
       ca_cert: (((metric_store_metrics_server.ca)))

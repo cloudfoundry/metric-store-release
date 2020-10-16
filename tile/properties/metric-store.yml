@@ -1,5 +1,5 @@
 ---
-- name: metric_store_mtls
+- name: metric_store_egress_mtls
   label: Metrics Store Egress mTLS Certificate
   type: rsa_cert_credentials
   configurable: false
