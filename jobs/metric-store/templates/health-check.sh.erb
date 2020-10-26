@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-curl --fail "https://localhost:<%= p('port') %>/api/v1/query?query=1" \
+curl --fail "https://localhost:<%= p('port') %>/health" \
   --cacert "/var/vcap/jobs/metric-store/config/certs/metric_store_ca.crt" \
   --cert "/var/vcap/jobs/metric-store/config/certs/metric_store.crt" \
   --key "/var/vcap/jobs/metric-store/config/certs/metric_store.key"
