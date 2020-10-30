@@ -2,6 +2,9 @@ name: metric_store_config
 label: Metric Store Configuration
 description: Metric Store Configuration
 property_inputs:
+  - reference: .properties.replication_factor
+    label: Replication Factor
+    description: How many instances should store a copy of each metric (*NOTE* Increasing this value will effect availabilty of historical metrics and increase storage needed going forward)
   - reference: .properties.max_concurrent_queries
     label: Max Concurrent Queries
     description: Queue queries after this maximum number of queries running concurrently per node

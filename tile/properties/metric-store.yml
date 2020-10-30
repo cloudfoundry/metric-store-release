@@ -15,3 +15,7 @@
   type: integer
   configurable: true
   default: 1
+- name: replication_factor
+  type: integer
+  configurable: true
+  default: 2
