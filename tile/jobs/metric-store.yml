@@ -8,6 +8,7 @@ provides: |
     - domain: "metric-store.service.internal"
 manifest: |
   replication_factor: 2
+  max_concurrent_queries: (( .properties.max_concurrent_queries.value ))
   tls:
     ca_cert: (( $ops_manager.ca_certificate ))
     cert: (( .properties.metric_store_egress_mtls.cert_pem ))
