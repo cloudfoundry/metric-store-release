@@ -2,9 +2,6 @@ name: metric_store_config
 label: Metric Store Configuration
 description: Metric Store Configuration
 property_inputs:
-  - reference: .properties.metric_store_configs
-    label: Additional Metric Store Configuration
-    property_inputs:
-      - reference: max_concurrent_queries
-        label: Max Concurrent Queries
-        description: Queue queries after this maximum number of queries running concurrently per node
+  - reference: .properties.max_concurrent_queries
+    label: Max Concurrent Queries
+    description: Queue queries after this maximum number of queries running concurrently per node

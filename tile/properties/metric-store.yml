@@ -11,3 +11,7 @@
     extended_key_usage:
     - client_auth
     - server_auth
+- name: max_concurrent_queries
+  type: integer
+  configurable: true
+  default: 1
