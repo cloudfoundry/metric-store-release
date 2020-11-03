@@ -19,3 +19,5 @@
   type: integer
   configurable: true
   default: 2
+  constraints:
+    min: 1
