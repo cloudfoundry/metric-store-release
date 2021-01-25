@@ -10,3 +10,61 @@
     extended_key_usage:
     - client_auth
     - server_auth
+- name: metric_store_internode_mtls
+  label: Metrics Store Internode mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+    - metric-store
+    extended_key_usage:
+    - client_auth
+    - server_auth
+- name: metric_store_server_mtls
+  label: Metrics Store Server mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+    - metric-store
+    extended_key_usage:
+    - server_auth
+- name: nozzle_to_metric_store_client_mtls
+  label: Metrics Store Ingress mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+    - metric-store
+    extended_key_usage:
+    - client_auth
+- name: metric_store_metrics_server_mtls
+  label: Metrics Store Metrics Server mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+    - metric-store
+    extended_key_usage:
+    - server_auth
+- name: metric_store_metrics_client_mtls
+  label: Metrics Store Metrics Client mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+    - metric-store-client
+    extended_key_usage:
+    - client_auth
+- name: max_concurrent_queries
+  type: integer
+  configurable: true
+  default: 1
+  constraints:
+    min: 1
+- name: replication_factor
+  type: integer
+  configurable: true
+  default: 2
+  constraints:
+    min: 1

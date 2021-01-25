@@ -40,11 +40,10 @@ property_blueprints:
   - $( property "metric_store_mtls" )
   - $( property "metrics_provider_mtls" )
   - $( property "routing_provider_tls" )
-
-variables:
-  - $( bosh_variable "metric_store_ca" )
-  - $( bosh_variable "metric_store_internode" )
-  - $( bosh_variable "metric_store_server" )
-  - $( bosh_variable "metric_store_metrics_server" )
-  - $( bosh_variable "metric_store_metrics_client" )
-  - $( bosh_variable "nozzle_to_metric_store_client" )
+  - $( property "metric_store_internode_mtls" )
+  - $( property "metric_store_server_mtls" )
+  - $( property "nozzle_to_metric_store_client_mtls" )
+  - $( property "metric_store_metrics_server_mtls" )
+  - $( property "metric_store_metrics_client_mtls" )
+  - $( property "max_concurrent_queries" )
+  - $( property "replication_factor" )

@@ -14,21 +14,21 @@ manifest: |
     key: (( .properties.metric_store_mtls.private_key_pem ))
   metric_store_server:
     tls:
-      ca_cert: (((metric_store_server.ca)))
-      cert: (((metric_store_server.certificate)))
-      key: (((metric_store_server.private_key)))
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.metric_store_server_mtls.cert_pem ))
+      key: (( .properties.metric_store_server_mtls.private_key_pem ))
   metric_store_internode:
     tls:
-      ca_cert: (((metric_store_internode.ca)))
-      cert: (((metric_store_internode.certificate)))
-      key: (((metric_store_internode.private_key)))
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.metric_store_internode_mtls.cert_pem ))
+      key: (( .properties.metric_store_internode_mtls.private_key_pem ))
   metric_store_metrics_server:
     tls:
-      ca_cert: (((metric_store_metrics_server.ca)))
-      cert: (((metric_store_metrics_server.certificate)))
-      key: (((metric_store_metrics_server.private_key)))
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.metric_store_metrics_server_mtls.cert_pem ))
+      key: (( .properties.metric_store_metrics_server_mtls.private_key_pem ))
   metric_store_metrics_client:
     tls:
-      ca_cert: (((metric_store_metrics_client.ca)))
-      cert: (((metric_store_metrics_client.certificate)))
-      key: (((metric_store_metrics_client.private_key)))
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.metric_store_metrics_client_mtls.cert_pem ))
+      key: (( .properties.metric_store_metrics_client_mtls.private_key_pem ))
