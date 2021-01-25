@@ -11,11 +11,11 @@ manifest: |
       key: (( .properties.metrics_provider_mtls.private_key_pem ))
   metric_store_client:
     tls:
-      ca_cert: (((nozzle_to_metric_store_client.ca)))
-      cert: (((nozzle_to_metric_store_client.certificate)))
-      key: (((nozzle_to_metric_store_client.private_key)))
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.nozzle_to_metric_store_client_mtls.cert_pem ))
+      key: (( .properties.nozzle_to_metric_store_client_mtls.private_key_pem ))
   metric_store_metrics:
     tls:
-      ca_cert: (((metric_store_metrics_server.ca)))
-      cert: (((metric_store_metrics_server.certificate)))
-      key: (((metric_store_metrics_server.private_key)))
+      ca_cert: (( $ops_manager.ca_certificate ))
+      cert: (( .properties.metric_store_metrics_server_mtls.cert_pem ))
+      key: (( .properties.metric_store_metrics_server_mtls.private_key_pem ))
