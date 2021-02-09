@@ -585,31 +585,20 @@ func (p *Partition) DropMeasurement(name []byte) error {
 	}
 	defer fs.Release()
 
+	entries := make([]LogEntry, 0, 100)
 	// Delete all keys and values.
 	if kitr := fs.TagKeyIterator(name); kitr != nil {
 		for k := kitr.Next(); k != nil; k = kitr.Next() {
 			// Delete key if not already deleted.
 			if !k.Deleted() {
-				if err := func() error {
-					p.mu.RLock()
-					defer p.mu.RUnlock()
-					return p.activeLogFile.DeleteTagKey(name, k.Key())
-				}(); err != nil {
-					return err
-				}
+				entries = append(entries, LogEntry{Flag: LogEntryTagKeyTombstoneFlag, Name: name, Key: k.Key()})
 			}
 
 			// Delete each value in key.
 			if vitr := k.TagValueIterator(); vitr != nil {
 				for v := vitr.Next(); v != nil; v = vitr.Next() {
 					if !v.Deleted() {
-						if err := func() error {
-							p.mu.RLock()
-							defer p.mu.RUnlock()
-							return p.activeLogFile.DeleteTagValue(name, k.Key(), v.Value())
-						}(); err != nil {
-							return err
-						}
+						entries = append(entries, LogEntry{Flag: LogEntryTagValueTombstoneFlag, Name: name, Key: k.Key(), Value: v.Value()})
 					}
 				}
 			}
@@ -626,9 +615,7 @@ func (p *Partition) DropMeasurement(name []byte) error {
 			} else if elem.SeriesID == 0 {
 				break
 			}
-			if err := p.activeLogFile.DeleteSeriesID(elem.SeriesID); err != nil {
-				return err
-			}
+			entries = append(entries, LogEntry{Flag: LogEntrySeriesTombstoneFlag, SeriesID: elem.SeriesID})
 		}
 		if err = itr.Close(); err != nil {
 			return err
@@ -636,13 +623,14 @@ func (p *Partition) DropMeasurement(name []byte) error {
 	}
 
 	// Mark measurement as deleted.
-	if err := func() error {
-		p.mu.RLock()
-		defer p.mu.RUnlock()
-		return p.activeLogFile.DeleteMeasurement(name)
-	}(); err != nil {
+	entries = append(entries, LogEntry{Flag: LogEntryMeasurementTombstoneFlag, Name: name})
+
+	p.mu.RLock()
+	if err := p.activeLogFile.Writes(entries); err != nil {
+		p.mu.RUnlock()
 		return err
 	}
+	p.mu.RUnlock()
 
 	// Check if the log file needs to be swapped.
 	if err := p.CheckLogFile(); err != nil {
@@ -687,11 +675,37 @@ func (p *Partition) createSeriesListIfNotExists(names [][]byte, tagsSlice []mode
 
 func (p *Partition) DropSeries(seriesID uint64) error {
 	// Delete series from index.
-	if err := p.activeLogFile.DeleteSeriesID(seriesID); err != nil {
+	if err := func() error {
+		p.mu.RLock()
+		defer p.mu.RUnlock()
+		return p.activeLogFile.DeleteSeriesID(seriesID)
+	}(); err != nil {
 		return err
 	}
 
 	p.seriesIDSet.Remove(seriesID)
+
+	// Swap log file, if necessary.
+	return p.CheckLogFile()
+}
+
+func (p *Partition) DropSeriesList(seriesIDs []uint64) error {
+	if len(seriesIDs) == 0 {
+		return nil
+	}
+
+	// Delete series from index.
+	if err := func() error {
+		p.mu.RLock()
+		defer p.mu.RUnlock()
+		return p.activeLogFile.DeleteSeriesIDList(seriesIDs)
+	}(); err != nil {
+		return err
+	}
+
+	for _, seriesID := range seriesIDs {
+		p.seriesIDSet.Remove(seriesID)
+	}
 
 	// Swap log file, if necessary.
 	return p.CheckLogFile()
@@ -770,18 +784,21 @@ func (p *Partition) TagValueIterator(name, key []byte) tsdb.TagValueIterator {
 }
 
 // TagKeySeriesIDIterator returns a series iterator for all values across a single key.
-func (p *Partition) TagKeySeriesIDIterator(name, key []byte) tsdb.SeriesIDIterator {
+func (p *Partition) TagKeySeriesIDIterator(name, key []byte) (tsdb.SeriesIDIterator, error) {
 	fs, err := p.RetainFileSet()
 	if err != nil {
-		return nil // TODO(edd): this should probably return an error.
+		return nil, err
 	}
 
-	itr := fs.TagKeySeriesIDIterator(name, key)
-	if itr == nil {
+	itr, err := fs.TagKeySeriesIDIterator(name, key)
+	if err != nil {
 		fs.Release()
-		return nil
+		return nil, err
+	} else if itr == nil {
+		fs.Release()
+		return nil, nil
 	}
-	return newFileSetSeriesIDIterator(fs, itr)
+	return newFileSetSeriesIDIterator(fs, itr), nil
 }
 
 // TagValueSeriesIDIterator returns a series iterator for a single key value.
@@ -793,6 +810,7 @@ func (p *Partition) TagValueSeriesIDIterator(name, key, value []byte) (tsdb.Seri
 
 	itr, err := fs.TagValueSeriesIDIterator(name, key, value)
 	if err != nil {
+		fs.Release()
 		return nil, err
 	} else if itr == nil {
 		fs.Release()
@@ -1248,7 +1266,7 @@ func NewManifest(path string) *Manifest {
 		Version: Version,
 		path:    path,
 	}
-	copy(m.Levels, DefaultCompactionLevels[:])
+	copy(m.Levels, DefaultCompactionLevels)
 	return m
 }
 

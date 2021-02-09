@@ -93,12 +93,12 @@ var OpenAuthorizer = openAuthorizer{}
 // AuthorizeDatabase returns true to allow any operation on a database.
 func (a openAuthorizer) AuthorizeDatabase(influxql.Privilege, string) bool { return true }
 
-// AuthorizeSeriesRead allows accesss to any series.
+// AuthorizeSeriesRead allows access to any series.
 func (a openAuthorizer) AuthorizeSeriesRead(database string, measurement []byte, tags models.Tags) bool {
 	return true
 }
 
-// AuthorizeSeriesWrite allows accesss to any series.
+// AuthorizeSeriesWrite allows access to any series.
 func (a openAuthorizer) AuthorizeSeriesWrite(database string, measurement []byte, tags models.Tags) bool {
 	return true
 }
@@ -111,6 +111,9 @@ func (a openAuthorizer) AuthorizeQuery(_ string, _ *influxql.Query) error { retu
 // function should be preferred over directly checking if an Authorizer is nil
 // or not.
 func AuthorizerIsOpen(a Authorizer) bool {
+	if u, ok := a.(interface{ AuthorizeUnrestricted() bool }); ok {
+		return u.AuthorizeUnrestricted()
+	}
 	return a == nil || a == OpenAuthorizer
 }
 
@@ -142,17 +145,15 @@ type ExecutionOptions struct {
 	AbortCh <-chan struct{}
 }
 
-type contextKey int
-
-const (
-	iteratorsContextKey contextKey = iota
-	monitorContextKey
+type (
+	iteratorsContextKey struct{}
+	monitorContextKey   struct{}
 )
 
 // NewContextWithIterators returns a new context.Context with the *Iterators slice added.
 // The query planner will add instances of AuxIterator to the Iterators slice.
 func NewContextWithIterators(ctx context.Context, itr *Iterators) context.Context {
-	return context.WithValue(ctx, iteratorsContextKey, itr)
+	return context.WithValue(ctx, iteratorsContextKey{}, itr)
 }
 
 // StatementExecutor executes a statement within the Executor.
@@ -427,7 +428,7 @@ func (q *Task) Monitor(fn MonitorFunc) {
 	go q.monitor(fn)
 }
 
-// Error returns any asynchronous error that may have occured while executing
+// Error returns any asynchronous error that may have occurred while executing
 // the query.
 func (q *Task) Error() error {
 	q.mu.Lock()

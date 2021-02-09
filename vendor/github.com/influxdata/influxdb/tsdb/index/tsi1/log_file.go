@@ -323,18 +323,18 @@ func (f *LogFile) DeleteMeasurement(name []byte) error {
 }
 
 // TagKeySeriesIDIterator returns a series iterator for a tag key.
-func (f *LogFile) TagKeySeriesIDIterator(name, key []byte) tsdb.SeriesIDIterator {
+func (f *LogFile) TagKeySeriesIDIterator(name, key []byte) (tsdb.SeriesIDIterator, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
 	mm, ok := f.mms[string(name)]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
 	tk, ok := mm.tagSet[string(key)]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
 	// Combine iterators across all tag keys.
@@ -348,7 +348,7 @@ func (f *LogFile) TagKeySeriesIDIterator(name, key []byte) tsdb.SeriesIDIterator
 		}
 	}
 
-	return tsdb.MergeSeriesIDIterators(itrs...)
+	return tsdb.MergeSeriesIDIterators(itrs...), nil
 }
 
 // TagKeyIterator returns a value iterator for a measurement.
@@ -573,6 +573,23 @@ func (f *LogFile) DeleteSeriesID(id uint64) error {
 		return err
 	}
 	f.execEntry(&e)
+
+	// Flush buffer and sync to disk.
+	return f.FlushAndSync()
+}
+
+// DeleteSeriesIDList adds a tombstone for seriesIDList
+func (f *LogFile) DeleteSeriesIDList(ids []uint64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, id := range ids {
+		e := LogEntry{Flag: LogEntrySeriesTombstoneFlag, SeriesID: id}
+		if err := f.appendEntry(&e); err != nil {
+			return err
+		}
+		f.execEntry(&e)
+	}
 
 	// Flush buffer and sync to disk.
 	return f.FlushAndSync()
@@ -1054,6 +1071,28 @@ func (f *LogFile) seriesSketches() (sketch, tSketch estimator.Sketch, err error)
 		tSketch.Add(models.MakeKey(name, keys))
 	})
 	return sketch, tSketch, nil
+}
+
+func (f *LogFile) ExecEntries(entries []LogEntry) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range entries {
+		entry := &entries[i]
+		if err := f.appendEntry(entry); err != nil {
+			return err
+		}
+		f.execEntry(entry)
+	}
+	return nil
+}
+
+func (f *LogFile) Writes(entries []LogEntry) error {
+	if err := f.ExecEntries(entries); err != nil {
+		return err
+	}
+
+	// Flush buffer and sync to disk.
+	return f.FlushAndSync()
 }
 
 // LogEntry represents a single log entry in the write-ahead log.

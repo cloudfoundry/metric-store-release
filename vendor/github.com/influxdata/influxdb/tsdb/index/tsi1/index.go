@@ -550,7 +550,7 @@ func (i *Index) fetchByteValues(fn func(idx int) ([][]byte, error)) ([][]byte, e
 	}
 
 	// It's now safe to read from names.
-	return slices.MergeSortedBytes(names[:]...), nil
+	return slices.MergeSortedBytes(names...), nil
 }
 
 // MeasurementIterator returns an iterator over all measurements.
@@ -824,6 +824,64 @@ func (i *Index) DropSeries(seriesID uint64, key []byte, cascade bool) error {
 	return nil
 }
 
+// DropSeries drops the provided series from the index.  If cascade is true
+// and this is the last series to the measurement, the measurment will also be dropped.
+func (i *Index) DropSeriesList(seriesIDs []uint64, keys [][]byte, _ bool) error {
+	// All slices must be of equal length.
+	if len(seriesIDs) != len(keys) {
+		return errors.New("seriesIDs/keys length mismatch in index")
+	}
+
+	// We need to move different series into collections for each partition
+	// to process.
+	pSeriesIDs := make([][]uint64, i.PartitionN)
+	pKeys := make([][][]byte, i.PartitionN)
+
+	for idx, key := range keys {
+		pidx := i.partitionIdx(key)
+		pSeriesIDs[pidx] = append(pSeriesIDs[pidx], seriesIDs[idx])
+		pKeys[pidx] = append(pKeys[pidx], key)
+	}
+
+	// Process each subset of series on each partition.
+	n := i.availableThreads()
+
+	// Store errors.
+	errC := make(chan error, i.PartitionN)
+
+	var pidx uint32 // Index of maximum Partition being worked on.
+	for k := 0; k < n; k++ {
+		go func() {
+			for {
+				idx := int(atomic.AddUint32(&pidx, 1) - 1) // Get next partition to work on.
+				if idx >= len(i.partitions) {
+					return // No more work.
+				}
+
+				// Drop from partition.
+				err := i.partitions[idx].DropSeriesList(pSeriesIDs[idx])
+				errC <- err
+			}
+		}()
+	}
+
+	// Check for error
+	for i := 0; i < cap(errC); i++ {
+		if err := <-errC; err != nil {
+			return err
+		}
+	}
+
+	// Add sketch tombstone.
+	i.mu.Lock()
+	for _, key := range keys {
+		i.sTSketch.Add(key)
+	}
+	i.mu.Unlock()
+
+	return nil
+}
+
 // DropSeriesGlobal is a no-op on the tsi1 index.
 func (i *Index) DropSeriesGlobal(key []byte) error { return nil }
 
@@ -982,8 +1040,10 @@ func (i *Index) TagValueIterator(name, key []byte) (tsdb.TagValueIterator, error
 func (i *Index) TagKeySeriesIDIterator(name, key []byte) (tsdb.SeriesIDIterator, error) {
 	a := make([]tsdb.SeriesIDIterator, 0, len(i.partitions))
 	for _, p := range i.partitions {
-		itr := p.TagKeySeriesIDIterator(name, key)
-		if itr != nil {
+		itr, err := p.TagKeySeriesIDIterator(name, key)
+		if err != nil {
+			return nil, err
+		} else if itr != nil {
 			a = append(a, itr)
 		}
 	}

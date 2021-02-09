@@ -114,6 +114,9 @@ func (s *SeriesSegment) Open() error {
 	return nil
 }
 
+// Path returns the file path to the segment.
+func (s *SeriesSegment) Path() string { return s.path }
+
 // InitForWrite initializes a write handle for the segment.
 // This is only used for the last segment in the series file.
 func (s *SeriesSegment) InitForWrite() (err error) {
@@ -262,6 +265,48 @@ func (s *SeriesSegment) Clone() *SeriesSegment {
 	}
 }
 
+// CompactToPath rewrites the segment to a new file and removes tombstoned entries.
+func (s *SeriesSegment) CompactToPath(path string, index *SeriesIndex) error {
+	dst, err := CreateSeriesSegment(s.id, path)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	if err = dst.InitForWrite(); err != nil {
+		return err
+	}
+
+	// Iterate through the segment and write any entries to a new segment
+	// that exist in the index.
+	var buf []byte
+	if err = s.ForEachEntry(func(flag uint8, id uint64, _ int64, key []byte) error {
+		if index.IsDeleted(id) {
+			return nil // series id has been deleted from index
+		} else if flag == SeriesEntryTombstoneFlag {
+			return fmt.Errorf("[series id %d]: tombstone entry but exists in index", id)
+		}
+
+		// copy entry over to new segment
+		buf = AppendSeriesEntry(buf[:0], flag, id, key)
+		if _, err := dst.WriteLogEntry(buf); err != nil {
+			return err
+		}
+		return err
+	}); err != nil {
+		return err
+	}
+
+	// Close the segment and truncate it to its maximum size.
+	size := dst.size
+	if err := dst.Close(); err != nil {
+		return err
+	} else if err := os.Truncate(dst.path, int64(size)); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CloneSeriesSegments returns a copy of a slice of segments.
 func CloneSeriesSegments(a []*SeriesSegment) []*SeriesSegment {
 	other := make([]*SeriesSegment, len(a))
@@ -303,12 +348,12 @@ func SplitSeriesOffset(offset int64) (segmentID uint16, pos uint32) {
 	return uint16((offset >> 32) & 0xFFFF), uint32(offset & 0xFFFFFFFF)
 }
 
-// IsValidSeriesSegmentFilename returns true if filename is a 4-character lowercase hexidecimal number.
+// IsValidSeriesSegmentFilename returns true if filename is a 4-character lowercase hexadecimal number.
 func IsValidSeriesSegmentFilename(filename string) bool {
 	return seriesSegmentFilenameRegex.MatchString(filename)
 }
 
-// ParseSeriesSegmentFilename returns the id represented by the hexidecimal filename.
+// ParseSeriesSegmentFilename returns the id represented by the hexadecimal filename.
 func ParseSeriesSegmentFilename(filename string) (uint16, error) {
 	i, err := strconv.ParseUint(filename, 16, 32)
 	return uint16(i), err

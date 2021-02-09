@@ -2,6 +2,7 @@ package tsdb // import "github.com/influxdata/influxdb/tsdb"
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -511,6 +512,7 @@ func (s *Store) openSeriesFile(database string) (*SeriesFile, error) {
 	}
 
 	sfile := NewSeriesFile(filepath.Join(s.path, database, SeriesFileDirectory))
+	sfile.WithMaxCompactionConcurrency(s.EngineOptions.Config.SeriesFileMaxConcurrentSnapshotCompactions)
 	sfile.Logger = s.baseLogger
 	if err := sfile.Open(); err != nil {
 		return nil, err
@@ -713,19 +715,20 @@ func (s *Store) DeleteShard(shardID uint64) error {
 		return nil
 	}
 	delete(s.shards, shardID)
-	delete(s.epochs, shardID)
 	s.pendingShardDeletes[shardID] = struct{}{}
 
 	db := sh.Database()
 	// Determine if the shard contained any series that are not present in any
 	// other shards in the database.
 	shards := s.filterShards(byDatabase(db))
+	epoch := s.epochs[shardID]
 	s.mu.Unlock()
 
 	// Ensure the pending deletion flag is cleared on exit.
 	defer func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+		delete(s.epochs, shardID)
 		delete(s.pendingShardDeletes, shardID)
 		s.databases[db].removeIndexType(sh.IndexType())
 	}()
@@ -786,6 +789,15 @@ func (s *Store) DeleteShard(shardID uint64) error {
 
 	}
 
+	// enter the epoch tracker
+	guards, gen := epoch.StartWrite()
+	defer epoch.EndWrite(gen)
+
+	// wait for any guards before closing the shard
+	for _, guard := range guards {
+		guard.Wait()
+	}
+
 	// Close the shard.
 	if err := sh.Close(); err != nil {
 		return err
@@ -807,14 +819,23 @@ func (s *Store) DeleteDatabase(name string) error {
 		// no files locally, so nothing to do
 		return nil
 	}
-	shards := s.filterShards(func(sh *Shard) bool {
-		return sh.database == name
-	})
+	shards := s.filterShards(byDatabase(name))
+	epochs := s.epochsForShards(shards)
 	s.mu.RUnlock()
 
 	if err := s.walkShards(shards, func(sh *Shard) error {
 		if sh.database != name {
 			return nil
+		}
+
+		epoch := epochs[sh.id]
+		// enter the epoch tracker
+		guards, gen := epoch.StartWrite()
+		defer epoch.EndWrite(gen)
+
+		// wait for any guards before closing the shard
+		for _, guard := range guards {
+			guard.Wait()
 		}
 
 		return sh.Close()
@@ -1371,6 +1392,10 @@ func (s *Store) ExpandSources(sources influxql.Sources) (influxql.Sources, error
 
 // WriteToShard writes a list of points to a shard identified by its ID.
 func (s *Store) WriteToShard(shardID uint64, points []models.Point) error {
+	return s.WriteToShardWithContext(context.Background(), shardID, points)
+}
+
+func (s *Store) WriteToShardWithContext(ctx context.Context, shardID uint64, points []models.Point) error {
 	s.mu.RLock()
 
 	select {
@@ -1407,7 +1432,7 @@ func (s *Store) WriteToShard(shardID uint64, points []models.Point) error {
 		sh.SetCompactionsEnabled(true)
 	}
 
-	return sh.WritePoints(points)
+	return sh.WritePointsWithContext(ctx, points)
 }
 
 // MeasurementNames returns a slice of all measurements. Measurements accepts an

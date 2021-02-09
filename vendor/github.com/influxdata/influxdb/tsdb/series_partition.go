@@ -11,6 +11,7 @@ import (
 
 	"github.com/influxdata/influxdb/logger"
 	"github.com/influxdata/influxdb/models"
+	"github.com/influxdata/influxdb/pkg/limiter"
 	"github.com/influxdata/influxdb/pkg/rhh"
 	"go.uber.org/zap"
 )
@@ -40,6 +41,7 @@ type SeriesPartition struct {
 	seq      uint64 // series id sequence
 
 	compacting          bool
+	compactionLimiter   limiter.Fixed
 	compactionsDisabled int
 
 	CompactThreshold int
@@ -48,14 +50,15 @@ type SeriesPartition struct {
 }
 
 // NewSeriesPartition returns a new instance of SeriesPartition.
-func NewSeriesPartition(id int, path string) *SeriesPartition {
+func NewSeriesPartition(id int, path string, compactionLimiter limiter.Fixed) *SeriesPartition {
 	return &SeriesPartition{
-		id:               id,
-		path:             path,
-		closing:          make(chan struct{}),
-		CompactThreshold: DefaultSeriesPartitionCompactThreshold,
-		Logger:           zap.NewNop(),
-		seq:              uint64(id) + 1,
+		id:                id,
+		path:              path,
+		closing:           make(chan struct{}),
+		compactionLimiter: compactionLimiter,
+		CompactThreshold:  DefaultSeriesPartitionCompactThreshold,
+		Logger:            zap.NewNop(),
+		seq:               uint64(id) + 1,
 	}
 }
 
@@ -170,8 +173,26 @@ func (p *SeriesPartition) ID() int { return p.id }
 // Path returns the path to the partition.
 func (p *SeriesPartition) Path() string { return p.path }
 
-// Path returns the path to the series index.
+// IndexPath returns the path to the series index.
 func (p *SeriesPartition) IndexPath() string { return filepath.Join(p.path, "index") }
+
+// Index returns the partition's index.
+func (p *SeriesPartition) Index() *SeriesIndex { return p.index }
+
+// Segments returns a list of partition segments. Used for testing.
+func (p *SeriesPartition) Segments() []*SeriesSegment { return p.segments }
+
+// FileSize returns the size of all partitions, in bytes.
+func (p *SeriesPartition) FileSize() (n int64, err error) {
+	for _, ss := range p.segments {
+		fi, err := os.Stat(ss.Path())
+		if err != nil {
+			return 0, err
+		}
+		n += fi.Size()
+	}
+	return n, err
+}
 
 // CreateSeriesListIfNotExists creates a list of series in bulk if they don't exist.
 // The ids parameter is modified to contain series IDs for all keys belonging to this partition.
@@ -255,13 +276,16 @@ func (p *SeriesPartition) CreateSeriesListIfNotExists(keys [][]byte, keyPartitio
 	}
 
 	// Check if we've crossed the compaction threshold.
-	if p.compactionsEnabled() && !p.compacting && p.CompactThreshold != 0 && p.index.InMemCount() >= uint64(p.CompactThreshold) {
+	if p.compactionsEnabled() && !p.compacting &&
+		p.CompactThreshold != 0 && p.index.InMemCount() >= uint64(p.CompactThreshold) &&
+		p.compactionLimiter.TryTake() {
 		p.compacting = true
 		log, logEnd := logger.NewOperation(p.Logger, "Series partition compaction", "series_partition_compaction", zap.String("path", p.path))
 
 		p.wg.Add(1)
 		go func() {
 			defer p.wg.Done()
+			defer p.compactionLimiter.Release()
 
 			compactor := NewSeriesPartitionCompactor()
 			compactor.cancel = p.closing
@@ -399,7 +423,7 @@ func (p *SeriesPartition) EnableCompactions() {
 }
 
 func (p *SeriesPartition) compactionsEnabled() bool {
-	return p.compactionsDisabled == 0
+	return p.compactionLimiter != nil && p.compactionsDisabled == 0
 }
 
 // AppendSeriesIDs returns a list of all series ids.

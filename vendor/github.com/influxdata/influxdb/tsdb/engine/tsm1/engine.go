@@ -196,6 +196,9 @@ type Engine struct {
 
 	// seriesTypeMap maps a series key to field type
 	seriesTypeMap *radix.Tree
+
+	// muDigest ensures only one goroutine can generate a digest at a time.
+	muDigest sync.RWMutex
 }
 
 // NewEngine returns a new instance of Engine.
@@ -283,6 +286,9 @@ func (e *Engine) WithParseFileNameFunc(parseFileNameFunc ParseFileNameFunc) {
 
 // Digest returns a reader for the shard's digest.
 func (e *Engine) Digest() (io.ReadCloser, int64, error) {
+	e.muDigest.Lock()
+	defer e.muDigest.Unlock()
+
 	log, logEnd := logger.NewOperation(e.logger, "Engine digest", "tsm1_digest")
 	defer logEnd()
 
@@ -906,12 +912,29 @@ func (e *Engine) Free() error {
 // backup is running. For shards that are still acively getting writes, this
 // could cause the WAL to backup, increasing memory usage and evenutally rejecting writes.
 func (e *Engine) Backup(w io.Writer, basePath string, since time.Time) error {
-	path, err := e.CreateSnapshot()
-	if err != nil {
-		return err
+	var err error
+	var path string
+	for i := 0; i < 3; i++ {
+		path, err = e.CreateSnapshot()
+		if err != nil {
+			switch err {
+			case ErrSnapshotInProgress:
+				backoff := time.Duration(math.Pow(32, float64(i))) * time.Millisecond
+				time.Sleep(backoff)
+			default:
+				return err
+			}
+		}
+	}
+	if err == ErrSnapshotInProgress {
+		e.logger.Warn("Snapshotter busy: Backup proceeding without snapshot contents.")
 	}
 	// Remove the temporary snapshot dir
-	defer os.RemoveAll(path)
+	defer func() {
+		if err := os.RemoveAll(path); err != nil {
+			e.logger.Warn("backup could not remove temporary snapshot directory", zap.String("path", path), zap.Error(err))
+		}
+	}()
 
 	return intar.Stream(w, path, basePath, intar.SinceFilterTarFile(since))
 }
@@ -977,7 +1000,11 @@ func (e *Engine) Export(w io.Writer, basePath string, start time.Time, end time.
 		return err
 	}
 	// Remove the temporary snapshot dir
-	defer os.RemoveAll(path)
+	defer func() {
+		if err := os.RemoveAll(path); err != nil {
+			e.logger.Warn("export could not remove temporary snapshot directory", zap.String("path", path), zap.Error(err))
+		}
+	}()
 
 	return intar.Stream(w, path, basePath, e.timeStampFilterTarFile(start, end))
 }
@@ -1252,22 +1279,46 @@ func (e *Engine) addToIndexFromKey(keys [][]byte, fieldTypes []influxql.DataType
 	return nil
 }
 
-// WritePoints writes metadata and point data into the engine.
-// It returns an error if new points are added to an existing key.
+// WritePoints() is a thin wrapper for WritePointsWithContext().
+//
+// TODO: We should consider obsolteing and removing this function in favor of
+// WritePointsWithContext()
+//
 func (e *Engine) WritePoints(points []models.Point) error {
+	return e.WritePointsWithContext(context.Background(), points)
+}
+
+// WritePointsWithContext() writes metadata and point data into the engine.  It
+// returns an error if new points are added to an existing key.
+//
+// In addition, it accepts a context.Context value. It stores write statstics
+// to context values passed in of type tsdb.ContextKey. The metrics it stores
+// are points written and values (fields) written.
+//
+// It expects int64 pointers to be stored in the tsdb.StatPointsWritten and
+// tsdb.StatValuesWritten keys and will store the proper values if requested.
+//
+func (e *Engine) WritePointsWithContext(ctx context.Context, points []models.Point) error {
 	values := make(map[string][]Value, len(points))
 	var (
 		keyBuf    []byte
 		baseLen   int
 		seriesErr error
+		npoints   int64 // total points processed
+		nvalues   int64 // total values (fields) processed
 	)
 
 	for _, p := range points {
+		// TODO: In the future we'd like to check ctx.Err() for cancellation here.
+		// Beforehand we should measure the performance impact.
+
 		keyBuf = append(keyBuf[:0], p.Key()...)
 		keyBuf = append(keyBuf, keyFieldSeparator...)
 		baseLen = len(keyBuf)
 		iter := p.FieldIterator()
 		t := p.Time().UnixNano()
+
+		npoints++
 		for iter.Next() {
 			// Skip fields name "time", they are illegal
 			if bytes.Equal(iter.FieldKey(), timeBytes) {
@@ -1337,6 +1388,8 @@ func (e *Engine) WritePoints(points []models.Point) error {
 			default:
 				return fmt.Errorf("unknown field type for %s: %s", string(iter.FieldKey()), p.String())
 			}
+
+			nvalues++
 			values[string(keyBuf)] = append(values[string(keyBuf)], v)
 		}
 	}
@@ -1354,6 +1407,17 @@ func (e *Engine) WritePoints(points []models.Point) error {
 			return err
 		}
 	}
+
+	// if requested, store points written stats
+	if pointsWritten, ok := ctx.Value(tsdb.StatPointsWritten).(*int64); ok {
+		*pointsWritten = npoints
+	}
+
+	// if requested, store values written stats
+	if valuesWritten, ok := ctx.Value(tsdb.StatValuesWritten).(*int64); ok {
+		*valuesWritten = nvalues
+	}
+
 	return seriesErr
 }
 
@@ -1484,17 +1548,36 @@ func (e *Engine) deleteSeriesRange(seriesKeys [][]byte, min, max int64) error {
 		return nil
 	}
 
-	// Ensure keys are sorted since lower layers require them to be.
-	if !bytesutil.IsSorted(seriesKeys) {
-		bytesutil.Sort(seriesKeys)
-	}
-
 	// Min and max time in the engine are slightly different from the query language values.
 	if min == influxql.MinTime {
 		min = math.MinInt64
 	}
 	if max == influxql.MaxTime {
 		max = math.MaxInt64
+	}
+
+	var overlapsTimeRangeMinMax bool
+	var overlapsTimeRangeMinMaxLock sync.Mutex
+	e.FileStore.Apply(func(r TSMFile) error {
+		if r.OverlapsTimeRange(min, max) {
+			overlapsTimeRangeMinMaxLock.Lock()
+			overlapsTimeRangeMinMax = true
+			overlapsTimeRangeMinMaxLock.Unlock()
+		}
+		return nil
+	})
+
+	if !overlapsTimeRangeMinMax && e.Cache.store.count() > 0 {
+		overlapsTimeRangeMinMax = true
+	}
+
+	if !overlapsTimeRangeMinMax {
+		return nil
+	}
+
+	// Ensure keys are sorted since lower layers require them to be.
+	if !bytesutil.IsSorted(seriesKeys) {
+		bytesutil.Sort(seriesKeys)
 	}
 
 	// Run the delete on each TSM file in parallel
@@ -1614,6 +1697,24 @@ func (e *Engine) deleteSeriesRange(seriesKeys [][]byte, min, max int64) error {
 		return err
 	}
 
+	// The seriesKeys slice is mutated if they are still found in the cache.
+	cacheKeys := e.Cache.Keys()
+	for i := 0; i < len(seriesKeys); i++ {
+		seriesKey := seriesKeys[i]
+		// Already crossed out
+		if len(seriesKey) == 0 {
+			continue
+		}
+
+		j := bytesutil.SearchBytes(cacheKeys, seriesKey)
+		if j < len(cacheKeys) {
+			cacheSeriesKey, _ := SeriesAndFieldFromCompositeKey(cacheKeys[j])
+			if bytes.Equal(seriesKey, cacheSeriesKey) {
+				seriesKeys[i] = emptyBytes
+			}
+		}
+	}
+
 	// Have we deleted all values for the series? If so, we need to remove
 	// the series from the index.
 	hasDeleted := false
@@ -1627,6 +1728,9 @@ func (e *Engine) deleteSeriesRange(seriesKeys [][]byte, min, max int64) error {
 		buf := make([]byte, 1024) // For use when accessing series file.
 		ids := tsdb.NewSeriesIDSet()
 		measurements := make(map[string]struct{}, 1)
+
+		deleteIDList := make([]uint64, 0, 10000)
+		deleteKeyList := make([][]byte, 0, 10000)
 
 		for _, k := range seriesKeys {
 			if len(k) == 0 {
@@ -1657,14 +1761,17 @@ func (e *Engine) deleteSeriesRange(seriesKeys [][]byte, min, max int64) error {
 				continue
 			}
 
+			// Insert deleting series info into queue
 			measurements[string(name)] = struct{}{}
-			// Remove the series from the local index.
-			if err := e.index.DropSeries(sid, k, false); err != nil {
-				return err
-			}
+			deleteIDList = append(deleteIDList, sid)
+			deleteKeyList = append(deleteKeyList, k)
 
 			// Add the id to the set of delete ids.
 			ids.Add(sid)
+		}
+		// Remove the series from the local index.
+		if err := e.index.DropSeriesList(deleteIDList, deleteKeyList, false); err != nil {
+			return err
 		}
 
 		fielsetChanged := false
@@ -1974,7 +2081,7 @@ func (e *Engine) compact(wg *sync.WaitGroup) {
 			level1Groups := e.CompactionPlan.PlanLevel(1)
 			level2Groups := e.CompactionPlan.PlanLevel(2)
 			level3Groups := e.CompactionPlan.PlanLevel(3)
-			level4Groups := e.CompactionPlan.Plan(e.FileStore.LastModified())
+			level4Groups := e.CompactionPlan.Plan(e.LastModified())
 			atomic.StoreInt64(&e.stats.TSMOptimizeCompactionsQueue, int64(len(level4Groups)))
 
 			// If no full compactions are need, see if an optimize is needed
@@ -2163,7 +2270,19 @@ func (s *compactionStrategy) compactGroup() {
 			return
 		}
 
-		log.Info("Error compacting TSM files", zap.Error(err))
+		log.Warn("Error compacting TSM files", zap.Error(err))
+
+		// We hit a bad TSM file - rename so the next compaction can proceed.
+		if _, ok := err.(errBlockRead); ok {
+			path := err.(errBlockRead).file
+			log.Info("Renaming a corrupt TSM file due to compaction error", zap.Error(err))
+			if err := s.fileStore.ReplaceWithCallback([]string{path}, nil, nil); err != nil {
+				log.Info("Error removing bad TSM file", zap.Error(err))
+			} else if e := os.Rename(path, path+"."+BadTSMFileExtension); e != nil {
+				log.Info("Error renaming corrupt TSM file", zap.Error((err)))
+			}
+		}
+
 		atomic.AddInt64(s.errorStat, 1)
 		time.Sleep(time.Second)
 		return
@@ -2173,6 +2292,13 @@ func (s *compactionStrategy) compactGroup() {
 		log.Info("Error replacing new TSM files", zap.Error(err))
 		atomic.AddInt64(s.errorStat, 1)
 		time.Sleep(time.Second)
+
+		// Remove the new snapshot files. We will try again.
+		for _, file := range files {
+			if err := os.Remove(file); err != nil {
+				log.Error("Unable to remove file", zap.String("path", file), zap.Error(err))
+			}
+		}
 		return
 	}
 
@@ -2654,7 +2780,7 @@ func (e *Engine) createVarRefSeriesIterator(ctx context.Context, ref *influxql.V
 		}
 	}
 
-	// Build auxilary cursors.
+	// Build auxiliary cursors.
 	// Tag values should be returned if the field doesn't exist.
 	var aux []cursorAt
 	if len(opt.Aux) > 0 {
@@ -3014,7 +3140,7 @@ func SeriesFieldKey(seriesKey, field string) string {
 
 func SeriesFieldKeyBytes(seriesKey, field string) []byte {
 	b := make([]byte, len(seriesKey)+len(keyFieldSeparator)+len(field))
-	i := copy(b[:], seriesKey)
+	i := copy(b, seriesKey)
 	i += copy(b[i:], keyFieldSeparatorBytes)
 	copy(b[i:], field)
 	return b

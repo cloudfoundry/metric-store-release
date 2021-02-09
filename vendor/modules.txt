@@ -91,8 +91,6 @@ github.com/aws/aws-sdk-go/service/sts/stsiface
 github.com/benbjohnson/jmphash
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
-# github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
-## explicit
 # github.com/cespare/xxhash v1.1.0
 ## explicit
 github.com/cespare/xxhash
@@ -103,7 +101,6 @@ github.com/davecgh/go-spew/spew
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
 # github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8
-## explicit
 github.com/dgryski/go-bitstream
 # github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
 ## explicit
@@ -133,8 +130,6 @@ github.com/fsnotify/fsnotify
 # github.com/glycerine/go-unsnap-stream v0.0.0-20190901134440-81cf024a9e0a
 ## explicit
 github.com/glycerine/go-unsnap-stream
-# github.com/glycerine/goconvey v0.0.0-20190410193231-58a59202ab31
-## explicit
 # github.com/go-kit/kit v0.10.0
 ## explicit
 github.com/go-kit/kit/log
@@ -241,7 +236,7 @@ github.com/hashicorp/golang-lru/simplelru
 github.com/hashicorp/serf/coordinate
 # github.com/influxdata/flux v0.69.2
 ## explicit
-# github.com/influxdata/influxdb v1.8.0 => github.com/attack/influxdb v1.7.9-0.20191029173138-5bd71457cbd5
+# github.com/influxdata/influxdb v1.8.4 => github.com/attack/influxdb v1.8.5-0.20210209205548-2c317a0836d6
 ## explicit
 github.com/influxdata/influxdb/logger
 github.com/influxdata/influxdb/models
@@ -280,15 +275,12 @@ github.com/influxdata/influxdb/tsdb/index
 github.com/influxdata/influxdb/tsdb/index/inmem
 github.com/influxdata/influxdb/tsdb/index/tsi1
 github.com/influxdata/influxdb/tsdb/internal
-# github.com/influxdata/influxql v1.1.0
+# github.com/influxdata/influxql v1.1.1-0.20200828144457-65d3ef77d385
 ## explicit
 github.com/influxdata/influxql
 github.com/influxdata/influxql/internal
-# github.com/influxdata/roaring v0.4.12
-## explicit
+# github.com/influxdata/roaring v0.4.13-0.20180809181101-fc520f41fab6
 github.com/influxdata/roaring
-# github.com/influxdata/usage-client v0.0.0-20160829180054-6d3895376368
-## explicit
 # github.com/jmespath/go-jmespath v0.3.0
 github.com/jmespath/go-jmespath
 # github.com/jpillora/backoff v1.0.0
@@ -302,7 +294,6 @@ github.com/jsternberg/zap-logfmt
 # github.com/julienschmidt/httprouter v1.3.0
 github.com/julienschmidt/httprouter
 # github.com/jwilder/encoding v0.0.0-20170811194829-b4e1701a28ef
-## explicit
 github.com/jwilder/encoding/simple8b
 # github.com/mailru/easyjson v0.7.1
 github.com/mailru/easyjson/buffer
@@ -384,7 +375,6 @@ github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
 # github.com/philhofer/fwd v1.0.0
-## explicit
 github.com/philhofer/fwd
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
@@ -875,4 +865,4 @@ sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
-# github.com/influxdata/influxdb => github.com/attack/influxdb v1.7.9-0.20191029173138-5bd71457cbd5
+# github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.5-0.20210209205548-2c317a0836d6
