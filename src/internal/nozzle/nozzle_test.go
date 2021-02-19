@@ -28,7 +28,7 @@ var _ = Describe("Nozzle", func() {
 		metricStore = testing.NewSpyMetricStore(tlsServerConfig)
 		addrs := metricStore.Start()
 
-		nozzle = NewNozzle(streamConnector, addrs.EgressAddr, addrs.IngressAddr, tlsClientConfig, "metric-store", 0,
+		nozzle = NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0,
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,

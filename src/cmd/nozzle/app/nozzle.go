@@ -12,7 +12,7 @@ import (
 	"code.cloudfoundry.org/go-loggregator"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
@@ -94,7 +94,6 @@ func (app *NozzleApp) Run() {
 
 	nozzle := NewNozzle(
 		streamConnector,
-		app.cfg.MetricStoreAddr,
 		app.cfg.IngressAddr,
 		metricStoreTLSConfig,
 		app.cfg.ShardId,

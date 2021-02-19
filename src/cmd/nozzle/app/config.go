@@ -10,7 +10,6 @@ type Config struct {
 	LogProviderAddr string `env:"LOGS_PROVIDER_ADDR, required, report"`
 	LogsProviderTLS LogsProviderTLS
 
-	MetricStoreAddr       string `env:"METRIC_STORE_ADDR, required, report"`
 	MetricStoreTLS        MetricStoreClientTLS
 	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
@@ -46,7 +45,6 @@ type MetricStoreMetricsTLS struct {
 func LoadConfig() *Config {
 	cfg := &Config{
 		LogLevel:              "info",
-		MetricStoreAddr:       ":8080",
 		IngressAddr:           ":8090",
 		MetricsAddr:           ":6061",
 		ProfilingAddr:         "localhost:6071",

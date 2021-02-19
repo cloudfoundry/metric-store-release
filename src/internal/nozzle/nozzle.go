@@ -36,7 +36,6 @@ type Nozzle struct {
 	totalRollup           rollup.Rollup
 	durationRollup        rollup.Rollup
 
-	addr        string
 	ingressAddr string
 	client      *ingressclient.IngressClient
 	tlsConfig   *tls.Config
@@ -54,7 +53,7 @@ const (
 	BATCH_CHANNEL_SIZE   = 512
 )
 
-func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
 	n := &Nozzle{
 		log:                   logger.NewNop(),
 		metrics:               &metrics.NullRegistrar{},
@@ -64,7 +63,6 @@ func NewNozzle(c StreamConnector, metricStoreAddr, ingressAddr string, tlsConfig
 		timerRollupBufferSize: 4096,
 		totalRollup:           rollup.NewNullRollup(),
 		durationRollup:        rollup.NewNullRollup(),
-		addr:                  metricStoreAddr,
 		ingressAddr:           ingressAddr,
 		tlsConfig:             tlsConfig,
 		pointBuffer:           make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
