@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -e
+
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
+
+pushd ${SCRIPT_DIR}/../src
+    go version
+    echo Running default build of tests
+
+go build -mod=vendor -o ./metric-store ./cmd/metric-store
+go build -mod=vendor -o ./metric-store-nozzle ./cmd/nozzle
+go build -mod=vendor -o ./metric-store-cf-auth-proxy ./cmd/cf-auth-proxy
+popd
+
