@@ -19,7 +19,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.8.0
 	github.com/influxdata/flux v0.69.2 // indirect
-	github.com/influxdata/influxdb v1.8.4
+	github.com/influxdata/influxdb v1.8.5
 	github.com/influxdata/influxql v1.1.1-0.20200828144457-65d3ef77d385
 	github.com/json-iterator/go v1.1.10
 	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
@@ -44,6 +44,6 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.5-0.20210209205548-2c317a0836d6
+replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20210503154637-f0c7002857be
 
 go 1.15

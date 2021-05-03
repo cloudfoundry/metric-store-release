@@ -87,6 +87,9 @@ const (
 
 	// deleteFlushThreshold is the size in bytes of a batch of series keys to delete.
 	deleteFlushThreshold = 50 * 1024 * 1024
+
+	// DoNotCompactFile is the name of the file that disables compactions.
+	DoNotCompactFile = "do_not_compact"
 )
 
 // Statistics gathered by the engine.
@@ -909,26 +912,16 @@ func (e *Engine) Free() error {
 // of the files in the archive. It will force a snapshot of the WAL first
 // then perform the backup with a read lock against the file store. This means
 // that new TSM files will not be able to be created in this shard while the
-// backup is running. For shards that are still acively getting writes, this
-// could cause the WAL to backup, increasing memory usage and evenutally rejecting writes.
+// backup is running. For shards that are still actively getting writes, this
+// could cause the WAL to backup, increasing memory usage and eventually rejecting writes.
 func (e *Engine) Backup(w io.Writer, basePath string, since time.Time) error {
 	var err error
 	var path string
-	for i := 0; i < 3; i++ {
-		path, err = e.CreateSnapshot()
-		if err != nil {
-			switch err {
-			case ErrSnapshotInProgress:
-				backoff := time.Duration(math.Pow(32, float64(i))) * time.Millisecond
-				time.Sleep(backoff)
-			default:
-				return err
-			}
-		}
+	path, err = e.CreateSnapshot(true)
+	if err != nil {
+		return err
 	}
-	if err == ErrSnapshotInProgress {
-		e.logger.Warn("Snapshotter busy: Backup proceeding without snapshot contents.")
-	}
+
 	// Remove the temporary snapshot dir
 	defer func() {
 		if err := os.RemoveAll(path); err != nil {
@@ -945,7 +938,6 @@ func (e *Engine) timeStampFilterTarFile(start, end time.Time) func(f os.FileInfo
 			return intar.StreamFile(fi, shardRelativePath, fullPath, tw)
 		}
 
-		var tombstonePath string
 		f, err := os.Open(fullPath)
 		if err != nil {
 			return err
@@ -956,9 +948,8 @@ func (e *Engine) timeStampFilterTarFile(start, end time.Time) func(f os.FileInfo
 		}
 
 		// Grab the tombstone file if one exists.
-		if r.HasTombstones() {
-			tombstonePath = filepath.Base(r.TombstoneFiles()[0].Path)
-			return intar.StreamFile(fi, shardRelativePath, tombstonePath, tw)
+		if ts := r.TombstoneStats(); ts.TombstoneExists {
+			return intar.StreamFile(fi, shardRelativePath, filepath.Base(ts.Path), tw)
 		}
 
 		min, max := r.TimeRange()
@@ -995,7 +986,7 @@ func (e *Engine) timeStampFilterTarFile(start, end time.Time) func(f os.FileInfo
 }
 
 func (e *Engine) Export(w io.Writer, basePath string, start time.Time, end time.Time) error {
-	path, err := e.CreateSnapshot()
+	path, err := e.CreateSnapshot(false)
 	if err != nil {
 		return err
 	}
@@ -1955,9 +1946,19 @@ func (e *Engine) WriteSnapshot() (err error) {
 }
 
 // CreateSnapshot will create a temp directory that holds
-// temporary hardlinks to the underylyng shard files.
-func (e *Engine) CreateSnapshot() (string, error) {
-	if err := e.WriteSnapshot(); err != nil {
+// temporary hardlinks to the underlying shard files.
+// skipCacheOk controls whether it is permissible to fail writing out
+// in-memory cache data when a previous snapshot is in progress
+func (e *Engine) CreateSnapshot(skipCacheOk bool) (string, error) {
+	err := e.WriteSnapshot()
+	for i := 0; (i < 3) && (err == ErrSnapshotInProgress); i += 1 {
+		backoff := time.Duration(math.Pow(32, float64(i))) * time.Millisecond
+		time.Sleep(backoff)
+		err = e.WriteSnapshot()
+	}
+	if (err == ErrSnapshotInProgress) && skipCacheOk {
+		e.logger.Warn("Snapshotter busy: proceeding without cache contents.")
+	} else if err != nil {
 		return "", err
 	}
 
@@ -2066,6 +2067,8 @@ func (e *Engine) compact(wg *sync.WaitGroup) {
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
 
+	var nextDisabledMsg time.Time
+
 	for {
 		e.mu.RLock()
 		quit := e.done
@@ -2076,6 +2079,17 @@ func (e *Engine) compact(wg *sync.WaitGroup) {
 			return
 
 		case <-t.C:
+			// See if compactions are disabled.
+			doNotCompactFile := filepath.Join(e.Path(), DoNotCompactFile)
+			_, err := os.Stat(doNotCompactFile)
+			if err == nil {
+				now := time.Now()
+				if now.After(nextDisabledMsg) {
+					e.logger.Info("TSM compaction disabled", logger.Shard(e.id), zap.String("reason", doNotCompactFile))
+					nextDisabledMsg = now.Add(time.Minute * 15)
+				}
+				continue
+			}
 
 			// Find our compaction plans
 			level1Groups := e.CompactionPlan.PlanLevel(1)
@@ -2240,7 +2254,7 @@ func (s *compactionStrategy) Apply() {
 // compactGroup executes the compaction strategy against a single CompactionGroup.
 func (s *compactionStrategy) compactGroup() {
 	group := s.group
-	log, logEnd := logger.NewOperation(s.logger, "TSM compaction", "tsm1_compact_group")
+	log, logEnd := logger.NewOperation(s.logger, "TSM compaction", "tsm1_compact_group", logger.Shard(s.engine.id))
 	defer logEnd()
 
 	log.Info("Beginning compaction", zap.Int("tsm1_files_n", len(group)))
