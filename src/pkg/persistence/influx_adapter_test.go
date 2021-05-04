@@ -121,7 +121,7 @@ var _ = Describe("Influx Adapter", func() {
 			tc := setup()
 			tc.influxStore.setDelay(1 * time.Millisecond)
 
-			tc.adapter.AllTagValues("source_id")
+			tc.adapter.AllTagValues(context.TODO(), "source_id")
 
 			Expect(tc.metrics.FetchHistogram(metrics.MetricStoreTagValuesQueryDurationSeconds)()).To(HaveLen(1))
 		})
@@ -403,12 +403,12 @@ func (m *mockInfluxStore) DeleteShard(shardId uint64) error {
 	return nil
 }
 
-func (m *mockInfluxStore) TagKeys(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error) {
+func (m *mockInfluxStore) TagKeys(ctx context.Context, auth query.FineAuthorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error) {
 	panic("not implemented")
 
 }
 
-func (m *mockInfluxStore) TagValues(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error) {
+func (m *mockInfluxStore) TagValues(ctx context.Context, auth query.FineAuthorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error) {
 	time.Sleep(m.delay)
 	return []tsdb.TagValues{}, nil
 
