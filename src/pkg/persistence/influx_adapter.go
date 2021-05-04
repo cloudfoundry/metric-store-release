@@ -27,8 +27,8 @@ type InfluxStore interface {
 	ShardIDs() []uint64
 	Shards(ids []uint64) []*tsdb.Shard
 	Statistics(database map[string]string) []models.Statistic
-	TagKeys(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error)
-	TagValues(auth query.Authorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error)
+	TagKeys(ctx context.Context, auth query.FineAuthorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error)
+	TagValues(ctx context.Context, auth query.FineAuthorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error)
 	WriteToShard(shardId uint64, points []models.Point) error
 }
 
@@ -168,9 +168,9 @@ func (t *InfluxAdapter) GetPoints(ctx context.Context, measurementName string, s
 	return builder, nil
 }
 
-func (t *InfluxAdapter) AllTagKeys() []string {
+func (t *InfluxAdapter) AllTagKeys(ctx context.Context) []string {
 	shardIds := t.ShardIDs()
-	tagKeys, _ := t.influx.TagKeys(nil, shardIds, nil)
+	tagKeys, _ := t.influx.TagKeys(ctx, nil, shardIds, nil)
 
 	var values []string
 	for _, tagKey := range tagKeys {
@@ -180,7 +180,7 @@ func (t *InfluxAdapter) AllTagKeys() []string {
 	return values
 }
 
-func (t *InfluxAdapter) AllTagValues(tagKey string) []string {
+func (t *InfluxAdapter) AllTagValues(ctx context.Context, tagKey string) []string {
 	start := time.Now()
 	shardIds := t.ShardIDs()
 	selectValuesByTagKey := &influxql.BinaryExpr{
@@ -189,7 +189,7 @@ func (t *InfluxAdapter) AllTagValues(tagKey string) []string {
 		Op:  influxql.EQ,
 	}
 
-	tagValues, _ := t.influx.TagValues(nil, shardIds, selectValuesByTagKey)
+	tagValues, _ := t.influx.TagValues(ctx, nil, shardIds, selectValuesByTagKey)
 
 	var values []string
 	for _, tagValue := range tagValues {

@@ -70,7 +70,7 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 func (q *Querier) LabelNames() ([]string, storage.Warnings, error) {
 	distinctKeys := make(map[string]struct{})
 
-	tagKeys := q.adapter.AllTagKeys()
+	tagKeys := q.adapter.AllTagKeys(q.ctx)
 	for _, tagKey := range tagKeys {
 		distinctKeys[tagKey] = struct{}{}
 	}
@@ -95,7 +95,7 @@ func (q *Querier) LabelValues(name string) ([]string, storage.Warnings, error) {
 		return values, nil, nil
 	}
 
-	tagValues := q.adapter.AllTagValues(name)
+	tagValues := q.adapter.AllTagValues(q.ctx, name)
 	for _, tagValue := range tagValues {
 		distinctValues[tagValue] = struct{}{}
 	}
