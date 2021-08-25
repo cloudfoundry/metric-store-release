@@ -111,7 +111,14 @@ func (c *CAPIClient) IsAuthorized(sourceId string, clientToken string) bool {
 	// 2) we found the token in the cache, but failed to find the sourceId
 	//    and are under our retry limit, thus we want to ask CAPI for a
 	//    refreshed list of sourceIds
-	sourceIds = c.AvailableSourceIDs(clientToken)
+
+	//sourceIds = c.AvailableSourceIDs(clientToken)
+	guId, err := c.CheckAvailableSourceID(sourceId, clientToken)
+	if err != nil {
+		c.log.Error("failed to build authorize log access request", err)
+		return false
+	}
+	sourceIds = append(sourceIds, guId)
 
 	c.tokenCache.Store(clientToken, authorizedSourceIds{
 		sourceIds:  sourceIds,
@@ -165,6 +172,38 @@ func (c *CAPIClient) AvailableSourceIDs(authToken string) []string {
 	}
 
 	return sourceIDs
+}
+
+func (c *CAPIClient) CheckAvailableSourceID(sourceId string, authToken string) (string, error) {
+	var guId string
+	if len(sourceId) == 0 {
+		return guId, fmt.Errorf("failed: the sourceId is not provided")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, c.externalCapi+"/v3/apps/"+sourceId, nil)
+	if err != nil {
+		c.log.Error("failed to build authorize log access request", err)
+		return guId, err
+	}
+
+	resource, err := c.doGuidAndNameRequest(req, authToken)
+	if err == nil {
+		return resource.Guid, err
+	}
+	c.log.Error("The sourceId was not found in /v3/apps request", err)
+
+	req, err = http.NewRequest(http.MethodGet, c.externalCapi+"/v3/service_instances/"+sourceId, nil)
+	if err != nil {
+		c.log.Error("failed to build access request", err)
+		return guId, err
+	}
+
+	resource, err = c.doGuidAndNameRequest(req, authToken)
+	if err != nil {
+		c.log.Error("failed to make request", err)
+		return guId, err
+	}
+	return resource.Guid, nil
 }
 
 func (c *CAPIClient) GetRelatedSourceIds(appNames []string, authToken string) map[string][]string {
@@ -264,6 +303,33 @@ func (c *CAPIClient) doResourceRequest(req *http.Request, authToken string) ([]r
 	}
 
 	return apps.Resources, nextPageURL, nil
+}
+
+func (c *CAPIClient) doGuidAndNameRequest(req *http.Request, authToken string) (resource, error) {
+	var Resource resource
+	resp, err := c.doRequest(req, authToken)
+	if err != nil {
+		return Resource, fmt.Errorf("failed CAPI request (%s) with error: %s", req.URL.Path, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return Resource, fmt.Errorf(
+			"failed CAPI request (%s) with status: %d (%s)",
+			req.URL.Path,
+			resp.StatusCode,
+			http.StatusText(resp.StatusCode),
+		)
+	}
+
+	defer func(r *http.Response) {
+		cleanup(r)
+	}(resp)
+
+	err = json.NewDecoder(resp.Body).Decode(&Resource)
+	if err != nil {
+		return Resource, fmt.Errorf("failed to decode resource list request (%s): %s", req.URL.Path, err)
+	}
+
+	return Resource, nil
 }
 
 func (c *CAPIClient) TokenCacheSize() int {

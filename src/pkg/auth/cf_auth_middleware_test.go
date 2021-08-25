@@ -482,6 +482,12 @@ func (s *spyLogAuthorizer) AvailableSourceIDs(token string) []string {
 	return s.available
 }
 
+func (s *spyLogAuthorizer) CheckAvailableSourceID(sourceId string, token string) (string, error) {
+	s.availableCalled++
+	s.token = token
+	return sourceId, nil
+}
+
 type spyQueryParser struct {
 	sourceIds []string
 	err       error

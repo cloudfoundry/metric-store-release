@@ -13,6 +13,7 @@ type QueryParser interface {
 type LogAuthorizer interface {
 	IsAuthorized(sourceId string, clientToken string) bool
 	AvailableSourceIDs(token string) []string
+	CheckAvailableSourceID(sourceId string, token string) (string, error)
 }
 
 type AccessLogger interface {
