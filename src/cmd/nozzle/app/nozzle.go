@@ -204,3 +204,4 @@ func (app *NozzleApp) startProfilingServer() {
 	app.profilingListener = metrics.StartProfilingServer(app.cfg.ProfilingAddr, app.log)
 	app.profilingMutex.Unlock()
 }
+
