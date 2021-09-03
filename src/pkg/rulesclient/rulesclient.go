@@ -154,7 +154,7 @@ func (c *RulesClient) UpsertRuleGroup(managerId string, ruleGroup RuleGroup) (*R
 		return nil, extractFirstError(resp)
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, apiError(http.StatusInternalServerError, err)
 	}
