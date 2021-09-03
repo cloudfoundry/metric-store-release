@@ -110,7 +110,7 @@ func (uaa *UAAClient) getAuthToken() (tokenType, token string, err error) {
 
 	dump, err := httputil.DumpRequestOut(tokenRequest, true)
 	if err != nil {
-		return "", "", err
+		uaa.log.Debug("tokenRequest", logger.Error(err))
 	}
 	uaa.log.Debug("tokenRequest", logger.ByteString("tokenRequest", dump))
 
