@@ -128,3 +128,4 @@ func (r *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 
 	return batches
 }
+
