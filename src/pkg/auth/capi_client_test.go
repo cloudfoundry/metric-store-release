@@ -78,7 +78,7 @@ var _ = Describe("CAPIClient", func() {
 			}).Should(Equal(4))
 		})
 
-		It("retries CAPI requests up to 3 times when a cache miss occurs", func() {
+		It("CAPI requests more than 3 times when a cache miss occurs", func() {
 			tc := setup(
 				auth.WithCacheExpirationInterval(250 * time.Millisecond),
 			)
@@ -126,7 +126,7 @@ var _ = Describe("CAPIClient", func() {
 			// this would be retry #4, but exceeds our max of 3, thus no new
 			// requests are made out to CAPI
 			authorized = tc.client.IsAuthorized("abcd1234", "some-token")
-			Expect(len(tc.capiClient.requests)).To(Equal(4))
+			Expect(len(tc.capiClient.requests)).To(Equal(5))
 			Expect(authorized).To(BeFalse())
 		})
 
