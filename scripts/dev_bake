@@ -31,7 +31,7 @@ pushd ${PROJECT_DIR}/tmp
     echo_green $(pwd)
     RELEASE_URLS=(
       https://bosh.io/d/github.com/cloudfoundry-incubator/bpm-release
-      https://bosh.io/d/github.com/cloudfoundry-incubator/cf-routing-release
+      https://bosh.io/d/github.com/cloudfoundry/routing-release
     )
 
     echo_green "Fetching releases for tile..."
