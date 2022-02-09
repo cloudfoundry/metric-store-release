@@ -46,4 +46,4 @@ require (
 
 replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20210503154637-f0c7002857be
 
-go 1.17
+go 1.16
