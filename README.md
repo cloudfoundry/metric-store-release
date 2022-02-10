@@ -25,7 +25,7 @@ bosh -e testing upload-release --rebase
 
 Metric Store deployed within Cloud Foundry reads from the Loggregator system and registers with the [GoRouter](https://github.com/cloudfoundry/gorouter) at `metric-store.<system-domain>`.
 
-You can deploy Metric Store by using this
+You can deploy Metric Store by using this 
 [operations file][ops-file].
 
 ```
