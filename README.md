@@ -3,7 +3,7 @@
 
 Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a persistent storage layer for metrics sent through the Loggregator subsystem. It is multi-tenant aware (the auth proxy ensures that you only have access to metrics from your apps), easy to query (it is 100% compatible with the Prometheus Query API, with some exceptions listed below), and has a powerful storage engine (the InfluxDB storage engine has built-in compression and a memory-efficient series index).
 
-## Deploying
+## Deploying 
 
 Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have to know about Loggregator.
 
