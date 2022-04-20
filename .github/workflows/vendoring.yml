@@ -27,10 +27,13 @@ jobs:
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit"
           else
-            git branch | sed -n -e 's/^\* \(.*\)/\1/p'
             git add -A
             git config --global user.name "Metric Store Bot"
             git config --global user.email "cf-log-cache+github@pivotal.io"
+          
+            echo "branch name is a: "
+            git branch | sed -n -e 's/^\* \(.*\)/\1/p'
+
             echo "now trying to commit" 
             git commit -m "Updating vendored dependencies"
             echo "now trying to push" 
