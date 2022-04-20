@@ -36,8 +36,8 @@ jobs:
 
             echo "now trying to commit" 
             git commit -m "Updating vendored dependencies"
-            echo "now trying to push" 
-            git push
+            echo "now trying to push force" 
+            git push --force
           fi
       - uses: actions/github-script@v3
         with:
