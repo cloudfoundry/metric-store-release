@@ -11,6 +11,9 @@ jobs:
           go-version: '^1.15.1'
         id: go
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -18,19 +21,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - uses: actions/github-script@v3
+        continue-on-error: true
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            try {
-              const data = {
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: 'tests-passed'
-                };
-              console.log("data is a: ", data);
-              github.issues.removeLabel(data)
-            } catch(err) {}
+            github.issues.removeLabel({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'tests-passed'
+            })
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
