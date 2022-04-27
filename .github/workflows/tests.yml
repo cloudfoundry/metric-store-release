@@ -22,12 +22,14 @@ jobs:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             try {
-              github.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'tests-passed'
-              })
+              const data = {
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: 'tests-passed'
+                };
+              console.log("data is a: ", data);
+              github.issues.removeLabel(data)
             } catch(err) {}
       - name: Run Tests
         run: |
