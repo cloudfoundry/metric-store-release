@@ -42,7 +42,6 @@ jobs:
             git merge temp-branch
             echo "now trying to push"   
             git push origin $branchName
-            git push
           fi
       - uses: actions/github-script@v3
         with:
