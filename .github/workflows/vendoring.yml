@@ -14,6 +14,8 @@ jobs:
           go-version: '^1.16'
         id: go
       - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.METRIC_STORE_BOT_TOKEN }}
       - uses: actions/cache@v2
         with:
           path: ~/go/pkg/mod
@@ -24,24 +26,18 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
-          if [ -z "$(git status --porcelain)" ]; then
-            echo "No changes to commit"
-          else
-            echo "new changes"
-            export branchName=$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')
-            echo $branchName
-            git add -A
-            git config --global user.name "Metric Store Bot"
-            git config --global user.email "cf-log-cache+github@pivotal.io"
-            echo "now trying to commit" 
-            git commit -m "Updating vendored dependencies"
+          export branchName=$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')
+          echo "branchName is a: "
           
-            git branch temp-branch
-            git checkout $branchName
-            echo "git merge temp-branch" 
-            git merge temp-branch
-            echo "now trying to push"   
-            git push origin $branchName
+          echo $branchName
+          if [ -z "$(git status --porcelain)" ]; then
+           echo "No changes to commit"
+          else
+           git add -A
+           git config --global user.name "Log Store Bot"
+           git config --global user.email "log-store@pivotal.io"
+           git commit -m "Updating vendored dependencies"
+           git push
           fi
       - uses: actions/github-script@v3
         with:
