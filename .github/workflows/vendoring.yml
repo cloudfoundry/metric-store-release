@@ -1,6 +1,6 @@
 name: Vendoring
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - reopened
@@ -27,21 +27,11 @@ jobs:
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit"
           else
-            echo "new changes"
-            export branchName=$(git branch | sed -n -e 's/^\* \(.*\)/\1/p')
-            echo $branchName
             git add -A
             git config --global user.name "Metric Store Bot"
             git config --global user.email "cf-log-cache+github@pivotal.io"
-            echo "now trying to commit" 
             git commit -m "Updating vendored dependencies"
-          
-            git branch temp-branch
-            git checkout $branchName
-            echo "git merge temp-branch" 
-            git merge temp-branch
-            echo "now trying to push"   
-            git push origin $branchName
+            git push
           fi
       - uses: actions/github-script@v3
         with:
