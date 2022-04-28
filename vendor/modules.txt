@@ -463,8 +463,6 @@ github.com/prometheus/prometheus/util/treecache
 github.com/prometheus/prometheus/web/api/v1
 # github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
 github.com/samuel/go-zookeeper/zk
-# github.com/spf13/cast v1.3.1
-## explicit
 # github.com/tinylib/msgp v1.1.2
 ## explicit
 github.com/tinylib/msgp/msgp
