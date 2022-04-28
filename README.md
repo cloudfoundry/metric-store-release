@@ -19,7 +19,7 @@ The following commands will create a dev release and upload it to an environment
 ```
 bosh create-release --force
 bosh -e testing upload-release --rebase
-```
+``` 
 
 ### Cloud Foundry
 
