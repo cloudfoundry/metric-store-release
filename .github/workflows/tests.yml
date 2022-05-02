@@ -19,7 +19,6 @@ jobs:
             ${{ runner.os }}-go-
       - uses: actions/github-script@v3
         with:
-          run_attempt: 3
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             try {
@@ -32,8 +31,9 @@ jobs:
             } catch(err) {}
       - name: Run Tests
         run: |
+          go version
           echo "Git HEAD at: $(git rev-parse HEAD)"
-          ./scripts/test
+          ./scripts/test || ./scripts/test || ./scripts/test
   success-job:
     needs: test-job
     name: Add Label
