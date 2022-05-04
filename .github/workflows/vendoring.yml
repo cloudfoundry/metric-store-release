@@ -1,4 +1,4 @@
-name: gomod
+name: Vendoring
 on:
   push:
     branches:
