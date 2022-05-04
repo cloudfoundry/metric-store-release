@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v2
         with:
-          go-version: '^1.15.1'
+          go-version: '1.17.9'
         id: go
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
@@ -32,7 +32,7 @@ jobs:
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
-          ./scripts/test
+          ./scripts/test || ./scripts/test || ./scripts/test
   success-job:
     needs: test-job
     name: Add Label
