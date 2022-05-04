@@ -28,6 +28,7 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
+
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit"
           else
@@ -35,6 +36,8 @@ jobs:
             git config --global user.name "Metric Store Bot"
             git config --global user.email "cf-log-cache+github@pivotal.io"
             git commit -m "Updating vendored dependencies"
+          
+            echo "ready to push"
             git push
           fi
       - uses: actions/github-script@v3
