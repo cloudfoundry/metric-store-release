@@ -2,7 +2,7 @@ name: Vendoring
 on:
   push:
     branches:
-      - 'Update_release_go_version_to_17.9_and_fix_vendoring_job'
+      - 'Update_go_version_to_17.8'
     paths:
       - '.github/workflows/vendoring.yml'
       - 'go.mod'
