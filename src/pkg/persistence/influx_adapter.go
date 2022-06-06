@@ -68,7 +68,12 @@ func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 	}
 
 	for bucketIndex, points := range pointBuckets {
-		shardId := t.findOrCreateShardForTimestamp(bucketIndex)
+		shardId, isPendingDelete := t.findOrCreateShardForTimestamp(bucketIndex)
+		if isPendingDelete {
+			t.metrics.Inc(metrics.MetricStorePendingDeletionDroppedPointsTotal)
+			return tsdb.ErrShardDeletion
+		}
+
 		err := t.influx.WriteToShard(shardId, points)
 
 		if err != nil {
@@ -317,18 +322,22 @@ func (t *InfluxAdapter) AllMeasurementNames() []string {
 	return measurementNames
 }
 
-func (t *InfluxAdapter) findOrCreateShardForTimestamp(ts int64) uint64 {
+func (t *InfluxAdapter) findOrCreateShardForTimestamp(ts int64) (uint64, bool) {
 	shardId := uint64(getShardStartForTimestamp(ts))
 	_, existed := t.shards.LoadOrStore(shardId, struct{}{})
 
+	isPendingDelete := false
+
 	if !existed {
 		err := t.influx.CreateShard("db", "rp", shardId, true)
-		if err != nil {
+		if err == tsdb.ErrShardDeletion {
+			isPendingDelete = true
+		} else if err != nil {
 			t.log.Panic("error creating shard", logger.Error(err))
 		}
 	}
 
-	return shardId
+	return shardId, isPendingDelete
 }
 
 func (t *InfluxAdapter) checkShardId(shardId uint64) {
