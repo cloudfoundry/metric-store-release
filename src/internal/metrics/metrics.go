@@ -45,4 +45,5 @@ const (
 	MetricStoreDistributedPointsTotal               = "metric_store_distributed_points_total"
 	MetricStoreDistributedRequestDurationSeconds    = "metric_store_distributed_request_duration_seconds"
 	MetricStoreCollectedPointsTotal                 = "metric_store_collected_points_total"
+	MetricStorePendingDeletionDroppedPointsTotal    = "metric_store_pending_deletion_dropped_points_total"
 )

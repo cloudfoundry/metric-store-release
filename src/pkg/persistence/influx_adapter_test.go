@@ -20,6 +20,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	SHARD_IS_PENDING_TO_DELETE = -1 //special days value for shard name, which is not affected working points
+)
+
 type influxAdapterTestContext struct {
 	adapter     *InfluxAdapter
 	influxStore *mockInfluxStore
@@ -73,6 +77,19 @@ var _ = Describe("Influx Adapter", func() {
 			tc.adapter.WritePoints(points)
 
 			Expect(tc.adapter.ShardIDs()).To(ContainElement(getShardIdForDay(4)))
+		})
+
+		It("dropped and write metrics when shard is pending to delete", func() {
+			tc := setup()
+
+			points := []*rpc.Point{
+				{Timestamp: nanosecondsInDays(0)},
+				{Timestamp: nanosecondsInDays(float64(SHARD_IS_PENDING_TO_DELETE))},
+			}
+			err := tc.adapter.WritePoints(points)
+
+			Expect(err).To(MatchError(tsdb.ErrShardDeletion))
+			Eventually(tc.metrics.Fetch(metrics.MetricStorePendingDeletionDroppedPointsTotal)).Should(Equal(float64(1)))
 		})
 
 		It("surfaces any error returned by the store", func() {
@@ -391,6 +408,10 @@ func (m *mockInfluxStore) WriteToShard(shardId uint64, points []models.Point) er
 
 func (m *mockInfluxStore) CreateShard(database string, retentionPolicy string, shardId uint64, enabled bool) error {
 	Expect(enabled).To(BeTrue())
+
+	if int64(shardId) == nanosecondsInDays(SHARD_IS_PENDING_TO_DELETE) {
+		return tsdb.ErrShardDeletion
+	}
 
 	return nil
 }
