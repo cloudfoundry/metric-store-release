@@ -187,6 +187,9 @@ func (app *MetricStoreApp) startMetricsServer(tlsConfig *tls.Config) {
 		metrics.WithCounter(metrics.MetricStoreWrittenPointsTotal, prometheus.CounterOpts{
 			Help: "Number of points successfully written to storage engine",
 		}),
+		metrics.WithCounter(metrics.MetricStorePendingDeletionDroppedPointsTotal, prometheus.CounterOpts{
+			Help: "Number of points dropped due to deleting shard is in pending state",
+		}),
 		metrics.WithHistogram(metrics.MetricStoreWriteDurationSeconds, prometheus.HistogramOpts{
 			Help:    "Time spent writing points to the storage engine",
 			Buckets: []float64{.001, .01, .05, .1, .2, 1},
