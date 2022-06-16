@@ -38,6 +38,7 @@ type InfluxAdapter struct {
 
 	influx InfluxStore
 	shards sync.Map
+	mu     sync.Mutex
 }
 
 func NewInfluxAdapter(influx InfluxStore, metrics metrics.Registrar, log *logger.Logger) *InfluxAdapter {
@@ -212,8 +213,8 @@ func (t *InfluxAdapter) DeleteOldest() error {
 	if err != nil {
 		return err
 	}
-	t.Delete(shardId)
-	return t.influx.DeleteShard(shardId)
+
+	return t.Delete(shardId)
 }
 
 func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
@@ -324,17 +325,27 @@ func (t *InfluxAdapter) AllMeasurementNames() []string {
 
 func (t *InfluxAdapter) findOrCreateShardForTimestamp(ts int64) (uint64, bool) {
 	shardId := uint64(getShardStartForTimestamp(ts))
-	_, existed := t.shards.LoadOrStore(shardId, struct{}{})
+	_, existed := t.shards.Load(shardId)
 
 	isPendingDelete := false
 
 	if !existed {
+		t.mu.Lock()
+		if _, ok := t.shards.Load(shardId); ok {
+			t.mu.Unlock()
+			return shardId, isPendingDelete
+		}
 		err := t.influx.CreateShard("db", "rp", shardId, true)
 		if err == tsdb.ErrShardDeletion {
 			isPendingDelete = true
 		} else if err != nil {
+			t.mu.Unlock()
 			t.log.Panic("error creating shard", logger.Error(err))
+		} else {
+			t.shards.Store(shardId, struct{}{})
 		}
+
+		t.mu.Unlock()
 	}
 
 	return shardId, isPendingDelete
