@@ -331,21 +331,19 @@ func (t *InfluxAdapter) findOrCreateShardForTimestamp(ts int64) (uint64, bool) {
 
 	if !existed {
 		t.mu.Lock()
+		defer t.mu.Unlock()
+
 		if _, ok := t.shards.Load(shardId); ok {
-			t.mu.Unlock()
 			return shardId, isPendingDelete
 		}
 		err := t.influx.CreateShard("db", "rp", shardId, true)
 		if err == tsdb.ErrShardDeletion {
 			isPendingDelete = true
 		} else if err != nil {
-			t.mu.Unlock()
 			t.log.Panic("error creating shard", logger.Error(err))
 		} else {
 			t.shards.Store(shardId, struct{}{})
 		}
-
-		t.mu.Unlock()
 	}
 
 	return shardId, isPendingDelete
