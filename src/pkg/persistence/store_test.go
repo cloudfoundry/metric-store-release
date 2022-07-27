@@ -495,10 +495,9 @@ var _ = Describe("Persistent Store", func() {
 			defer teardown(tc)
 
 			tc.storePoint(1, "counter", 1)
+			time.Sleep(time.Second) //give time for rerunning deleteOldest function
 			tc.storePoint(todayInMilliseconds, "counter", 3)
 			tc.storePoint(oneHourBeforeTodayInMilliseconds, "counter", 2)
-
-			time.Sleep(time.Second) //give time for rerunning deleteOldest function
 
 			Eventually(func() bool {
 				return tc.metrics.Fetch(metrics.MetricStoreExpiredShardsTotal)() == 1
@@ -534,11 +533,8 @@ var _ = Describe("Persistent Store", func() {
 			nowInMilliseconds := now.UnixNano() / int64(time.Millisecond)
 
 			tc.storePoint(1, "counter", 1)
-			tc.storePoint(2, "counter", 2)
-			tc.storePoint(3, "counter", 3)
-			tc.storePoint(nowInMilliseconds, "counter", 4)
-
 			time.Sleep(time.Second) //give time for rerunning deleteOldest function
+			tc.storePoint(nowInMilliseconds, "counter", 2)
 
 			Eventually(func() bool {
 				return tc.metrics.Fetch(metrics.MetricStorePrunedShardsTotal)() >= 1
@@ -556,7 +552,7 @@ var _ = Describe("Persistent Store", func() {
 				testing.Series{
 					Labels: map[string]string{"__name__": "counter"},
 					Points: []testing.Point{
-						{Time: nowInMilliseconds, Value: 4},
+						{Time: nowInMilliseconds, Value: 2},
 					},
 				},
 			))
