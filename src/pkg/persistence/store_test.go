@@ -495,6 +495,7 @@ var _ = Describe("Persistent Store", func() {
 			defer teardown(tc)
 
 			tc.storePoint(1, "counter", 1)
+			time.Sleep(time.Second) //give time for rerunning deleteOldest function
 			tc.storePoint(todayInMilliseconds, "counter", 3)
 			tc.storePoint(oneHourBeforeTodayInMilliseconds, "counter", 2)
 
@@ -523,6 +524,7 @@ var _ = Describe("Persistent Store", func() {
 
 		It("truncates oldest points when disk space is below the target", func() {
 			tc := setup(
+				withExpiryFrequency(time.Second),
 				withDiskFreePercentTarget(10),
 			)
 			defer teardown(tc)
@@ -531,6 +533,7 @@ var _ = Describe("Persistent Store", func() {
 			nowInMilliseconds := now.UnixNano() / int64(time.Millisecond)
 
 			tc.storePoint(1, "counter", 1)
+			time.Sleep(time.Second) //give time for rerunning deleteOldest function
 			tc.storePoint(nowInMilliseconds, "counter", 2)
 
 			Eventually(func() bool {
