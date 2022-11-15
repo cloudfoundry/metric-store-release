@@ -7,7 +7,7 @@ Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a p
 
 Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have to know about Loggregator.
 
-### Cloud Config 
+### Cloud Config
 
 Every BOSH deployment requires a [cloud config](https://bosh.io/docs/cloud-config.html). The Metric Store deployment manifest assumes the CF-Deployment cloud config has been uploaded.
 
