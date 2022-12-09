@@ -44,6 +44,6 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20210503154637-f0c7002857be
+replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20221206141630-d0903e5b5b3d
 
 go 1.16

@@ -237,7 +237,7 @@ github.com/hashicorp/golang-lru/simplelru
 github.com/hashicorp/serf/coordinate
 # github.com/influxdata/flux v0.69.2
 ## explicit
-# github.com/influxdata/influxdb v1.8.5 => github.com/attack/influxdb v1.8.4-0.20210503154637-f0c7002857be
+# github.com/influxdata/influxdb v1.8.5 => github.com/attack/influxdb v1.8.4-0.20221206141630-d0903e5b5b3d
 ## explicit
 github.com/influxdata/influxdb/logger
 github.com/influxdata/influxdb/models
@@ -864,4 +864,4 @@ sigs.k8s.io/structured-merge-diff/v3/value
 # sigs.k8s.io/yaml v1.2.0
 ## explicit
 sigs.k8s.io/yaml
-# github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20210503154637-f0c7002857be
+# github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20221206141630-d0903e5b5b3d
