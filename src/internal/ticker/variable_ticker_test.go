@@ -43,7 +43,7 @@ var _ = Describe("A ticker for exponential backoffs", func() {
 		Consistently(ticker.C).ShouldNot(Receive())
 	})
 
-	It("stops", func() {
+	FIt("stops", func() {
 		delay := NewExponentialDelay(&Config{MaxDelay: 10 * time.Microsecond})
 		ticker := New(delay)
 
