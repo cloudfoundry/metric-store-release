@@ -51,7 +51,7 @@ require (
 	github.com/apache/arrow/go/arrow v0.0.0-20200619233522-341c6c546fe1 // indirect
 	github.com/armon/go-metrics v0.3.3 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
-	github.com/aws/aws-sdk-go v1.31.9 // indirect
+	github.com/aws/aws-sdk-go v1.34.28 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -92,7 +92,7 @@ require (
 	github.com/hashicorp/serf v0.9.0 // indirect
 	github.com/influxdata/flux v0.69.2 // indirect
 	github.com/influxdata/roaring v0.4.13-0.20180809181101-fc520f41fab6 // indirect
-	github.com/jmespath/go-jmespath v0.3.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/jsternberg/zap-logfmt v1.2.0 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
@@ -123,7 +123,7 @@ require (
 	github.com/uber/jaeger-lib v2.2.0+incompatible // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	github.com/xlab/treeprint v0.0.0-20180616005107-d6fb6747feb6 // indirect
-	go.mongodb.org/mongo-driver v1.3.2 // indirect
+	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.opencensus.io v0.22.3 // indirect
 	go.uber.org/multierr v1.5.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
