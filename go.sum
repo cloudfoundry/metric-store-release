@@ -115,8 +115,9 @@ github.com/attack/influxdb v1.8.4-0.20221206141630-d0903e5b5b3d h1:UeWdQpDwRHPaX
 github.com/attack/influxdb v1.8.4-0.20221206141630-d0903e5b5b3d/go.mod h1:oFH+pbEyDln/1TKwa98oJzVrkZwdjrJOwIDGYZj7Ma0=
 github.com/aws/aws-lambda-go v1.13.3/go.mod h1:4UKl9IzQMoD+QF79YdCuzCwp8VbmG4VAQwij/eHl5CU=
 github.com/aws/aws-sdk-go v1.27.0/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
-github.com/aws/aws-sdk-go v1.31.9 h1:n+b34ydVfgC30j0Qm69yaapmjejQPW2BoDBX7Uy/tLI=
 github.com/aws/aws-sdk-go v1.31.9/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
+github.com/aws/aws-sdk-go v1.34.0 h1:brux2dRrlwCF5JhTL7MUT3WUwo9zfDHZZp3+g3Mvlmo=
+github.com/aws/aws-sdk-go v1.34.0/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
 github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86 h1:GvfVd/aKGyYnAPHc17Hp7KimG2Ql7TzLF23KNKkTfpw=
 github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86/go.mod h1:pEmjzwpusd4aX9Aiz7gVcGTmSRnx80UzqvuoZvPQ2bg=
