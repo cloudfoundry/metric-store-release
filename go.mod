@@ -141,12 +141,12 @@ require (
 	gopkg.in/fsnotify/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	k8s.io/api v0.20.0 // indirect
-	k8s.io/apimachinery v0.20.0 // indirect
-	k8s.io/client-go v0.20.0 // indirect
+	k8s.io/api v0.20.15 // indirect
+	k8s.io/apimachinery v0.20.15 // indirect
+	k8s.io/client-go v0.20.15 // indirect
 	k8s.io/klog/v2 v2.4.0 // indirect
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.0.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 )
 
 replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20221206141630-d0903e5b5b3d
