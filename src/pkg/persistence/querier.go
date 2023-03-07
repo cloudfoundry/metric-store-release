@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
+	global_storage "github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
 )
 
@@ -27,7 +28,7 @@ func NewQuerier(ctx context.Context, adapter *InfluxAdapter, metrics metrics.Reg
 	}
 }
 
-func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatchers ...*labels.Matcher) (storage.SeriesSet, storage.Warnings, error) {
+func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatchers ...*labels.Matcher) storage.SeriesSet {
 	if params == nil {
 		params = &storage.SelectHints{
 			Start: 0,
@@ -35,7 +36,8 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 		}
 	}
 	if params.End != 0 && params.Start > params.End {
-		return nil, nil, fmt.Errorf("Start (%d) must be before End (%d)", params.Start, params.End)
+		return global_storage.NewGlobalSeriesSet(fmt.Errorf("Start (%d) must be before End (%d)",
+			params.Start, params.End))
 	}
 
 	if params.End == 0 {
@@ -46,7 +48,8 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 	for index, labelMatcher := range labelMatchers {
 		if labelMatcher.Name == labels.MetricName {
 			if labelMatcher.Type != labels.MatchEqual {
-				return nil, nil, errors.New("only strict equality is supported for metric names")
+				return global_storage.NewGlobalSeriesSet(errors.New("only strict equality is " +
+					"supported for metric names"))
 			}
 
 			name = labelMatcher.Value
@@ -61,13 +64,15 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 	builder, err := q.adapter.GetPoints(q.ctx, name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
 	if err != nil {
 		q.metrics.Inc(metrics.MetricStoreReadErrorsTotal)
-		return nil, nil, err
+		return global_storage.NewGlobalSeriesSet(err)
 	}
 
-	return builder.SeriesSet(), nil, nil
+	res := builder.SeriesSet()
+
+	return res
 }
 
-func (q *Querier) LabelNames() ([]string, storage.Warnings, error) {
+func (q *Querier) LabelNames(matchers ...*labels.Matcher) ([]string, storage.Warnings, error) {
 	distinctKeys := make(map[string]struct{})
 
 	tagKeys := q.adapter.AllTagKeys(q.ctx)
@@ -87,7 +92,7 @@ func (q *Querier) LabelNames() ([]string, storage.Warnings, error) {
 	return labelNames, nil, nil
 }
 
-func (q *Querier) LabelValues(name string) ([]string, storage.Warnings, error) {
+func (q *Querier) LabelValues(name string, matchers ...*labels.Matcher) ([]string, storage.Warnings, error) {
 	distinctValues := make(map[string]struct{})
 
 	if name == labels.MetricName {

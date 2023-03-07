@@ -6,11 +6,15 @@ import (
 	// the go linter in some instances removes it
 
 	"errors"
+	"github.com/prometheus/prometheus/model/exemplar"
+	"github.com/prometheus/prometheus/model/histogram"
+	"github.com/prometheus/prometheus/model/metadata"
+	"github.com/prometheus/prometheus/storage"
 	"sync"
 	"time"
 
 	_ "github.com/influxdata/influxdb/tsdb/engine"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
@@ -62,7 +66,7 @@ func WithAppenderLogger(log *logger.Logger) AppenderOption {
 	}
 }
 
-func (a *Appender) Add(l labels.Labels, time int64, value float64) (uint64, error) {
+func (a *Appender) Append(ref storage.SeriesRef, l labels.Labels, time int64, value float64) (storage.SeriesRef, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -81,9 +85,19 @@ func (a *Appender) Add(l labels.Labels, time int64, value float64) (uint64, erro
 	return 0, nil
 }
 
-func (a *Appender) AddFast(_ uint64, _ int64, _ float64) error {
-	// no longer useful in our implementation, use Add instead
-	return nil
+func (a *Appender) AppendExemplar(ref storage.SeriesRef, l labels.Labels, e exemplar.Exemplar) (storage.SeriesRef, error) {
+	// no longer useful in our implementation, use Append instead
+	return 0, nil
+}
+
+func (a *Appender) AppendHistogram(ref storage.SeriesRef, l labels.Labels, t int64, h *histogram.Histogram, fh *histogram.FloatHistogram) (storage.SeriesRef, error) {
+	// not useful in our implementation
+	return 0, nil
+}
+
+func (a *Appender) UpdateMetadata(ref storage.SeriesRef, l labels.Labels, m metadata.Metadata) (storage.SeriesRef, error) {
+	// not useful in our implementation
+	return 0, nil
 }
 
 func (a *Appender) Commit() error {

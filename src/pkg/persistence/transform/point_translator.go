@@ -6,7 +6,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/influxdata/influxdb/models"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 var UNINDEXED_LABELS = map[string]bool{

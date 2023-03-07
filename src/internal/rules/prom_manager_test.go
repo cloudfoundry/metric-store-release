@@ -2,6 +2,7 @@ package rules_test
 
 import (
 	"context"
+	prom_discovery "github.com/prometheus/prometheus/discovery"
 	"io/ioutil"
 	"os"
 	"time"
@@ -16,9 +17,7 @@ import (
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	prom_config "github.com/prometheus/prometheus/config"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	"github.com/prometheus/prometheus/storage"
 
@@ -84,8 +83,8 @@ groups:
 
 			// TODO: add method to alertspy to return config
 			alertManagers := &prom_config.AlertmanagerConfigs{{
-				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-					StaticConfigs: []*targetgroup.Group{
+				ServiceDiscoveryConfigs: prom_discovery.Configs{
+					prom_discovery.StaticConfig{
 						{
 							Targets: []model.LabelSet{
 								{
@@ -252,8 +251,9 @@ func setupDependencies(rules string) (*ruleManagerDependencies, func()) {
 
 // TODO minimize scope -> use TestContext
 func loadMetric(store *persistence.Store) {
-	appender := store.Appender()
-	appender.Add(
+	appender := store.Appender(context.Background())
+	appender.Append(
+		0,
 		labels.FromMap(map[string]string{"__name__": "metric_store_test_metric"}),
 		time.Now().UnixNano(),
 		3,
@@ -269,12 +269,12 @@ func loadMetric(store *persistence.Store) {
 }
 
 func queryByName(querier storage.Querier, name string) []testing.Point {
-	seriesSet, _, err := querier.Select(
+	seriesSet := querier.Select(
 		false,
 		&storage.SelectHints{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 		&labels.Matcher{Name: "__name__", Value: name, Type: labels.MatchEqual},
 	)
-	if err != nil {
+	if seriesSet.Err() != nil {
 		return []testing.Point{}
 	}
 

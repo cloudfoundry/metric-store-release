@@ -14,7 +14,7 @@
 package storage
 
 import (
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 type noopQuerier struct{}
@@ -24,15 +24,15 @@ func NoopQuerier() Querier {
 	return noopQuerier{}
 }
 
-func (noopQuerier) Select(bool, *SelectHints, ...*labels.Matcher) (SeriesSet, Warnings, error) {
-	return NoopSeriesSet(), nil, nil
+func (noopQuerier) Select(bool, *SelectHints, ...*labels.Matcher) SeriesSet {
+	return NoopSeriesSet()
 }
 
-func (noopQuerier) LabelValues(string) ([]string, Warnings, error) {
+func (noopQuerier) LabelValues(string, ...*labels.Matcher) ([]string, Warnings, error) {
 	return nil, nil, nil
 }
 
-func (noopQuerier) LabelNames() ([]string, Warnings, error) {
+func (noopQuerier) LabelNames(...*labels.Matcher) ([]string, Warnings, error) {
 	return nil, nil, nil
 }
 
@@ -47,15 +47,15 @@ func NoopChunkedQuerier() ChunkQuerier {
 	return noopChunkQuerier{}
 }
 
-func (noopChunkQuerier) Select(bool, *SelectHints, ...*labels.Matcher) (ChunkSeriesSet, Warnings, error) {
-	return NoopChunkedSeriesSet(), nil, nil
+func (noopChunkQuerier) Select(bool, *SelectHints, ...*labels.Matcher) ChunkSeriesSet {
+	return NoopChunkedSeriesSet()
 }
 
-func (noopChunkQuerier) LabelValues(string) ([]string, Warnings, error) {
+func (noopChunkQuerier) LabelValues(string, ...*labels.Matcher) ([]string, Warnings, error) {
 	return nil, nil, nil
 }
 
-func (noopChunkQuerier) LabelNames() ([]string, Warnings, error) {
+func (noopChunkQuerier) LabelNames(...*labels.Matcher) ([]string, Warnings, error) {
 	return nil, nil, nil
 }
 
@@ -76,6 +76,8 @@ func (noopSeriesSet) At() Series { return nil }
 
 func (noopSeriesSet) Err() error { return nil }
 
+func (noopSeriesSet) Warnings() Warnings { return nil }
+
 type noopChunkedSeriesSet struct{}
 
 // NoopChunkedSeriesSet is a ChunkSeriesSet that does nothing.
@@ -88,3 +90,5 @@ func (noopChunkedSeriesSet) Next() bool { return false }
 func (noopChunkedSeriesSet) At() ChunkSeries { return nil }
 
 func (noopChunkedSeriesSet) Err() error { return nil }
+
+func (noopChunkedSeriesSet) Warnings() Warnings { return nil }

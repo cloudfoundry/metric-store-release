@@ -119,7 +119,8 @@ type mockClient struct {
 	responseErrors []error
 }
 
-func (c *mockClient) Query(context.Context, string, time.Time) (model.Value, prom_versioned_api_client.Warnings, error) {
+func (c *mockClient) Query(ctx context.Context, query string, t time.Time, opts ...prom_versioned_api_client.
+	Option) (model.Value, prom_versioned_api_client.Warnings, error) {
 	var points []model.SamplePair
 
 	responseCount := c.responseCounts[0]
@@ -148,17 +149,20 @@ func (c *mockClient) Query(context.Context, string, time.Time) (model.Value, pro
 	}, nil, nil
 }
 
-func (c *mockClient) LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
+func (c *mockClient) LabelValues(ctx context.Context, label string, matches []string, startTime,
+	endTime time.Time) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
 	return nil, nil, fmt.Errorf("unexpected status code 500")
 }
 
 type mockUnresponsiveClient struct {
 }
 
-func (c *mockUnresponsiveClient) Query(context.Context, string, time.Time) (model.Value, prom_versioned_api_client.Warnings, error) {
+func (c *mockUnresponsiveClient) Query(ctx context.Context, query string, ts time.Time, opts ...prom_versioned_api_client.
+	Option) (model.Value, prom_versioned_api_client.Warnings, error) {
 	return nil, nil, fmt.Errorf("unexpected status code 500")
 }
 
-func (c *mockUnresponsiveClient) LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
+func (c *mockUnresponsiveClient) LabelValues(ctx context.Context, label string, matches []string, startTime,
+	endTime time.Time) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
 	panic("unimplemented")
 }

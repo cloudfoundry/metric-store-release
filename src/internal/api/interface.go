@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
-	prom_labels "github.com/prometheus/prometheus/pkg/labels"
-	"github.com/prometheus/prometheus/pkg/rulefmt"
+	prom_labels "github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/model/rulefmt"
 	"github.com/prometheus/prometheus/scrape"
 	"github.com/prometheus/prometheus/tsdb"
 )
@@ -17,6 +17,10 @@ func (tr *nullTargetRetriever) TargetsActive() map[string][]*scrape.Target  { re
 func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { return nil }
 
 type nullTSDBAdminStats struct{}
+
+func (a *nullTSDBAdminStats) WALReplayStatus() (tsdb.WALReplayStatus, error) {
+	panic("implement me")
+}
 
 func (a *nullTSDBAdminStats) CleanTombstones() error                             { return nil }
 func (a *nullTSDBAdminStats) Delete(int64, int64, ...*prom_labels.Matcher) error { return nil }

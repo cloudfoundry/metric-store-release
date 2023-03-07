@@ -42,6 +42,11 @@ type ReplicatedStorage struct {
 	replayerClosers      []chan struct{}
 }
 
+func (r *ReplicatedStorage) ChunkQuerier(ctx context.Context, mint, maxt int64) (prom_storage.ChunkQuerier, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewReplicatedStorage(
 	localStore prom_storage.Storage,
 	localIndex int,
@@ -122,7 +127,7 @@ func (r *ReplicatedStorage) createAppenders() error {
 			continue
 		}
 
-		localAppender := r.localStore.Appender()
+		localAppender := r.localStore.Appender(context.Background())
 		r.appenders[nodeIndex] = localAppender
 	}
 
@@ -147,7 +152,7 @@ func (r *ReplicatedStorage) StartTime() (int64, error) {
 	panic("not implemented")
 }
 
-func (r *ReplicatedStorage) Appender() storage.Appender {
+func (r *ReplicatedStorage) Appender(ctx context.Context) prom_storage.Appender {
 	return NewReplicatedAppender(
 		r.appenders,
 		r.routingTable.Lookup,

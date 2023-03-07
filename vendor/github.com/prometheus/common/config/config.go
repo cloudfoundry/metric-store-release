@@ -16,19 +16,75 @@
 
 package config
 
+import (
+	"encoding/json"
+	"net/http"
+	"path/filepath"
+)
+
+const secretToken = "<secret>"
+
 // Secret special type for storing secrets.
 type Secret string
 
 // MarshalYAML implements the yaml.Marshaler interface for Secrets.
 func (s Secret) MarshalYAML() (interface{}, error) {
 	if s != "" {
-		return "<secret>", nil
+		return secretToken, nil
 	}
 	return nil, nil
 }
 
-//UnmarshalYAML implements the yaml.Unmarshaler interface for Secrets.
+// UnmarshalYAML implements the yaml.Unmarshaler interface for Secrets.
 func (s *Secret) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type plain Secret
 	return unmarshal((*plain)(s))
+}
+
+// MarshalJSON implements the json.Marshaler interface for Secret.
+func (s Secret) MarshalJSON() ([]byte, error) {
+	if len(s) == 0 {
+		return json.Marshal("")
+	}
+	return json.Marshal(secretToken)
+}
+
+type Header map[string][]Secret
+
+func (h *Header) HTTPHeader() http.Header {
+	if h == nil || *h == nil {
+		return nil
+	}
+
+	header := make(http.Header)
+
+	for name, values := range *h {
+		var s []string
+		if values != nil {
+			s = make([]string, 0, len(values))
+			for _, value := range values {
+				s = append(s, string(value))
+			}
+		}
+		header[name] = s
+	}
+
+	return header
+}
+
+// DirectorySetter is a config type that contains file paths that may
+// be relative to the file containing the config.
+type DirectorySetter interface {
+	// SetDirectory joins any relative file paths with dir.
+	// Any paths that are empty or absolute remain unchanged.
+	SetDirectory(dir string)
+}
+
+// JoinDir joins dir and path if path is relative.
+// If path is empty or absolute, it is returned unchanged.
+func JoinDir(dir, path string) string {
+	if path == "" || filepath.IsAbs(path) {
+		return path
+	}
+	return filepath.Join(dir, path)
 }

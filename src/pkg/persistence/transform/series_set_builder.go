@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/influxdata/influxdb/query"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
 )
 

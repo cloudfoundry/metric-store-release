@@ -1,6 +1,7 @@
 package rules_test
 
 import (
+	prom_discovery "github.com/prometheus/prometheus/discovery"
 	"io/ioutil"
 	"log"
 	"os"
@@ -8,18 +9,15 @@ import (
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
+	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	prom_config "github.com/prometheus/prometheus/config"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-
-	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("PromRuleManagers", func() {
@@ -86,8 +84,8 @@ groups:
 		)
 
 		alertManagerConfigs = &prom_config.AlertmanagerConfigs{{
-			ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-				StaticConfigs: []*targetgroup.Group{
+			ServiceDiscoveryConfigs: prom_discovery.Configs{
+				prom_discovery.StaticConfig{
 					{
 						Targets: []model.LabelSet{
 							{

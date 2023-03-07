@@ -2,22 +2,20 @@ package storage_test
 
 import (
 	"crypto/tls"
-	"net"
-	"net/http"
-
 	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	config_util "github.com/prometheus/common/config"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/prompb"
 	"github.com/prometheus/prometheus/storage/remote"
 	"golang.org/x/net/context"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"net"
+	"net/http"
 )
 
 var _ = Describe("Remote Querier", func() {
@@ -63,13 +61,13 @@ var _ = Describe("Remote Querier", func() {
 
 			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
-			_, _, err = querier.Select(false, nil, &labels.Matcher{
+			result := querier.Select(false, nil, &labels.Matcher{
 				Name:  "__name__",
 				Type:  labels.MatchEqual,
 				Value: "irrelevantapp",
 			})
 			Expect(calls).To(Receive())
-			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Err()).ToNot(HaveOccurred())
 		})
 
 		It("respects context", func() {

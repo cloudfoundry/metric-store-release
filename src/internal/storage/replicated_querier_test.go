@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	config_util "github.com/prometheus/common/config"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
@@ -35,8 +35,8 @@ var _ = Describe("Querier", func() {
 				factory := &testFactory{}
 				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, factory, 5*time.Second,
 					nil, logger.NewTestLogger(GinkgoWriter))
-				_, _, err := querier.Select(false, nil, in...)
-				Expect(err).To(Equal(out))
+
+				Expect(querier.Select(false, nil, in...).Err()).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{
 				Name:  "__name__",
@@ -71,16 +71,14 @@ var _ = Describe("Querier", func() {
 		Context("happy path", func() {
 			It("doesn't nil-ref on duplicate node addresses", func() {
 				subject := createTestSubject(nil, nil)
-				Expect(func() { _, _, _ = subject.Select(false, nil) }).NotTo(Panic())
+				Expect(func() { subject.Select(false, nil) }).NotTo(Panic())
 			})
 
 			It("calls remote node", func() {
 				spy := newSpyQuerier()
 				subject := createTestSubject(nil, spy)
 
-				var err error
-				_, _, err = subject.Select(false, nil, simpleQuery)
-				Expect(err).NotTo(HaveOccurred())
+				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
 
@@ -97,9 +95,8 @@ var _ = Describe("Querier", func() {
 				var attempts int
 				Consistently(func() bool {
 					attempts++
-					var err error
-					_, _, err = subject.Select(false, nil, simpleQuery)
-					Expect(err).NotTo(HaveOccurred())
+
+					Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 					Expect(remoteQuerier.callCount).To(Equal(0))
 					return localQuerier.callCount == attempts
 				}).Should(BeTrue())
@@ -110,27 +107,24 @@ var _ = Describe("Querier", func() {
 			It("does not fail over calls on non-connection error", func() {
 				spy := newSpyQuerierWithRepeatedErrors(errors.New("expected"), 3)
 				subject := createTestSubject(nil, spy)
-				var err error
-				_, _, err = subject.Select(false, nil, simpleQuery)
-				Expect(err).To(HaveOccurred())
+
+				Expect(subject.Select(false, nil, simpleQuery).Err()).To(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
 
 			It("fails over calls on connection error", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 3)
 				subject := createTestSubject(nil, spy)
-				var err error
-				_, _, err = subject.Select(false, nil, simpleQuery)
-				Expect(err).NotTo(HaveOccurred())
+
+				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(BeNumerically(">=", 3))
 			})
 
 			It("stops failing over once a result is returned", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 1)
 				subject := createTestSubject(nil, spy)
-				var err error
-				_, _, err = subject.Select(false, nil, simpleQuery)
-				Expect(err).NotTo(HaveOccurred())
+
+				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(2))
 			})
 
@@ -139,9 +133,8 @@ var _ = Describe("Querier", func() {
 					spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 7)
 					localQuerier := newSpyQuerier()
 					subject := createTestSubject(localQuerier, spy)
-					var err error
-					_, _, err = subject.Select(false, nil, simpleQuery)
-					Expect(err).NotTo(HaveOccurred())
+
+					Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 					Expect(spy.callCount).To(Equal(8))
 					Expect(localQuerier.callCount).To(Equal(0))
 				})
@@ -236,21 +229,50 @@ func newSpyQuerierWithRepeatedErrors(err error, count int) *spyQuerier {
 	return spy
 }
 
-func (q *spyQuerier) Select(bool, *prom_storage.SelectHints, ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
-	q.callCount++
-	var err error
-	select {
-	case err = <-q.selectErrors:
-	default:
-	}
-	return nil, nil, err
+type SeriesSetSpy struct {
+	err      error
+	warnings prom_storage.Warnings
 }
 
-func (*spyQuerier) LabelValues(_ string) ([]string, prom_storage.Warnings, error) {
+func (*SeriesSetSpy) Next() bool {
+	return false
+}
+
+// At returns full series. Returned series should be iterable even after Next is called.
+func (*SeriesSetSpy) At() prom_storage.Series {
+	return nil
+}
+
+// The error that iteration as failed with.
+// When an error occurs, set cannot continue to iterate.
+func (seriesSet *SeriesSetSpy) Err() error {
+	return seriesSet.err
+}
+
+// A collection of warnings for the whole set.
+// Warnings could be return even iteration has not failed with error.
+func (seriesSet *SeriesSetSpy) Warnings() prom_storage.Warnings {
+	return seriesSet.warnings
+}
+
+func (q *spyQuerier) Select(sortSeries bool, hints *prom_storage.SelectHints,
+	matchers ...*labels.Matcher) prom_storage.SeriesSet {
+	var seriesSet SeriesSetSpy
+	q.callCount++
+	select {
+	case seriesSet.err = <-q.selectErrors:
+	default:
+	}
+	return &seriesSet
+}
+
+func (*spyQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
+	prom_storage.Warnings, error) {
 	panic("implement me")
 }
 
-func (*spyQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
+func (*spyQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings,
+	error) {
 	panic("implement me")
 }
 

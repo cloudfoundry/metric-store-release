@@ -5,7 +5,7 @@ import (
 	"regexp"
 
 	"github.com/influxdata/influxql"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 var operatorMapping = map[labels.MatchType]influxql.Token{

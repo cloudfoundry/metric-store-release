@@ -15,18 +15,17 @@ package chunks
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"hash"
 	"hash/crc32"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/pkg/errors"
+
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
 	tsdb_errors "github.com/prometheus/prometheus/tsdb/errors"
 	"github.com/prometheus/prometheus/tsdb/fileutil"
@@ -53,21 +52,87 @@ const (
 	ChunkEncodingSize = 1
 )
 
+// ChunkRef is a generic reference for reading chunk data. In prometheus it
+// is either a HeadChunkRef or BlockChunkRef, though other implementations
+// may have their own reference types.
+type ChunkRef uint64
+
+// HeadSeriesRef refers to in-memory series.
+type HeadSeriesRef uint64
+
+// HeadChunkRef packs a HeadSeriesRef and a ChunkID into a global 8 Byte ID.
+// The HeadSeriesRef and ChunkID may not exceed 5 and 3 bytes respectively.
+type HeadChunkRef uint64
+
+func NewHeadChunkRef(hsr HeadSeriesRef, chunkID HeadChunkID) HeadChunkRef {
+	if hsr > (1<<40)-1 {
+		panic("series ID exceeds 5 bytes")
+	}
+	if chunkID > (1<<24)-1 {
+		panic("chunk ID exceeds 3 bytes")
+	}
+	return HeadChunkRef(uint64(hsr<<24) | uint64(chunkID))
+}
+
+func (p HeadChunkRef) Unpack() (HeadSeriesRef, HeadChunkID) {
+	return HeadSeriesRef(p >> 24), HeadChunkID(p<<40) >> 40
+}
+
+// HeadChunkID refers to a specific chunk in a series (memSeries) in the Head.
+// Each memSeries has its own monotonically increasing number to refer to its chunks.
+// If the HeadChunkID value is...
+//   - memSeries.firstChunkID+len(memSeries.mmappedChunks), it's the head chunk.
+//   - less than the above, but >= memSeries.firstID, then it's
+//     memSeries.mmappedChunks[i] where i = HeadChunkID - memSeries.firstID.
+//
+// Example:
+// assume a memSeries.firstChunkID=7 and memSeries.mmappedChunks=[p5,p6,p7,p8,p9].
+// | HeadChunkID value | refers to ...                                                                          |
+// |-------------------|----------------------------------------------------------------------------------------|
+// |               0-6 | chunks that have been compacted to blocks, these won't return data for queries in Head |
+// |              7-11 | memSeries.mmappedChunks[i] where i is 0 to 4.                                          |
+// |                12 | memSeries.headChunk                                                                    |
+type HeadChunkID uint64
+
+// BlockChunkRef refers to a chunk within a persisted block.
+// The upper 4 bytes are for the segment index and
+// the lower 4 bytes are for the segment offset where the data starts for this chunk.
+type BlockChunkRef uint64
+
+// NewBlockChunkRef packs the file index and byte offset into a BlockChunkRef.
+func NewBlockChunkRef(fileIndex, fileOffset uint64) BlockChunkRef {
+	return BlockChunkRef(fileIndex<<32 | fileOffset)
+}
+
+func (b BlockChunkRef) Unpack() (int, int) {
+	sgmIndex := int(b >> 32)
+	chkStart := int((b << 32) >> 32)
+	return sgmIndex, chkStart
+}
+
 // Meta holds information about a chunk of data.
 type Meta struct {
 	// Ref and Chunk hold either a reference that can be used to retrieve
 	// chunk data or the data itself.
-	// When it is a reference it is the segment offset at which the chunk bytes start.
-	// Generally, only one of them is set.
-	Ref   uint64
+	// If Chunk is nil, call ChunkReader.Chunk(Meta.Ref) to get the chunk and assign it to the Chunk field
+	Ref   ChunkRef
 	Chunk chunkenc.Chunk
 
 	// Time range the data covers.
 	// When MaxTime == math.MaxInt64 the chunk is still open and being appended to.
 	MinTime, MaxTime int64
+
+	// OOOLastRef, OOOLastMinTime and OOOLastMaxTime are kept as markers for
+	// overlapping chunks.
+	// These fields point to the last created out of order Chunk (the head) that existed
+	// when Series() was called and was overlapping.
+	// Series() and Chunk() method responses should be consistent for the same
+	// query even if new data is added in between the calls.
+	OOOLastRef                     ChunkRef
+	OOOLastMinTime, OOOLastMaxTime int64
 }
 
-// Iterator iterates over the chunk of a time series.
+// Iterator iterates over the chunks of a single time series.
 type Iterator interface {
 	// At returns the current meta.
 	// It depends on implementation if the chunk is populated or not.
@@ -96,9 +161,7 @@ func (cm *Meta) OverlapsClosedInterval(mint, maxt int64) bool {
 	return cm.MinTime <= maxt && mint <= cm.MaxTime
 }
 
-var (
-	errInvalidSize = fmt.Errorf("invalid size")
-)
+var errInvalidSize = fmt.Errorf("invalid size")
 
 var castagnoliTable *crc32.Table
 
@@ -110,6 +173,17 @@ func init() {
 // polynomial may be easily changed in one location at a later time, if necessary.
 func newCRC32() hash.Hash32 {
 	return crc32.New(castagnoliTable)
+}
+
+// Check if the CRC of data matches that stored in sum, computed when the chunk was stored.
+func checkCRC32(data, sum []byte) error {
+	got := crc32.Checksum(data, castagnoliTable)
+	// This combination of shifts is the inverse of digest.Sum() in go/src/hash/crc32.
+	want := uint32(sum[0])<<24 + uint32(sum[1])<<16 + uint32(sum[2])<<8 + uint32(sum[3])
+	if got != want {
+		return errors.Errorf("checksum mismatch expected:%x, actual:%x", want, got)
+	}
+	return nil
 }
 
 // Writer implements the ChunkWriter interface for the standard
@@ -147,7 +221,7 @@ func newWriter(dir string, segmentSize int64) (*Writer, error) {
 		segmentSize = DefaultChunkSegmentSize
 	}
 
-	if err := os.MkdirAll(dir, 0777); err != nil {
+	if err := os.MkdirAll(dir, 0o777); err != nil {
 		return nil, err
 	}
 	dirFile, err := fileutil.OpenDir(dir)
@@ -217,16 +291,27 @@ func (w *Writer) cut() error {
 	return nil
 }
 
-func cutSegmentFile(dirFile *os.File, magicNumber uint32, chunksFormat byte, allocSize int64) (headerSize int, newFile *os.File, seq int, err error) {
+func cutSegmentFile(dirFile *os.File, magicNumber uint32, chunksFormat byte, allocSize int64) (headerSize int, newFile *os.File, seq int, returnErr error) {
 	p, seq, err := nextSequenceFile(dirFile.Name())
 	if err != nil {
 		return 0, nil, 0, errors.Wrap(err, "next sequence file")
 	}
 	ptmp := p + ".tmp"
-	f, err := os.OpenFile(ptmp, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile(ptmp, os.O_WRONLY|os.O_CREATE, 0o666)
 	if err != nil {
 		return 0, nil, 0, errors.Wrap(err, "open temp file")
 	}
+	defer func() {
+		if returnErr != nil {
+			errs := tsdb_errors.NewMulti(returnErr)
+			if f != nil {
+				errs.Add(f.Close())
+			}
+			// Calling RemoveAll on a non-existent file does not return error.
+			errs.Add(os.RemoveAll(ptmp))
+			returnErr = errs.Err()
+		}
+	}()
 	if allocSize > 0 {
 		if err = fileutil.Preallocate(f, allocSize, true); err != nil {
 			return 0, nil, 0, errors.Wrap(err, "preallocate")
@@ -248,16 +333,17 @@ func cutSegmentFile(dirFile *os.File, magicNumber uint32, chunksFormat byte, all
 	if err := f.Close(); err != nil {
 		return 0, nil, 0, errors.Wrap(err, "close temp file")
 	}
+	f = nil
 
 	if err := fileutil.Rename(ptmp, p); err != nil {
 		return 0, nil, 0, errors.Wrap(err, "replace file")
 	}
 
-	f, err = os.OpenFile(p, os.O_WRONLY, 0666)
+	f, err = os.OpenFile(p, os.O_WRONLY, 0o666)
 	if err != nil {
 		return 0, nil, 0, errors.Wrap(err, "open final file")
 	}
-	// Skip the header for the further writes.
+	// Skip header for further writes.
 	if _, err := f.Seek(int64(n), 0); err != nil {
 		return 0, nil, 0, errors.Wrap(err, "seek in final file")
 	}
@@ -268,85 +354,6 @@ func (w *Writer) write(b []byte) error {
 	n, err := w.wbuf.Write(b)
 	w.n += int64(n)
 	return err
-}
-
-// MergeOverlappingChunks removes the samples whose timestamp is overlapping.
-// The last appearing sample is retained in case there is overlapping.
-// This assumes that `chks []Meta` is sorted w.r.t. MinTime.
-func MergeOverlappingChunks(chks []Meta) ([]Meta, error) {
-	if len(chks) < 2 {
-		return chks, nil
-	}
-	newChks := make([]Meta, 0, len(chks)) // Will contain the merged chunks.
-	newChks = append(newChks, chks[0])
-	last := 0
-	for _, c := range chks[1:] {
-		// We need to check only the last chunk in newChks.
-		// Reason: (1) newChks[last-1].MaxTime < newChks[last].MinTime (non overlapping)
-		//         (2) As chks are sorted w.r.t. MinTime, newChks[last].MinTime < c.MinTime.
-		// So never overlaps with newChks[last-1] or anything before that.
-		if c.MinTime > newChks[last].MaxTime {
-			newChks = append(newChks, c)
-			last++
-			continue
-		}
-		nc := &newChks[last]
-		if c.MaxTime > nc.MaxTime {
-			nc.MaxTime = c.MaxTime
-		}
-		chk, err := MergeChunks(nc.Chunk, c.Chunk)
-		if err != nil {
-			return nil, err
-		}
-		nc.Chunk = chk
-	}
-
-	return newChks, nil
-}
-
-// MergeChunks vertically merges a and b, i.e., if there is any sample
-// with same timestamp in both a and b, the sample in a is discarded.
-func MergeChunks(a, b chunkenc.Chunk) (*chunkenc.XORChunk, error) {
-	newChunk := chunkenc.NewXORChunk()
-	app, err := newChunk.Appender()
-	if err != nil {
-		return nil, err
-	}
-	ait := a.Iterator(nil)
-	bit := b.Iterator(nil)
-	aok, bok := ait.Next(), bit.Next()
-	for aok && bok {
-		at, av := ait.At()
-		bt, bv := bit.At()
-		if at < bt {
-			app.Append(at, av)
-			aok = ait.Next()
-		} else if bt < at {
-			app.Append(bt, bv)
-			bok = bit.Next()
-		} else {
-			app.Append(bt, bv)
-			aok = ait.Next()
-			bok = bit.Next()
-		}
-	}
-	for aok {
-		at, av := ait.At()
-		app.Append(at, av)
-		aok = ait.Next()
-	}
-	for bok {
-		bt, bv := bit.At()
-		app.Append(bt, bv)
-		bok = bit.Next()
-	}
-	if ait.Err() != nil {
-		return nil, ait.Err()
-	}
-	if bit.Err() != nil {
-		return nil, bit.Err()
-	}
-	return newChunk, nil
 }
 
 // WriteChunks writes as many chunks as possible to the current segment,
@@ -421,16 +428,11 @@ func (w *Writer) writeChunks(chks []Meta) error {
 		return nil
 	}
 
-	var seq = uint64(w.seq()) << 32
+	seq := uint64(w.seq())
 	for i := range chks {
 		chk := &chks[i]
 
-		// The reference is set to the segment index and the offset where
-		// the data starts for this chunk.
-		//
-		// The upper 4 bytes are for the segment index and
-		// the lower 4 bytes are for the segment offset where to start reading this chunk.
-		chk.Ref = seq | uint64(w.n)
+		chk.Ref = ChunkRef(NewBlockChunkRef(seq, uint64(w.n)))
 
 		n := binary.PutUvarint(w.buf[:], uint64(len(chk.Chunk.Bytes())))
 
@@ -485,10 +487,6 @@ func (b realByteSlice) Range(start, end int) []byte {
 	return b[start:end]
 }
 
-func (b realByteSlice) Sub(start, end int) ByteSlice {
-	return b[start:end]
-}
-
 // Reader implements a ChunkReader for a serialized byte stream
 // of series data.
 type Reader struct {
@@ -532,16 +530,16 @@ func NewDirReader(dir string, pool chunkenc.Pool) (*Reader, error) {
 	}
 
 	var (
-		bs   []ByteSlice
-		cs   []io.Closer
-		merr tsdb_errors.MultiError
+		bs []ByteSlice
+		cs []io.Closer
 	)
 	for _, fn := range files {
 		f, err := fileutil.OpenMmapFile(fn)
 		if err != nil {
-			merr.Add(errors.Wrap(err, "mmap files"))
-			merr.Add(closeAll(cs))
-			return nil, merr
+			return nil, tsdb_errors.NewMulti(
+				errors.Wrap(err, "mmap files"),
+				tsdb_errors.CloseAll(cs),
+			).Err()
 		}
 		cs = append(cs, f)
 		bs = append(bs, realByteSlice(f.Bytes()))
@@ -549,15 +547,16 @@ func NewDirReader(dir string, pool chunkenc.Pool) (*Reader, error) {
 
 	reader, err := newReader(bs, cs, pool)
 	if err != nil {
-		merr.Add(err)
-		merr.Add(closeAll(cs))
-		return nil, merr
+		return nil, tsdb_errors.NewMulti(
+			err,
+			tsdb_errors.CloseAll(cs),
+		).Err()
 	}
 	return reader, nil
 }
 
 func (s *Reader) Close() error {
-	return closeAll(s.cs)
+	return tsdb_errors.CloseAll(s.cs)
 }
 
 // Size returns the size of the chunks.
@@ -566,16 +565,8 @@ func (s *Reader) Size() int64 {
 }
 
 // Chunk returns a chunk from a given reference.
-func (s *Reader) Chunk(ref uint64) (chunkenc.Chunk, error) {
-	var (
-		// Get the upper 4 bytes.
-		// These contain the segment index.
-		sgmIndex = int(ref >> 32)
-		// Get the lower 4 bytes.
-		// These contain the segment offset where the data for this chunk starts.
-		chkStart = int((ref << 32) >> 32)
-		chkCRC32 = newCRC32()
-	)
+func (s *Reader) Chunk(meta Meta) (chunkenc.Chunk, error) {
+	sgmIndex, chkStart := BlockChunkRef(meta.Ref).Unpack()
 
 	if sgmIndex >= len(s.bs) {
 		return nil, errors.Errorf("segment index %d out of range", sgmIndex)
@@ -604,12 +595,8 @@ func (s *Reader) Chunk(ref uint64) (chunkenc.Chunk, error) {
 	}
 
 	sum := sgmBytes.Range(chkDataEnd, chkEnd)
-	if _, err := chkCRC32.Write(sgmBytes.Range(chkEncStart, chkDataEnd)); err != nil {
+	if err := checkCRC32(sgmBytes.Range(chkEncStart, chkDataEnd), sum); err != nil {
 		return nil, err
-	}
-
-	if act := chkCRC32.Sum(nil); !bytes.Equal(act, sum) {
-		return nil, errors.Errorf("checksum mismatch expected:%x, actual:%x", sum, act)
 	}
 
 	chkData := sgmBytes.Range(chkDataStart, chkDataEnd)
@@ -618,7 +605,7 @@ func (s *Reader) Chunk(ref uint64) (chunkenc.Chunk, error) {
 }
 
 func nextSequenceFile(dir string) (string, int, error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return "", 0, err
 	}
@@ -644,7 +631,7 @@ func segmentFile(baseDir string, index int) string {
 }
 
 func sequenceFiles(dir string) ([]string, error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -656,13 +643,4 @@ func sequenceFiles(dir string) ([]string, error) {
 		res = append(res, filepath.Join(dir, fi.Name()))
 	}
 	return res, nil
-}
-
-func closeAll(cs []io.Closer) error {
-	var merr tsdb_errors.MultiError
-
-	for _, c := range cs {
-		merr.Add(c.Close())
-	}
-	return merr.Err()
 }
