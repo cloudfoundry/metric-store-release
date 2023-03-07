@@ -7,13 +7,11 @@ import (
 	. "github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	"github.com/prometheus/common/model"
-	prom_config "github.com/prometheus/prometheus/config"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/common/model"
+	prom_config "github.com/prometheus/prometheus/config"
+	prom_discovery "github.com/prometheus/prometheus/discovery"
 )
 
 var _ = Describe("LocalRuleManager", func() {
@@ -33,8 +31,8 @@ var _ = Describe("LocalRuleManager", func() {
 			localRuleManager := NewLocalRuleManager(tempStorage.Path(), spyPromRuleManagers)
 
 			alertManagers := &prom_config.AlertmanagerConfigs{{
-				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-					StaticConfigs: []*targetgroup.Group{
+				ServiceDiscoveryConfigs: prom_discovery.Configs{
+					prom_discovery.StaticConfig{
 						{
 							Targets: []model.LabelSet{
 								{

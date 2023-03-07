@@ -1,6 +1,9 @@
 package testing
 
-import "github.com/prometheus/prometheus/storage"
+import (
+	"github.com/prometheus/prometheus/storage"
+	"github.com/prometheus/prometheus/tsdb/chunkenc"
+)
 
 type Series struct {
 	Labels map[string]string
@@ -28,10 +31,11 @@ func ExplodeSeriesSet(seriesSet storage.SeriesSet) []Series {
 			newSeries.Labels[label.Name] = label.Value
 		}
 
-		iterator := currentSeries.Iterator()
+		var iterator chunkenc.Iterator
+		iterator = currentSeries.Iterator(iterator)
 		for {
 			hasPoint := iterator.Next()
-			if !hasPoint {
+			if hasPoint == chunkenc.ValNone {
 				break
 			}
 

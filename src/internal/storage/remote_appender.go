@@ -12,6 +12,9 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"github.com/prometheus/prometheus/model/exemplar"
+	"github.com/prometheus/prometheus/model/histogram"
+	"github.com/prometheus/prometheus/model/metadata"
 	"os"
 	"sync"
 	"time"
@@ -19,7 +22,7 @@ import (
 	"code.cloudfoundry.org/go-diodes"
 
 	_ "github.com/influxdata/influxdb/tsdb/engine"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/batch"
@@ -166,7 +169,7 @@ func (a *RemoteAppender) createWriter() {
 	batcher.Start()
 }
 
-func (a *RemoteAppender) Add(l labels.Labels, timestamp int64, value float64) (uint64, error) {
+func (a *RemoteAppender) Append(ref prom_storage.SeriesRef, l labels.Labels, timestamp int64, value float64) (prom_storage.SeriesRef, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -181,7 +184,15 @@ func (a *RemoteAppender) Add(l labels.Labels, timestamp int64, value float64) (u
 	return 0, nil
 }
 
-func (a *RemoteAppender) AddFast(ref uint64, t int64, v float64) error {
+func (a *RemoteAppender) AppendExemplar(ref prom_storage.SeriesRef, l labels.Labels, e exemplar.Exemplar) (prom_storage.SeriesRef, error) {
+	panic("not implemented")
+}
+
+func (a *RemoteAppender) AppendHistogram(ref prom_storage.SeriesRef, l labels.Labels, t int64, h *histogram.Histogram, fh *histogram.FloatHistogram) (prom_storage.SeriesRef, error) {
+	panic("not implemented")
+}
+
+func (a *RemoteAppender) UpdateMetadata(ref prom_storage.SeriesRef, l labels.Labels, m metadata.Metadata) (prom_storage.SeriesRef, error) {
 	panic("not implemented")
 }
 

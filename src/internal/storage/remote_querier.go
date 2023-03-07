@@ -10,7 +10,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	config_util "github.com/prometheus/common/config"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
 )
@@ -19,7 +19,7 @@ type RemoteQuerier struct {
 	ctx           context.Context
 	index         int
 	addr          string
-	publicClient  *remote.Client
+	publicClient  remote.ReadClient
 	privateClient prom_api_client.API
 	log           *logger.Logger
 }
@@ -72,23 +72,32 @@ func NewRemoteQuerier(
 	return querier, nil
 }
 
-func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	query, err := remote.ToQuery(0, 0, matchers, params)
 	if err != nil {
-		return nil, nil, err
+		return nil
 	}
 
 	res, err := r.publicClient.Read(r.ctx, query)
 	if err != nil {
-		return nil, nil, err
+		return nil
 	}
-	return remote.FromQueryResult(sortSeries, res), nil, nil
+	return remote.FromQueryResult(sortSeries, res)
 }
 
-func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {
+func (r *RemoteQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
+	prom_storage.Warnings, error) {
 	var results []string
 
-	labelValuesResult, _, err := r.privateClient.LabelValues(r.ctx, name)
+	minTime, maxTime, _ := DefaultTimeRangeAndMatches()
+
+	result := make([]string, len(matchers))
+	for i, matcher := range matchers {
+		result[i] = matcher.String()
+	}
+
+	labelValuesResult, _, err := r.privateClient.LabelValues(r.ctx, name, result, minTime,
+		maxTime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,8 +109,15 @@ func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warning
 	return results, nil, nil
 }
 
-func (r *RemoteQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
-	res, _, err := r.privateClient.LabelNames(r.ctx)
+func (r *RemoteQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings, error) {
+	minTime, maxTime, _ := DefaultTimeRangeAndMatches()
+
+	result := make([]string, len(matchers))
+	for i, matcher := range matchers {
+		result[i] = matcher.String()
+	}
+
+	res, _, err := r.privateClient.LabelNames(r.ctx, result, minTime, maxTime)
 	return res, nil, err
 }
 

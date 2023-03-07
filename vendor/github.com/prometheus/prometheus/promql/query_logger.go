@@ -23,8 +23,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/edsrzf/mmap-go"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
 
 type ActiveQueryTracker struct {
@@ -43,7 +43,7 @@ const (
 	entrySize int = 1000
 )
 
-func parseBrokenJSON(brokenJSON []byte) (bool, string) {
+func parseBrokenJSON(brokenJSON []byte) (string, bool) {
 	queries := strings.ReplaceAll(string(brokenJSON), "\x00", "")
 	if len(queries) > 0 {
 		queries = queries[:len(queries)-1] + "]"
@@ -51,10 +51,10 @@ func parseBrokenJSON(brokenJSON []byte) (bool, string) {
 
 	// Conditional because of implementation detail: len() = 1 implies file consisted of a single char: '['.
 	if len(queries) <= 1 {
-		return false, "[]"
+		return "[]", false
 	}
 
-	return true, queries
+	return queries, true
 }
 
 func logUnfinishedQueries(filename string, filesize int, logger log.Logger) {
@@ -64,6 +64,7 @@ func logUnfinishedQueries(filename string, filesize int, logger log.Logger) {
 			level.Error(logger).Log("msg", "Failed to open query log file", "err", err)
 			return
 		}
+		defer fd.Close()
 
 		brokenJSON := make([]byte, filesize)
 		_, err = fd.Read(brokenJSON)
@@ -72,7 +73,7 @@ func logUnfinishedQueries(filename string, filesize int, logger log.Logger) {
 			return
 		}
 
-		queriesExist, queries := parseBrokenJSON(brokenJSON)
+		queries, queriesExist := parseBrokenJSON(brokenJSON)
 		if !queriesExist {
 			return
 		}
@@ -81,10 +82,13 @@ func logUnfinishedQueries(filename string, filesize int, logger log.Logger) {
 }
 
 func getMMapedFile(filename string, filesize int, logger log.Logger) ([]byte, error) {
-
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0666)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o666)
 	if err != nil {
-		level.Error(logger).Log("msg", "Error opening query log file", "file", filename, "err", err)
+		absPath, pathErr := filepath.Abs(filename)
+		if pathErr != nil {
+			absPath = filename
+		}
+		level.Error(logger).Log("msg", "Error opening query log file", "file", absPath, "err", err)
 		return nil, err
 	}
 
@@ -104,7 +108,7 @@ func getMMapedFile(filename string, filesize int, logger log.Logger) ([]byte, er
 }
 
 func NewActiveQueryTracker(localStoragePath string, maxConcurrent int, logger log.Logger) *ActiveQueryTracker {
-	err := os.MkdirAll(localStoragePath, 0777)
+	err := os.MkdirAll(localStoragePath, 0o777)
 	if err != nil {
 		level.Error(logger).Log("msg", "Failed to create directory for logging active queries")
 	}
@@ -147,7 +151,6 @@ func trimStringByBytes(str string, size int) string {
 func _newJSONEntry(query string, timestamp int64, logger log.Logger) []byte {
 	entry := Entry{query, timestamp}
 	jsonEntry, err := json.Marshal(entry)
-
 	if err != nil {
 		level.Error(logger).Log("msg", "Cannot create json of query", "query", query)
 		return []byte{}

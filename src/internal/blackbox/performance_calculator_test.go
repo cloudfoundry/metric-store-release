@@ -87,7 +87,8 @@ type mockPerfClient struct {
 	query string
 }
 
-func (c *mockPerfClient) Query(ctx context.Context, query string, ts time.Time) (model.Value, prom_versioned_api_client.Warnings, error) {
+func (c *mockPerfClient) Query(ctx context.Context, query string, ts time.Time, opts ...prom_versioned_api_client.
+	Option) (model.Value, prom_versioned_api_client.Warnings, error) {
 	c.query = query
 
 	value := model.Vector{
@@ -101,7 +102,8 @@ func (c *mockPerfClient) Query(ctx context.Context, query string, ts time.Time) 
 	return value, nil, nil
 }
 
-func (c *mockPerfClient) LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
+func (c *mockPerfClient) LabelValues(ctx context.Context, label string, matches []string, startTime,
+	endTime time.Time) (model.LabelValues, prom_versioned_api_client.Warnings, error) {
 	return nil, nil, fmt.Errorf("unexpected status code 500")
 }
 

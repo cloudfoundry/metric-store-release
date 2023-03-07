@@ -9,6 +9,8 @@ import (
 )
 
 type QueryableClient interface {
-	Query(ctx context.Context, query string, ts time.Time) (model.Value, prom_versioned_api_client.Warnings, error)
-	LabelValues(context.Context, string) (model.LabelValues, prom_versioned_api_client.Warnings, error)
+	Query(ctx context.Context, query string, ts time.Time, opts ...prom_versioned_api_client.
+		Option) (model.Value, prom_versioned_api_client.Warnings, error)
+	LabelValues(ctx context.Context, label string, matches []string, startTime,
+		endTime time.Time) (model.LabelValues, prom_versioned_api_client.Warnings, error)
 }

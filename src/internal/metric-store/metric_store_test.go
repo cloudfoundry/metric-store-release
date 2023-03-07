@@ -33,7 +33,7 @@ import (
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	prom_config "github.com/prometheus/prometheus/config"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
 )
 
@@ -175,7 +175,7 @@ func setup(tc *testContext, opts ...metric_store.MetricStoreOption) (*testContex
 
 	return tc, func() {
 		innerCleanup()
-		os.RemoveAll(storagePath)
+		os.Remove(storagePath)
 	}
 }
 
@@ -656,11 +656,12 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 	querier, _ := tc.persistentStore.Querier(context.TODO(), 0, 0)
 	if localPointCount > 0 {
 		f := func() error {
-			seriesSet, _, err := querier.Select(
+			seriesSet := querier.Select(
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: MAGIC_MEASUREMENT_NAME, Type: labels.MatchEqual},
 			)
+			err = seriesSet.Err()
 			if err != nil {
 				return err
 			}

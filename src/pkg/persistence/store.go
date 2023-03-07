@@ -45,6 +45,11 @@ type Store struct {
 	diskFreeReporter      diskFreeReporter
 }
 
+func (store *Store) ChunkQuerier(ctx context.Context, mint, maxt int64) (storage.ChunkQuerier, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewStore(storagePath string, metrics metrics.Registrar, opts ...StoreOption) *Store {
 	store := &Store{
 		metrics:               metrics,
@@ -127,7 +132,7 @@ func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Quer
 	), nil
 }
 
-func (store *Store) Appender() storage.Appender {
+func (store *Store) Appender(ctx context.Context) storage.Appender {
 	return NewAppender(
 		store.adapter,
 		store.metrics,

@@ -3,7 +3,7 @@ package transform_test
 import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/influxdata/influxdb/query"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	. "github.com/onsi/ginkgo"

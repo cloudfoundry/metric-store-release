@@ -8,7 +8,7 @@ import (
 	"github.com/influxdata/influxdb/tsdb"
 	_ "github.com/influxdata/influxdb/tsdb/index"
 	"github.com/influxdata/influxql"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 )
 
 func (e *Engine) CreateIterators(ctx context.Context, measurement string, opt query.IteratorOptions) ([]query.LabeledIterator, error) {

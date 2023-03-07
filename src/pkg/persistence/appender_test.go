@@ -42,7 +42,7 @@ var _ = Describe("Appender", func() {
 
 				var NegInf = math.Float64frombits(0x7FF0000000000000)
 
-				_, err := tc.appender.Add(nil, 1, NegInf)
+				_, err := tc.appender.Append(0, nil, 1, NegInf)
 				Expect(err).To(MatchError("NaN float cannot be added"))
 				tc.appender.Commit()
 
@@ -55,7 +55,7 @@ var _ = Describe("Appender", func() {
 		It("updates ingress point total metric", func() {
 			tc := setup()
 
-			_, err := tc.appender.Add(nil, 1, 1.0)
+			_, err := tc.appender.Append(0, nil, 1, 1.0)
 			Expect(err).ToNot(HaveOccurred())
 			tc.appender.Commit()
 
@@ -67,7 +67,7 @@ var _ = Describe("Appender", func() {
 		It("updates the duration metrics in Commit", func() {
 			tc := setup()
 
-			_, err := tc.appender.Add(nil, 1, 1.0)
+			_, err := tc.appender.Append(0, nil, 1, 1.0)
 			Expect(err).ToNot(HaveOccurred())
 			tc.appender.Commit()
 

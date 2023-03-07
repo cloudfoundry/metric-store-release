@@ -36,7 +36,8 @@ func (store *Scraper) Run(storage storage.Appendable) {
 	// TODO refactor this so the control flow is less weird
 	// note that LoadConfigs is passed to the reload api
 	// RS & JG 05/12/2020
-	store.scrapeManager = scrape.NewManager(log.With(store.log, "component", "scrape manager"), storage)
+	store.scrapeManager = scrape.NewManager(nil, log.With(store.log, "component",
+		"scrape manager"), storage)
 	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
 	store.LoadConfigs()
 
@@ -55,7 +56,8 @@ func (store *Scraper) LoadConfigs() {
 	if store.configFile != "" {
 		var err error
 		store.log.Debug("Adding base scrape config from path: " + store.configFile)
-		promConfig, err = prom_config.LoadFile(store.configFile)
+		promConfig, err = prom_config.LoadFile(store.configFile, false,
+			false, store.log)
 		if err != nil {
 			panic(err)
 		}
@@ -85,7 +87,8 @@ func (store *Scraper) unfilteredScrapeConfigs(existing []*prom_config.ScrapeConf
 		for _, fileInfo := range fileInfos {
 			if !fileInfo.IsDir() {
 				store.log.Debug("Found additional scrape config file " + fileInfo.Name())
-				additionalScrapeConfig, err := prom_config.LoadFile(filepath.Join(store.additionalScrapeConfigDir, fileInfo.Name()))
+				additionalScrapeConfig, err := prom_config.LoadFile(filepath.Join(store.additionalScrapeConfigDir,
+					fileInfo.Name()), false, false, store.log)
 				if err != nil {
 					store.log.Error("Could not parse scrape config from path "+fileInfo.Name(), err)
 				}
