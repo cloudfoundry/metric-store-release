@@ -13,11 +13,12 @@ type Config struct {
 	MetricStoreTLS        MetricStoreClientTLS
 	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
-	IngressAddr           string `env:"INGRESS_ADDR, required, report"`
-	MetricsAddr           string `env:"METRICS_ADDR, report"`
-	ShardId               string `env:"SHARD_ID, required, report"`
-	TimerRollupBufferSize uint   `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
-	NodeIndex             int    `env:"NODE_INDEX, required, report"`
+	IngressAddr                      string `env:"INGRESS_ADDR, required, report"`
+	MetricsAddr                      string `env:"METRICS_ADDR, report"`
+	ShardId                          string `env:"SHARD_ID, required, report"`
+	TimerRollupBufferSize            uint   `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
+	NodeIndex                        int    `env:"NODE_INDEX, required, report"`
+	DisablePlatformAndServiceMetrics bool   `env:"DISABLE_PLATFORM_AND_SYSTEM_METRICS, required, report"`
 
 	LogLevel      string `env:"LOG_LEVEL, report"`
 	ProfilingAddr string `env:"PROFILING_ADDR, report"`
@@ -44,12 +45,13 @@ type MetricStoreMetricsTLS struct {
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
 	cfg := &Config{
-		LogLevel:              "info",
-		IngressAddr:           ":8090",
-		MetricsAddr:           ":6061",
-		ProfilingAddr:         "localhost:6071",
-		ShardId:               "metric-store",
-		TimerRollupBufferSize: 16384,
+		LogLevel:                         "info",
+		IngressAddr:                      ":8090",
+		MetricsAddr:                      ":6061",
+		ProfilingAddr:                    "localhost:6071",
+		ShardId:                          "metric-store",
+		TimerRollupBufferSize:            16384,
+		DisablePlatformAndServiceMetrics: true,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

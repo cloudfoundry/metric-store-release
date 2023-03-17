@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	_ "net/http/pprof"
 
 	"github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
@@ -9,6 +10,11 @@ import (
 
 func main() {
 	cfg := app.LoadConfig()
+	if cfg.DisablePlatformAndServiceMetrics {
+		fmt.Println("DisablePlatformAndServiceMetrics are enabled")
+	} else {
+		fmt.Println("DisablePlatformAndServiceMetrics are disabled")
+	}
 
 	log := logger.NewLogger(cfg.LogLevel, "nozzle")
 	log.Info("starting")

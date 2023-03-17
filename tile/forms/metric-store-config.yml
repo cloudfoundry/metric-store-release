@@ -8,3 +8,6 @@ property_inputs:
   - reference: .properties.max_concurrent_queries
     label: Max Concurrent Queries
     description: Queue queries after this maximum number of queries running concurrently per node
+  - reference: .properties.max_concurrent_queries
+    label: Max Concurrent Queries
+    description: Queue queries after this maximum number of queries running concurrently per node
