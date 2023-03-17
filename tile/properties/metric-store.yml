@@ -69,3 +69,7 @@
   default: 2
   constraints:
     min: 1
+- name: disable_platform_and_system_metrics
+  type: boolean
+  configurable: true
+  default: true
