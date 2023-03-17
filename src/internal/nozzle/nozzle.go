@@ -2,6 +2,7 @@ package nozzle
 
 import (
 	"crypto/tls"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -52,6 +53,8 @@ const (
 	BATCH_FLUSH_INTERVAL = 500 * time.Millisecond
 	BATCH_CHANNEL_SIZE   = 512
 )
+
+var uuidMatcher = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
 	n := &Nozzle{
@@ -314,7 +317,10 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 		n.captureGorouterHttpTimerMetricsForRollup(envelope)
 		return []*rpc.Point{}
 	case *loggregator_v2.Envelope_Counter:
-		return []*rpc.Point{n.createPointFromCounter(envelope)}
+		if point := n.createPointFromCounter(envelope); point != nil {
+			return []*rpc.Point{point}
+		}
+		return []*rpc.Point{}
 	}
 
 	return []*rpc.Point{}
@@ -328,9 +334,35 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 			"source_id": envelope.GetSourceId(),
 			"unit":      metric.GetUnit(),
 		}
+
+		tags := envelope.GetTags()
+
+		_, hasAppid := tags["app_id"]
+		_, hasApplicationGuid := tags["applicationGuid"]
+		if !(hasAppid || hasApplicationGuid) {
+			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
+
+			//if uuidMatcher.MatchString(envelope.GetSourceId()) {
+			//	fmt.Println("Dropped GAUGE point which match with sourceId regext")
+			//	fmt.Printf("%+v\n", envelope)
+			//}
+
+			return nil
+		}
+
 		for k, v := range envelope.GetTags() {
 			labels[k] = v
+			//if k == "origin" && v == "gorouter" {
+			//	n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
+			//	return []*rpc.Point{}
+			//}
 		}
+
+		//if !uuidMatcher.MatchString(envelope.GetSourceId()) {
+		//	fmt.Println("Written point which is not match sourceId regexp")
+		//	fmt.Printf("%+v\n", envelope)
+		//}
+
 		point := &rpc.Point{
 			Timestamp: envelope.GetTimestamp(),
 			Name:      name,
@@ -348,9 +380,32 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	labels := map[string]string{
 		"source_id": envelope.GetSourceId(),
 	}
+
+	tags := envelope.GetTags()
+	_, hasAppid := tags["app_id"]
+	_, hasApplicationGuid := tags["applicationGuid"]
+
+	if !(hasAppid || hasApplicationGuid) {
+		//fmt.Printf("%+v\n", envelope.GetSourceId())
+		n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
+
+		//if uuidMatcher.MatchString(envelope.GetSourceId()) {
+		//	fmt.Println("Dropped COUNTER point which match with sourceId regext")
+		//	fmt.Printf("%+v\n", envelope)
+		//}
+
+		return nil
+	}
+
 	for k, v := range envelope.GetTags() {
 		labels[k] = v
 	}
+
+	//if !uuidMatcher.MatchString(envelope.GetSourceId()) {
+	//	fmt.Println("Written point which is not match sourceId regexp")
+	//	fmt.Printf("%+v\n", envelope)
+	//}
+
 	return &rpc.Point{
 		Timestamp: envelope.GetTimestamp(),
 		Name:      counter.GetName(),
