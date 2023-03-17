@@ -4,11 +4,11 @@ on:
 jobs:
   test-job:
     name: All Tests
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.17.8'
+          go-version: '1.19.6'
         id: go
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
@@ -36,7 +36,7 @@ jobs:
   success-job:
     needs: test-job
     name: Add Label
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/github-script@v3
         with:
