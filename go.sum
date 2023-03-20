@@ -476,8 +476,8 @@ github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:l
 github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d h1:Byv0BzEl3/e6D5CLfI0j/7hiIEtvGVFPCZ7Ei2oq8iQ=
 github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
-github.com/attack/influxdb v1.8.4-0.20230216122017-a9eaba071024 h1:HbIDy68rBl9iEGLXmjj8Y1MN2cT6KHOEU3W/uKZ71gM=
-github.com/attack/influxdb v1.8.4-0.20230216122017-a9eaba071024/go.mod h1:Wo24GUxOvYdNKY+UsI/orJCg7bOyVqqOYy9TzdaNs8c=
+github.com/attack/influxdb v1.8.4-0.20230320141652-09f38f8743ef h1:GPN4U9bTTXqk6+jBslizGL33Ak5N5BTNzDWDrUEcqnE=
+github.com/attack/influxdb v1.8.4-0.20230320141652-09f38f8743ef/go.mod h1:Wo24GUxOvYdNKY+UsI/orJCg7bOyVqqOYy9TzdaNs8c=
 github.com/aws/aws-sdk-go v1.38.35/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zKMmprdro=
 github.com/aws/aws-sdk-go v1.40.45/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
 github.com/aws/aws-sdk-go v1.44.156/go.mod h1:aVsgQcEevwlmQ7qHE9I3h+dtQgpqhFB+i8Phjh7fkwI=
