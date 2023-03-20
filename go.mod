@@ -114,6 +114,6 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 )
 
-replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20230216122017-a9eaba071024
+replace github.com/influxdata/influxdb => github.com/attack/influxdb v1.8.4-0.20230320141652-09f38f8743ef
 
 go 1.18
