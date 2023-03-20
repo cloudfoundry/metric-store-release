@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
@@ -22,6 +23,8 @@ type RemoteQuerier struct {
 	publicClient  remote.ReadClient
 	privateClient prom_api_client.API
 	log           *logger.Logger
+	minTime       time.Time
+	maxTime       time.Time
 }
 
 func NewRemoteQuerier(
@@ -60,6 +63,8 @@ func NewRemoteQuerier(
 	if err != nil {
 		return nil, err
 	}
+	minTime := time.Unix(math.MinInt64/1000+62135596801, 0).UTC()
+	maxTime := time.Unix(math.MaxInt64/1000-62135596801, 999999999).UTC()
 
 	querier := &RemoteQuerier{
 		ctx:           ctx,
@@ -68,6 +73,8 @@ func NewRemoteQuerier(
 		publicClient:  publicClient,
 		privateClient: privateClient,
 		log:           logger,
+		minTime:       minTime,
+		maxTime:       maxTime,
 	}
 	return querier, nil
 }
@@ -89,15 +96,13 @@ func (r *RemoteQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([
 	prom_storage.Warnings, error) {
 	var results []string
 
-	minTime, maxTime, _ := DefaultTimeRangeAndMatches()
-
 	result := make([]string, len(matchers))
 	for i, matcher := range matchers {
 		result[i] = matcher.String()
 	}
 
-	labelValuesResult, _, err := r.privateClient.LabelValues(r.ctx, name, result, minTime,
-		maxTime)
+	labelValuesResult, _, err := r.privateClient.LabelValues(r.ctx, name, result, r.minTime,
+		r.maxTime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -110,14 +115,13 @@ func (r *RemoteQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([
 }
 
 func (r *RemoteQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings, error) {
-	minTime, maxTime, _ := DefaultTimeRangeAndMatches()
 
 	result := make([]string, len(matchers))
 	for i, matcher := range matchers {
 		result[i] = matcher.String()
 	}
 
-	res, _, err := r.privateClient.LabelNames(r.ctx, result, minTime, maxTime)
+	res, _, err := r.privateClient.LabelNames(r.ctx, result, r.minTime, r.maxTime)
 	return res, nil, err
 }
 

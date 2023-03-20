@@ -47,12 +47,13 @@ func (tc *ruleApiTestContext) Delete(path string) (resp *http.Response, err erro
 	return tc.httpClient.Do(req)
 }
 
-func getStaticConfigs(configs discovery.Configs) discovery.StaticConfig {
-	var sc discovery.StaticConfig
+func getStaticConfigs(configs discovery.Configs) (sc []discovery.StaticConfig) {
+	var sconf discovery.StaticConfig
 	var ok bool
 	for _, cfg := range configs {
-		sc, ok = cfg.(discovery.StaticConfig)
-		if !ok {
+		if sconf, ok = cfg.(discovery.StaticConfig); ok {
+			sc = append(sc, sconf)
+		} else {
 			continue
 		}
 	}
@@ -193,7 +194,7 @@ var _ = Describe("Rules API", func() {
 
 			Expect(len(sc)).To(Equal(1))
 
-			staticConfig := sc[0]
+			staticConfig := sc[0][0]
 			Expect(len(staticConfig.Targets)).To(Equal(1))
 
 			target := staticConfig.Targets[0]

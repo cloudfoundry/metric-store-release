@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +19,6 @@ import (
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	global_storage "github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared_tls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
@@ -90,6 +90,12 @@ func (q *testSeriesQuery) EndTimestamp() time.Time {
 	timeInSeconds, _ := strconv.Atoi(q.EndInSeconds)
 	return time.Unix(int64(timeInSeconds), 0)
 }
+
+var (
+	minTime = time.Unix(math.MinInt64/1000+62135596801, 0).UTC()
+	maxTime = time.Unix(math.MaxInt64/1000-62135596801, 999999999).UTC()
+	result  []string
+)
 
 const (
 	MAGIC_MEASUREMENT_NAME      = "cpu"
@@ -334,7 +340,6 @@ var _ = Describe("MetricStore", func() {
 		return metricNameCounts
 	}
 
-	minTime, maxTime, result := global_storage.DefaultTimeRangeAndMatches()
 	var writePoints = func(tc *testContext, points []testPoint) {
 		metricNameCounts := optimisticallyWritePoints(tc, points)
 
