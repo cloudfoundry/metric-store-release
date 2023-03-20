@@ -2,6 +2,7 @@ package nozzle
 
 import (
 	"crypto/tls"
+	"fmt"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -334,8 +335,11 @@ func (n *Nozzle) isSkipEnvelope(tags map[string]string) bool {
 		_, hasApplicationGuid := tags["applicationGuid"]
 		if !(hasAppid || hasApplicationGuid) {
 			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
+			fmt.Println("+++++enabled")
 			return true
 		}
+	} else {
+		fmt.Println("+++++disabled")
 	}
 
 	return false

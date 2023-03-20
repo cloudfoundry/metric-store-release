@@ -62,4 +62,4 @@ properties:
     description: "The private key for metric-store metrics mutual TLS."
   disable_platform_and_system_metrics:
     description: The configurable variable to disable or enable the system and platform metrics.
-    default: true
+    default: false

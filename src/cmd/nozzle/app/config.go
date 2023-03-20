@@ -51,7 +51,7 @@ func LoadConfig() *Config {
 		ProfilingAddr:                    "localhost:6071",
 		ShardId:                          "metric-store",
 		TimerRollupBufferSize:            16384,
-		DisablePlatformAndServiceMetrics: true,
+		DisablePlatformAndServiceMetrics: false,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {
