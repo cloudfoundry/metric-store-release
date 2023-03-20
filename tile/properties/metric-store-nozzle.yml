@@ -9,3 +9,8 @@
     extended_key_usage:
     - client_auth
     - server_auth
+- name: disable_platform_and_system_metrics
+  type: boolean
+  default: false
+  configurable: true
+

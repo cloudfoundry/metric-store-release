@@ -26,10 +26,11 @@ type Nozzle struct {
 	log     *logger.Logger
 	metrics metrics.Registrar
 
-	s             StreamConnector
-	shardId       string
-	nodeIndex     int
-	ingressBuffer *diodes.OneToOne
+	s                StreamConnector
+	shardId          string
+	nodeIndex        int
+	disablePSMetrics bool
+	ingressBuffer    *diodes.OneToOne
 
 	timerBuffer           *diodes.OneToOne
 	timerRollupBufferSize uint
@@ -56,13 +57,14 @@ const (
 
 var uuidMatcher = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
-func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, disablePSMetrics bool, opts ...Option) *Nozzle {
 	n := &Nozzle{
 		log:                   logger.NewNop(),
 		metrics:               &metrics.NullRegistrar{},
 		s:                     c,
 		shardId:               shardId,
 		nodeIndex:             nodeIndex,
+		disablePSMetrics:      disablePSMetrics,
 		timerRollupBufferSize: 4096,
 		totalRollup:           rollup.NewNullRollup(),
 		durationRollup:        rollup.NewNullRollup(),
@@ -326,6 +328,19 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
+func (n *Nozzle) isSkipEnvelope(tags map[string]string) bool {
+	if n.disablePSMetrics {
+		_, hasAppid := tags["app_id"]
+		_, hasApplicationGuid := tags["applicationGuid"]
+		if !(hasAppid || hasApplicationGuid) {
+			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
+			return true
+		}
+	}
+
+	return false
+}
+
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	var points []*rpc.Point
 	gauge := envelope.GetGauge()
@@ -336,26 +351,12 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 		}
 
 		tags := envelope.GetTags()
-
-		_, hasAppid := tags["app_id"]
-		_, hasApplicationGuid := tags["applicationGuid"]
-		if !(hasAppid || hasApplicationGuid) {
-			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
-
-			//if uuidMatcher.MatchString(envelope.GetSourceId()) {
-			//	fmt.Println("Dropped GAUGE point which match with sourceId regext")
-			//	fmt.Printf("%+v\n", envelope)
-			//}
-
+		if n.isSkipEnvelope(tags) {
 			return nil
 		}
 
 		for k, v := range envelope.GetTags() {
 			labels[k] = v
-			//if k == "origin" && v == "gorouter" {
-			//	n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
-			//	return []*rpc.Point{}
-			//}
 		}
 
 		//if !uuidMatcher.MatchString(envelope.GetSourceId()) {
@@ -382,18 +383,7 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	}
 
 	tags := envelope.GetTags()
-	_, hasAppid := tags["app_id"]
-	_, hasApplicationGuid := tags["applicationGuid"]
-
-	if !(hasAppid || hasApplicationGuid) {
-		//fmt.Printf("%+v\n", envelope.GetSourceId())
-		n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
-
-		//if uuidMatcher.MatchString(envelope.GetSourceId()) {
-		//	fmt.Println("Dropped COUNTER point which match with sourceId regext")
-		//	fmt.Printf("%+v\n", envelope)
-		//}
-
+	if n.isSkipEnvelope(tags) {
 		return nil
 	}
 

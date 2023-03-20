@@ -98,6 +98,7 @@ func (app *NozzleApp) Run() {
 		metricStoreTLSConfig,
 		app.cfg.ShardId,
 		app.cfg.NodeIndex,
+		app.cfg.DisablePlatformAndServiceMetrics,
 		WithNozzleLogger(app.log),
 		WithNozzleDebugRegistrar(app.metrics),
 		WithNozzleTimerRollup(
