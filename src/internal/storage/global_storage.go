@@ -2,16 +2,7 @@ package storage
 
 import (
 	prom_storage "github.com/prometheus/prometheus/storage"
-	"math"
-	"time"
 )
-
-func DefaultTimeRangeAndMatches() (time.Time, time.Time, []string) {
-	minTime := time.Unix(math.MinInt64/1000+62135596801, 0).UTC()
-	maxTime := time.Unix(math.MaxInt64/1000-62135596801, 999999999).UTC()
-
-	return minTime, maxTime, nil
-}
 
 // GlobalSeriesSet implements storage.SeriesSet.
 type GlobalSeriesSet struct {

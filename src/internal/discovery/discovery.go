@@ -40,8 +40,7 @@ func (d *DiscoveryAgent) ApplyScrapeConfig(configs []*config.ScrapeConfig) {
 		discoveredConfig[v.JobName] = v.ServiceDiscoveryConfigs
 	}
 
-	err := d.manager.ApplyConfig(discoveredConfig)
-	if err != nil {
+	if err := d.manager.ApplyConfig(discoveredConfig); err != nil {
 		return
 	}
 }
@@ -57,8 +56,7 @@ func (d *DiscoveryAgent) ApplyAlertmanagerConfig(configs config.AlertmanagerConf
 		discoveredConfig[fmt.Sprintf("config-%d", i)] = v.ServiceDiscoveryConfigs
 	}
 
-	err := d.manager.ApplyConfig(discoveredConfig)
-	if err != nil {
+	if err := d.manager.ApplyConfig(discoveredConfig); err != nil {
 		return err
 	}
 
