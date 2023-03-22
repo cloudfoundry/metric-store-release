@@ -99,6 +99,7 @@ func (app *NozzleApp) Run() {
 		app.cfg.ShardId,
 		app.cfg.NodeIndex,
 		app.cfg.DisablePlatformAndServiceMetrics,
+		app.cfg.EnabledMetricsSpecifiedTags,
 		WithNozzleLogger(app.log),
 		WithNozzleDebugRegistrar(app.metrics),
 		WithNozzleTimerRollup(

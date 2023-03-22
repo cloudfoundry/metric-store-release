@@ -44,5 +44,6 @@ processes:
     GRPC_GO_LOG_SEVERITY_LEVEL: "warning"
     GRPC_GO_LOG_VERBOSITY_LEVEL: "1"
     DISABLE_PLATFORM_AND_SYSTEM_METRICS: "<%= p('disable_platform_and_system_metrics') %>"
+    ENABLED_METRICS_SPECIFIED_TAGS: "<%= p('enabled_metrics_specified_tags') %>"
   limits:
     open_files: 8192

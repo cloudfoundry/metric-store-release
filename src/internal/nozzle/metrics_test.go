@@ -22,7 +22,13 @@ var _ = Describe("collect nozzle metrics", func() {
 		defer metricStore.Stop()
 
 		metricRegistrar := testing.NewSpyMetricRegistrar()
-		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0,
+		n := NewNozzle(streamConnector,
+			addrs.IngressAddr,
+			tlsClientConfig,
+			"metric-store",
+			0,
+			true,
+			map[string][]string{"tag1": {"val2", "val3"}},
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -51,7 +57,13 @@ var _ = Describe("collect nozzle metrics", func() {
 		defer metricStore.Stop()
 
 		metricRegistrar := testing.NewSpyMetricRegistrar()
-		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0,
+		n := NewNozzle(streamConnector,
+			addrs.IngressAddr,
+			tlsClientConfig,
+			"metric-store",
+			0,
+			true,
+			map[string][]string{"tag1": {"val2", "val3"}},
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,

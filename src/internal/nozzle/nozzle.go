@@ -27,11 +27,12 @@ type Nozzle struct {
 	log     *logger.Logger
 	metrics metrics.Registrar
 
-	s                StreamConnector
-	shardId          string
-	nodeIndex        int
-	disablePSMetrics bool
-	ingressBuffer    *diodes.OneToOne
+	s                           StreamConnector
+	shardId                     string
+	nodeIndex                   int
+	disablePSMetrics            bool
+	enabledMetricsSpecifiedTags map[string][]string
+	ingressBuffer               *diodes.OneToOne
 
 	timerBuffer           *diodes.OneToOne
 	timerRollupBufferSize uint
@@ -58,20 +59,21 @@ const (
 
 var uuidMatcher = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
-func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, disablePSMetrics bool, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, disablePSMetrics bool, enabledMetricsSpecifiedTags map[string][]string, opts ...Option) *Nozzle {
 	n := &Nozzle{
-		log:                   logger.NewNop(),
-		metrics:               &metrics.NullRegistrar{},
-		s:                     c,
-		shardId:               shardId,
-		nodeIndex:             nodeIndex,
-		disablePSMetrics:      disablePSMetrics,
-		timerRollupBufferSize: 4096,
-		totalRollup:           rollup.NewNullRollup(),
-		durationRollup:        rollup.NewNullRollup(),
-		ingressAddr:           ingressAddr,
-		tlsConfig:             tlsConfig,
-		pointBuffer:           make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
+		log:                         logger.NewNop(),
+		metrics:                     &metrics.NullRegistrar{},
+		s:                           c,
+		shardId:                     shardId,
+		nodeIndex:                   nodeIndex,
+		disablePSMetrics:            disablePSMetrics,
+		enabledMetricsSpecifiedTags: enabledMetricsSpecifiedTags,
+		timerRollupBufferSize:       4096,
+		totalRollup:                 rollup.NewNullRollup(),
+		durationRollup:              rollup.NewNullRollup(),
+		ingressAddr:                 ingressAddr,
+		tlsConfig:                   tlsConfig,
+		pointBuffer:                 make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
 	}
 
 	for _, o := range opts {
@@ -329,13 +331,29 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
-func (n *Nozzle) isSkipEnvelope(tags map[string]string) bool {
+// @todo remove envelope param, just for testing code
+func (n *Nozzle) isSkipEnvelope(tags map[string]string, envelope *loggregator_v2.Envelope) bool {
 	if n.disablePSMetrics {
 		_, hasAppid := tags["app_id"]
 		_, hasApplicationGuid := tags["applicationGuid"]
 		if !(hasAppid || hasApplicationGuid) {
+			for tk, tvs := range n.enabledMetricsSpecifiedTags {
+				fmt.Println(tvs)
+				_, hasTagKey := tags[tk]
+				if !hasTagKey {
+					continue
+				}
+
+				for _, tv := range tvs {
+					if tags[tk] == tv {
+						fmt.Println("founded enabledMetricsSpecifiedTags: ", tk, tv)
+						fmt.Printf("%+v\n", envelope)
+
+						return false
+					}
+				}
+			}
 			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
-			fmt.Println("+++++enabled")
 			return true
 		}
 	} else {
@@ -355,7 +373,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 		}
 
 		tags := envelope.GetTags()
-		if n.isSkipEnvelope(tags) {
+		if n.isSkipEnvelope(tags, envelope) {
 			return nil
 		}
 
@@ -387,7 +405,7 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	}
 
 	tags := envelope.GetTags()
-	if n.isSkipEnvelope(tags) {
+	if n.isSkipEnvelope(tags, envelope) {
 		return nil
 	}
 
