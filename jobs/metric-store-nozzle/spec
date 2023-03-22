@@ -63,3 +63,6 @@ properties:
   disable_platform_and_system_metrics:
     description: The configurable variable to disable or enable the system and platform metrics.
     default: false
+  enabled_metrics_specified_tags:
+    description: The configuration is works when disable_platform_and_system_metrics are enabled, metrics with specified tags will be enabled.
+    default: map[string][]string{}
