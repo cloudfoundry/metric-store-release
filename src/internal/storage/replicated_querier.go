@@ -109,13 +109,13 @@ func (r *ReplicatedQuerier) Select(sortSeries bool, params *prom_storage.SelectH
 
 	metricName, err := r.extractMetricName(matchers)
 	if err != nil {
-		return &GlobalSeriesSet{err}
+		return prom_storage.ErrSeriesSet(err)
 	}
 
 	if r.routingTable.IsLocal(metricName) {
 		localQuerier, err := r.store.Querier(ctx, 0, 0)
 		if err != nil {
-			return &GlobalSeriesSet{err}
+			return prom_storage.ErrSeriesSet(err)
 		}
 		return localQuerier.Select(sortSeries, params, matchers...)
 	}
@@ -176,7 +176,6 @@ func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []i
 	queriers := r.querierFactory.Build(ctx, nodes...)
 
 	var result prom_storage.SeriesSet
-	var warnings prom_storage.Warnings
 	var err error
 
 	for _, remoteQuerier := range queriers {
@@ -186,10 +185,9 @@ func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []i
 
 		result = remoteQuerier.Select(sortSeries, params, matchers...)
 		err = result.Err()
-		warnings = result.Warnings()
 
 		if !isConnectionError(err) {
-			return result, warnings, err
+			return result, result.Warnings(), err
 		}
 	}
 
@@ -216,7 +214,7 @@ func isConnectionError(err error) bool {
 func (r *ReplicatedQuerier) LabelNames(matchers ...*labels.Matcher) ([]string,
 	prom_storage.Warnings, error) {
 	labelNamesMap := make(map[string]struct{})
-
+	//TODO The matchers is unused, but querier.LabelNames() expects
 	for _, querier := range r.querierFactory.Build(r.ctx) {
 		labelNames, _, _ := querier.LabelNames()
 		for _, labelName := range labelNames {

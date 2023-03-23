@@ -34,7 +34,7 @@ func NewPromAPI(promQLEngine *promql.Engine, log *logger.Logger) *PromAPI {
 	}
 }
 
-func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.RuleManager) *route.Router {
+func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.RuleManager, gatherer prometheus.Gatherer, registerer prometheus.Registerer) *route.Router {
 	targetRetriever := func(context.Context) prom_api.TargetRetriever {
 		return &nullTargetRetriever{}
 	}
@@ -95,8 +95,8 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		&regexp.Regexp{},
 		func() (prom_api.RuntimeInfo, error) { return runtimeInfo, nil },
 		prometheusVersion,
-		prometheus.Gatherer(nil),
-		prometheus.Registerer(nil),
+		gatherer,
+		registerer,
 		nil,
 	)
 

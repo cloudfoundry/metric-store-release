@@ -71,8 +71,7 @@ func (a *ReplicatedAppender) UpdateMetadata(ref prom_storage.SeriesRef, l labels
 
 func (a *ReplicatedAppender) Append(ref prom_storage.SeriesRef, l labels.Labels, t int64, v float64) (prom_storage.SeriesRef, error) {
 	for _, nodeIndex := range a.lookup(l.Get(labels.MetricName)) {
-		_, err := a.appenders[nodeIndex].Append(ref, l, t, v)
-		if err != nil {
+		if _, err := a.appenders[nodeIndex].Append(ref, l, t, v); err != nil {
 			continue
 		}
 	}

@@ -19,9 +19,8 @@ func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { re
 type nullTSDBAdminStats struct{}
 
 func (a *nullTSDBAdminStats) WALReplayStatus() (tsdb.WALReplayStatus, error) {
-	panic("implement me")
+	return tsdb.WALReplayStatus{}, nil
 }
-
 func (a *nullTSDBAdminStats) CleanTombstones() error                             { return nil }
 func (a *nullTSDBAdminStats) Delete(int64, int64, ...*prom_labels.Matcher) error { return nil }
 func (a *nullTSDBAdminStats) Snapshot(string, bool) error                        { return nil }

@@ -235,12 +235,8 @@ type safePromQLNoStepSubqueryInterval struct {
 	value atomic.Int64
 }
 
-func durationToInt64Millis(d time.Duration) int64 {
-	return int64(d / time.Millisecond)
-}
-
 func (i *safePromQLNoStepSubqueryInterval) Set(ev model.Duration) {
-	i.value.Store(durationToInt64Millis(time.Duration(ev)))
+	i.value.Store(int64(time.Duration(ev) / time.Millisecond))
 }
 
 func (i *safePromQLNoStepSubqueryInterval) Get(int64) int64 {
@@ -379,8 +375,8 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.log,
 	)
 
-	apiV1 := promAPI.RouterForStorage(store.replicatedStorage, replicatedRuleManager)
-	apiPrivate := promAPI.RouterForStorage(store.localStore, localRuleManager)
+	apiV1 := promAPI.RouterForStorage(store.replicatedStorage, replicatedRuleManager, nil, nil)
+	apiPrivate := promAPI.RouterForStorage(store.localStore, localRuleManager, store.metrics.Gatherer(), store.metrics.Registerer())
 
 	rulesAPI := api.NewRulesAPI(replicatedRuleManager, store.log)
 	rulesAPIRouter := rulesAPI.Router()
