@@ -19,7 +19,7 @@ type Config struct {
 	TimerRollupBufferSize            uint                `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
 	NodeIndex                        int                 `env:"NODE_INDEX, required, report"`
 	DisablePlatformAndServiceMetrics bool                `env:"DISABLE_PLATFORM_AND_SYSTEM_METRICS, required, report"`
-	EnabledMetricsSpecifiedTags      map[string][]string `env:"ENABLED_METRICS_SPECIFIED_TAGS, required, report"`
+	EnabledMetricsSpecifiedTags      map[string][]string `env:"ENABLED_METRICS_SPECIFIED_TAGS, report"`
 	LogLevel                         string              `env:"LOG_LEVEL, report"`
 	ProfilingAddr                    string              `env:"PROFILING_ADDR, report"`
 }
