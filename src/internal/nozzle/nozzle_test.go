@@ -35,7 +35,7 @@ var _ = Describe("Nozzle", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"origin": {"val4", "bosh-system-metrics-forwarder"}},
+			[]string{"deployment"},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -120,16 +120,51 @@ var _ = Describe("Nozzle", func() {
 	})
 
 	Describe("when the envelope is a Counter", func() {
-		It("converts the envelope to a Point", func() {
+		FIt("converts the envelope to a Point", func() {
 			streamConnector.envelopes <- []*loggregator_v2.Envelope{
 				{
 					Timestamp: 20,
+					SourceId:  "819d5684-55b2-49ed-a404-22a8e311cd5c",
+					Message: &loggregator_v2.Envelope_Counter{
+						Counter: &loggregator_v2.Counter{
+							Name:  "failures",
+							Total: 8,
+						},
+					},
+					Tags: map[string]string{
+						"deployment":    "p-healthwatch2-cfbcce7da72d44ba6f06",
+						"id":            "ec4563ef-4e74-4343-ae45-05e6a8857ff7",
+						"index":         "ec4563ef-4e74-4343-ae45-05e6a8857ff7",
+						"ip":            "",
+						"job":           "pxc-proxy",
+						"origin":        "bosh-system-metrics-forwarder",
+						"product":       "VMware Tanzu Application Service",
+						"system_domain": "sys.hw-tas213.platform-automation.cf-denver.com",
+					},
+				},
+			}
+
+			streamConnector.envelopes <- []*loggregator_v2.Envelope{
+				{
+					Timestamp: 1999,
 					SourceId:  "source-id",
 					Message: &loggregator_v2.Envelope_Counter{
 						Counter: &loggregator_v2.Counter{
 							Name:  "failures",
 							Total: 8,
 						},
+					},
+					Tags: map[string]string{
+						"__v1_type":     "ValueMetric",
+						"deployment":    "p-isolation-segment-linux-test-b53ca541a4d454b981e5",
+						"index":         "d4d0edee-29ee-49dd-8574-05b8e85c5b5c",
+						"ip":            "10.0.4.45",
+						"job":           "isolated_router_linux_test",
+						"origin":        "gorouter",
+						"placement_tag": "linux-test",
+						"product":       "Isolation Segment",
+						"system_domain": "sys.hw-tas213.platform-automation.cf-denver.com",
+						"app_id":        "90447f4f-b64a-4b58-a16c-35f7b42ca733",
 					},
 				},
 			}

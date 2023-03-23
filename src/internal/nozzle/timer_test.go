@@ -32,7 +32,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"tag1": {"val2", "val3"}},
+			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -358,7 +358,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"tag1": {"val2", "val3"}},
+			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -647,7 +647,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"tag1": {"val2", "val3"}},
+			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -711,7 +711,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"tag1": {"val2", "val3"}},
+			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
