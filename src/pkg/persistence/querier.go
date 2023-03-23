@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	global_storage "github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
@@ -36,7 +35,7 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 		}
 	}
 	if params.End != 0 && params.Start > params.End {
-		return global_storage.NewGlobalSeriesSet(fmt.Errorf("Start (%d) must be before End (%d)",
+		return storage.ErrSeriesSet(fmt.Errorf("Start (%d) must be before End (%d)",
 			params.Start, params.End))
 	}
 
@@ -48,7 +47,7 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 	for index, labelMatcher := range labelMatchers {
 		if labelMatcher.Name == labels.MetricName {
 			if labelMatcher.Type != labels.MatchEqual {
-				return global_storage.NewGlobalSeriesSet(errors.New("only strict equality is " +
+				return storage.ErrSeriesSet(errors.New("only strict equality is " +
 					"supported for metric names"))
 			}
 
@@ -64,7 +63,7 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 	builder, err := q.adapter.GetPoints(q.ctx, name, startTimeInNanoseconds, endTimeInNanoseconds, labelMatchers)
 	if err != nil {
 		q.metrics.Inc(metrics.MetricStoreReadErrorsTotal)
-		return global_storage.NewGlobalSeriesSet(err)
+		return storage.ErrSeriesSet(err)
 	}
 
 	res := builder.SeriesSet()

@@ -41,6 +41,7 @@ func (d *DiscoveryAgent) ApplyScrapeConfig(configs []*config.ScrapeConfig) {
 	}
 
 	if err := d.manager.ApplyConfig(discoveredConfig); err != nil {
+		//TODO it just makes compiler happy, would be good to export it into the logs
 		return
 	}
 }

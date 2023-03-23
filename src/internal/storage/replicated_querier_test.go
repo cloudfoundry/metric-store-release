@@ -229,41 +229,15 @@ func newSpyQuerierWithRepeatedErrors(err error, count int) *spyQuerier {
 	return spy
 }
 
-type SeriesSetSpy struct {
-	err      error
-	warnings prom_storage.Warnings
-}
-
-func (*SeriesSetSpy) Next() bool {
-	return false
-}
-
-// At returns full series. Returned series should be iterable even after Next is called.
-func (*SeriesSetSpy) At() prom_storage.Series {
-	return nil
-}
-
-// The error that iteration as failed with.
-// When an error occurs, set cannot continue to iterate.
-func (seriesSet *SeriesSetSpy) Err() error {
-	return seriesSet.err
-}
-
-// A collection of warnings for the whole set.
-// Warnings could be return even iteration has not failed with error.
-func (seriesSet *SeriesSetSpy) Warnings() prom_storage.Warnings {
-	return seriesSet.warnings
-}
-
 func (q *spyQuerier) Select(sortSeries bool, hints *prom_storage.SelectHints,
 	matchers ...*labels.Matcher) prom_storage.SeriesSet {
-	var seriesSet SeriesSetSpy
 	q.callCount++
+	var err error
 	select {
-	case seriesSet.err = <-q.selectErrors:
+	case err = <-q.selectErrors:
 	default:
 	}
-	return &seriesSet
+	return prom_storage.ErrSeriesSet(err)
 }
 
 func (*spyQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,

@@ -51,7 +51,8 @@ func (c *concreteSeries) Labels() labels.Labels {
 	return labels.New(c.labels...)
 }
 
-func (c *concreteSeries) Iterator(chunkenc.Iterator) chunkenc.Iterator {
+func (c *concreteSeries) Iterator(it chunkenc.Iterator) chunkenc.Iterator {
+	// TODO more smart code is expected to be here to use input as well
 	return newConcreteSeriersIterator(c)
 }
 

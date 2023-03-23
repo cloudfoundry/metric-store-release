@@ -18,6 +18,7 @@ type Point struct {
 func ExplodeSeriesSet(seriesSet storage.SeriesSet) []Series {
 	series := []Series{}
 
+	var iterator chunkenc.Iterator
 	for {
 		hasSeries := seriesSet.Next()
 		if !hasSeries {
@@ -31,7 +32,6 @@ func ExplodeSeriesSet(seriesSet storage.SeriesSet) []Series {
 			newSeries.Labels[label.Name] = label.Value
 		}
 
-		var iterator chunkenc.Iterator
 		iterator = currentSeries.Iterator(iterator)
 		for {
 			hasPoint := iterator.Next()

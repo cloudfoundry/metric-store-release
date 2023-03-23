@@ -661,8 +661,7 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: MAGIC_MEASUREMENT_NAME, Type: labels.MatchEqual},
 			)
-			err = seriesSet.Err()
-			if err != nil {
+			if err = seriesSet.Err(); err != nil {
 				return err
 			}
 
