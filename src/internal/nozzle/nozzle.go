@@ -2,8 +2,6 @@ package nozzle
 
 import (
 	"crypto/tls"
-	"fmt"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -31,7 +29,7 @@ type Nozzle struct {
 	shardId                     string
 	nodeIndex                   int
 	disablePSMetrics            bool
-	enabledMetricsSpecifiedTags map[string][]string
+	enabledMetricsSpecifiedTags []string
 	ingressBuffer               *diodes.OneToOne
 
 	timerBuffer           *diodes.OneToOne
@@ -57,9 +55,7 @@ const (
 	BATCH_CHANNEL_SIZE   = 512
 )
 
-var uuidMatcher = regexp.MustCompile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-
-func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, disablePSMetrics bool, enabledMetricsSpecifiedTags map[string][]string, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, disablePSMetrics bool, enabledMetricsSpecifiedTags []string, opts ...Option) *Nozzle {
 	n := &Nozzle{
 		log:                         logger.NewNop(),
 		metrics:                     &metrics.NullRegistrar{},
@@ -331,33 +327,21 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
-// @todo remove envelope param, just for testing code
-func (n *Nozzle) isSkipEnvelope(tags map[string]string, envelope *loggregator_v2.Envelope) bool {
+// checks enabled configuration disable platform and service metrics these metrics should be skipped
+func (n *Nozzle) isSkipEnvelope(tags map[string]string) bool {
 	if n.disablePSMetrics {
 		_, hasAppid := tags["app_id"]
 		_, hasApplicationGuid := tags["applicationGuid"]
 		if !(hasAppid || hasApplicationGuid) {
-			for tk, tvs := range n.enabledMetricsSpecifiedTags {
-				fmt.Println(tvs)
-				_, hasTagKey := tags[tk]
-				if !hasTagKey {
-					continue
-				}
-
-				for _, tv := range tvs {
-					if tags[tk] == tv {
-						fmt.Println("founded enabledMetricsSpecifiedTags: ", tk, tv)
-						fmt.Printf("%+v\n", envelope)
-
-						return false
-					}
+			for _, t := range n.enabledMetricsSpecifiedTags {
+				if _, hasTagKey := tags[t]; hasTagKey {
+					return false
 				}
 			}
+
 			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
 			return true
 		}
-	} else {
-		fmt.Println("+++++disabled")
 	}
 
 	return false
@@ -373,18 +357,13 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 		}
 
 		tags := envelope.GetTags()
-		if n.isSkipEnvelope(tags, envelope) {
+		if n.isSkipEnvelope(tags) {
 			return nil
 		}
 
 		for k, v := range envelope.GetTags() {
 			labels[k] = v
 		}
-
-		//if !uuidMatcher.MatchString(envelope.GetSourceId()) {
-		//	fmt.Println("Written point which is not match sourceId regexp")
-		//	fmt.Printf("%+v\n", envelope)
-		//}
 
 		point := &rpc.Point{
 			Timestamp: envelope.GetTimestamp(),
@@ -405,18 +384,13 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	}
 
 	tags := envelope.GetTags()
-	if n.isSkipEnvelope(tags, envelope) {
+	if n.isSkipEnvelope(tags) {
 		return nil
 	}
 
 	for k, v := range envelope.GetTags() {
 		labels[k] = v
 	}
-
-	//if !uuidMatcher.MatchString(envelope.GetSourceId()) {
-	//	fmt.Println("Written point which is not match sourceId regexp")
-	//	fmt.Printf("%+v\n", envelope)
-	//}
 
 	return &rpc.Point{
 		Timestamp: envelope.GetTimestamp(),

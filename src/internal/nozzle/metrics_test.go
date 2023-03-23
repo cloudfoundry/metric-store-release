@@ -28,7 +28,7 @@ var _ = Describe("collect nozzle metrics", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"tag1": {"val2", "val3"}},
+			[]string{},
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -63,7 +63,7 @@ var _ = Describe("collect nozzle metrics", func() {
 			"metric-store",
 			0,
 			true,
-			map[string][]string{"tag1": {"val2", "val3"}},
+			[]string{},
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,

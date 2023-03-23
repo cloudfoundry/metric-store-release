@@ -13,15 +13,15 @@ type Config struct {
 	MetricStoreTLS        MetricStoreClientTLS
 	MetricStoreMetricsTLS MetricStoreMetricsTLS
 
-	IngressAddr                      string              `env:"INGRESS_ADDR, required, report"`
-	MetricsAddr                      string              `env:"METRICS_ADDR, report"`
-	ShardId                          string              `env:"SHARD_ID, required, report"`
-	TimerRollupBufferSize            uint                `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
-	NodeIndex                        int                 `env:"NODE_INDEX, required, report"`
-	DisablePlatformAndServiceMetrics bool                `env:"DISABLE_PLATFORM_AND_SYSTEM_METRICS, required, report"`
-	EnabledMetricsSpecifiedTags      map[string][]string `env:"ENABLED_METRICS_SPECIFIED_TAGS, report"`
-	LogLevel                         string              `env:"LOG_LEVEL, report"`
-	ProfilingAddr                    string              `env:"PROFILING_ADDR, report"`
+	IngressAddr                      string   `env:"INGRESS_ADDR, required, report"`
+	MetricsAddr                      string   `env:"METRICS_ADDR, report"`
+	ShardId                          string   `env:"SHARD_ID, required, report"`
+	TimerRollupBufferSize            uint     `env:"TIMER_ROLLUP_BUFFER_SIZE, report"`
+	NodeIndex                        int      `env:"NODE_INDEX, required, report"`
+	DisablePlatformAndServiceMetrics bool     `env:"DISABLE_PLATFORM_AND_SYSTEM_METRICS, required, report"`
+	EnabledMetricsSpecifiedTags      []string `env:"ENABLED_METRICS_SPECIFIED_TAGS, report"`
+	LogLevel                         string   `env:"LOG_LEVEL, report"`
+	ProfilingAddr                    string   `env:"PROFILING_ADDR, report"`
 }
 
 type MetricStoreClientTLS struct {
@@ -52,7 +52,6 @@ func LoadConfig() *Config {
 		ShardId:                          "metric-store",
 		TimerRollupBufferSize:            16384,
 		DisablePlatformAndServiceMetrics: false,
-		EnabledMetricsSpecifiedTags:      map[string][]string{},
 	}
 
 	if err := envstruct.Load(cfg); err != nil {
