@@ -30,7 +30,7 @@ var _ = Describe("Nozzle", func() {
 				tlsClientConfig,
 				"metric-store",
 				0,
-				true,
+				false,
 				[]string{},
 				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 				WithNozzleTimerRollup(
@@ -100,7 +100,7 @@ var _ = Describe("Nozzle", func() {
 				tlsClientConfig,
 				"metric-store",
 				0,
-				true,
+				false,
 				[]string{},
 				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 				WithNozzleTimerRollup(

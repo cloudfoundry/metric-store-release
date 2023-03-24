@@ -31,7 +31,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			tlsClientConfig,
 			"metric-store",
 			0,
-			true,
+			false,
 			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
@@ -357,7 +357,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			tlsClientConfig,
 			"metric-store",
 			0,
-			true,
+			false,
 			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
@@ -646,7 +646,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			tlsClientConfig,
 			"metric-store",
 			0,
-			true,
+			false,
 			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
@@ -710,7 +710,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 			tlsClientConfig,
 			"metric-store",
 			0,
-			true,
+			false,
 			[]string{""},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
