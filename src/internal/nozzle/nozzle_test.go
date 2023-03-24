@@ -2,6 +2,7 @@ package nozzle_test
 
 import (
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -19,6 +20,7 @@ var _ = Describe("Nozzle", func() {
 		streamConnector *spyStreamConnector
 		metricStore     *testing.SpyMetricStore
 		nozzle          *Nozzle
+		metricRegistrar *testing.SpyMetricRegistrar
 	)
 
 	AfterEach(func() {
@@ -178,8 +180,9 @@ var _ = Describe("Nozzle", func() {
 			metricStore = testing.NewSpyMetricStore(tlsServerConfig)
 			addrs := metricStore.Start()
 
+			metricRegistrar = testing.NewSpyMetricRegistrar()
 			nozzle = NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{},
-				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
+				WithNozzleDebugRegistrar(metricRegistrar),
 				WithNozzleTimerRollup(
 					100*time.Millisecond,
 					[]string{"tag1", "tag2", "status_code"},
@@ -190,7 +193,7 @@ var _ = Describe("Nozzle", func() {
 			go nozzle.Start()
 		})
 
-		FIt("writes each envelope as a point when metric have a app_id or applicationGuid tag", func() {
+		It("writes each envelope as a point when metric have a app_id or applicationGuid tag", func() {
 			addEnvelopeWithTag(1, "memory", "some-source-id", map[string]string{AppId: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(2, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(3, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
@@ -227,7 +230,7 @@ var _ = Describe("Nozzle", func() {
 			}))
 		})
 
-		FIt("Should skip metrics which is not application", func() {
+		FIt("Should skip only non application metrics", func() {
 			addEnvelopeWithTag(1, "memory", "some-source-id", map[string]string{AppId: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(2, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(3, "memory", "some-source-id", map[string]string{"tag1": "some-source-id"}, streamConnector)
@@ -253,6 +256,8 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 			}))
+
+			Eventually(metricRegistrar.Fetch(metrics.NozzleSkippedEnvelopsTotal)).Should(Equal(float64(1)))
 		})
 	})
 
