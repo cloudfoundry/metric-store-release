@@ -20,6 +20,11 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	AppId           = "app_id"
+	ApplicationGuid = "applicationGuid"
+)
+
 // Nozzle reads envelopes and writes points to metric-store.
 type Nozzle struct {
 	log     *logger.Logger
@@ -327,12 +332,16 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
-// checks enabled configuration disable platform and service metrics these metrics should be skipped
+// checks if enabled configuration disablePSMetrics keep only application metrics and specified tags metrics
+// return true when need to drop this envelop
 func (n *Nozzle) isSkipEnvelope(tags map[string]string) bool {
 	if n.disablePSMetrics {
-		_, hasAppid := tags["app_id"]
-		_, hasApplicationGuid := tags["applicationGuid"]
+		_, hasAppid := tags[AppId]
+		_, hasApplicationGuid := tags[ApplicationGuid]
+
+		//All Applications should have app_id or applicationGuid tag, check if the giving envelope is not application
 		if !(hasAppid || hasApplicationGuid) {
+			//Additional check for non application tags which configured to keep
 			for _, t := range n.enabledMetricsSpecifiedTags {
 				if _, hasTagKey := tags[t]; hasTagKey {
 					return false

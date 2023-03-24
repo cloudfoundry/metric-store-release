@@ -19,6 +19,19 @@ func TestNozzle(t *testing.T) {
 	RunSpecs(t, "Nozzle Suite")
 }
 
+func addEnvelopeWithTag(timestamp int64, name, sourceId string, tags map[string]string, c *spyStreamConnector) {
+	c.envelopes <- []*loggregator_v2.Envelope{
+		{
+			Timestamp: timestamp,
+			SourceId:  sourceId,
+			Message: &loggregator_v2.Envelope_Counter{
+				Counter: &loggregator_v2.Counter{Name: name, Total: 0},
+			},
+			Tags: tags,
+		},
+	}
+}
+
 func addEnvelope(timestamp int64, name, sourceId string, c *spyStreamConnector) {
 	c.envelopes <- []*loggregator_v2.Envelope{
 		{
