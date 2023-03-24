@@ -364,7 +364,6 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 		for k, v := range envelope.GetTags() {
 			labels[k] = v
 		}
-
 		point := &rpc.Point{
 			Timestamp: envelope.GetTimestamp(),
 			Name:      name,
@@ -391,7 +390,6 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	for k, v := range envelope.GetTags() {
 		labels[k] = v
 	}
-
 	return &rpc.Point{
 		Timestamp: envelope.GetTimestamp(),
 		Name:      counter.GetName(),

@@ -27,7 +27,7 @@ var _ = Describe("collect nozzle metrics", func() {
 			tlsClientConfig,
 			"metric-store",
 			0,
-			true,
+			false,
 			[]string{},
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
@@ -62,7 +62,7 @@ var _ = Describe("collect nozzle metrics", func() {
 			tlsClientConfig,
 			"metric-store",
 			0,
-			true,
+			false,
 			[]string{},
 			WithNozzleDebugRegistrar(metricRegistrar),
 			WithNozzleTimerRollup(
