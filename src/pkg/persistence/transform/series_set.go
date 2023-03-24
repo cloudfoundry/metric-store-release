@@ -52,7 +52,10 @@ func (c *concreteSeries) Labels() labels.Labels {
 }
 
 func (c *concreteSeries) Iterator(it chunkenc.Iterator) chunkenc.Iterator {
-	// TODO more smart code is expected to be here to use input as well
+	if csi, ok := it.(*concreteSeriesIterator); ok {
+		csi.reset(c)
+		return csi
+	}
 	return newConcreteSeriersIterator(c)
 }
 
@@ -113,4 +116,9 @@ func (c *concreteSeriesIterator) AtT() int64 {
 	s := c.series.samples[c.cur]
 
 	return s.TimeInMilliseconds
+}
+
+func (c *concreteSeriesIterator) reset(series *concreteSeries) {
+	c.cur = -1
+	c.series = series
 }

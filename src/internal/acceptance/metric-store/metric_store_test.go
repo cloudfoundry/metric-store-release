@@ -448,7 +448,6 @@ scrape_configs:
 			defer cleanup()
 
 			now := time.Now()
-
 			Eventually(func() model.LabelValues {
 				writePoints(
 					tc,
