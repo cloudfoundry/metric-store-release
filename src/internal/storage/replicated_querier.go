@@ -216,7 +216,7 @@ func (r *ReplicatedQuerier) LabelNames(matchers ...*labels.Matcher) ([]string,
 	labelNamesMap := make(map[string]struct{})
 	//TODO The matchers is unused, but querier.LabelNames() expects
 	for _, querier := range r.querierFactory.Build(r.ctx) {
-		labelNames, _, _ := querier.LabelNames()
+		labelNames, _, _ := querier.LabelNames(matchers...)
 		for _, labelName := range labelNames {
 			labelNamesMap[labelName] = struct{}{}
 		}
@@ -236,7 +236,7 @@ func (r *ReplicatedQuerier) LabelValues(name string, matchers ...*labels.Matcher
 	var results [][]string
 
 	for _, querier := range r.querierFactory.Build(r.ctx) {
-		labelValues, _, _ := querier.LabelValues(name)
+		labelValues, _, _ := querier.LabelValues(name, matchers...)
 		results = append(results, labelValues)
 	}
 

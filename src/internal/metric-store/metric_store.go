@@ -249,8 +249,8 @@ func (i *safePromQLNoStepSubqueryInterval) Get(int64) int64 {
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
-	noStepSubqueryInterval := &safePromQLNoStepSubqueryInterval{}
-	noStepSubqueryInterval.Set(model.Duration(DEFAULT_EVALUATION_INTERVAL))
+	evaluationInterval := &safePromQLNoStepSubqueryInterval{}
+	evaluationInterval.Set(model.Duration(DEFAULT_EVALUATION_INTERVAL))
 
 	store.replicatedStorage = storage.NewReplicatedStorage(
 		store.localStore,
@@ -271,7 +271,7 @@ func (store *MetricStore) Start() {
 	store.promRuleManagers = rules.NewRuleManagers(
 		store.replicatedStorage,
 		queryEngine,
-		time.Duration(noStepSubqueryInterval.Get(0))*time.Millisecond,
+		time.Duration(evaluationInterval.Get(0))*time.Millisecond,
 		store.log,
 		store.metrics,
 		store.queryTimeout,
