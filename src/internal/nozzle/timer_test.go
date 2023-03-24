@@ -26,13 +26,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 		addrs := metricStore.Start()
 		defer metricStore.Stop()
 
-		n := NewNozzle(streamConnector,
-			addrs.IngressAddr,
-			tlsClientConfig,
-			"metric-store",
-			0,
-			false,
-			[]string{""},
+		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, false, []string{},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -352,13 +346,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 		addrs := metricStore.Start()
 		defer metricStore.Stop()
 
-		n := NewNozzle(streamConnector,
-			addrs.IngressAddr,
-			tlsClientConfig,
-			"metric-store",
-			0,
-			false,
-			[]string{""},
+		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, false, []string{},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -641,13 +629,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 		addrs := metricStore.Start()
 		defer metricStore.Stop()
 
-		n := NewNozzle(streamConnector,
-			addrs.IngressAddr,
-			tlsClientConfig,
-			"metric-store",
-			0,
-			false,
-			[]string{""},
+		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, false, []string{},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
@@ -705,13 +687,7 @@ var _ = Describe("when the envelope is a Timer", func() {
 		addrs := metricStore.Start()
 		defer metricStore.Stop()
 
-		n := NewNozzle(streamConnector,
-			addrs.IngressAddr,
-			tlsClientConfig,
-			"metric-store",
-			0,
-			false,
-			[]string{""},
+		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, false, []string{},
 			WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
 			WithNozzleTimerRollup(
 				100*time.Millisecond,
