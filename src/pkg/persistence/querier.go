@@ -66,9 +66,7 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 		return storage.ErrSeriesSet(err)
 	}
 
-	res := builder.SeriesSet()
-
-	return res
+	return builder.SeriesSet()
 }
 
 func (q *Querier) LabelNames(matchers ...*labels.Matcher) ([]string, storage.Warnings, error) {
