@@ -60,6 +60,6 @@ properties:
     description: "The cert for metric-store metrics mutual TLS."
   metric_store_metrics.tls.key:
     description: "The private key for metric-store metrics mutual TLS."
-  disable_platform_and_system_metrics:
-    description: The configurable variable to disable or enable the system and platform metrics.
+  enable_envelope_selector:
+    description: Enable or disable envelopes with specified tags, if enabled keep only specific tags envelops, by default app_id and applicationGuid are enabled.
     default: false

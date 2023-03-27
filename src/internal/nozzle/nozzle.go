@@ -301,10 +301,16 @@ func (n *Nozzle) captureGorouterHttpTimerMetricsForRollup(envelope *loggregator_
 		return
 	}
 
-	if envelope.GetSourceId() == "gorouter" && strings.ToLower(envelope.Tags["peer_type"]) == "client" {
-		// gorouter reports both client and server timers for each request,
-		// only record server types
-		return
+	if envelope.GetSourceId() == rollup.GorouterSourceId {
+		if strings.ToLower(envelope.Tags["peer_type"]) == "client" {
+			// gorouter reports both client and server timers for each request,
+			// only record server types
+			return
+		}
+	} else {
+		if !n.hasMatchedTags(envelope.GetTags()) {
+			return
+		}
 	}
 
 	n.timerBuffer.Set(diodes.GenericDataType(envelope))
@@ -333,15 +339,15 @@ func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
 	if n.enableEnvelopeSelector {
 		for _, t := range n.envelopSelectorTags {
 			if _, hasTagKey := tags[t]; hasTagKey {
-				return false
+				return true
 			}
 		}
 
 		n.metrics.Inc(metrics.NozzleSkippedEnvelopsByTagTotal)
-		return true
+		return false
 	}
 
-	return false
+	return true
 }
 
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
@@ -354,7 +360,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 		}
 
 		tags := envelope.GetTags()
-		if n.hasMatchedTags(tags) {
+		if !n.hasMatchedTags(tags) {
 			return nil
 		}
 
@@ -380,7 +386,7 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	}
 
 	tags := envelope.GetTags()
-	if n.hasMatchedTags(tags) {
+	if !n.hasMatchedTags(tags) {
 		return nil
 	}
 

@@ -13,4 +13,3 @@
   type: boolean
   default: false
   configurable: true
-
