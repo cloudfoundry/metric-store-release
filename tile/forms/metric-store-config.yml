@@ -8,6 +8,6 @@ property_inputs:
   - reference: .properties.max_concurrent_queries
     label: Max Concurrent Queries
     description: Queue queries after this maximum number of queries running concurrently per node
-  - reference: .properties.disable_platform_and_system_metrics
-    label: Disable Platform and System Metrics
-    description: The configurable variable to disable or enable the system and platform metrics.
+  - reference: .properties.enable_envelope_selector
+    label: Envable Envelope Selector
+    description: Enable or disable envelopes with specified tags, if enabled keep only specific tags envelops, by default app_id and applicationGuid are enabled.

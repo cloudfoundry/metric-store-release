@@ -20,22 +20,17 @@ import (
 	"golang.org/x/net/context"
 )
 
-const (
-	AppId           = "app_id"
-	ApplicationGuid = "applicationGuid"
-)
-
 // Nozzle reads envelopes and writes points to metric-store.
 type Nozzle struct {
 	log     *logger.Logger
 	metrics metrics.Registrar
 
-	s                           StreamConnector
-	shardId                     string
-	nodeIndex                   int
-	disablePSMetrics            bool
-	enabledMetricsSpecifiedTags []string
-	ingressBuffer               *diodes.OneToOne
+	s                      StreamConnector
+	shardId                string
+	nodeIndex              int
+	enableEnvelopeSelector bool
+	envelopSelectorTags    []string
+	ingressBuffer          *diodes.OneToOne
 
 	timerBuffer           *diodes.OneToOne
 	timerRollupBufferSize uint
@@ -60,21 +55,21 @@ const (
 	BATCH_CHANNEL_SIZE   = 512
 )
 
-func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, disablePSMetrics bool, enabledMetricsSpecifiedTags []string, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, enableEnvelopeSelector bool, envelopSelectorTags []string, opts ...Option) *Nozzle {
 	n := &Nozzle{
-		log:                         logger.NewNop(),
-		metrics:                     &metrics.NullRegistrar{},
-		s:                           c,
-		shardId:                     shardId,
-		nodeIndex:                   nodeIndex,
-		disablePSMetrics:            disablePSMetrics,
-		enabledMetricsSpecifiedTags: enabledMetricsSpecifiedTags,
-		timerRollupBufferSize:       4096,
-		totalRollup:                 rollup.NewNullRollup(),
-		durationRollup:              rollup.NewNullRollup(),
-		ingressAddr:                 ingressAddr,
-		tlsConfig:                   tlsConfig,
-		pointBuffer:                 make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
+		log:                    logger.NewNop(),
+		metrics:                &metrics.NullRegistrar{},
+		s:                      c,
+		shardId:                shardId,
+		nodeIndex:              nodeIndex,
+		enableEnvelopeSelector: enableEnvelopeSelector,
+		envelopSelectorTags:    envelopSelectorTags,
+		timerRollupBufferSize:  4096,
+		totalRollup:            rollup.NewNullRollup(),
+		durationRollup:         rollup.NewNullRollup(),
+		ingressAddr:            ingressAddr,
+		tlsConfig:              tlsConfig,
+		pointBuffer:            make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
 	}
 
 	for _, o := range opts {
@@ -332,25 +327,18 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
-// checks if enabled configuration disablePSMetrics keep only application metrics and specified tags metrics
+// checks if enabled configuration enableEnvelopeSelector keep only application metrics and specified tags metrics
 // return true when need to drop this envelop
-func (n *Nozzle) isSkipEnvelope(tags map[string]string) bool {
-	if n.disablePSMetrics {
-		_, hasAppid := tags[AppId]
-		_, hasApplicationGuid := tags[ApplicationGuid]
-
-		//All Applications should have app_id or applicationGuid tag, check if the giving envelope is not application
-		if !(hasAppid || hasApplicationGuid) {
-			//Additional check for non application tags which configured to keep
-			for _, t := range n.enabledMetricsSpecifiedTags {
-				if _, hasTagKey := tags[t]; hasTagKey {
-					return false
-				}
+func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
+	if n.enableEnvelopeSelector {
+		for _, t := range n.envelopSelectorTags {
+			if _, hasTagKey := tags[t]; hasTagKey {
+				return false
 			}
-
-			n.metrics.Inc(metrics.NozzleSkippedEnvelopsTotal)
-			return true
 		}
+
+		n.metrics.Inc(metrics.NozzleSkippedEnvelopsByTagTotal)
+		return true
 	}
 
 	return false
@@ -366,7 +354,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 		}
 
 		tags := envelope.GetTags()
-		if n.isSkipEnvelope(tags) {
+		if n.hasMatchedTags(tags) {
 			return nil
 		}
 
@@ -392,7 +380,7 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.
 	}
 
 	tags := envelope.GetTags()
-	if n.isSkipEnvelope(tags) {
+	if n.hasMatchedTags(tags) {
 		return nil
 	}
 
