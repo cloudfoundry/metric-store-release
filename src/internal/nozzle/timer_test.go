@@ -2,6 +2,7 @@ package nozzle_test
 
 import (
 	"crypto/tls"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"time"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
@@ -674,6 +675,73 @@ var _ = Describe("when the envelope is a Timer", func() {
 				Value:     4,
 				Labels: map[string]string{
 					"source_id": "source-id",
+				},
+			},
+		))
+	})
+
+	It("When Envelope Selector is enabled skipped only unmatched tags metrics", func() {
+		tlsServerConfig, tlsClientConfig := buildTLSConfigs()
+
+		streamConnector := newSpyStreamConnector()
+		metricStore := testing.NewSpyMetricStore(tlsServerConfig)
+		metricRegistrar := testing.NewSpyMetricRegistrar()
+		addrs := metricStore.Start()
+		defer metricStore.Stop()
+
+		n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{"deployment"},
+			WithNozzleDebugRegistrar(metricRegistrar),
+			WithNozzleTimerRollup(
+				100*time.Millisecond,
+				[]string{"tag1", "tag2", "status_code"},
+				[]string{"tag1", "tag2"},
+			),
+			WithNozzleLogger(logger.NewTestLogger(GinkgoWriter)),
+		)
+		go n.Start()
+
+		streamConnector.envelopes <- []*loggregator_v2.Envelope{
+			{
+				SourceId: "source-id",
+				// prime number for higher numerical accuracy
+				Timestamp: 10000000002065383,
+				Message: &loggregator_v2.Envelope_Timer{
+					Timer: &loggregator_v2.Timer{
+						Name:  "http",
+						Start: 0,
+						Stop:  5,
+					},
+				},
+				Tags: map[string]string{
+					"not-deployment": "some-deployment",
+				},
+			},
+			{
+				SourceId:  "source-id",
+				Timestamp: 66606660666066601,
+				Message: &loggregator_v2.Envelope_Counter{
+					Counter: &loggregator_v2.Counter{
+						Name:  "http",
+						Total: 4,
+					},
+				},
+				Tags: map[string]string{
+					"deployment": "some-deployment",
+				},
+			},
+		}
+
+		Eventually(metricStore.GetPoints).Should(HaveLen(1))
+		Consistently(metricStore.GetPoints, .5).Should(HaveLen(1))
+		Eventually(metricRegistrar.Fetch(metrics.NozzleSkippedEnvelopsByTagTotal)).Should(Equal(float64(1)))
+		Expect(metricStore.GetPoints()).To(ConsistOf(
+			&rpc.Point{
+				Name:      "http",
+				Timestamp: 66606660666066601,
+				Value:     4,
+				Labels: map[string]string{
+					"source_id":  "source-id",
+					"deployment": "some-deployment",
 				},
 			},
 		))

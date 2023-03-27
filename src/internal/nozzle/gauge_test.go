@@ -1,6 +1,7 @@
 package nozzle_test
 
 import (
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"time"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
@@ -156,11 +157,12 @@ var _ = Describe("Nozzle", func() {
 
 			streamConnector := newSpyStreamConnector()
 			metricStore := testing.NewSpyMetricStore(tlsServerConfig)
+			metricRegistrar := testing.NewSpyMetricRegistrar()
 			addrs := metricStore.Start()
 			defer metricStore.Stop()
 
 			n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{ApplicationGuid},
-				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
+				WithNozzleDebugRegistrar(metricRegistrar),
 				WithNozzleTimerRollup(
 					100*time.Millisecond,
 					[]string{"tag1", "tag2", "status_code"},
@@ -195,6 +197,7 @@ var _ = Describe("Nozzle", func() {
 			}
 
 			Eventually(metricStore.GetPoints).Should(HaveLen(2))
+			Eventually(metricRegistrar.Fetch(metrics.NozzleSkippedEnvelopsByTagTotal)).Should(Equal(float64(0)))
 
 			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
 				{
@@ -225,11 +228,13 @@ var _ = Describe("Nozzle", func() {
 
 			streamConnector := newSpyStreamConnector()
 			metricStore := testing.NewSpyMetricStore(tlsServerConfig)
+			metricRegistrar := testing.NewSpyMetricRegistrar()
+
 			addrs := metricStore.Start()
 			defer metricStore.Stop()
 
 			n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{"unmatched_tag"},
-				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
+				WithNozzleDebugRegistrar(metricRegistrar),
 				WithNozzleTimerRollup(
 					100*time.Millisecond,
 					[]string{"tag1", "tag2", "status_code"},
@@ -260,8 +265,9 @@ var _ = Describe("Nozzle", func() {
 				},
 			}
 
-			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{}))
 			Eventually(metricStore.GetPoints).Should(HaveLen(0))
+			Eventually(metricRegistrar.Fetch(metrics.NozzleSkippedEnvelopsByTagTotal)).Should(Equal(float64(1)))
+			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{}))
 		})
 	})
 
