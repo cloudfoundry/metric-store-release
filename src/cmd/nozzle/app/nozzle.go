@@ -19,6 +19,12 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 )
 
+// All application metrics should have AppId or ApplicationGuid tags
+const (
+	AppId           = "app_id"
+	ApplicationGuid = "applicationGuid"
+)
+
 type NozzleApp struct {
 	cfg *Config
 	log *logger.Logger
@@ -92,14 +98,16 @@ func (app *NozzleApp) Run() {
 		app.log.Fatal("failed to load tls config for metric store", err)
 	}
 
+	envelopSelectorTags := append([]string{AppId, ApplicationGuid}, app.cfg.EnvelopSelectorTags...)
+
 	nozzle := NewNozzle(
 		streamConnector,
 		app.cfg.IngressAddr,
 		metricStoreTLSConfig,
 		app.cfg.ShardId,
 		app.cfg.NodeIndex,
-		app.cfg.DisablePlatformAndServiceMetrics,
-		app.cfg.EnabledMetricsSpecifiedTags,
+		app.cfg.EnableEnvelopeSelector,
+		envelopSelectorTags,
 		WithNozzleLogger(app.log),
 		WithNozzleDebugRegistrar(app.metrics),
 		WithNozzleTimerRollup(
@@ -164,7 +172,7 @@ func (app *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 		metrics.WithCounter(metrics.NozzleDroppedEnvelopesTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes dropped within the nozzle",
 		}),
-		metrics.WithCounter(metrics.NozzleSkippedEnvelopsTotal, prometheus.CounterOpts{
+		metrics.WithCounter(metrics.NozzleSkippedEnvelopsByTagTotal, prometheus.CounterOpts{
 			Help: "Total number of envelopes skipped within the nozzle",
 		}),
 		metrics.WithCounter(metrics.NozzleDroppedPointsTotal, prometheus.CounterOpts{

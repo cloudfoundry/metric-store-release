@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	. "github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/matchers"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
@@ -28,7 +29,7 @@ var _ = Describe("Nozzle", func() {
 		metricStore.Stop()
 	})
 
-	Describe("When disabled platform and system metrics is OFF", func() {
+	Describe("When Envelope Selector is disable", func() {
 		BeforeEach(func() {
 			tlsServerConfig, tlsClientConfig := buildTLSConfigs()
 
@@ -172,7 +173,7 @@ var _ = Describe("Nozzle", func() {
 		})
 	})
 
-	Describe("When disabled platform and system metrics is ON", func() {
+	Describe("When Envelope Selector is enabled", func() {
 		BeforeEach(func() {
 			tlsServerConfig, tlsClientConfig := buildTLSConfigs()
 
@@ -181,7 +182,7 @@ var _ = Describe("Nozzle", func() {
 			addrs := metricStore.Start()
 
 			metricRegistrar = testing.NewSpyMetricRegistrar()
-			nozzle = NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{},
+			nozzle = NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{AppId, ApplicationGuid},
 				WithNozzleDebugRegistrar(metricRegistrar),
 				WithNozzleTimerRollup(
 					100*time.Millisecond,
@@ -193,7 +194,7 @@ var _ = Describe("Nozzle", func() {
 			go nozzle.Start()
 		})
 
-		It("writes each envelope as a point when metric have a app_id or applicationGuid tag", func() {
+		It("writes each envelope as a point when metric have a matched tag", func() {
 			addEnvelopeWithTag(1, "memory", "some-source-id", map[string]string{AppId: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(2, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(3, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
@@ -230,7 +231,7 @@ var _ = Describe("Nozzle", func() {
 			}))
 		})
 
-		FIt("Should skip only non application metrics", func() {
+		It("Should skip only unmatched tags metrics", func() {
 			addEnvelopeWithTag(1, "memory", "some-source-id", map[string]string{AppId: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(2, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(3, "memory", "some-source-id", map[string]string{"tag1": "some-source-id"}, streamConnector)
@@ -257,7 +258,7 @@ var _ = Describe("Nozzle", func() {
 				},
 			}))
 
-			Eventually(metricRegistrar.Fetch(metrics.NozzleSkippedEnvelopsTotal)).Should(Equal(float64(1)))
+			Eventually(metricRegistrar.Fetch(metrics.NozzleSkippedEnvelopsByTagTotal)).Should(Equal(float64(1)))
 		})
 	})
 
