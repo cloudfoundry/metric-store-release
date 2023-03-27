@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	. "github.com/cloudfoundry/metric-store-release/src/cmd/nozzle/app"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/matchers"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 )
@@ -148,6 +149,119 @@ var _ = Describe("Nozzle", func() {
 					},
 				},
 			}))
+		})
+
+		It("When Enabled envelopeSelector, matched tags envelope converts the envelope to a Point(s)", func() {
+			tlsServerConfig, tlsClientConfig := buildTLSConfigs()
+
+			streamConnector := newSpyStreamConnector()
+			metricStore := testing.NewSpyMetricStore(tlsServerConfig)
+			addrs := metricStore.Start()
+			defer metricStore.Stop()
+
+			n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{ApplicationGuid},
+				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
+				WithNozzleTimerRollup(
+					100*time.Millisecond,
+					[]string{"tag1", "tag2", "status_code"},
+					[]string{"tag1", "tag2"},
+				),
+				WithNozzleLogger(logger.NewTestLogger(GinkgoWriter)),
+			)
+			go n.Start()
+
+			streamConnector.envelopes <- []*loggregator_v2.Envelope{
+				{
+					Timestamp: 20,
+					SourceId:  "source-id",
+					Message: &loggregator_v2.Envelope_Gauge{
+						Gauge: &loggregator_v2.Gauge{
+							Metrics: map[string]*loggregator_v2.GaugeValue{
+								"input": {
+									Value: 50.0,
+									Unit:  "mb/s",
+								},
+								"output": {
+									Value: 25.5,
+									Unit:  "kb/s",
+								},
+							},
+						},
+					},
+					Tags: map[string]string{
+						ApplicationGuid: "some-application-guid",
+					},
+				},
+			}
+
+			Eventually(metricStore.GetPoints).Should(HaveLen(2))
+
+			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{
+				{
+					Name:      "input",
+					Timestamp: 20,
+					Value:     50.0,
+					Labels: map[string]string{
+						"unit":          "mb/s",
+						"source_id":     "source-id",
+						ApplicationGuid: "some-application-guid",
+					},
+				},
+				{
+					Name:      "output",
+					Timestamp: 20,
+					Value:     25.5,
+					Labels: map[string]string{
+						"unit":          "kb/s",
+						"source_id":     "source-id",
+						ApplicationGuid: "some-application-guid",
+					},
+				},
+			}))
+		})
+
+		It("When Enabled envelopeSelector, unmatched tags envelope not write any Point(s)", func() {
+			tlsServerConfig, tlsClientConfig := buildTLSConfigs()
+
+			streamConnector := newSpyStreamConnector()
+			metricStore := testing.NewSpyMetricStore(tlsServerConfig)
+			addrs := metricStore.Start()
+			defer metricStore.Stop()
+
+			n := NewNozzle(streamConnector, addrs.IngressAddr, tlsClientConfig, "metric-store", 0, true, []string{"unmatched_tag"},
+				WithNozzleDebugRegistrar(testing.NewSpyMetricRegistrar()),
+				WithNozzleTimerRollup(
+					100*time.Millisecond,
+					[]string{"tag1", "tag2", "status_code"},
+					[]string{"tag1", "tag2"},
+				),
+				WithNozzleLogger(logger.NewTestLogger(GinkgoWriter)),
+			)
+			go n.Start()
+
+			streamConnector.envelopes <- []*loggregator_v2.Envelope{
+				{
+					Timestamp: 20,
+					SourceId:  "source-id",
+					Message: &loggregator_v2.Envelope_Gauge{
+						Gauge: &loggregator_v2.Gauge{
+							Metrics: map[string]*loggregator_v2.GaugeValue{
+								"input": {
+									Value: 50.0,
+									Unit:  "mb/s",
+								},
+								"output": {
+									Value: 25.5,
+									Unit:  "kb/s",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(metricStore.GetPoints()).To(ContainPoints([]*rpc.Point{}))
+			Eventually(metricStore.GetPoints).Should(HaveLen(0))
 		})
 	})
 
