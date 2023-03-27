@@ -333,8 +333,7 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
-// checks if enabled configuration enableEnvelopeSelector keep only application metrics and specified tags metrics
-// return true when need to drop this envelop
+// if enabled configuration enableEnvelopeSelector return true when envelopSelectorTags matched specified tags
 func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
 	if n.enableEnvelopeSelector {
 		for _, t := range n.envelopSelectorTags {
