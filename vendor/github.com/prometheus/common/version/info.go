@@ -53,7 +53,6 @@ func NewCollector(program string) prometheus.Collector {
 				"goversion": GoVersion,
 				"goos":      GoOS,
 				"goarch":    GoArch,
-				"tags":      getTags(),
 			},
 		},
 		func() float64 { return 1 },
@@ -67,7 +66,6 @@ var versionInfoTmpl = `
   build date:       {{.buildDate}}
   go version:       {{.goVersion}}
   platform:         {{.platform}}
-  tags:             {{.tags}}
 `
 
 // Print returns version information.
@@ -81,7 +79,6 @@ func Print(program string) string {
 		"buildDate": BuildDate,
 		"goVersion": GoVersion,
 		"platform":  GoOS + "/" + GoArch,
-		"tags":      getTags(),
 	}
 	t := template.Must(template.New("version").Parse(versionInfoTmpl))
 
@@ -99,5 +96,5 @@ func Info() string {
 
 // BuildContext returns goVersion, platform, buildUser and buildDate information.
 func BuildContext() string {
-	return fmt.Sprintf("(go=%s, platform=%s, user=%s, date=%s, tags=%s)", GoVersion, GoOS+"/"+GoArch, BuildUser, BuildDate, getTags())
+	return fmt.Sprintf("(go=%s, platform=%s, user=%s, date=%s)", GoVersion, GoOS+"/"+GoArch, BuildUser, BuildDate)
 }

@@ -255,20 +255,9 @@ func (m *MetadataMatcher_PathSegment) validate(all bool) error {
 
 	var errors []error
 
-	oneofSegmentPresent := false
-	switch v := m.Segment.(type) {
+	switch m.Segment.(type) {
+
 	case *MetadataMatcher_PathSegment_Key:
-		if v == nil {
-			err := MetadataMatcher_PathSegmentValidationError{
-				field:  "Segment",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofSegmentPresent = true
 
 		if utf8.RuneCountInString(m.GetKey()) < 1 {
 			err := MetadataMatcher_PathSegmentValidationError{
@@ -282,9 +271,6 @@ func (m *MetadataMatcher_PathSegment) validate(all bool) error {
 		}
 
 	default:
-		_ = v // ensures v is used
-	}
-	if !oneofSegmentPresent {
 		err := MetadataMatcher_PathSegmentValidationError{
 			field:  "Segment",
 			reason: "value is required",
@@ -293,6 +279,7 @@ func (m *MetadataMatcher_PathSegment) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {

@@ -17,6 +17,7 @@
 package textparse
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +31,8 @@ import (
 	"github.com/prometheus/prometheus/model/value"
 )
 
+var allowedSuffixes = [][]byte{[]byte("_total"), []byte("_bucket")}
+
 type openMetricsLexer struct {
 	b     []byte
 	i     int
@@ -41,6 +44,13 @@ type openMetricsLexer struct {
 // buf returns the buffer of the current token.
 func (l *openMetricsLexer) buf() []byte {
 	return l.b[l.start:l.i]
+}
+
+func (l *openMetricsLexer) cur() byte {
+	if l.i < len(l.b) {
+		return l.b[l.i]
+	}
+	return byte(' ')
 }
 
 // next advances the openMetricsLexer to the next character.
@@ -213,14 +223,6 @@ func (p *OpenMetricsParser) nextToken() token {
 	return tok
 }
 
-func (p *OpenMetricsParser) parseError(exp string, got token) error {
-	e := p.l.i + 1
-	if len(p.l.b) < e {
-		e = len(p.l.b)
-	}
-	return fmt.Errorf("%s, got %q (%q) while parsing: %q", exp, p.l.b[p.l.start:e], got, p.l.b[p.start:e])
-}
-
 // Next advances the parser to the next sample. It returns false if no
 // more samples were read or an error occurred.
 func (p *OpenMetricsParser) Next() (Entry, error) {
@@ -246,7 +248,7 @@ func (p *OpenMetricsParser) Next() (Entry, error) {
 		case tMName:
 			p.offsets = append(p.offsets, p.l.start, p.l.i)
 		default:
-			return EntryInvalid, p.parseError("expected metric name after "+t.String(), t2)
+			return EntryInvalid, parseError("expected metric name after "+t.String(), t2)
 		}
 		switch t2 := p.nextToken(); t2 {
 		case tText:
@@ -282,7 +284,7 @@ func (p *OpenMetricsParser) Next() (Entry, error) {
 			}
 		case tHelp:
 			if !utf8.Valid(p.text) {
-				return EntryInvalid, fmt.Errorf("help text %q is not a valid utf8 string", p.text)
+				return EntryInvalid, errors.New("help text is not a valid utf8 string")
 			}
 		}
 		switch t {
@@ -295,7 +297,7 @@ func (p *OpenMetricsParser) Next() (Entry, error) {
 			u := yoloString(p.text)
 			if len(u) > 0 {
 				if !strings.HasSuffix(m, u) || len(m) < len(u)+1 || p.l.b[p.offsets[1]-len(u)-1] != '_' {
-					return EntryInvalid, fmt.Errorf("unit %q not a suffix of metric %q", u, m)
+					return EntryInvalid, fmt.Errorf("unit not a suffix of metric %q", m)
 				}
 			}
 			return EntryUnit, nil
@@ -334,10 +336,10 @@ func (p *OpenMetricsParser) Next() (Entry, error) {
 			var ts float64
 			// A float is enough to hold what we need for millisecond resolution.
 			if ts, err = parseFloat(yoloString(p.l.buf()[1:])); err != nil {
-				return EntryInvalid, fmt.Errorf("%v while parsing: %q", err, p.l.b[p.start:p.l.i])
+				return EntryInvalid, err
 			}
 			if math.IsNaN(ts) || math.IsInf(ts, 0) {
-				return EntryInvalid, fmt.Errorf("invalid timestamp %f", ts)
+				return EntryInvalid, errors.New("invalid timestamp")
 			}
 			p.ts = int64(ts * 1000)
 			switch t3 := p.nextToken(); t3 {
@@ -347,20 +349,26 @@ func (p *OpenMetricsParser) Next() (Entry, error) {
 					return EntryInvalid, err
 				}
 			default:
-				return EntryInvalid, p.parseError("expected next entry after timestamp", t3)
+				return EntryInvalid, parseError("expected next entry after timestamp", t3)
 			}
 		default:
-			return EntryInvalid, p.parseError("expected timestamp or # symbol", t2)
+			return EntryInvalid, parseError("expected timestamp or # symbol", t2)
 		}
 		return EntrySeries, nil
 
 	default:
-		err = p.parseError("expected a valid start token", t)
+		err = fmt.Errorf("%q %q is not a valid start token", t, string(p.l.cur()))
 	}
 	return EntryInvalid, err
 }
 
 func (p *OpenMetricsParser) parseComment() error {
+	// Validate the name of the metric. It must have _total or _bucket as
+	// suffix for exemplars to be supported.
+	if err := p.validateNameForExemplar(p.series[:p.offsets[0]-p.start]); err != nil {
+		return err
+	}
+
 	var err error
 	// Parse the labels.
 	p.eOffsets, err = p.parseLVals(p.eOffsets)
@@ -387,19 +395,19 @@ func (p *OpenMetricsParser) parseComment() error {
 		var ts float64
 		// A float is enough to hold what we need for millisecond resolution.
 		if ts, err = parseFloat(yoloString(p.l.buf()[1:])); err != nil {
-			return fmt.Errorf("%v while parsing: %q", err, p.l.b[p.start:p.l.i])
+			return err
 		}
 		if math.IsNaN(ts) || math.IsInf(ts, 0) {
-			return fmt.Errorf("invalid exemplar timestamp %f", ts)
+			return errors.New("invalid exemplar timestamp")
 		}
 		p.exemplarTs = int64(ts * 1000)
 		switch t3 := p.nextToken(); t3 {
 		case tLinebreak:
 		default:
-			return p.parseError("expected next entry after exemplar timestamp", t3)
+			return parseError("expected next entry after exemplar timestamp", t3)
 		}
 	default:
-		return p.parseError("expected timestamp or comment", t2)
+		return parseError("expected timestamp or comment", t2)
 	}
 	return nil
 }
@@ -413,21 +421,21 @@ func (p *OpenMetricsParser) parseLVals(offsets []int) ([]int, error) {
 			return offsets, nil
 		case tComma:
 			if first {
-				return nil, p.parseError("expected label name or left brace", t)
+				return nil, parseError("expected label name or left brace", t)
 			}
 			t = p.nextToken()
 			if t != tLName {
-				return nil, p.parseError("expected label name", t)
+				return nil, parseError("expected label name", t)
 			}
 		case tLName:
 			if !first {
-				return nil, p.parseError("expected comma", t)
+				return nil, parseError("expected comma", t)
 			}
 		default:
 			if first {
-				return nil, p.parseError("expected label name or left brace", t)
+				return nil, parseError("expected label name or left brace", t)
 			}
-			return nil, p.parseError("expected comma or left brace", t)
+			return nil, parseError("expected comma or left brace", t)
 
 		}
 		first = false
@@ -436,13 +444,13 @@ func (p *OpenMetricsParser) parseLVals(offsets []int) ([]int, error) {
 		offsets = append(offsets, p.l.start, p.l.i)
 
 		if t := p.nextToken(); t != tEqual {
-			return nil, p.parseError("expected equal", t)
+			return nil, parseError("expected equal", t)
 		}
 		if t := p.nextToken(); t != tLValue {
-			return nil, p.parseError("expected label value", t)
+			return nil, parseError("expected label value", t)
 		}
 		if !utf8.Valid(p.l.buf()) {
-			return nil, fmt.Errorf("invalid UTF-8 label value: %q", p.l.buf())
+			return nil, errors.New("invalid UTF-8 label value")
 		}
 
 		// The openMetricsLexer ensures the value string is quoted. Strip first
@@ -453,15 +461,24 @@ func (p *OpenMetricsParser) parseLVals(offsets []int) ([]int, error) {
 
 func (p *OpenMetricsParser) getFloatValue(t token, after string) (float64, error) {
 	if t != tValue {
-		return 0, p.parseError(fmt.Sprintf("expected value after %v", after), t)
+		return 0, parseError(fmt.Sprintf("expected value after %v", after), t)
 	}
 	val, err := parseFloat(yoloString(p.l.buf()[1:]))
 	if err != nil {
-		return 0, fmt.Errorf("%v while parsing: %q", err, p.l.b[p.start:p.l.i])
+		return 0, err
 	}
 	// Ensure canonical NaN value.
 	if math.IsNaN(p.exemplarVal) {
 		val = math.Float64frombits(value.NormalNaN)
 	}
 	return val, nil
+}
+
+func (p *OpenMetricsParser) validateNameForExemplar(name []byte) error {
+	for _, suffix := range allowedSuffixes {
+		if bytes.HasSuffix(name, suffix) {
+			return nil
+		}
+	}
+	return fmt.Errorf("metric name %v does not support exemplars", string(name))
 }

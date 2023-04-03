@@ -33,7 +33,6 @@ const (
 // config represents the configuration options available for the http.Handler
 // and http.Transport types.
 type config struct {
-	ServerName        string
 	Tracer            trace.Tracer
 	Meter             metric.Meter
 	Propagators       propagation.TextMapPropagator
@@ -197,13 +196,5 @@ func WithSpanNameFormatter(f func(operation string, r *http.Request) string) Opt
 func WithClientTrace(f func(context.Context) *httptrace.ClientTrace) Option {
 	return optionFunc(func(c *config) {
 		c.ClientTrace = f
-	})
-}
-
-// WithServerName returns an Option that sets the name of the (virtual) server
-// handling requests.
-func WithServerName(server string) Option {
-	return optionFunc(func(c *config) {
-		c.ServerName = server
 	})
 }

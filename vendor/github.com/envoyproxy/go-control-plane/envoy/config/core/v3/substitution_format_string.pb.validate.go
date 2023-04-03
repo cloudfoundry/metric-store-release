@@ -104,33 +104,12 @@ func (m *SubstitutionFormatString) validate(all bool) error {
 
 	}
 
-	oneofFormatPresent := false
-	switch v := m.Format.(type) {
+	switch m.Format.(type) {
+
 	case *SubstitutionFormatString_TextFormat:
-		if v == nil {
-			err := SubstitutionFormatStringValidationError{
-				field:  "Format",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofFormatPresent = true
 		// no validation rules for TextFormat
+
 	case *SubstitutionFormatString_JsonFormat:
-		if v == nil {
-			err := SubstitutionFormatStringValidationError{
-				field:  "Format",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofFormatPresent = true
 
 		if m.GetJsonFormat() == nil {
 			err := SubstitutionFormatStringValidationError{
@@ -173,17 +152,6 @@ func (m *SubstitutionFormatString) validate(all bool) error {
 		}
 
 	case *SubstitutionFormatString_TextFormatSource:
-		if v == nil {
-			err := SubstitutionFormatStringValidationError{
-				field:  "Format",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofFormatPresent = true
 
 		if all {
 			switch v := interface{}(m.GetTextFormatSource()).(type) {
@@ -215,9 +183,6 @@ func (m *SubstitutionFormatString) validate(all bool) error {
 		}
 
 	default:
-		_ = v // ensures v is used
-	}
-	if !oneofFormatPresent {
 		err := SubstitutionFormatStringValidationError{
 			field:  "Format",
 			reason: "value is required",
@@ -226,6 +191,7 @@ func (m *SubstitutionFormatString) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {

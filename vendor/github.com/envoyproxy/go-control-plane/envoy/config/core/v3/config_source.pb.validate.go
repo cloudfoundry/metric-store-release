@@ -910,33 +910,12 @@ func (m *ConfigSource) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	oneofConfigSourceSpecifierPresent := false
-	switch v := m.ConfigSourceSpecifier.(type) {
+	switch m.ConfigSourceSpecifier.(type) {
+
 	case *ConfigSource_Path:
-		if v == nil {
-			err := ConfigSourceValidationError{
-				field:  "ConfigSourceSpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofConfigSourceSpecifierPresent = true
 		// no validation rules for Path
+
 	case *ConfigSource_PathConfigSource:
-		if v == nil {
-			err := ConfigSourceValidationError{
-				field:  "ConfigSourceSpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetPathConfigSource()).(type) {
@@ -968,17 +947,6 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	case *ConfigSource_ApiConfigSource:
-		if v == nil {
-			err := ConfigSourceValidationError{
-				field:  "ConfigSourceSpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetApiConfigSource()).(type) {
@@ -1010,17 +978,6 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	case *ConfigSource_Ads:
-		if v == nil {
-			err := ConfigSourceValidationError{
-				field:  "ConfigSourceSpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetAds()).(type) {
@@ -1052,17 +1009,6 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	case *ConfigSource_Self:
-		if v == nil {
-			err := ConfigSourceValidationError{
-				field:  "ConfigSourceSpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofConfigSourceSpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetSelf()).(type) {
@@ -1094,9 +1040,6 @@ func (m *ConfigSource) validate(all bool) error {
 		}
 
 	default:
-		_ = v // ensures v is used
-	}
-	if !oneofConfigSourceSpecifierPresent {
 		err := ConfigSourceValidationError{
 			field:  "ConfigSourceSpecifier",
 			reason: "value is required",
@@ -1105,6 +1048,7 @@ func (m *ConfigSource) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {

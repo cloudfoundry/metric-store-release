@@ -406,7 +406,7 @@ func (r ApiDatacentersLoadbalancersBalancednicsGetRequest) XContractNumber(xCont
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiDatacentersLoadbalancersBalancednicsGetRequest) Filter(key string, value string) ApiDatacentersLoadbalancersBalancednicsGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = append(r.filters[filterKey], value)
+	r.filters[filterKey] = []string{value}
 	return r
 }
 
@@ -1157,7 +1157,7 @@ func (r ApiDatacentersLoadbalancersGetRequest) Limit(limit int32) ApiDatacenters
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiDatacentersLoadbalancersGetRequest) Filter(key string, value string) ApiDatacentersLoadbalancersGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = append(r.filters[filterKey], value)
+	r.filters[filterKey] = []string{value}
 	return r
 }
 

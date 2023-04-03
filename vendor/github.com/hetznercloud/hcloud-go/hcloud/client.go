@@ -15,11 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/net/http/httpguts"
-
 	"github.com/hetznercloud/hcloud-go/hcloud/internal/instrumentation"
 	"github.com/hetznercloud/hcloud-go/hcloud/schema"
+	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/net/http/httpguts"
 )
 
 // Endpoint is the base URL of the API.
@@ -43,10 +42,7 @@ func ConstantBackoff(d time.Duration) BackoffFunc {
 }
 
 // ExponentialBackoff returns a BackoffFunc which implements an exponential
-// backoff.
-// It uses the formula:
-//
-//	b^retries * d
+// backoff using the formula: b^retries * d
 func ExponentialBackoff(b float64, d time.Duration) BackoffFunc {
 	return func(retries int) time.Duration {
 		return time.Duration(math.Pow(b, float64(retries))) * d
@@ -58,8 +54,8 @@ type Client struct {
 	endpoint                string
 	token                   string
 	tokenValid              bool
+	pollInterval            time.Duration
 	backoffFunc             BackoffFunc
-	pollBackoffFunc         BackoffFunc
 	httpClient              *http.Client
 	applicationName         string
 	applicationVersion      string
@@ -106,31 +102,15 @@ func WithToken(token string) ClientOption {
 	}
 }
 
-// WithPollInterval configures a Client to use the specified interval when
-// polling from the API.
-//
-// Deprecated: Setting the poll interval is deprecated, you can now configure
-// [WithPollBackoffFunc] with a [ConstantBackoff] to get the same results. To
-// migrate your code, replace your usage like this:
-//
-//	// before
-//	hcloud.WithPollInterval(2 * time.Second)
-//	// now
-//	hcloud.WithPollBackoffFunc(hcloud.ConstantBackoff(2 * time.Second))
+// WithPollInterval configures a Client to use the specified interval when polling
+// from the API.
 func WithPollInterval(pollInterval time.Duration) ClientOption {
-	return WithPollBackoffFunc(ConstantBackoff(pollInterval))
-}
-
-// WithPollBackoffFunc configures a Client to use the specified backoff
-// function when polling from the API.
-func WithPollBackoffFunc(f BackoffFunc) ClientOption {
 	return func(client *Client) {
-		client.backoffFunc = f
+		client.pollInterval = pollInterval
 	}
 }
 
 // WithBackoffFunc configures a Client to use the specified backoff function.
-// The backoff function is used for retrying HTTP requests.
 func WithBackoffFunc(f BackoffFunc) ClientOption {
 	return func(client *Client) {
 		client.backoffFunc = f
@@ -172,11 +152,11 @@ func WithInstrumentation(registry *prometheus.Registry) ClientOption {
 // NewClient creates a new client.
 func NewClient(options ...ClientOption) *Client {
 	client := &Client{
-		endpoint:        Endpoint,
-		tokenValid:      true,
-		httpClient:      &http.Client{},
-		backoffFunc:     ExponentialBackoff(2, 500*time.Millisecond),
-		pollBackoffFunc: ConstantBackoff(500 * time.Millisecond),
+		endpoint:     Endpoint,
+		tokenValid:   true,
+		httpClient:   &http.Client{},
+		backoffFunc:  ExponentialBackoff(2, 500*time.Millisecond),
+		pollInterval: 500 * time.Millisecond,
 	}
 
 	for _, option := range options {

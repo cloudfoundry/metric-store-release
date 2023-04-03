@@ -19,7 +19,6 @@ type Region struct {
 	Capabilities []string        `json:"capabilities"`
 	Status       string          `json:"status"`
 	Resolvers    RegionResolvers `json:"resolvers"`
-	Label        string          `json:"label"`
 }
 
 // RegionResolvers contains the DNS resolvers of a region
