@@ -9,6 +9,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/prometheus/config"
 	prom_discovery "github.com/prometheus/prometheus/discovery"
+	_ "github.com/prometheus/prometheus/discovery/install"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 )
 
