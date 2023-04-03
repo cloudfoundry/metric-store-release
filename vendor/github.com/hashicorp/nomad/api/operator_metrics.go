@@ -1,7 +1,7 @@
 package api
 
 import (
-	"io"
+	"io/ioutil"
 	"time"
 )
 
@@ -67,7 +67,7 @@ func (op *Operator) Metrics(q *QueryOptions) ([]byte, error) {
 		return nil, err
 	}
 
-	metricsBytes, err := io.ReadAll(metricsReader)
+	metricsBytes, err := ioutil.ReadAll(metricsReader)
 	if err != nil {
 		return nil, err
 	}

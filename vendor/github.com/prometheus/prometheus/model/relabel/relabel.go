@@ -15,7 +15,6 @@ package relabel
 
 import (
 	"crypto/md5"
-	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -207,52 +206,45 @@ func (re Regexp) String() string {
 // If a label set is dropped, EmptyLabels and false is returned.
 // May return the input labelSet modified.
 func Process(lbls labels.Labels, cfgs ...*Config) (ret labels.Labels, keep bool) {
-	lb := labels.NewBuilder(lbls)
-	if !ProcessBuilder(lb, cfgs...) {
-		return labels.EmptyLabels(), false
-	}
-	return lb.Labels(lbls), true
-}
-
-// ProcessBuilder is like Process, but the caller passes a labels.Builder
-// containing the initial set of labels, which is mutated by the rules.
-func ProcessBuilder(lb *labels.Builder, cfgs ...*Config) (keep bool) {
+	lb := labels.NewBuilder(labels.EmptyLabels())
 	for _, cfg := range cfgs {
-		keep = relabel(cfg, lb)
+		lbls, keep = relabel(lbls, cfg, lb)
 		if !keep {
-			return false
+			return labels.EmptyLabels(), false
 		}
 	}
-	return true
+	return lbls, true
 }
 
-func relabel(cfg *Config, lb *labels.Builder) (keep bool) {
+func relabel(lset labels.Labels, cfg *Config, lb *labels.Builder) (ret labels.Labels, keep bool) {
 	var va [16]string
 	values := va[:0]
 	if len(cfg.SourceLabels) > cap(values) {
 		values = make([]string, 0, len(cfg.SourceLabels))
 	}
 	for _, ln := range cfg.SourceLabels {
-		values = append(values, lb.Get(string(ln)))
+		values = append(values, lset.Get(string(ln)))
 	}
 	val := strings.Join(values, cfg.Separator)
+
+	lb.Reset(lset)
 
 	switch cfg.Action {
 	case Drop:
 		if cfg.Regex.MatchString(val) {
-			return false
+			return labels.EmptyLabels(), false
 		}
 	case Keep:
 		if !cfg.Regex.MatchString(val) {
-			return false
+			return labels.EmptyLabels(), false
 		}
 	case DropEqual:
-		if lb.Get(cfg.TargetLabel) == val {
-			return false
+		if lset.Get(cfg.TargetLabel) == val {
+			return labels.EmptyLabels(), false
 		}
 	case KeepEqual:
-		if lb.Get(cfg.TargetLabel) != val {
-			return false
+		if lset.Get(cfg.TargetLabel) != val {
+			return labels.EmptyLabels(), false
 		}
 	case Replace:
 		indexes := cfg.Regex.FindStringSubmatchIndex(val)
@@ -276,25 +268,23 @@ func relabel(cfg *Config, lb *labels.Builder) (keep bool) {
 	case Uppercase:
 		lb.Set(cfg.TargetLabel, strings.ToUpper(val))
 	case HashMod:
-		hash := md5.Sum([]byte(val))
-		// Use only the last 8 bytes of the hash to give the same result as earlier versions of this code.
-		mod := binary.BigEndian.Uint64(hash[8:]) % cfg.Modulus
+		mod := sum64(md5.Sum([]byte(val))) % cfg.Modulus
 		lb.Set(cfg.TargetLabel, fmt.Sprintf("%d", mod))
 	case LabelMap:
-		lb.Range(func(l labels.Label) {
+		lset.Range(func(l labels.Label) {
 			if cfg.Regex.MatchString(l.Name) {
 				res := cfg.Regex.ReplaceAllString(l.Name, cfg.Replacement)
 				lb.Set(res, l.Value)
 			}
 		})
 	case LabelDrop:
-		lb.Range(func(l labels.Label) {
+		lset.Range(func(l labels.Label) {
 			if cfg.Regex.MatchString(l.Name) {
 				lb.Del(l.Name)
 			}
 		})
 	case LabelKeep:
-		lb.Range(func(l labels.Label) {
+		lset.Range(func(l labels.Label) {
 			if !cfg.Regex.MatchString(l.Name) {
 				lb.Del(l.Name)
 			}
@@ -303,5 +293,17 @@ func relabel(cfg *Config, lb *labels.Builder) (keep bool) {
 		panic(fmt.Errorf("relabel: unknown relabel action type %q", cfg.Action))
 	}
 
-	return true
+	return lb.Labels(lset), true
+}
+
+// sum64 sums the md5 hash to an uint64.
+func sum64(hash [md5.Size]byte) uint64 {
+	var s uint64
+
+	for i, b := range hash {
+		shift := uint64((md5.Size - i - 1) * 8)
+
+		s |= uint64(b) << shift
+	}
+	return s
 }

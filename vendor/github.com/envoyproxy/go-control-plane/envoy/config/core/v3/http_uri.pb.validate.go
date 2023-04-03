@@ -108,20 +108,9 @@ func (m *HttpUri) validate(all bool) error {
 		}
 	}
 
-	oneofHttpUpstreamTypePresent := false
-	switch v := m.HttpUpstreamType.(type) {
+	switch m.HttpUpstreamType.(type) {
+
 	case *HttpUri_Cluster:
-		if v == nil {
-			err := HttpUriValidationError{
-				field:  "HttpUpstreamType",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofHttpUpstreamTypePresent = true
 
 		if utf8.RuneCountInString(m.GetCluster()) < 1 {
 			err := HttpUriValidationError{
@@ -135,9 +124,6 @@ func (m *HttpUri) validate(all bool) error {
 		}
 
 	default:
-		_ = v // ensures v is used
-	}
-	if !oneofHttpUpstreamTypePresent {
 		err := HttpUriValidationError{
 			field:  "HttpUpstreamType",
 			reason: "value is required",
@@ -146,6 +132,7 @@ func (m *HttpUri) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {

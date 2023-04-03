@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 Jeevanandam M (jeeva@myjeeva.com), All rights reserved.
+// Copyright (c) 2015-2019 Jeevanandam M (jeeva@myjeeva.com), All rights reserved.
 // resty source code and usage is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -7,7 +7,6 @@ package resty
 import (
 	"context"
 	"crypto/tls"
-	"net"
 	"net/http/httptrace"
 	"time"
 )
@@ -27,9 +26,6 @@ type TraceInfo struct {
 
 	// ConnTime is a duration that took to obtain a successful connection.
 	ConnTime time.Duration
-
-	// TCPConnTime is a duration that took to obtain the TCP connection.
-	TCPConnTime time.Duration
 
 	// TLSHandshake is a duration that TLS handshake took place.
 	TLSHandshake time.Duration
@@ -55,17 +51,10 @@ type TraceInfo struct {
 	// ConnIdleTime is a duration how long the connection was previously
 	// idle, if IsConnWasIdle is true.
 	ConnIdleTime time.Duration
-
-	// RequestAttempt is to represent the request attempt made during a Resty
-	// request execution flow, including retry count.
-	RequestAttempt int
-
-	// RemoteAddr returns the remote network address.
-	RemoteAddr net.Addr
 }
 
 //‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-// ClientTrace struct and its methods
+// CientTrace struct and its methods
 //_______________________________________________________________________
 
 // tracer struct maps the `httptrace.ClientTrace` hooks into Fields
@@ -73,13 +62,13 @@ type TraceInfo struct {
 // Request.
 type clientTrace struct {
 	getConn              time.Time
-	dnsStart             time.Time
-	dnsDone              time.Time
-	connectDone          time.Time
-	tlsHandshakeStart    time.Time
-	tlsHandshakeDone     time.Time
 	gotConn              time.Time
 	gotFirstResponseByte time.Time
+	dnsStart             time.Time
+	dnsDone              time.Time
+	tlsHandshakeStart    time.Time
+	tlsHandshakeDone     time.Time
+	wroteRequest         time.Time
 	endTime              time.Time
 	gotConnInfo          httptrace.GotConnInfo
 }
@@ -92,23 +81,6 @@ func (t *clientTrace) createContext(ctx context.Context) context.Context {
 	return httptrace.WithClientTrace(
 		ctx,
 		&httptrace.ClientTrace{
-			DNSStart: func(_ httptrace.DNSStartInfo) {
-				t.dnsStart = time.Now()
-			},
-			DNSDone: func(_ httptrace.DNSDoneInfo) {
-				t.dnsDone = time.Now()
-			},
-			ConnectStart: func(_, _ string) {
-				if t.dnsDone.IsZero() {
-					t.dnsDone = time.Now()
-				}
-				if t.dnsStart.IsZero() {
-					t.dnsStart = t.dnsDone
-				}
-			},
-			ConnectDone: func(net, addr string, err error) {
-				t.connectDone = time.Now()
-			},
 			GetConn: func(_ string) {
 				t.getConn = time.Now()
 			},
@@ -119,11 +91,20 @@ func (t *clientTrace) createContext(ctx context.Context) context.Context {
 			GotFirstResponseByte: func() {
 				t.gotFirstResponseByte = time.Now()
 			},
+			DNSStart: func(_ httptrace.DNSStartInfo) {
+				t.dnsStart = time.Now()
+			},
+			DNSDone: func(_ httptrace.DNSDoneInfo) {
+				t.dnsDone = time.Now()
+			},
 			TLSHandshakeStart: func() {
 				t.tlsHandshakeStart = time.Now()
 			},
 			TLSHandshakeDone: func(_ tls.ConnectionState, _ error) {
 				t.tlsHandshakeDone = time.Now()
+			},
+			WroteRequest: func(_ httptrace.WroteRequestInfo) {
+				t.wroteRequest = time.Now()
 			},
 		},
 	)

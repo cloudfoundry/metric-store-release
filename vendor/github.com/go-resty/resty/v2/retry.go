@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2021 Jeevanandam M (jeeva@myjeeva.com), All rights reserved.
+// Copyright (c) 2015-2019 Jeevanandam M (jeeva@myjeeva.com), All rights reserved.
 // resty source code and usage is governed by a MIT style
 // license that can be found in the LICENSE file.
 
@@ -8,7 +8,6 @@ import (
 	"context"
 	"math"
 	"math/rand"
-	"sync"
 	"time"
 )
 
@@ -26,9 +25,6 @@ type (
 	// input: non-nil Response OR request execution error
 	RetryConditionFunc func(*Response, error) bool
 
-	// OnRetryFunc is for side-effecting functions triggered on retry
-	OnRetryFunc func(*Response, error)
-
 	// RetryAfterFunc returns time to wait before retry
 	// For example, it can parse HTTP Retry-After header
 	// https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
@@ -42,7 +38,6 @@ type (
 		waitTime        time.Duration
 		maxWaitTime     time.Duration
 		retryConditions []RetryConditionFunc
-		retryHooks      []OnRetryFunc
 	}
 )
 
@@ -74,13 +69,6 @@ func RetryConditions(conditions []RetryConditionFunc) Option {
 	}
 }
 
-// RetryHooks sets the hooks that will be executed after each retry
-func RetryHooks(hooks []OnRetryFunc) Option {
-	return func(o *Options) {
-		o.retryHooks = hooks
-	}
-}
-
 // Backoff retries with increasing timeout duration up until X amount of retries
 // (Default is 3 attempts, Override with option Retries(n))
 func Backoff(operation func() (*Response, error), options ...Option) error {
@@ -101,7 +89,7 @@ func Backoff(operation func() (*Response, error), options ...Option) error {
 		err  error
 	)
 
-	for attempt := 0; attempt <= opts.maxRetries; attempt++ {
+	for attempt := 0; attempt < opts.maxRetries; attempt++ {
 		resp, err = operation()
 		ctx := context.Background()
 		if resp != nil && resp.Request.ctx != nil {
@@ -111,27 +99,16 @@ func Backoff(operation func() (*Response, error), options ...Option) error {
 			return err
 		}
 
-		err1 := unwrapNoRetryErr(err)           // raw error, it used for return users callback.
-		needsRetry := err != nil && err == err1 // retry on a few operation errors by default
+		needsRetry := err != nil // retry on operation errors by default
 
 		for _, condition := range opts.retryConditions {
-			needsRetry = condition(resp, err1)
+			needsRetry = condition(resp, err)
 			if needsRetry {
 				break
 			}
 		}
 
 		if !needsRetry {
-			return err
-		}
-
-		for _, hook := range opts.retryHooks {
-			hook(resp, err)
-		}
-
-		// Don't need to wait when no retries left.
-		// Still run retry hooks even on last retry to keep compatibility.
-		if attempt == opts.maxRetries {
 			return err
 		}
 
@@ -155,67 +132,49 @@ func Backoff(operation func() (*Response, error), options ...Option) error {
 
 func sleepDuration(resp *Response, min, max time.Duration, attempt int) (time.Duration, error) {
 	const maxInt = 1<<31 - 1 // max int for arch 386
+
 	if max < 0 {
 		max = maxInt
 	}
+
 	if resp == nil {
-		return jitterBackoff(min, max, attempt), nil
+		goto defaultCase
 	}
 
-	retryAfterFunc := resp.Request.client.RetryAfter
-
-	// Check for custom callback
-	if retryAfterFunc == nil {
-		return jitterBackoff(min, max, attempt), nil
+	// 1. Check for custom callback
+	if retryAfterFunc := resp.Request.client.RetryAfter; retryAfterFunc != nil {
+		result, err := retryAfterFunc(resp.Request.client, resp)
+		if err != nil {
+			return 0, err // i.e. 'API quota exceeded'
+		}
+		if result == 0 {
+			goto defaultCase
+		}
+		if result < 0 || max < result {
+			result = max
+		}
+		if result < min {
+			result = min
+		}
+		return result, nil
 	}
 
-	result, err := retryAfterFunc(resp.Request.client, resp)
-	if err != nil {
-		return 0, err // i.e. 'API quota exceeded'
-	}
-	if result == 0 {
-		return jitterBackoff(min, max, attempt), nil
-	}
-	if result < 0 || max < result {
-		result = max
-	}
-	if result < min {
-		result = min
-	}
-	return result, nil
-}
-
-// Return capped exponential backoff with jitter
-// http://www.awsarchitectureblog.com/2015/03/backoff.html
-func jitterBackoff(min, max time.Duration, attempt int) time.Duration {
+	// 2. Return capped exponential backoff with jitter
+	// http://www.awsarchitectureblog.com/2015/03/backoff.html
+defaultCase:
 	base := float64(min)
 	capLevel := float64(max)
 
 	temp := math.Min(capLevel, base*math.Exp2(float64(attempt)))
-	ri := time.Duration(temp / 2)
-	result := randDuration(ri)
+	ri := int(temp / 2)
+	if ri <= 0 {
+		ri = maxInt // max int for arch 386
+	}
+	result := time.Duration(math.Abs(float64(ri + rand.Intn(ri))))
 
 	if result < min {
 		result = min
 	}
 
-	return result
-}
-
-var rnd = newRnd()
-var rndMu sync.Mutex
-
-func randDuration(center time.Duration) time.Duration {
-	rndMu.Lock()
-	defer rndMu.Unlock()
-
-	var ri = int64(center)
-	var jitter = rnd.Int63n(ri)
-	return time.Duration(math.Abs(float64(ri + jitter)))
-}
-
-func newRnd() *rand.Rand {
-	var seed = time.Now().UnixNano()
-	var src = rand.NewSource(seed)
-	return rand.New(src)
+	return result, nil
 }

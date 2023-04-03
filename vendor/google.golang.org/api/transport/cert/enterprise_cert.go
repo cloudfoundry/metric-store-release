@@ -15,6 +15,7 @@ package cert
 import (
 	"crypto/tls"
 	"errors"
+	"os"
 
 	"github.com/googleapis/enterprise-certificate-proxy/client"
 )
@@ -35,7 +36,8 @@ type ecpSource struct {
 func NewEnterpriseCertificateProxySource(configFilePath string) (Source, error) {
 	key, err := client.Cred(configFilePath)
 	if err != nil {
-		if errors.Is(err, client.ErrCredUnavailable) {
+		if errors.Is(err, os.ErrNotExist) {
+			// Config file missing means Enterprise Certificate Proxy is not supported.
 			return nil, errSourceUnavailable
 		}
 		return nil, err

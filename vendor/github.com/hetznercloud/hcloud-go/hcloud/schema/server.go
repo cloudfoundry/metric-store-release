@@ -262,8 +262,7 @@ type ServerActionRebuildRequest struct {
 // ServerActionRebuildResponse defines the schema of the response when
 // creating a rebuild server action.
 type ServerActionRebuildResponse struct {
-	Action       Action  `json:"action"`
-	RootPassword *string `json:"root_password"`
+	Action Action `json:"action"`
 }
 
 // ServerActionAttachISORequest defines the schema for the request to

@@ -265,13 +265,6 @@ func (c *Client) do(req *ScalewayRequest, res interface{}) (sdkErr error) {
 }
 
 type lister interface {
-	UnsafeGetTotalCount() uint64
-	UnsafeAppend(interface{}) (uint64, error)
-}
-
-// Old lister for uint32
-// Used for retro-compatibility with response that use uint32
-type lister32 interface {
 	UnsafeGetTotalCount() uint32
 	UnsafeAppend(interface{}) (uint32, error)
 }
@@ -280,58 +273,26 @@ type legacyLister interface {
 	UnsafeSetTotalCount(totalCount int)
 }
 
-func listerGetTotalCount(i interface{}) uint64 {
-	if l, isLister := i.(lister); isLister {
-		return l.UnsafeGetTotalCount()
-	}
-	if l32, isLister32 := i.(lister32); isLister32 {
-		return uint64(l32.UnsafeGetTotalCount())
-	}
-	panic(fmt.Errorf("%T does not support pagination but checks failed, should not happen", i))
-}
-
-func listerAppend(recv interface{}, elems interface{}) (uint64, error) {
-	if l, isLister := recv.(lister); isLister {
-		return l.UnsafeAppend(elems)
-	} else if l32, isLister32 := recv.(lister32); isLister32 {
-		total, err := l32.UnsafeAppend(elems)
-		return uint64(total), err
-	}
-
-	panic(fmt.Errorf("%T does not support pagination but checks failed, should not happen", recv))
-}
-
-func isLister(i interface{}) bool {
-	switch i.(type) {
-	case lister:
-		return true
-	case lister32:
-		return true
-	default:
-		return false
-	}
-}
-
-const maxPageCount uint64 = math.MaxUint32
+const maxPageCount uint32 = math.MaxUint32
 
 // doListAll collects all pages of a List request and aggregate all results on a single response.
 func (c *Client) doListAll(req *ScalewayRequest, res interface{}) (err error) {
 	// check for lister interface
-	if isLister(res) {
+	if response, isLister := res.(lister); isLister {
 		pageCount := maxPageCount
-		for page := uint64(1); page <= pageCount; page++ {
+		for page := uint32(1); page <= pageCount; page++ {
 			// set current page
-			req.Query.Set("page", strconv.FormatUint(page, 10))
+			req.Query.Set("page", strconv.FormatUint(uint64(page), 10))
 
 			// request the next page
-			nextPage := newVariableFromType(res)
+			nextPage := newVariableFromType(response)
 			err := c.do(req, nextPage)
 			if err != nil {
 				return err
 			}
 
 			// append results
-			pageSize, err := listerAppend(res, nextPage)
+			pageSize, err := response.UnsafeAppend(nextPage)
 			if err != nil {
 				return err
 			}
@@ -342,7 +303,7 @@ func (c *Client) doListAll(req *ScalewayRequest, res interface{}) (err error) {
 
 			// set total count on first request
 			if pageCount == maxPageCount {
-				totalCount := listerGetTotalCount(nextPage)
+				totalCount := nextPage.(lister).UnsafeGetTotalCount()
 				pageCount = (totalCount + pageSize - 1) / pageSize
 			}
 		}
@@ -354,7 +315,7 @@ func (c *Client) doListAll(req *ScalewayRequest, res interface{}) (err error) {
 
 // doListLocalities collects all localities using mutliple list requests and aggregate all results on a lister response
 // results is sorted by locality
-func (c *Client) doListLocalities(req *ScalewayRequest, res interface{}, localities []string) (err error) {
+func (c *Client) doListLocalities(req *ScalewayRequest, res lister, localities []string) (err error) {
 	path := req.Path
 	if !strings.Contains(path, "%locality%") {
 		return fmt.Errorf("request is not a valid locality request")
@@ -381,7 +342,7 @@ func (c *Client) doListLocalities(req *ScalewayRequest, res interface{}, localit
 				errChan <- err
 			}
 			responseMutex.Lock()
-			_, err = listerAppend(res, zoneResponse)
+			_, err = res.UnsafeAppend(zoneResponse)
 			responseMutex.Unlock()
 			if err != nil {
 				errChan <- err
@@ -409,7 +370,7 @@ L: // We gather potential errors and return them all together
 // doListZones collects all zones using multiple list requests and aggregate all results on a single response.
 // result is sorted by zone
 func (c *Client) doListZones(req *ScalewayRequest, res interface{}, zones []Zone) (err error) {
-	if isLister(res) {
+	if response, isLister := res.(lister); isLister {
 		// Prepare request with %zone% that can be replaced with actual zone
 		for _, zone := range AllZones {
 			if strings.Contains(req.Path, string(zone)) {
@@ -425,7 +386,7 @@ func (c *Client) doListZones(req *ScalewayRequest, res interface{}, zones []Zone
 			localities = append(localities, string(zone))
 		}
 
-		err := c.doListLocalities(req, res, localities)
+		err := c.doListLocalities(req, response, localities)
 		if err != nil {
 			return fmt.Errorf("failed to list localities: %w", err)
 		}
@@ -440,7 +401,7 @@ func (c *Client) doListZones(req *ScalewayRequest, res interface{}, zones []Zone
 // doListRegions collects all regions using multiple list requests and aggregate all results on a single response.
 // result is sorted by region
 func (c *Client) doListRegions(req *ScalewayRequest, res interface{}, regions []Region) (err error) {
-	if isLister(res) {
+	if response, isLister := res.(lister); isLister {
 		// Prepare request with %locality% that can be replaced with actual region
 		for _, region := range AllRegions {
 			if strings.Contains(req.Path, string(region)) {
@@ -456,7 +417,7 @@ func (c *Client) doListRegions(req *ScalewayRequest, res interface{}, regions []
 			localities = append(localities, string(region))
 		}
 
-		err := c.doListLocalities(req, res, localities)
+		err := c.doListLocalities(req, response, localities)
 		if err != nil {
 			return fmt.Errorf("failed to list localities: %w", err)
 		}

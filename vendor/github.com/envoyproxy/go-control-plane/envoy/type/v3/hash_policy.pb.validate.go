@@ -57,20 +57,9 @@ func (m *HashPolicy) validate(all bool) error {
 
 	var errors []error
 
-	oneofPolicySpecifierPresent := false
-	switch v := m.PolicySpecifier.(type) {
+	switch m.PolicySpecifier.(type) {
+
 	case *HashPolicy_SourceIp_:
-		if v == nil {
-			err := HashPolicyValidationError{
-				field:  "PolicySpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofPolicySpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetSourceIp()).(type) {
@@ -102,17 +91,6 @@ func (m *HashPolicy) validate(all bool) error {
 		}
 
 	case *HashPolicy_FilterState_:
-		if v == nil {
-			err := HashPolicyValidationError{
-				field:  "PolicySpecifier",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		oneofPolicySpecifierPresent = true
 
 		if all {
 			switch v := interface{}(m.GetFilterState()).(type) {
@@ -144,9 +122,6 @@ func (m *HashPolicy) validate(all bool) error {
 		}
 
 	default:
-		_ = v // ensures v is used
-	}
-	if !oneofPolicySpecifierPresent {
 		err := HashPolicyValidationError{
 			field:  "PolicySpecifier",
 			reason: "value is required",
@@ -155,6 +130,7 @@ func (m *HashPolicy) validate(all bool) error {
 			return err
 		}
 		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {

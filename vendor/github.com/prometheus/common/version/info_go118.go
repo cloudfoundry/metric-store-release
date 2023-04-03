@@ -19,7 +19,6 @@ package version
 import "runtime/debug"
 
 var computedRevision string
-var computedTags string
 
 func getRevision() string {
 	if Revision != "" {
@@ -28,24 +27,19 @@ func getRevision() string {
 	return computedRevision
 }
 
-func getTags() string {
-	return computedTags
-}
-
 func init() {
-	computedRevision, computedTags = computeRevision()
+	computedRevision = computeRevision()
 }
 
-func computeRevision() (string, string) {
+func computeRevision() string {
 	var (
 		rev      = "unknown"
-		tags     = "unknown"
 		modified bool
 	)
 
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {
-		return rev, tags
+		return rev
 	}
 	for _, v := range buildInfo.Settings {
 		if v.Key == "vcs.revision" {
@@ -56,12 +50,9 @@ func computeRevision() (string, string) {
 				modified = true
 			}
 		}
-		if v.Key == "-tags" {
-			tags = v.Value
-		}
 	}
 	if modified {
-		return rev + "-modified", tags
+		return rev + "-modified"
 	}
-	return rev, tags
+	return rev
 }
