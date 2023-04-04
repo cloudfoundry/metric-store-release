@@ -2,12 +2,13 @@ package api
 
 import (
 	"context"
+	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/rules"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	"github.com/grafana/regexp"
 	"github.com/prometheus/common/route"
 	"github.com/prometheus/prometheus/config"
 	"github.com/prometheus/prometheus/promql"
@@ -33,7 +34,7 @@ func NewPromAPI(promQLEngine *promql.Engine, log *logger.Logger) *PromAPI {
 	}
 }
 
-func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.RuleManager) *route.Router {
+func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.RuleManager, gatherer prometheus.Gatherer, registerer prometheus.Registerer) *route.Router {
 	targetRetriever := func(context.Context) prom_api.TargetRetriever {
 		return &nullTargetRetriever{}
 	}
@@ -62,8 +63,6 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		CWD:                 "",
 		ReloadConfigSuccess: false,
 		LastConfigTime:      time.Now(),
-		ChunkCount:          0,
-		TimeSeriesCount:     0,
 		CorruptionCount:     0,
 		GoroutineCount:      0,
 		GOMAXPROCS:          0,
@@ -75,6 +74,9 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 	promAPI := prom_api.NewAPI(
 		api.promQLEngine,
 		storage,
+		storage,
+		nil,
+		nil,
 		targetRetriever,
 		alertmanagerRetriever,
 		func() config.Config { return config.Config{} },
@@ -89,9 +91,13 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		REMOTE_READ_SAMPLE_LIMIT,
 		REMOTE_READ_CONCURRENCY_LIMIT,
 		REMOTE_READ_MAX_BYTES_IN_FRAME,
+		false,
 		&regexp.Regexp{},
 		func() (prom_api.RuntimeInfo, error) { return runtimeInfo, nil },
 		prometheusVersion,
+		gatherer,
+		registerer,
+		nil,
 	)
 
 	promAPIRouter := route.New()

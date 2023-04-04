@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"encoding/gob"
 	"encoding/json"
-	"github.com/prometheus/prometheus/pkg/logging"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/util/logging"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -29,7 +31,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	config_util "github.com/prometheus/common/config"
-	prom_labels "github.com/prometheus/prometheus/pkg/labels"
+	prom_labels "github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/promql"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
@@ -229,13 +231,26 @@ func WithQueryTimeout(queryTimeout time.Duration) MetricStoreOption {
 	}
 }
 
+type safePromQLNoStepSubqueryInterval struct {
+	value atomic.Int64
+}
+
+func (i *safePromQLNoStepSubqueryInterval) Set(ev model.Duration) {
+	i.value.Store(int64(time.Duration(ev) / time.Millisecond))
+}
+
+func (i *safePromQLNoStepSubqueryInterval) Get(int64) int64 {
+	return i.value.Load()
+}
+
 // End Query Engine Options
 ////////////////////////////////////////////////////
 
 // Start starts the MetricStore. It has an internal go-routine that it creates
 // and therefore does not block.
 func (store *MetricStore) Start() {
-	promql.SetDefaultEvaluationInterval(DEFAULT_EVALUATION_INTERVAL)
+	evaluationInterval := &safePromQLNoStepSubqueryInterval{}
+	evaluationInterval.Set(model.Duration(DEFAULT_EVALUATION_INTERVAL))
 
 	store.replicatedStorage = storage.NewReplicatedStorage(
 		store.localStore,
@@ -256,7 +271,7 @@ func (store *MetricStore) Start() {
 	store.promRuleManagers = rules.NewRuleManagers(
 		store.replicatedStorage,
 		queryEngine,
-		time.Duration(promql.DefaultEvaluationInterval)*time.Millisecond,
+		time.Duration(evaluationInterval.Get(0))*time.Millisecond,
 		store.log,
 		store.metrics,
 		store.queryTimeout,
@@ -274,13 +289,17 @@ func (store *MetricStore) Start() {
 }
 
 func (store *MetricStore) createEngine() *promql.Engine {
+	noStepSubqueryInterval := &safePromQLNoStepSubqueryInterval{}
+	noStepSubqueryInterval.Set(config.DefaultGlobalConfig.EvaluationInterval)
+
 	engineOpts := promql.EngineOpts{
-		MaxSamples:         20e6,
-		Timeout:            store.queryTimeout,
-		Logger:             store.log,
-		Reg:                store.metrics.Registerer(),
-		ActiveQueryTracker: promql.NewActiveQueryTracker(store.activeQueryLogPath, store.maxConcurrentQueries, store.log),
-		LookbackDelta:      5 * time.Minute,
+		MaxSamples:               20e6,
+		Timeout:                  store.queryTimeout,
+		Logger:                   store.log,
+		Reg:                      store.metrics.Registerer(),
+		ActiveQueryTracker:       promql.NewActiveQueryTracker(store.activeQueryLogPath, store.maxConcurrentQueries, store.log),
+		LookbackDelta:            5 * time.Minute,
+		NoStepSubqueryIntervalFn: noStepSubqueryInterval.Get,
 	}
 	queryEngine := promql.NewEngine(engineOpts)
 
@@ -356,8 +375,8 @@ func (store *MetricStore) setupRouting(promQLEngine *promql.Engine) {
 		store.log,
 	)
 
-	apiV1 := promAPI.RouterForStorage(store.replicatedStorage, replicatedRuleManager)
-	apiPrivate := promAPI.RouterForStorage(store.localStore, localRuleManager)
+	apiV1 := promAPI.RouterForStorage(store.replicatedStorage, replicatedRuleManager, nil, nil)
+	apiPrivate := promAPI.RouterForStorage(store.localStore, localRuleManager, store.metrics.Gatherer(), store.metrics.Registerer())
 
 	rulesAPI := api.NewRulesAPI(replicatedRuleManager, store.log)
 	rulesAPIRouter := rulesAPI.Router()
@@ -420,7 +439,7 @@ func (store *MetricStore) loadRules(promQLEngine *promql.Engine) {
 
 // ingress is for a points not necessarily stored on this node
 func (store *MetricStore) setupIngressListener() {
-	appender := store.replicatedStorage.Appender()
+	appender := store.replicatedStorage.Appender(context.Background())
 
 	queuePoints := func(payload []byte) error {
 		network := bytes.NewBuffer(payload)
@@ -449,7 +468,8 @@ func (store *MetricStore) setupIngressListener() {
 			sanitizedName := transform.SanitizeMetricName(point.Name)
 			labels[prom_labels.MetricName] = sanitizedName
 
-			_, err := appender.Add(
+			_, err := appender.Append(
+				0,
 				prom_labels.FromMap(labels),
 				point.Timestamp,
 				point.Value,
@@ -490,7 +510,7 @@ func (store *MetricStore) setupIngressListener() {
 // TODO - skip if no remote nodes?
 // collected is a point from another node for storage
 func (store *MetricStore) setupDistributionListener() {
-	appender := store.localStore.Appender()
+	appender := store.localStore.Appender(context.Background())
 
 	writePoints := func(payload []byte) error {
 		// TODO: queue in diode
@@ -506,7 +526,8 @@ func (store *MetricStore) setupDistributionListener() {
 		var collectedPointsTotal uint64
 
 		for _, point := range points {
-			_, err := appender.Add(
+			_, err := appender.Append(
+				0,
 				transform.ConvertLabels(point),
 				point.Timestamp,
 				point.Value,

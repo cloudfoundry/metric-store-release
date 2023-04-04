@@ -1,22 +1,20 @@
 package rules_test
 
 import (
+	prom_discovery "github.com/prometheus/prometheus/discovery"
 	"net/http"
 	"net/url"
 
 	. "github.com/cloudfoundry/metric-store-release/src/internal/rules"
+	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	shared "github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	prom_config "github.com/prometheus/prometheus/config"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
-
-	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Rules", func() {
@@ -154,8 +152,8 @@ var _ = Describe("Rules", func() {
 			defer alertSpy.Stop()
 
 			alertManagerConfigs := &prom_config.AlertmanagerConfigs{{
-				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-					StaticConfigs: []*targetgroup.Group{
+				ServiceDiscoveryConfigs: prom_discovery.Configs{
+					prom_discovery.StaticConfig{
 						{
 							Targets: []model.LabelSet{
 								{

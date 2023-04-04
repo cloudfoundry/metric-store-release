@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/discovery"
+	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -46,7 +46,7 @@ func NewPromRuleManager(managerId, promRuleFile string, alertManagers *prom_conf
 	promNotifierManager := notifier.NewManager(options, log)
 	promRuleManager := rules.NewManager(&rules.ManagerOptions{
 		Appendable:  store,
-		TSDB:        store,
+		Queryable:   store,
 		QueryFunc:   wrappedEngineQueryFunc(engine, store, queryTimeout),
 		NotifyFunc:  sendAlerts(promNotifierManager),
 		Context:     context.Background(),
@@ -79,7 +79,7 @@ func (r *PromRuleManager) Start() error {
 	if err != nil {
 		return err
 	}
-	r.promRuleManager.Run()
+	go r.promRuleManager.Run()
 	r.promDiscoveryManager.Start()
 
 	go r.promNotifierManager.Run(r.promDiscoveryManager.SyncCh())
@@ -96,7 +96,8 @@ func (r *PromRuleManager) Stop() error {
 }
 
 func (r *PromRuleManager) Reload() error {
-	err := r.promRuleManager.Update(r.evaluationInterval, []string{r.promRuleFile}, nil)
+	err := r.promRuleManager.Update(r.evaluationInterval, []string{r.promRuleFile}, nil,
+		"", nil)
 	if err != nil {
 		return err
 	}

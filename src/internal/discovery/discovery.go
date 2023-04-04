@@ -9,7 +9,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/prometheus/config"
 	prom_discovery "github.com/prometheus/prometheus/discovery"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
+	_ "github.com/prometheus/prometheus/discovery/install"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 )
 
@@ -36,26 +36,31 @@ func NewDiscoveryAgent(name string, l *logger.Logger) *DiscoveryAgent {
 }
 
 func (d *DiscoveryAgent) ApplyScrapeConfig(configs []*config.ScrapeConfig) {
-	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
+	discoveredConfig := make(map[string]prom_discovery.Configs)
 	for _, v := range configs {
-		discoveredConfig[v.JobName] = v.ServiceDiscoveryConfig
+		discoveredConfig[v.JobName] = v.ServiceDiscoveryConfigs
 	}
 
-	d.manager.ApplyConfig(discoveredConfig)
+	if err := d.manager.ApplyConfig(discoveredConfig); err != nil {
+		//TODO it just makes compiler happy, would be good to export it into the logs
+		return
+	}
 }
 
 func (d *DiscoveryAgent) ApplyAlertmanagerConfig(configs config.AlertmanagerConfigs) error {
-	discoveredConfig := make(map[string]sd_config.ServiceDiscoveryConfig)
+	discoveredConfig := make(map[string]prom_discovery.Configs)
 	for i, v := range configs {
 		// AlertmanagerConfigs doesn't hold an unique identifier so we use the config hash as the identifier.
 		_, err := json.Marshal(v)
 		if err != nil {
 			return err
 		}
-		discoveredConfig[fmt.Sprintf("config-%d", i)] = v.ServiceDiscoveryConfig
+		discoveredConfig[fmt.Sprintf("config-%d", i)] = v.ServiceDiscoveryConfigs
 	}
 
-	d.manager.ApplyConfig(discoveredConfig)
+	if err := d.manager.ApplyConfig(discoveredConfig); err != nil {
+		return err
+	}
 
 	return nil
 }

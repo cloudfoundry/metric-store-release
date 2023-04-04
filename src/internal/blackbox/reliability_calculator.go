@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/prometheus/common/model"

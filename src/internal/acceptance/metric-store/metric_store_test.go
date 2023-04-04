@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,15 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	prom_api_client "github.com/prometheus/client_golang/api"
-	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
-	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/config"
-	"github.com/prometheus/common/model"
-	prom_config "github.com/prometheus/prometheus/config"
-	sd_config "github.com/prometheus/prometheus/discovery/config"
-	"github.com/prometheus/prometheus/discovery/targetgroup"
 
 	shared_api "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
@@ -35,10 +27,16 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	prom_api_client "github.com/prometheus/client_golang/api"
+	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/config"
+	"github.com/prometheus/common/model"
+	prom_config "github.com/prometheus/prometheus/config"
+	prom_discovery "github.com/prometheus/prometheus/discovery"
 )
 
 // Sentinel to detect build failures early
@@ -92,6 +90,12 @@ func (q *testSeriesQuery) EndTimestamp() time.Time {
 	timeInSeconds, _ := strconv.Atoi(q.EndInSeconds)
 	return time.Unix(int64(timeInSeconds), 0)
 }
+
+var (
+	minTime = time.Unix(math.MinInt64/1000+62135596801, 0).UTC()
+	maxTime = time.Unix(math.MaxInt64/1000-62135596801, 999999999).UTC()
+	result  []string
+)
 
 const (
 	MAGIC_MEASUREMENT_NAME      = "cpu"
@@ -341,7 +345,8 @@ var _ = Describe("MetricStore", func() {
 
 		if tc.metricStoreProcesses[0].ExitCode() == -1 {
 			Eventually(func() int {
-				value, _, _ := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				value, _, _ := tc.localEgressClient.LabelValues(context.Background(),
+					model.MetricNameLabel, result, minTime, maxTime)
 				return len(value)
 			}, 3).Should(Equal(len(metricNameCounts)))
 		}
@@ -458,7 +463,8 @@ scrape_configs:
 					},
 				)
 
-				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				value, _, err := tc.localEgressClient.LabelValues(context.Background(),
+					model.MetricNameLabel, result, minTime, maxTime)
 				if err != nil {
 					return nil
 				}
@@ -475,12 +481,14 @@ scrape_configs:
 			startNode(tc, 0)
 
 			Eventually(func() error {
-				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
+					result, minTime, maxTime)
 				return err
 			}, 15).Should(Succeed())
 
 			Eventually(func() model.LabelValues {
-				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
+					result, minTime, maxTime)
 				if err != nil {
 					return nil
 				}
@@ -576,7 +584,8 @@ scrape_configs:
 			startNode(tc, 1)
 
 			Eventually(func() (err error) {
-				_, _, err = tc.localEgressClient.LabelNames(context.Background())
+				_, _, err = tc.localEgressClient.LabelNames(context.Background(), result,
+					minTime, maxTime)
 				return
 			}, 5).Should(Succeed())
 
@@ -953,7 +962,8 @@ scrape_configs:
 				},
 			)
 
-			value, _, err := tc.localEgressClient.LabelNames(context.Background())
+			value, _, err := tc.localEgressClient.LabelNames(context.Background(), result,
+				minTime, maxTime)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				[]string{model.MetricNameLabel, "source_id"},
@@ -996,17 +1006,20 @@ scrape_configs:
 				},
 			)
 
-			value, _, err := tc.localEgressClient.LabelValues(context.Background(), "source_id")
+			value, _, err := tc.localEgressClient.LabelValues(context.Background(), "source_id",
+				result, minTime, maxTime)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				model.LabelValues{"1", "10"},
 			))
 
-			value, _, err = tc.localEgressClient.LabelValues(context.Background(), "user_agent")
+			value, _, err = tc.localEgressClient.LabelValues(context.Background(), "user_agent",
+				result, minTime, maxTime)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(model.LabelValues{}))
 
-			value, _, err = tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			value, _, err = tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
+				result, minTime, maxTime)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(value).To(Equal(
 				model.LabelValues{"metric_name_for_node_0", "metric_name_for_node_1", "metric_name_for_node_2"},
@@ -1348,8 +1361,8 @@ scrape_configs:
 		_, apiErr := rulesClient.CreateManager(
 			"cpu_manager",
 			&prom_config.AlertmanagerConfigs{{
-				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-					StaticConfigs: []*targetgroup.Group{
+				ServiceDiscoveryConfigs: prom_discovery.Configs{
+					prom_discovery.StaticConfig{
 						{
 							Targets: []model.LabelSet{
 								{
@@ -1392,8 +1405,8 @@ scrape_configs:
 		_, apiErr = rulesClient.CreateManager(
 			"memory_manager",
 			&prom_config.AlertmanagerConfigs{{
-				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-					StaticConfigs: []*targetgroup.Group{
+				ServiceDiscoveryConfigs: prom_discovery.Configs{
+					prom_discovery.StaticConfig{
 						{
 							Targets: []model.LabelSet{
 								{
@@ -1502,8 +1515,8 @@ scrape_configs:
 
 		_, err := localRulesClient.CreateManager(MAGIC_MANAGER_NAME,
 			&prom_config.AlertmanagerConfigs{{
-				ServiceDiscoveryConfig: sd_config.ServiceDiscoveryConfig{
-					StaticConfigs: []*targetgroup.Group{
+				ServiceDiscoveryConfigs: prom_discovery.Configs{
+					prom_discovery.StaticConfig{
 						{
 							Targets: []model.LabelSet{
 								{
@@ -1580,7 +1593,8 @@ scrape_configs:
 		startNode(tc, 0)
 
 		Eventually(func() error {
-			_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel)
+			_, _, err := tc.localEgressClient.LabelValues(context.Background(),
+				model.MetricNameLabel, result, minTime, maxTime)
 			return err
 		}, 5).Should(Succeed())
 

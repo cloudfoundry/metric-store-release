@@ -16,8 +16,8 @@ import (
 )
 
 type reloadApiTestContext struct {
-	addr           string
-	httpClient     *http.Client
+	addr       string
+	httpClient *http.Client
 }
 
 func (tc *reloadApiTestContext) Reload() (resp *http.Response, err error) {
@@ -52,7 +52,7 @@ var _ = Describe("Reload API", func() {
 		secureConnection := tls.NewListener(insecureConnection, tlsServerConfig)
 		mux := http.NewServeMux()
 
-		reloadConfig := func () {
+		reloadConfig := func() {
 			reloadCalls.Inc()
 		}
 
@@ -67,8 +67,8 @@ var _ = Describe("Reload API", func() {
 		}
 
 		return &reloadApiTestContext{
-				httpClient:     httpClient,
-				addr:           secureConnection.Addr().String(),
+				httpClient: httpClient,
+				addr:       secureConnection.Addr().String(),
 			}, func(server *http.Server) func() {
 				return func() {
 					server.Shutdown(context.Background())

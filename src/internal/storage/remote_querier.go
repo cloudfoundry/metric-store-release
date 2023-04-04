@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/api"
@@ -10,7 +11,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	config_util "github.com/prometheus/common/config"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
 )
@@ -19,9 +20,11 @@ type RemoteQuerier struct {
 	ctx           context.Context
 	index         int
 	addr          string
-	publicClient  *remote.Client
+	publicClient  remote.ReadClient
 	privateClient prom_api_client.API
 	log           *logger.Logger
+	minTime       time.Time
+	maxTime       time.Time
 }
 
 func NewRemoteQuerier(
@@ -60,6 +63,8 @@ func NewRemoteQuerier(
 	if err != nil {
 		return nil, err
 	}
+	minTime := time.Unix(math.MinInt64/1000+62135596801, 0).UTC()
+	maxTime := time.Unix(math.MaxInt64/1000-62135596801, 999999999).UTC()
 
 	querier := &RemoteQuerier{
 		ctx:           ctx,
@@ -68,27 +73,36 @@ func NewRemoteQuerier(
 		publicClient:  publicClient,
 		privateClient: privateClient,
 		log:           logger,
+		minTime:       minTime,
+		maxTime:       maxTime,
 	}
 	return querier, nil
 }
 
-func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	query, err := remote.ToQuery(0, 0, matchers, params)
 	if err != nil {
-		return nil, nil, err
+		return nil
 	}
 
 	res, err := r.publicClient.Read(r.ctx, query)
 	if err != nil {
-		return nil, nil, err
+		return nil
 	}
-	return remote.FromQueryResult(sortSeries, res), nil, nil
+	return remote.FromQueryResult(sortSeries, res)
 }
 
-func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {
+func (r *RemoteQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
+	prom_storage.Warnings, error) {
 	var results []string
 
-	labelValuesResult, _, err := r.privateClient.LabelValues(r.ctx, name)
+	result := make([]string, len(matchers))
+	for i, matcher := range matchers {
+		result[i] = matcher.String()
+	}
+
+	labelValuesResult, _, err := r.privateClient.LabelValues(r.ctx, name, result, r.minTime,
+		r.maxTime)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,8 +114,14 @@ func (r *RemoteQuerier) LabelValues(name string) ([]string, prom_storage.Warning
 	return results, nil, nil
 }
 
-func (r *RemoteQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
-	res, _, err := r.privateClient.LabelNames(r.ctx)
+func (r *RemoteQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings, error) {
+
+	result := make([]string, len(matchers))
+	for i, matcher := range matchers {
+		result[i] = matcher.String()
+	}
+
+	res, _, err := r.privateClient.LabelNames(r.ctx, result, r.minTime, r.maxTime)
 	return res, nil, err
 }
 

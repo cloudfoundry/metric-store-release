@@ -9,7 +9,10 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	_ "github.com/influxdata/influxdb/tsdb/engine"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/exemplar"
+	"github.com/prometheus/prometheus/model/histogram"
+	"github.com/prometheus/prometheus/model/labels"
+	"github.com/prometheus/prometheus/model/metadata"
 	"github.com/prometheus/prometheus/storage"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
@@ -51,10 +54,26 @@ func WithReplicatedAppenderMetrics(metrics metrics.Registrar) ReplicatedAppender
 	}
 }
 
-func (a *ReplicatedAppender) Add(l labels.Labels, time int64, value float64) (uint64, error) {
+func (a *ReplicatedAppender) AppendExemplar(ref prom_storage.SeriesRef, l labels.Labels, e exemplar.Exemplar) (prom_storage.SeriesRef, error) {
+	//TODO implement me
+	panic("implement me")
+}
 
+func (a *ReplicatedAppender) AppendHistogram(ref prom_storage.SeriesRef, l labels.Labels, t int64, h *histogram.Histogram, fh *histogram.FloatHistogram) (prom_storage.SeriesRef, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *ReplicatedAppender) UpdateMetadata(ref prom_storage.SeriesRef, l labels.Labels, m metadata.Metadata) (prom_storage.SeriesRef, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (a *ReplicatedAppender) Append(ref prom_storage.SeriesRef, l labels.Labels, t int64, v float64) (prom_storage.SeriesRef, error) {
 	for _, nodeIndex := range a.lookup(l.Get(labels.MetricName)) {
-		a.appenders[nodeIndex].Add(l, time, value)
+		if _, err := a.appenders[nodeIndex].Append(ref, l, t, v); err != nil {
+			continue
+		}
 	}
 
 	return 0, nil

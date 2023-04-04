@@ -5,15 +5,15 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"net"
-	"net/http"
-
 	. "github.com/cloudfoundry/metric-store-release/src/internal/api"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	prom_config "github.com/prometheus/prometheus/config"
+	"github.com/prometheus/prometheus/discovery"
+	"net"
+	"net/http"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -45,6 +45,19 @@ func (tc *ruleApiTestContext) Delete(path string) (resp *http.Response, err erro
 	req.Header.Set("Content-Type", "application/json")
 
 	return tc.httpClient.Do(req)
+}
+
+func getStaticConfigs(configs discovery.Configs) (sc []discovery.StaticConfig) {
+	var sconf discovery.StaticConfig
+	var ok bool
+	for _, cfg := range configs {
+		if sconf, ok = cfg.(discovery.StaticConfig); ok {
+			sc = append(sc, sconf)
+		} else {
+			continue
+		}
+	}
+	return sc
 }
 
 var _ = Describe("Rules API", func() {
@@ -176,9 +189,12 @@ var _ = Describe("Rules API", func() {
 
 			alertManagerConfig := alertManagerConfigs[0]
 			Expect(alertManagerConfig.Scheme).To(Equal("https"))
-			Expect(len(alertManagerConfig.ServiceDiscoveryConfig.StaticConfigs)).To(Equal(1))
 
-			staticConfig := alertManagerConfig.ServiceDiscoveryConfig.StaticConfigs[0]
+			sc := getStaticConfigs(alertManagerConfig.ServiceDiscoveryConfigs)
+
+			Expect(len(sc)).To(Equal(1))
+
+			staticConfig := sc[0][0]
 			Expect(len(staticConfig.Targets)).To(Equal(1))
 
 			target := staticConfig.Targets[0]

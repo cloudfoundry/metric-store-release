@@ -70,8 +70,8 @@ func StartMetricsServer(addr string, tlsConfig *tls.Config, log *logger.Logger, 
 	}()
 
 	return &Server{
-		listener:     secureConnection,
-		registrar:    registrar,
+		listener:  secureConnection,
+		registrar: registrar,
 	}
 }
 

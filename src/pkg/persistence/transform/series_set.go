@@ -1,11 +1,13 @@
 package transform
 
 import (
+	"github.com/prometheus/prometheus/model/histogram"
 	"sort"
 
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
 
+	prom_storage "github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
 )
 
@@ -16,8 +18,10 @@ type seriesSample struct {
 
 // concreteSeriesSet implements storage.SeriesSet.
 type concreteSeriesSet struct {
-	cur    int
-	series []storage.Series
+	cur      int
+	series   []storage.Series
+	err      error
+	warnings prom_storage.Warnings
 }
 
 func (c *concreteSeriesSet) Next() bool {
@@ -30,7 +34,11 @@ func (c *concreteSeriesSet) At() storage.Series {
 }
 
 func (c *concreteSeriesSet) Err() error {
-	return nil
+	return c.err
+}
+
+func (c *concreteSeriesSet) Warnings() storage.Warnings {
+	return c.warnings
 }
 
 // concreteSeries implements storage.Series.
@@ -43,7 +51,11 @@ func (c *concreteSeries) Labels() labels.Labels {
 	return labels.New(c.labels...)
 }
 
-func (c *concreteSeries) Iterator() chunkenc.Iterator {
+func (c *concreteSeries) Iterator(it chunkenc.Iterator) chunkenc.Iterator {
+	if csi, ok := it.(*concreteSeriesIterator); ok {
+		csi.reset(c)
+		return csi
+	}
 	return newConcreteSeriersIterator(c)
 }
 
@@ -61,11 +73,14 @@ func newConcreteSeriersIterator(series *concreteSeries) chunkenc.Iterator {
 }
 
 // Seek implements storage.SeriesIterator.
-func (c *concreteSeriesIterator) Seek(t int64) bool {
+func (c *concreteSeriesIterator) Seek(t int64) chunkenc.ValueType {
 	c.cur = sort.Search(len(c.series.samples), func(n int) bool {
 		return c.series.samples[n].TimeInMilliseconds >= t
 	})
-	return c.cur < len(c.series.samples)
+	if c.cur < len(c.series.samples) {
+		return chunkenc.ValFloat
+	}
+	return chunkenc.ValNone
 }
 
 // At implements storage.SeriesIterator.
@@ -76,12 +91,34 @@ func (c *concreteSeriesIterator) At() (t int64, v float64) {
 }
 
 // Next implements storage.SeriesIterator.
-func (c *concreteSeriesIterator) Next() bool {
+func (c *concreteSeriesIterator) Next() chunkenc.ValueType {
 	c.cur++
-	return c.cur < len(c.series.samples)
+	if c.cur < len(c.series.samples) {
+		return chunkenc.ValFloat
+	}
+	return chunkenc.ValNone
 }
 
 // Err implements storage.SeriesIterator.
 func (c *concreteSeriesIterator) Err() error {
 	return nil
+}
+
+func (c *concreteSeriesIterator) AtHistogram() (int64, *histogram.Histogram) {
+	return c.AtHistogram()
+}
+
+func (c *concreteSeriesIterator) AtFloatHistogram() (int64, *histogram.FloatHistogram) {
+	return c.AtFloatHistogram()
+}
+
+func (c *concreteSeriesIterator) AtT() int64 {
+	s := c.series.samples[c.cur]
+
+	return s.TimeInMilliseconds
+}
+
+func (c *concreteSeriesIterator) reset(series *concreteSeries) {
+	c.cur = -1
+	c.series = series
 }

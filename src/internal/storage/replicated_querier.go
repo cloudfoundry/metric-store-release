@@ -14,7 +14,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/ticker"
-	"github.com/prometheus/prometheus/pkg/labels"
+	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 )
 
@@ -103,24 +103,27 @@ func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, 
 	}
 }
 
-func (r *ReplicatedQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	ctx, cancel := context.WithTimeout(r.ctx, r.queryTimeout)
 	defer cancel()
 
 	metricName, err := r.extractMetricName(matchers)
 	if err != nil {
-		return nil, nil, err
+		return prom_storage.ErrSeriesSet(err)
 	}
 
 	if r.routingTable.IsLocal(metricName) {
 		localQuerier, err := r.store.Querier(ctx, 0, 0)
 		if err != nil {
-			return nil, nil, err
+			return prom_storage.ErrSeriesSet(err)
 		}
 		return localQuerier.Select(sortSeries, params, matchers...)
 	}
 
-	return r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), sortSeries, params, matchers...)
+	ret, _, _ := r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), sortSeries, params,
+		matchers...)
+
+	return ret
 }
 
 func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (string, error) {
@@ -173,7 +176,6 @@ func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []i
 	queriers := r.querierFactory.Build(ctx, nodes...)
 
 	var result prom_storage.SeriesSet
-	var warnings prom_storage.Warnings
 	var err error
 
 	for _, remoteQuerier := range queriers {
@@ -181,9 +183,11 @@ func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []i
 			continue
 		}
 
-		result, warnings, err = remoteQuerier.Select(sortSeries, params, matchers...)
+		result = remoteQuerier.Select(sortSeries, params, matchers...)
+		err = result.Err()
+
 		if !isConnectionError(err) {
-			return result, warnings, err
+			return result, result.Warnings(), err
 		}
 	}
 
@@ -207,11 +211,12 @@ func isConnectionError(err error) bool {
 	return errors.As(err, &opError)
 }
 
-func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) LabelNames(matchers ...*labels.Matcher) ([]string,
+	prom_storage.Warnings, error) {
 	labelNamesMap := make(map[string]struct{})
-
+	//TODO The matchers is unused, but querier.LabelNames() expects
 	for _, querier := range r.querierFactory.Build(r.ctx) {
-		labelNames, _, _ := querier.LabelNames()
+		labelNames, _, _ := querier.LabelNames(matchers...)
 		for _, labelName := range labelNames {
 			labelNamesMap[labelName] = struct{}{}
 		}
@@ -226,11 +231,12 @@ func (r *ReplicatedQuerier) LabelNames() ([]string, prom_storage.Warnings, error
 	return allLabelNames, nil, nil
 }
 
-func (r *ReplicatedQuerier) LabelValues(name string) ([]string, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
+	prom_storage.Warnings, error) {
 	var results [][]string
 
 	for _, querier := range r.querierFactory.Build(r.ctx) {
-		labelValues, _, _ := querier.LabelValues(name)
+		labelValues, _, _ := querier.LabelValues(name, matchers...)
 		results = append(results, labelValues)
 	}
 

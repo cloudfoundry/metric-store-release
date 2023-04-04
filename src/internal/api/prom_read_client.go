@@ -11,7 +11,8 @@ import (
 	"github.com/prometheus/prometheus/storage/remote"
 )
 
-func NewPromReadClient(index int, addr string, timeout time.Duration, tlsConfig *config.TLSConfig) (*remote.Client, error) {
+func NewPromReadClient(index int, addr string, timeout time.Duration,
+	tlsConfig *config.TLSConfig) (remote.ReadClient, error) {
 	clientAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return nil, err
@@ -23,7 +24,7 @@ func NewPromReadClient(index int, addr string, timeout time.Duration, tlsConfig 
 		Path:   "/api/v1/read",
 	}
 
-	c, err := remote.NewClient(
+	c, err := remote.NewReadClient(
 		fmt.Sprintf("Node %d", index),
 		&remote.ClientConfig{
 			URL:     &config.URL{URL: url},
