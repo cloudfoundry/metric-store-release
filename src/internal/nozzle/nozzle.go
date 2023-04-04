@@ -322,12 +322,10 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 		return n.createPointsFromGauge(envelope)
 	case *loggregator_v2.Envelope_Timer:
 		n.captureGorouterHttpTimerMetricsForRollup(envelope)
-		return []*rpc.Point{}
 	case *loggregator_v2.Envelope_Counter:
 		if point := n.createPointFromCounter(envelope); point != nil {
 			return []*rpc.Point{point}
 		}
-		return []*rpc.Point{}
 	}
 
 	return []*rpc.Point{}
