@@ -22,7 +22,7 @@ require (
 	github.com/onsi/gomega v1.23.0
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
-	github.com/prometheus/common v0.39.0
+	github.com/prometheus/common v0.42.0
 	github.com/prometheus/prometheus v0.42.0
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.19.1
