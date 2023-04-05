@@ -173,7 +173,7 @@ func (app *NozzleApp) startDebugServer(tlsConfig *tls.Config) {
 			Help: "Total number of envelopes dropped within the nozzle",
 		}),
 		metrics.WithCounter(metrics.NozzleSkippedEnvelopsByTagTotal, prometheus.CounterOpts{
-			Help: "Total number of envelopes skipped within the nozzle",
+			Help: "Total number of envelopes skipped by tag within the nozzle",
 		}),
 		metrics.WithCounter(metrics.NozzleDroppedPointsTotal, prometheus.CounterOpts{
 			Help: "Total number of points dropped within the nozzle",
