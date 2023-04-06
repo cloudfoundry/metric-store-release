@@ -1,6 +1,8 @@
 package nozzle
 
 import (
+	"code.cloudfoundry.org/go-diodes"
+	"code.cloudfoundry.org/go-loggregator"
 	"crypto/tls"
 	"runtime"
 	"strconv"
@@ -14,8 +16,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
-	"code.cloudfoundry.org/go-diodes"
-	"code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"golang.org/x/net/context"
 )
@@ -307,10 +307,8 @@ func (n *Nozzle) captureGorouterHttpTimerMetricsForRollup(envelope *loggregator_
 			// only record server types
 			return
 		}
-	} else {
-		if !n.hasMatchedTags(envelope.GetTags()) {
-			return
-		}
+	} else if !n.hasMatchedTags(envelope.GetTags()) {
+		return
 	}
 
 	n.timerBuffer.Set(diodes.GenericDataType(envelope))
@@ -323,9 +321,7 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	case *loggregator_v2.Envelope_Timer:
 		n.captureGorouterHttpTimerMetricsForRollup(envelope)
 	case *loggregator_v2.Envelope_Counter:
-		if point := n.createPointFromCounter(envelope); point != nil {
-			return []*rpc.Point{point}
-		}
+		return n.createPointFromCounter(envelope)
 	}
 
 	return []*rpc.Point{}
@@ -334,31 +330,32 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 // if enabled configuration enableEnvelopeSelector return true when envelopSelectorTags matched specified tags
 func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
 	if n.enableEnvelopeSelector {
-		for _, t := range n.envelopSelectorTags {
-			if _, hasTagKey := tags[t]; hasTagKey {
-				return true
-			}
-		}
-
-		n.metrics.Inc(metrics.NozzleSkippedEnvelopsByTagTotal)
-		return false
+		return true
 	}
 
-	return true
+	for _, t := range n.envelopSelectorTags {
+		if _, hasTagKey := tags[t]; hasTagKey {
+			return true
+		}
+	}
+
+	n.metrics.Inc(metrics.NozzleSkippedEnvelopsByTagTotal)
+	return false
 }
 
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
+	tags := envelope.GetTags()
+	if !n.hasMatchedTags(tags) {
+		return nil
+	}
+
 	var points []*rpc.Point
 	gauge := envelope.GetGauge()
+
 	for name, metric := range gauge.GetMetrics() {
 		labels := map[string]string{
 			"source_id": envelope.GetSourceId(),
 			"unit":      metric.GetUnit(),
-		}
-
-		tags := envelope.GetTags()
-		if !n.hasMatchedTags(tags) {
-			return nil
 		}
 
 		for k, v := range envelope.GetTags() {
@@ -376,26 +373,26 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 	return points
 }
 
-func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.Point {
-	counter := envelope.GetCounter()
-	labels := map[string]string{
-		"source_id": envelope.GetSourceId(),
-	}
-
+func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	tags := envelope.GetTags()
 	if !n.hasMatchedTags(tags) {
 		return nil
 	}
 
-	for k, v := range envelope.GetTags() {
+	counter := envelope.GetCounter()
+	labels := map[string]string{
+		"source_id": envelope.GetSourceId(),
+	}
+
+	for k, v := range tags {
 		labels[k] = v
 	}
-	return &rpc.Point{
+	return append([]*rpc.Point{}, &rpc.Point{
 		Timestamp: envelope.GetTimestamp(),
 		Name:      counter.GetName(),
 		Value:     float64(counter.GetTotal()),
 		Labels:    labels,
-	}
+	})
 }
 
 var selectorTypes = []*loggregator_v2.Selector{

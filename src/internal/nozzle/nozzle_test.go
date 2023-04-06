@@ -231,7 +231,7 @@ var _ = Describe("Nozzle", func() {
 			}))
 		})
 
-		It("Should skip only unmatched tags metrics", func() {
+		It("Should skip only unmatched tags envelopes", func() {
 			addEnvelopeWithTag(1, "memory", "some-source-id", map[string]string{AppId: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(2, "memory", "some-source-id", map[string]string{ApplicationGuid: "some-source-id"}, streamConnector)
 			addEnvelopeWithTag(3, "memory", "some-source-id", map[string]string{"tag1": "some-source-id"}, streamConnector)
