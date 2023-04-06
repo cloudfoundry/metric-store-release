@@ -8,7 +8,7 @@ require (
 	github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86
 	github.com/cespare/xxhash v1.1.0
 	github.com/dvsekhvalnov/jose2go v0.0.0-20180829124132-7f401d37b68a
-	github.com/emirpasic/gods v1.12.0
+	github.com/emirpasic/gods v1.18.1
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.12.0
 	github.com/golang/protobuf v1.5.2
