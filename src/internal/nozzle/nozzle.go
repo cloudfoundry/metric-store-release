@@ -346,7 +346,7 @@ func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	tags := envelope.GetTags()
 	if !n.hasMatchedTags(tags) {
-		return nil
+		return []*rpc.Point{}
 	}
 
 	var points []*rpc.Point
@@ -358,7 +358,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 			"unit":      metric.GetUnit(),
 		}
 
-		for k, v := range envelope.GetTags() {
+		for k, v := range tags {
 			labels[k] = v
 		}
 		point := &rpc.Point{
@@ -376,7 +376,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	tags := envelope.GetTags()
 	if !n.hasMatchedTags(tags) {
-		return nil
+		return []*rpc.Point{}
 	}
 
 	counter := envelope.GetCounter()
