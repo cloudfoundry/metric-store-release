@@ -10,6 +10,7 @@ import (
 
 const (
 	GorouterHttpMetricName = "http"
+	GorouterSourceId       = "gorouter"
 )
 
 type PointsBatch struct {

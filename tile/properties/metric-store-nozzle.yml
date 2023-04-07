@@ -9,3 +9,7 @@
     extended_key_usage:
     - client_auth
     - server_auth
+- name: enable_envelope_selector
+  type: boolean
+  default: false
+  configurable: true

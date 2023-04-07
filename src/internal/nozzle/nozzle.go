@@ -1,6 +1,8 @@
 package nozzle
 
 import (
+	"code.cloudfoundry.org/go-diodes"
+	"code.cloudfoundry.org/go-loggregator"
 	"crypto/tls"
 	"runtime"
 	"strconv"
@@ -14,8 +16,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
-	"code.cloudfoundry.org/go-diodes"
-	"code.cloudfoundry.org/go-loggregator"
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
 	"golang.org/x/net/context"
 )
@@ -25,10 +25,12 @@ type Nozzle struct {
 	log     *logger.Logger
 	metrics metrics.Registrar
 
-	s             StreamConnector
-	shardId       string
-	nodeIndex     int
-	ingressBuffer *diodes.OneToOne
+	s                      StreamConnector
+	shardId                string
+	nodeIndex              int
+	enableEnvelopeSelector bool
+	envelopSelectorTags    []string
+	ingressBuffer          *diodes.OneToOne
 
 	timerBuffer           *diodes.OneToOne
 	timerRollupBufferSize uint
@@ -53,19 +55,21 @@ const (
 	BATCH_CHANNEL_SIZE   = 512
 )
 
-func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, enableEnvelopeSelector bool, envelopSelectorTags []string, opts ...Option) *Nozzle {
 	n := &Nozzle{
-		log:                   logger.NewNop(),
-		metrics:               &metrics.NullRegistrar{},
-		s:                     c,
-		shardId:               shardId,
-		nodeIndex:             nodeIndex,
-		timerRollupBufferSize: 4096,
-		totalRollup:           rollup.NewNullRollup(),
-		durationRollup:        rollup.NewNullRollup(),
-		ingressAddr:           ingressAddr,
-		tlsConfig:             tlsConfig,
-		pointBuffer:           make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
+		log:                    logger.NewNop(),
+		metrics:                &metrics.NullRegistrar{},
+		s:                      c,
+		shardId:                shardId,
+		nodeIndex:              nodeIndex,
+		enableEnvelopeSelector: enableEnvelopeSelector,
+		envelopSelectorTags:    envelopSelectorTags,
+		timerRollupBufferSize:  4096,
+		totalRollup:            rollup.NewNullRollup(),
+		durationRollup:         rollup.NewNullRollup(),
+		ingressAddr:            ingressAddr,
+		tlsConfig:              tlsConfig,
+		pointBuffer:            make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
 	}
 
 	for _, o := range opts {
@@ -297,9 +301,13 @@ func (n *Nozzle) captureGorouterHttpTimerMetricsForRollup(envelope *loggregator_
 		return
 	}
 
-	if envelope.GetSourceId() == "gorouter" && strings.ToLower(envelope.Tags["peer_type"]) == "client" {
-		// gorouter reports both client and server timers for each request,
-		// only record server types
+	if envelope.GetSourceId() == rollup.GorouterSourceId {
+		if strings.ToLower(envelope.Tags["peer_type"]) == "client" {
+			// gorouter reports both client and server timers for each request,
+			// only record server types
+			return
+		}
+	} else if !n.hasMatchedTags(envelope.GetTags()) {
 		return
 	}
 
@@ -312,22 +320,44 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 		return n.createPointsFromGauge(envelope)
 	case *loggregator_v2.Envelope_Timer:
 		n.captureGorouterHttpTimerMetricsForRollup(envelope)
-		return []*rpc.Point{}
 	case *loggregator_v2.Envelope_Counter:
-		return []*rpc.Point{n.createPointFromCounter(envelope)}
+		return n.createPointFromCounter(envelope)
 	}
 
 	return []*rpc.Point{}
 }
 
+// if enabled configuration enableEnvelopeSelector return true when envelopSelectorTags matched specified tags
+func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
+	if !n.enableEnvelopeSelector {
+		return true
+	}
+
+	for _, t := range n.envelopSelectorTags {
+		if _, hasTagKey := tags[t]; hasTagKey {
+			return true
+		}
+	}
+
+	n.metrics.Inc(metrics.NozzleSkippedEnvelopsByTagTotal)
+	return false
+}
+
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
+	tags := envelope.GetTags()
+	if !n.hasMatchedTags(tags) {
+		return nil
+	}
+
 	var points []*rpc.Point
 	gauge := envelope.GetGauge()
+
 	for name, metric := range gauge.GetMetrics() {
 		labels := map[string]string{
 			"source_id": envelope.GetSourceId(),
 			"unit":      metric.GetUnit(),
 		}
+
 		for k, v := range envelope.GetTags() {
 			labels[k] = v
 		}
@@ -343,20 +373,26 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 	return points
 }
 
-func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) *rpc.Point {
+func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) []*rpc.Point {
+	tags := envelope.GetTags()
+	if !n.hasMatchedTags(tags) {
+		return nil
+	}
+
 	counter := envelope.GetCounter()
 	labels := map[string]string{
 		"source_id": envelope.GetSourceId(),
 	}
-	for k, v := range envelope.GetTags() {
+
+	for k, v := range tags {
 		labels[k] = v
 	}
-	return &rpc.Point{
+	return append([]*rpc.Point{}, &rpc.Point{
 		Timestamp: envelope.GetTimestamp(),
 		Name:      counter.GetName(),
 		Value:     float64(counter.GetTotal()),
 		Labels:    labels,
-	}
+	})
 }
 
 var selectorTypes = []*loggregator_v2.Selector{

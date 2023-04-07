@@ -4,6 +4,7 @@ release: metric-store
 consumes: |
   reverse_log_proxy: {from: reverse_log_proxy, deployment: ((  ..cf.deployment_name  ))}
 manifest: |
+  enable_envelope_selector: (( .properties.enable_envelope_selector.value ))
   logs_provider:
     tls:
       ca_cert: (( $ops_manager.ca_certificate ))

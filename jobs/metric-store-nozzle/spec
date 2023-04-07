@@ -60,3 +60,6 @@ properties:
     description: "The cert for metric-store metrics mutual TLS."
   metric_store_metrics.tls.key:
     description: "The private key for metric-store metrics mutual TLS."
+  enable_envelope_selector:
+    description: Enable envelopes with specified tags. If enabled, only envelopes with specific tags will keep. By default envelopes with app_id and applicationGuid tags are enabled.
+    default: false
