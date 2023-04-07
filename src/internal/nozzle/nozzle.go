@@ -346,23 +346,25 @@ func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
 func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	tags := envelope.GetTags()
 	if !n.hasMatchedTags(tags) {
-		return nil
+		return []*rpc.Point{}
 	}
 
 	var points []*rpc.Point
 	gauge := envelope.GetGauge()
+	sourceId := envelope.GetSourceId()
+	timestamp := envelope.GetTimestamp()
 
 	for name, metric := range gauge.GetMetrics() {
 		labels := map[string]string{
-			"source_id": envelope.GetSourceId(),
+			"source_id": sourceId,
 			"unit":      metric.GetUnit(),
 		}
 
-		for k, v := range envelope.GetTags() {
+		for k, v := range tags {
 			labels[k] = v
 		}
 		point := &rpc.Point{
-			Timestamp: envelope.GetTimestamp(),
+			Timestamp: timestamp,
 			Name:      name,
 			Value:     metric.GetValue(),
 			Labels:    labels,
@@ -376,7 +378,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) []*rpc.Point {
 	tags := envelope.GetTags()
 	if !n.hasMatchedTags(tags) {
-		return nil
+		return []*rpc.Point{}
 	}
 
 	counter := envelope.GetCounter()
@@ -387,12 +389,14 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) []*rp
 	for k, v := range tags {
 		labels[k] = v
 	}
-	return append([]*rpc.Point{}, &rpc.Point{
-		Timestamp: envelope.GetTimestamp(),
-		Name:      counter.GetName(),
-		Value:     float64(counter.GetTotal()),
-		Labels:    labels,
-	})
+	return []*rpc.Point{
+		&rpc.Point{
+			Timestamp: envelope.GetTimestamp(),
+			Name:      counter.GetName(),
+			Value:     float64(counter.GetTotal()),
+			Labels:    labels,
+		},
+	}
 }
 
 var selectorTypes = []*loggregator_v2.Selector{
