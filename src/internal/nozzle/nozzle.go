@@ -329,7 +329,7 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 
 // if enabled configuration enableEnvelopeSelector return true when envelopSelectorTags matched specified tags
 func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
-	if n.enableEnvelopeSelector {
+	if !n.enableEnvelopeSelector {
 		return true
 	}
 
