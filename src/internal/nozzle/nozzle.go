@@ -351,10 +351,12 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 
 	var points []*rpc.Point
 	gauge := envelope.GetGauge()
+	sourceId := envelope.GetSourceId()
+	timestamp := envelope.GetTimestamp()
 
 	for name, metric := range gauge.GetMetrics() {
 		labels := map[string]string{
-			"source_id": envelope.GetSourceId(),
+			"source_id": sourceId,
 			"unit":      metric.GetUnit(),
 		}
 
@@ -362,7 +364,7 @@ func (n *Nozzle) createPointsFromGauge(envelope *loggregator_v2.Envelope) []*rpc
 			labels[k] = v
 		}
 		point := &rpc.Point{
-			Timestamp: envelope.GetTimestamp(),
+			Timestamp: timestamp,
 			Name:      name,
 			Value:     metric.GetValue(),
 			Labels:    labels,
