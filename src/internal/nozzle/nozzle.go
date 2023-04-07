@@ -387,12 +387,14 @@ func (n *Nozzle) createPointFromCounter(envelope *loggregator_v2.Envelope) []*rp
 	for k, v := range tags {
 		labels[k] = v
 	}
-	return append([]*rpc.Point{}, &rpc.Point{
-		Timestamp: envelope.GetTimestamp(),
-		Name:      counter.GetName(),
-		Value:     float64(counter.GetTotal()),
-		Labels:    labels,
-	})
+	return []*rpc.Point{
+		&rpc.Point{
+			Timestamp: envelope.GetTimestamp(),
+			Name:      counter.GetName(),
+			Value:     float64(counter.GetTotal()),
+			Labels:    labels,
+		},
+	}
 }
 
 var selectorTypes = []*loggregator_v2.Selector{
