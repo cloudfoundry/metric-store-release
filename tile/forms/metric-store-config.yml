@@ -9,5 +9,5 @@ property_inputs:
     label: Max Concurrent Queries
     description: Queue queries after this maximum number of queries running concurrently per node
   - reference: .properties.enable_envelope_selector
-    label: Envable Envelope Selector
+    label: Enable Envelope Selector
     description: Enable envelopes with specified tags. If enabled, only envelopes with specific tags will keep. By default envelopes with app_id and applicationGuid tags are enabled.
