@@ -40,7 +40,7 @@ func (c *Consul) MergeNamespace(namespace *string) {
 	}
 }
 
-// ConsulConnect represents a Consul Connect jobspec stanza.
+// ConsulConnect represents a Consul Connect jobspec block.
 type ConsulConnect struct {
 	Native         bool                  `hcl:"native,optional"`
 	Gateway        *ConsulGateway        `hcl:"gateway,block"`
@@ -59,7 +59,7 @@ func (cc *ConsulConnect) Canonicalize() {
 }
 
 // ConsulSidecarService represents a Consul Connect SidecarService jobspec
-// stanza.
+// block.
 type ConsulSidecarService struct {
 	Tags                   []string     `hcl:"tags,optional"`
 	Port                   string       `hcl:"port,optional"`
@@ -133,11 +133,12 @@ func (st *SidecarTask) Canonicalize() {
 	}
 }
 
-// ConsulProxy represents a Consul Connect sidecar proxy jobspec stanza.
+// ConsulProxy represents a Consul Connect sidecar proxy jobspec block.
 type ConsulProxy struct {
 	LocalServiceAddress string                 `mapstructure:"local_service_address" hcl:"local_service_address,optional"`
 	LocalServicePort    int                    `mapstructure:"local_service_port" hcl:"local_service_port,optional"`
-	ExposeConfig        *ConsulExposeConfig    `mapstructure:"expose" hcl:"expose,block"`
+	Expose              *ConsulExposeConfig    `mapstructure:"expose" hcl:"expose,block"`
+	ExposeConfig        *ConsulExposeConfig    // Deprecated: only to maintain backwards compatibility. Use Expose instead.
 	Upstreams           []*ConsulUpstream      `hcl:"upstreams,block"`
 	Config              map[string]interface{} `hcl:"config,block"`
 }
@@ -147,7 +148,7 @@ func (cp *ConsulProxy) Canonicalize() {
 		return
 	}
 
-	cp.ExposeConfig.Canonicalize()
+	cp.Expose.Canonicalize()
 
 	if len(cp.Upstreams) == 0 {
 		cp.Upstreams = nil
@@ -197,7 +198,7 @@ func (c *ConsulMeshGateway) Copy() *ConsulMeshGateway {
 	}
 }
 
-// ConsulUpstream represents a Consul Connect upstream jobspec stanza.
+// ConsulUpstream represents a Consul Connect upstream jobspec block.
 type ConsulUpstream struct {
 	DestinationName      string             `mapstructure:"destination_name" hcl:"destination_name,optional"`
 	DestinationNamespace string             `mapstructure:"destination_namespace" hcl:"destination_namespace,optional"`
@@ -234,12 +235,17 @@ func (cu *ConsulUpstream) Canonicalize() {
 }
 
 type ConsulExposeConfig struct {
-	Path []*ConsulExposePath `mapstructure:"path" hcl:"path,block"`
+	Paths []*ConsulExposePath `mapstructure:"path" hcl:"path,block"`
+	Path  []*ConsulExposePath // Deprecated: only to maintain backwards compatibility. Use Paths instead.
 }
 
 func (cec *ConsulExposeConfig) Canonicalize() {
 	if cec == nil {
 		return
+	}
+
+	if len(cec.Paths) == 0 {
+		cec.Paths = nil
 	}
 
 	if len(cec.Path) == 0 {
