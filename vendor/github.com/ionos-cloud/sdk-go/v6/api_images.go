@@ -388,7 +388,7 @@ func (r ApiImagesGetRequest) XContractNumber(xContractNumber int32) ApiImagesGet
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiImagesGetRequest) Filter(key string, value string) ApiImagesGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -781,8 +781,8 @@ func (r ApiImagesPutRequest) Execute() (Image, *APIResponse, error) {
 }
 
 /*
- * ImagesPut Modify images
- * Modify the properties of the specified image.
+ * ImagesPut Modify an Image by ID
+ * Modifies the properties of the specified image.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param imageId The unique ID of the image.
  * @return ApiImagesPutRequest

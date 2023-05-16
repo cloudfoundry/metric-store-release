@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package api
 
 import (
@@ -570,6 +573,7 @@ func (g *TaskGroup) Canonicalize(job *Job) {
 	for _, s := range g.Services {
 		s.Canonicalize(nil, g, job)
 	}
+
 }
 
 // These needs to be in sync with DefaultServiceJobRestartPolicy in
@@ -703,6 +707,7 @@ type Task struct {
 	KillSignal      string                 `mapstructure:"kill_signal" hcl:"kill_signal,optional"`
 	Kind            string                 `hcl:"kind,optional"`
 	ScalingPolicies []*ScalingPolicy       `hcl:"scaling,block"`
+	Identity        *WorkloadIdentity      `hcl:"identity,block"`
 }
 
 func (t *Task) Canonicalize(tg *TaskGroup, job *Job) {
@@ -974,6 +979,12 @@ func (t *Task) SetLogConfig(l *LogConfig) *Task {
 	return t
 }
 
+// SetLifecycle is used to set lifecycle config to a task.
+func (t *Task) SetLifecycle(l *TaskLifecycle) *Task {
+	t.Lifecycle = l
+	return t
+}
+
 // TaskState tracks the current state of a task and events that caused state
 // transitions.
 type TaskState struct {
@@ -1052,7 +1063,7 @@ type TaskEvent struct {
 }
 
 // CSIPluginType is an enum string that encapsulates the valid options for a
-// CSIPlugin stanza's Type. These modes will allow the plugin to be used in
+// CSIPlugin block's Type. These modes will allow the plugin to be used in
 // different ways by the client.
 type CSIPluginType string
 
@@ -1109,4 +1120,11 @@ func (t *TaskCSIPluginConfig) Canonicalize() {
 	if t.HealthTimeout == 0 {
 		t.HealthTimeout = 30 * time.Second
 	}
+}
+
+// WorkloadIdentity is the jobspec block which determines if and how a workload
+// identity is exposed to tasks.
+type WorkloadIdentity struct {
+	Env  bool `hcl:"env,optional"`
+	File bool `hcl:"file,optional"`
 }

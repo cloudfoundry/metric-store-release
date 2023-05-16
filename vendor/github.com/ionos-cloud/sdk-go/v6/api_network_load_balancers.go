@@ -748,7 +748,7 @@ func (r ApiDatacentersNetworkloadbalancersFlowlogsGetRequest) XContractNumber(xC
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiDatacentersNetworkloadbalancersFlowlogsGetRequest) Filter(key string, value string) ApiDatacentersNetworkloadbalancersFlowlogsGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -1156,8 +1156,8 @@ func (r ApiDatacentersNetworkloadbalancersFlowlogsPostRequest) Execute() (FlowLo
 }
 
 /*
- * DatacentersNetworkloadbalancersFlowlogsPost Create NLB Flow Logs
- * Add a new Flow Log for the Network Load Balancer.
+ * DatacentersNetworkloadbalancersFlowlogsPost Create a NLB Flow Log
+ * Adds a new Flow Log for the Network Load Balancer.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param datacenterId The unique ID of the data center.
  * @param networkLoadBalancerId The unique ID of the Network Load Balancer.
@@ -1880,7 +1880,7 @@ func (r ApiDatacentersNetworkloadbalancersForwardingrulesGetRequest) XContractNu
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiDatacentersNetworkloadbalancersForwardingrulesGetRequest) Filter(key string, value string) ApiDatacentersNetworkloadbalancersForwardingrulesGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -2288,8 +2288,8 @@ func (r ApiDatacentersNetworkloadbalancersForwardingrulesPostRequest) Execute() 
 }
 
 /*
- * DatacentersNetworkloadbalancersForwardingrulesPost Create NLB forwarding rules
- * Create a forwarding rule for the specified Network Load Balancer.
+ * DatacentersNetworkloadbalancersForwardingrulesPost Create a NLB Forwarding Rule
+ * Creates a forwarding rule for the specified Network Load Balancer.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param datacenterId The unique ID of the data center.
  * @param networkLoadBalancerId The unique ID of the Network Load Balancer.
@@ -2671,7 +2671,7 @@ func (r ApiDatacentersNetworkloadbalancersGetRequest) Limit(limit int32) ApiData
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiDatacentersNetworkloadbalancersGetRequest) Filter(key string, value string) ApiDatacentersNetworkloadbalancersGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -3087,8 +3087,8 @@ func (r ApiDatacentersNetworkloadbalancersPostRequest) Execute() (NetworkLoadBal
 }
 
 /*
- * DatacentersNetworkloadbalancersPost Create Network Load Balancers
- * Create a Network Load Balancer within the data center.
+ * DatacentersNetworkloadbalancersPost Create a Network Load Balancer
+ * Creates a Network Load Balancer within the data center.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param datacenterId The unique ID of the data center.
  * @return ApiDatacentersNetworkloadbalancersPostRequest

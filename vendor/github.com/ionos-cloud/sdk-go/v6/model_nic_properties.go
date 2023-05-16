@@ -43,6 +43,8 @@ type NicProperties struct {
 func NewNicProperties(lan int32) *NicProperties {
 	this := NicProperties{}
 
+	var dhcp bool = true
+	this.Dhcp = &dhcp
 	this.Lan = &lan
 
 	return &this
@@ -53,6 +55,8 @@ func NewNicProperties(lan int32) *NicProperties {
 // but it doesn't guarantee that properties required by API are set
 func NewNicPropertiesWithDefaults() *NicProperties {
 	this := NicProperties{}
+	var dhcp bool = true
+	this.Dhcp = &dhcp
 	return &this
 }
 
