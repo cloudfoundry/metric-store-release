@@ -53,7 +53,7 @@ func (r ApiApiInfoGetRequest) XContractNumber(xContractNumber int32) ApiApiInfoG
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiApiInfoGetRequest) Filter(key string, value string) ApiApiInfoGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -74,8 +74,8 @@ func (r ApiApiInfoGetRequest) Execute() (Info, *APIResponse, error) {
 }
 
 /*
- * ApiInfoGet Display API information
- * Display API information
+ * ApiInfoGet Get API information
+ * Retrieves the API information such as API version.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @return ApiApiInfoGetRequest
  */

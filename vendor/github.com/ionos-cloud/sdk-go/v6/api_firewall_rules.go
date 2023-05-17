@@ -425,7 +425,7 @@ func (r ApiDatacentersServersNicsFirewallrulesGetRequest) Limit(limit int32) Api
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiDatacentersServersNicsFirewallrulesGetRequest) Filter(key string, value string) ApiDatacentersServersNicsFirewallrulesGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -857,8 +857,8 @@ func (r ApiDatacentersServersNicsFirewallrulesPostRequest) Execute() (FirewallRu
 }
 
 /*
- * DatacentersServersNicsFirewallrulesPost Create firewall rules
- * Create a firewall rule for the specified NIC.
+ * DatacentersServersNicsFirewallrulesPost Create a Firewall Rule
+ * Creates a firewall rule for the specified NIC.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param datacenterId The unique ID of the data center.
  * @param serverId The unique ID of the server.
@@ -1049,8 +1049,8 @@ func (r ApiDatacentersServersNicsFirewallrulesPutRequest) Execute() (FirewallRul
 }
 
 /*
- * DatacentersServersNicsFirewallrulesPut Modify firewall rules
- * Modify the properties of the specified firewall rule.
+ * DatacentersServersNicsFirewallrulesPut Modify a Firewall Rule
+ * Modifies the properties of the specified firewall rule.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param datacenterId The unique ID of the data center.
  * @param serverId The unique ID of the server.

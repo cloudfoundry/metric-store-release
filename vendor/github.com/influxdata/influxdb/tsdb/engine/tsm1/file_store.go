@@ -566,6 +566,7 @@ func (f *FileStore) Open() error {
 	}
 
 	var lm int64
+	isEmpty := true
 	for range files {
 		res := <-readerC
 		if res.err != nil {
@@ -585,9 +586,18 @@ func (f *FileStore) Open() error {
 		if res.r.LastModified() > lm {
 			lm = res.r.LastModified()
 		}
-
+		isEmpty = false
 	}
-	f.lastModified = time.Unix(0, lm).UTC()
+	if isEmpty {
+		if fi, err := os.Stat(f.dir); err == nil {
+			f.lastModified = fi.ModTime().UTC()
+		} else {
+			close(readerC)
+			return err
+		}
+	} else {
+		f.lastModified = time.Unix(0, lm).UTC()
+	}
 	close(readerC)
 
 	sort.Sort(tsmReaders(f.files))
@@ -1049,16 +1059,16 @@ func (f *FileStore) locations(key []byte, t int64, ascending bool) []*location {
 
 // MakeSnapshotLinks creates hardlinks from the supplied TSMFiles to
 // corresponding files under a supplied directory.
-func (f *FileStore) MakeSnapshotLinks(destPath string, files []TSMFile) error {
+func (f *FileStore) MakeSnapshotLinks(destPath string, files []TSMFile) (returnErr error) {
 	for _, tsmf := range files {
 		newpath := filepath.Join(destPath, filepath.Base(tsmf.Path()))
-		if err := os.Link(tsmf.Path(), newpath); err != nil {
-			return fmt.Errorf("error creating tsm hard link: %q", err)
+		if err := copyOrLink(tsmf.Path(), newpath); err != nil {
+			return err
 		}
 		if tf := tsmf.TombstoneStats(); tf.TombstoneExists {
 			newpath := filepath.Join(destPath, filepath.Base(tf.Path))
-			if err := os.Link(tf.Path, newpath); err != nil {
-				return fmt.Errorf("error creating tombstone hard link: %q", err)
+			if err := copyOrLink(tf.Path, newpath); err != nil {
+				return err
 			}
 		}
 	}
