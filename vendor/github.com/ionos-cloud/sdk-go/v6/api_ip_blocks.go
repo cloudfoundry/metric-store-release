@@ -398,7 +398,7 @@ func (r ApiIpblocksGetRequest) Limit(limit int32) ApiIpblocksGetRequest {
 // Filters query parameters limit results to those containing a matching value for a specific property.
 func (r ApiIpblocksGetRequest) Filter(key string, value string) ApiIpblocksGetRequest {
 	filterKey := fmt.Sprintf(FilterQueryParam, key)
-	r.filters[filterKey] = []string{value}
+	r.filters[filterKey] = append(r.filters[filterKey], value)
 	return r
 }
 
@@ -806,8 +806,8 @@ func (r ApiIpblocksPostRequest) Execute() (IpBlock, *APIResponse, error) {
 }
 
 /*
- * IpblocksPost Reserve IP blocks
- * Reserve a new IP block.
+ * IpblocksPost Reserve a IP Block
+ * Reserves a new IP block.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @return ApiIpblocksPostRequest
  */
@@ -986,8 +986,8 @@ func (r ApiIpblocksPutRequest) Execute() (IpBlock, *APIResponse, error) {
 }
 
 /*
- * IpblocksPut Modify IP blocks
- * Modify the properties of the specified IP block.
+ * IpblocksPut Modify a IP Block by ID
+ * Modifies the properties of the specified IP block.
  * @param ctx _context.Context - for authentication, logging, cancellation, deadlines, tracing, etc. Passed from http.Request or context.Background().
  * @param ipblockId The unique ID of the IP block.
  * @return ApiIpblocksPutRequest
