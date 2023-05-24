@@ -5,7 +5,7 @@ Metric Store Release is a [BOSH][bosh] release for Metric Store. It provides a p
 
 ## Deploying
 
-Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have to know about Loggregator.
+Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have to know about Loggregator. 
 
 ### Cloud Config
 
