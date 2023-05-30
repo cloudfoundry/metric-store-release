@@ -8,7 +8,7 @@ jobs:
     steps:
       - uses: actions/setup-go@v2
         with:
-          go-version: '1.19.6'
+          go-version: '1.20.4'
         id: go
       - uses: actions/checkout@v2
       - uses: actions/cache@v2
@@ -17,18 +17,6 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - uses: actions/github-script@v3
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            try {
-              github.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'tests-passed'
-              })
-            } catch(err) {}
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
