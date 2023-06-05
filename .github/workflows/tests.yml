@@ -18,19 +18,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
       - uses: actions/github-script@v3
+        if: contains(github.event.pull_request.labels.*.name, 'tests-passed')
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
-            if(contains( github.event.pull_request.labels.*.name, 'tests-passed')) {
-              try {
-                github.issues.removeLabel({
-                  issue_number: context.issue.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: 'tests-passed'
-                })
-              } catch(err) {}       
-            }
+            try {
+              github.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: 'tests-passed'
+              })
+            } catch(err) {}
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
