@@ -4,7 +4,7 @@ on:
 jobs:
   label:
     name: Run only when the labels do not include "dependencies"
-    if: ${{ contains(github.event.pull_request.labels.*.names, 'dependencies') }}
+    if: ${{ contains(github.event.pull_request.labels.*.names, 'tests-passed') }}
     runs-on: ubuntu-latest
     steps:
       - name: debug
