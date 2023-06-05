@@ -11,12 +11,6 @@ jobs:
         run: |
           echo "${{ toJson(github.event.pull_request.labels) }}"
           echo "${{ toJson(github.event.pull_request.labels.*.names) }}"
-          github.issues.removeLabel({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            name: 'tests-passed'
-          }
   test-job:
     name: All Tests
     runs-on: ubuntu-20.04
