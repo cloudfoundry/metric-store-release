@@ -183,14 +183,12 @@ func wrappedEngineQueryFunc(engine *promql.Engine, q storage.Queryable, queryTim
 			return nil, err
 		}
 
-		samples := []promql.Sample{}
+		var samples []promql.Sample
 		for _, sample := range vector {
 			samples = append(samples, promql.Sample{
-				Point: promql.Point{
-					T: transform.MillisecondsToNanoseconds(sample.T),
-					V: sample.V,
-				},
 				Metric: sample.Metric,
+				T:      transform.MillisecondsToNanoseconds(sample.T),
+				F:      sample.F,
 			})
 		}
 

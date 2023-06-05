@@ -49,7 +49,7 @@ var _ = Describe("LocalRuleManager", func() {
 			_, err := localRuleManager.CreateManager("createTest", alertManagers)
 			Expect(err).NotTo(HaveOccurred())
 
-			alertUrl, _ := url.Parse("https://127.0.0.1:1234/api/v2/alerts")
+			alertUrl, _ := url.Parse("//127.0.0.1:1234/api/v2/alerts")
 			Eventually(localRuleManager.Alertmanagers, 10).Should(ConsistOf([]*url.URL{alertUrl}))
 			Expect(tempStorage.Directories()).To(ConsistOf("createTest"))
 		})
