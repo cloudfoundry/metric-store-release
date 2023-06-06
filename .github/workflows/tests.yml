@@ -20,14 +20,14 @@ jobs:
       - uses: actions/github-script@v3
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
-          run: |
-            if [[ $(jq -r '.issue.labels[] | select(.name=="YourLabelName") | .name' $GITHUB_EVENT_PATH) == "YourLabelName" ]]; then
+          script: |
+            if [[ $(jq -r '.issue.labels[] | select(.name=="tests-passed") | .name' $GITHUB_EVENT_PATH) == "tests-passed" ]]; then 
               echo "Removing label..."
               github.issues.removeLabel({
                  owner: context.repo.owner,
                  repo: context.repo.repo,
                  issue_number: context.issue.number,
-                 name: "YourLabelName"
+                 name: "tests-passed"
               });
             fi
       - name: Run Tests
