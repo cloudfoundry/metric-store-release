@@ -1,7 +1,6 @@
 name: Test Everything
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
 jobs:
   test-job:
     name: All Tests
@@ -18,18 +17,42 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - name: Retrieve Pull Request Information
-        id: pr-info
-        uses: actions/github-script@v3
+      - uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pr = await github.pulls.get({
+            const { data: labels } = await github.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            const labelToRemove = 'tests-passed';
+            const labelExists = labels.some(label => label.name === labelToRemove);
+
+            if (labelExists) {
+              await github.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelToRemove
+              });
+            }
+      - name: Run Tests
+        run: |
+          echo "Git HEAD at: $(git rev-parse HEAD)"
+          ./scripts/test || ./scripts/test || ./scripts/test
+  success-job:
+    needs: test-job
+    name: Add Label
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.issues.addLabels({
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
-            });
-            console.log("Pull Request:", pr.data);
-      - name: Display GitHub Context
-        run: |
-          echo ${{ steps.pr-info.outputs.result }}
+              labels: ['tests-passed']
+            })
