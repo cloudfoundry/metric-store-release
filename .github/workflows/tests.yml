@@ -21,9 +21,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: labels } = await github.issues.listLabelsForRepo({
+            const { data: labels } = await github.pulls.listLabels({
               owner: context.repo.owner,
-              repo: context.repo.repo
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
             });
             console.log("labels", labels)
             
