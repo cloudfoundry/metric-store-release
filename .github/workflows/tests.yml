@@ -17,6 +17,19 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
+          run: |
+            if [[ $(jq -r '.issue.labels[] | select(.name=="YourLabelName") | .name' $GITHUB_EVENT_PATH) == "YourLabelName" ]]; then
+              echo "Removing label..."
+              github.issues.removeLabel({
+                 owner: context.repo.owner,
+                 repo: context.repo.repo,
+                 issue_number: context.issue.number,
+                 name: "YourLabelName"
+              });
+            fi
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
