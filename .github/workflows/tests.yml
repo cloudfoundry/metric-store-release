@@ -1,6 +1,8 @@
 name: Test Everything
 on:
   pull_request:
+    types:
+      - labeled
 jobs:
   test-job:
     name: All Tests
@@ -9,8 +11,13 @@ jobs:
       - name: Check if label exists and remove it
         id: check_label
         run: |
-          jq -r 'github.issues.labels[]' 
-
+          jq -r '.issue.labels[]' 
+          if [[ $(jq -r '.issue.labels[] | select(.name=="tests-passed") | .name' $GITHUB_EVENT_PATH) == "tests-passed" ]]; then
+            echo "Removing label..."
+            # Perform your desired action here
+          else
+            echo "Label not found. No action required."
+          fi
       - uses: actions/setup-go@v2
         with:
           go-version: '1.20.4'
