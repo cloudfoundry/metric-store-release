@@ -17,6 +17,27 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: labels } = await github.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const labelToRemove = 'tests-passed';
+            const labelExists = labels.some(label => label.name === labelToRemove);
+            console.log("labelExists: ", labelExists);
+
+            if (labelExists) {
+              await github.issues.removeLabel({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: labelToRemove
+              });
+            }
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
