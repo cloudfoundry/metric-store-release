@@ -1,6 +1,7 @@
 name: Test Everything
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
 jobs:
   test-job:
     name: All Tests
@@ -17,27 +18,18 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
-      - uses: actions/github-script@v3
+      - name: Retrieve Pull Request Information
+        id: pr-info
+        uses: actions/github-script@v3
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("github.context", github.context);
-      - name: Run Tests
-        run: |
-          echo "Git HEAD at: $(git rev-parse HEAD)"
-          ./scripts/test || ./scripts/test || ./scripts/test
-  success-job:
-    needs: test-job
-    name: Add Label
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/github-script@v3
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
+            const pr = await github.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              labels: ['tests-passed']
-            })
+              pull_number: context.payload.pull_request.number
+            });
+            console.log("Pull Request:", pr.data);
+      - name: Display GitHub Context
+        run: |
+          echo ${{ steps.pr-info.outputs.result }}
