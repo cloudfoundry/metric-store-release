@@ -25,9 +25,11 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo
             });
+            console.log("labels", labels)
             
             const labelToRemove = 'tests-passed';
             const labelExists = labels.some(label => label.name === labelToRemove);
+            console.log("labelExists", labels)
 
             if (labelExists) {
               await github.issues.removeLabel({
