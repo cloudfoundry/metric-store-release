@@ -6,6 +6,15 @@ jobs:
     name: All Tests
     runs-on: ubuntu-20.04
     steps:
+      - name: Check if label exists and remove it
+        id: check_label
+        run: |
+          if [[ $(jq -r '.issue.labels[] | select(.name=="YourLabelName") | .name' $GITHUB_EVENT_PATH) == "YourLabelName" ]]; then
+            echo "Removing label..."
+            # Perform your desired action here
+          else
+            echo "Label not found. No action required."
+          fi
       - uses: actions/setup-go@v2
         with:
           go-version: '1.20.4'
