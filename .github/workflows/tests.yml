@@ -13,6 +13,9 @@ jobs:
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
+            console.log("github", github);
+            console.log("github.context", github.context);
+          
             const labels = github.context.payload.pull_request.labels;
             if (labels && labels.some(label => label.name === 'tests-passed')) {
               console.log("Removing label...");
