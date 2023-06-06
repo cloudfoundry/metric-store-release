@@ -5,12 +5,13 @@ on:
 jobs:
   test-job:
     name: All Tests
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Check if label exists and remove it
         id: check_label
         uses: actions/github-script@v3
         with:
+          github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
             const labels = github.context.payload.pull_request.labels;
             if (labels && labels.some(label => label.name === 'tests-passed')) {
