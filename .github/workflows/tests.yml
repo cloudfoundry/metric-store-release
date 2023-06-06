@@ -21,16 +21,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { data: labels } = await github.pulls.listLabels({
+            const { data: labels } = await github.issues.listLabelsOnIssue({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number
+              issue_number: context.payload.pull_request.number
             });
-            console.log("labels", labels)
+            console.log("Active Labels:", labels.map(label => label.name));
             
             const labelToRemove = 'tests-passed';
             const labelExists = labels.some(label => label.name === labelToRemove);
-            console.log("labelExists", labels)
+            console.log("labelExists", labelExists);
 
             if (labelExists) {
               await github.issues.removeLabel({
