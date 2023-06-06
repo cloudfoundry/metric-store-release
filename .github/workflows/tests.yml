@@ -1,6 +1,9 @@
 name: Test Everything
 on:
   pull_request:
+    types:
+      - labeled
+
 jobs:
   test-job:
     name: All Tests
@@ -8,15 +11,18 @@ jobs:
     steps:
       - name: Check if label exists and remove it
         id: check_label
-        run: |
-          if [[ $(jq -e '.pull_request.labels != null' $GITHUB_EVENT_PATH) == "true" ]]; then
-            if [[ $(jq -r '.pull_request.labels[] | select(.name=="tests-passed") | .name' $GITHUB_EVENT_PATH) == "tests-passed" ]]; then
-              echo "Removing label..."
-              echo "::set-env name=GITHUB_TOKEN::${{ secrets.GITHUB_TOKEN }}"
-              node -e "const { Octokit } = require('@octokit/rest'); const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN }); octokit.issues.removeLabel({ owner: process.env.GITHUB_REPOSITORY.split('/')[0], repo: process.env.GITHUB_REPOSITORY.split('/')[1], issue_number: process.env.GITHUB_EVENT_PATH.issue.number, name: 'tests-passed' });"
-            else
-              echo "Label not found. No action required."
-            fi
-          else
-            echo "No labels found on the pull request. No action required."
-          fi
+        uses: actions/github-script@v3
+        with:
+          script: |
+            const labels = github.context.payload.pull_request.labels;
+            if (labels && labels.some(label => label.name === 'tests-passed')) {
+              console.log("Removing label...");
+              github.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'tests-passed'
+              });
+            } else {
+              console.log("Label not found. No action required.");
+            }
