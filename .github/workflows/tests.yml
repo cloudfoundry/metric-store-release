@@ -1,8 +1,6 @@
 name: Test Everything
 on:
   pull_request:
-    types:
-      - labeled
 
 jobs:
   test-job:
