@@ -4,8 +4,9 @@ on:
     types:
       - labeled
 jobs:
-  check_and_remove_label:
-    runs-on: ubuntu-latest
+  test-job:
+    name: All Tests
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Check if label exists and remove it
