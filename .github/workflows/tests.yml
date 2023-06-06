@@ -6,45 +6,17 @@ jobs:
     name: All Tests
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/setup-go@v2
-        with:
-          go-version: '1.19.6'
-        id: go
-      - uses: actions/checkout@v2
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-      - uses: actions/github-script@v3
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            try {
-              github.issues.removeLabel({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'tests-passed'
-              })
-            } catch(err) {}
-      - name: Run Tests
+      - name: Check if label exists and remove it
+        id: check_label
         run: |
-          echo "Git HEAD at: $(git rev-parse HEAD)"
-          ./scripts/test || ./scripts/test || ./scripts/test
-  success-job:
-    needs: test-job
-    name: Add Label
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/github-script@v3
-        with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
-          script: |
-            github.issues.addLabels({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: ['tests-passed']
-            })
+          if [[ $(jq -e '.pull_request.labels != null' $GITHUB_EVENT_PATH) == "true" ]]; then
+            if [[ $(jq -r '.pull_request.labels[] | select(.name=="tests-passed") | .name' $GITHUB_EVENT_PATH) == "tests-passed" ]]; then
+              echo "Removing label..."
+              echo "::set-env name=GITHUB_TOKEN::${{ secrets.GITHUB_TOKEN }}"
+              node -e "const { Octokit } = require('@octokit/rest'); const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN }); octokit.issues.removeLabel({ owner: process.env.GITHUB_REPOSITORY.split('/')[0], repo: process.env.GITHUB_REPOSITORY.split('/')[1], issue_number: process.env.GITHUB_EVENT_PATH.issue.number, name: 'tests-passed' });"
+            else
+              echo "Label not found. No action required."
+            fi
+          else
+            echo "No labels found on the pull request. No action required."
+          fi
