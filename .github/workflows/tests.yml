@@ -7,24 +7,9 @@ jobs:
     name: All Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Check if label exists and remove it
-        id: check_label
+      - name: Run GitHub Script
         uses: actions/github-script@v3
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("github", github);
             console.log("github.context", github.context);
-          
-            const labels = github.context.payload.pull_request.labels;
-            if (labels && labels.some(label => label.name === 'tests-passed')) {
-              console.log("Removing label...");
-              github.issues.removeLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                name: 'tests-passed'
-              });
-            } else {
-              console.log("Label not found. No action required.");
-            }
