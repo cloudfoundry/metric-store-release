@@ -3,7 +3,7 @@ module github.com/cloudfoundry/metric-store-release
 require (
 	code.cloudfoundry.org/go-diodes v0.0.0-20230406180255-f141159491b0
 	code.cloudfoundry.org/go-envstruct v1.6.0
-	code.cloudfoundry.org/go-loggregator v0.0.0-20190725203007-b8d176783c8a
+	code.cloudfoundry.org/go-loggregator v7.4.0+incompatible
 	code.cloudfoundry.org/tlsconfig v0.0.0-20230320190829-8f91c367795b
 	github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86
 	github.com/cespare/xxhash v1.1.0
