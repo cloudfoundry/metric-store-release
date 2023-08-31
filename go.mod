@@ -152,7 +152,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/alertmanager v0.25.0 // indirect
+	github.com/prometheus/alertmanager v0.25.1 // indirect
 	github.com/prometheus/common/sigv4 v0.1.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.15 // indirect
