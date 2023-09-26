@@ -336,7 +336,6 @@ var _ = Describe("MetricStore", func() {
 			{Timestamp: now.Add(2 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_PEER_NAME},
 		})
 		tc.peer.Resume()
-		time.Sleep(time.Millisecond * 10)
 
 		Eventually(tc.peer.GetInternodePoints).Should(HaveLen(2))
 		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(now.Add(time.Second).UnixNano()))
