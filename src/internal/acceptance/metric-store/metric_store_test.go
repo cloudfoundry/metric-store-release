@@ -486,16 +486,16 @@ scrape_configs:
 				return err
 			}, 15).Should(Succeed())
 
-			//Eventually(func() model.LabelValues {
-			//	value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
-			//		result, minTime, maxTime)
-			//	if err != nil {
-			//		return nil
-			//	}
-			//	return value
-			//}, 1).Should(Equal(model.LabelValues{
-			//	"metric_name_new",
-			//}))
+			Eventually(func() model.LabelValues {
+				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
+					result, minTime, maxTime)
+				if err != nil {
+					return nil
+				}
+				return value
+			}, 1).Should(Equal(model.LabelValues{
+				"metric_name_new",
+			}))
 		})
 	})
 
