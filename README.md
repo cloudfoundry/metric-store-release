@@ -11,7 +11,7 @@ Metric Store can be deployed within [Cloud Foundry][cfd]. Metric Store will have
 
 Every BOSH deployment requires a [cloud config](https://bosh.io/docs/cloud-config.html). The Metric Store deployment manifest assumes the CF-Deployment cloud config has been uploaded.
 
-### Creating and Uploading a Release
+### Creating and Uploading a Release 
 
 The first step in deploying Metric Store is to create a release or download it from [bosh.io][bosh-io-release]. Final releases are preferable, however during the development process dev releases are useful.
 
