@@ -653,7 +653,7 @@ scrape_configs:
 					},
 				)
 
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         "metric_name",
 					TimeInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
@@ -690,7 +690,7 @@ scrape_configs:
 						},
 					},
 				)
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         MAGIC_MEASUREMENT_PEER_NAME,
 					TimeInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
@@ -736,7 +736,7 @@ scrape_configs:
 					},
 				)
 
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				value, err := makeInstantQuery(tc, testInstantQuery{
 					Query:         "metric_name_for_node_0+metric_name_for_node_1",
 					TimeInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
@@ -799,7 +799,7 @@ scrape_configs:
 					},
 				)
 
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name",
 					StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
@@ -850,7 +850,7 @@ scrape_configs:
 					},
 				)
 
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name_for_node_1",
 					StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
@@ -909,7 +909,7 @@ scrape_configs:
 					},
 				)
 
-				time.Sleep(time.Second)
+				time.Sleep(time.Millisecond * 100)
 				value, err := makeRangeQuery(tc, testRangeQuery{
 					Query:          "metric_name_for_node_0 + metric_name_for_node_1",
 					StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds + 1000),
@@ -1046,7 +1046,7 @@ scrape_configs:
 				},
 			)
 
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 100)
 			value, err := makeSeriesQuery(tc, testSeriesQuery{
 				Match:          []string{"metric_name"},
 				StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
@@ -1123,7 +1123,7 @@ scrape_configs:
 				},
 			)
 
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 100)
 			value, err := makeSeriesQuery(tc, testSeriesQuery{
 				Match:          []string{"metric_name_for_node_0", "metric_name_for_node_1"},
 				StartInSeconds: transform.MillisecondsToString(firstTimeMilliseconds),
