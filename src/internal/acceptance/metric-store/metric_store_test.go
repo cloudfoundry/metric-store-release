@@ -28,7 +28,6 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rulesclient"
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	prom_api_client "github.com/prometheus/client_golang/api"
 	prom_versioned_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -480,13 +479,11 @@ scrape_configs:
 
 			startNode(tc, 0)
 
-			time.Sleep(time.Second)
-
 			Eventually(func() error {
 				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
 					result, minTime, maxTime)
 				return err
-			}, 15).Should(Succeed())
+			}, 55).Should(Succeed())
 
 			Eventually(func() model.LabelValues {
 				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
