@@ -105,7 +105,7 @@ function run_unit {
 }
 
 function run_norace() {
-  TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20 -timeout 99999s"
+  TEST_OPTIONS="-ginkgo.randomizeAllSpecs -ginkgo.slowSpecThreshold 20"
 
   tests=$(go list -mod=vendor ./...)
 
