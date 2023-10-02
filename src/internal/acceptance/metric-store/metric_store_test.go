@@ -494,7 +494,7 @@ scrape_configs:
 					return nil
 				}
 				return value
-			}, 1).Should(Equal(model.LabelValues{
+			}, 3).Should(Equal(model.LabelValues{
 				"metric_name_new",
 			}))
 		})
