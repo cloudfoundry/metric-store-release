@@ -26,6 +26,8 @@ import (
 
 	"github.com/influxdata/influxql"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 	prom_api_client "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	config_util "github.com/prometheus/common/config"
@@ -334,7 +336,7 @@ var _ = Describe("MetricStore", func() {
 			{Timestamp: now.Add(2 * time.Second).UnixNano(), Name: MAGIC_MEASUREMENT_PEER_NAME},
 		})
 		tc.peer.Resume()
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Second)
 
 		Eventually(tc.peer.GetInternodePoints).Should(HaveLen(2))
 		Expect(tc.peer.GetInternodePoints()[0].Timestamp).To(Equal(now.Add(time.Second).UnixNano()))
