@@ -443,7 +443,7 @@ scrape_configs:
 	}
 
 	Context("with a single node", func() {
-		FIt("deletes shards with old data when Metric Store starts", func() {
+		It("deletes shards with old data when Metric Store starts", func() {
 			tc, cleanup := setup(1)
 			defer cleanup()
 
