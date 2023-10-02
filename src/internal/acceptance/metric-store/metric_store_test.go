@@ -480,11 +480,12 @@ scrape_configs:
 
 			startNode(tc, 0)
 
+			time.Sleep(time.Second * 2)
 			Eventually(func() error {
 				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
 					result, minTime, maxTime)
 				return err
-			}, 28).Should(Succeed())
+			}, 15).Should(Succeed())
 
 			Eventually(func() model.LabelValues {
 				value, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
@@ -493,7 +494,7 @@ scrape_configs:
 					return nil
 				}
 				return value
-			}, 5).Should(Equal(model.LabelValues{
+			}, 1).Should(Equal(model.LabelValues{
 				"metric_name_new",
 			}))
 		})
