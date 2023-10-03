@@ -443,7 +443,7 @@ scrape_configs:
 	}
 
 	Context("with a single node", func() {
-		It("deletes shards with old data when Metric Store starts", func() {
+		FIt("deletes shards with old data when Metric Store starts", func() {
 			tc, cleanup := setup(1)
 			defer cleanup()
 
@@ -465,6 +465,8 @@ scrape_configs:
 
 				value, _, err := tc.localEgressClient.LabelValues(context.Background(),
 					model.MetricNameLabel, result, minTime, maxTime)
+				fmt.Println("OLD value is a")
+				fmt.Println(value)
 				if err != nil {
 					return nil
 				}
@@ -481,8 +483,15 @@ scrape_configs:
 			startNode(tc, 0)
 
 			Eventually(func() error {
-				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
+				value2, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
 					result, minTime, maxTime)
+
+				fmt.Println("mintime: ", minTime)
+				fmt.Println("maxtime: ", maxTime)
+
+				fmt.Println("new value is a: ")
+				fmt.Println(value2)
+
 				return err
 			}, 15).Should(Succeed())
 
