@@ -160,7 +160,7 @@ var _ = Describe("MetricStore", func() {
 				"METRICS_ADDR=" + tc.metricsAddrs[index],
 				"PROFILING_ADDR=" + tc.profilingAddrs[index],
 				"STORAGE_PATH=" + storagePaths[index],
-				"RETENTION_PERIOD_IN_DAYS=100",
+				"RETENTION_PERIOD_IN_DAYS=2",
 				fmt.Sprintf("NODE_INDEX=%d", index),
 				"NODE_ADDRS=" + strings.Join(tc.addrs, ","),
 				"INTERNODE_ADDRS=" + strings.Join(tc.internodeAddrs, ","),
@@ -481,6 +481,8 @@ scrape_configs:
 					Equal(model.LabelValues{"metric_name_new", "metric_name_old"}),
 				),
 			)
+			//1696204800000000000
+			//1696291200000000000
 
 			entries, err := os.ReadDir("/tmp/metric-store-node1/influxdb/data/db/rp/")
 			if err != nil {
