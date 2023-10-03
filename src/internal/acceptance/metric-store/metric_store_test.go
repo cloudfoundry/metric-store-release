@@ -448,6 +448,7 @@ scrape_configs:
 			defer cleanup()
 
 			now := time.Now()
+			time := transform.NanosecondsToMilliseconds(now.UnixNano())
 			Eventually(func() model.LabelValues {
 				writePoints(
 					tc,
@@ -458,11 +459,12 @@ scrape_configs:
 						},
 						{
 							Name:               "metric_name_new",
-							TimeInMilliseconds: transform.NanosecondsToMilliseconds(now.UnixNano()),
+							TimeInMilliseconds: time,
 						},
 					},
 				)
 
+				fmt.Println("Second metric time is a: ", time)
 				value, _, err := tc.localEgressClient.LabelValues(context.Background(),
 					model.MetricNameLabel, result, minTime, maxTime)
 				fmt.Println("OLD value is a")
