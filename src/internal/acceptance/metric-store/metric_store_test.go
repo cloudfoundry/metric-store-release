@@ -482,6 +482,16 @@ scrape_configs:
 				),
 			)
 
+			entries, err := os.ReadDir("/tmp/metric-store-node1/influxdb/data/db/rp/")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println("entites name is a: ")
+			for _, e := range entries {
+				fmt.Println(e.Name())
+			}
+
 			stopNode(tc, 0)
 			startNode(tc, 0)
 
@@ -494,16 +504,6 @@ scrape_configs:
 
 				fmt.Println("new value is a: ")
 				fmt.Println(value2)
-
-				entries, err := os.ReadDir("/tmp/metric-store-node1/influxdb/data/db/rp/")
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				fmt.Println("entites name is a")
-				for _, e := range entries {
-					fmt.Println(e.Name())
-				}
 
 				return err
 			}, 15).Should(Succeed())
