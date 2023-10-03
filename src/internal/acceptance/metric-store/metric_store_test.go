@@ -316,6 +316,8 @@ var _ = Describe("MetricStore", func() {
 		metricNameCounts := make(map[string]int)
 		for _, point := range points {
 			timestamp := transform.MillisecondsToNanoseconds(point.TimeInMilliseconds)
+			fmt.Println(" = func(tc *testContext, points []testPoint) map[string]int")
+			fmt.Println(timestamp)
 
 			rpcPoints = append(rpcPoints, &rpc.Point{
 				Name:      point.Name,
