@@ -483,9 +483,6 @@ scrape_configs:
 			)
 
 			stopNode(tc, 0)
-
-			time.Sleep(35 * time.Second)
-
 			startNode(tc, 0)
 
 			Eventually(func() error {
@@ -497,6 +494,16 @@ scrape_configs:
 
 				fmt.Println("new value is a: ")
 				fmt.Println(value2)
+
+				entries, err := os.ReadDir("/tmp/metric-store-node1/influxdb/data/db/rp/")
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				fmt.Println("entites name is a")
+				for _, e := range entries {
+					fmt.Println(e.Name())
+				}
 
 				return err
 			}, 15).Should(Succeed())
@@ -513,6 +520,11 @@ scrape_configs:
 			}))
 		})
 	})
+	//1696259961000000000
+	//1696346626177000000
+	//
+	//1696260880000000000
+	//1696347306751000000
 
 	Context("when the health check endpoint is called", func() {
 		It("returns information about metrics store", func() {
