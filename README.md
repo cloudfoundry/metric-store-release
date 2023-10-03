@@ -35,7 +35,7 @@ bosh -e testing -d cf \
 ```
 
 ### Metric Store UAA Client
-By Default, Metric Store uses the `doppler` client included with `cf-deployment`.
+By Default, Metric Store uses the `doppler` client included with `cf-deployment`. 
 
 If you would like to use a custom client, it requires the `uaa.resource` authority:
 ```
