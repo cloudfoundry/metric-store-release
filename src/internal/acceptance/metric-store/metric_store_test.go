@@ -160,6 +160,7 @@ var _ = Describe("MetricStore", func() {
 				"METRICS_ADDR=" + tc.metricsAddrs[index],
 				"PROFILING_ADDR=" + tc.profilingAddrs[index],
 				"STORAGE_PATH=" + storagePaths[index],
+				"DISK_FREE_PERCENT_TARGET=5",
 				"RETENTION_PERIOD_IN_DAYS=1",
 				fmt.Sprintf("NODE_INDEX=%d", index),
 				"NODE_ADDRS=" + strings.Join(tc.addrs, ","),
