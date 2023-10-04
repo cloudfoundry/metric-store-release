@@ -160,7 +160,7 @@ var _ = Describe("MetricStore", func() {
 				"METRICS_ADDR=" + tc.metricsAddrs[index],
 				"PROFILING_ADDR=" + tc.profilingAddrs[index],
 				"STORAGE_PATH=" + storagePaths[index],
-				"DISK_FREE_PERCENT_TARGET=5",
+				"DISK_FREE_PERCENT_TARGET=0",
 				"RETENTION_PERIOD_IN_DAYS=1",
 				fmt.Sprintf("NODE_INDEX=%d", index),
 				"NODE_ADDRS=" + strings.Join(tc.addrs, ","),
@@ -317,8 +317,6 @@ var _ = Describe("MetricStore", func() {
 		metricNameCounts := make(map[string]int)
 		for _, point := range points {
 			timestamp := transform.MillisecondsToNanoseconds(point.TimeInMilliseconds)
-			fmt.Println(" = func(tc *testContext, points []testPoint) map[string]int")
-			fmt.Println(timestamp)
 
 			rpcPoints = append(rpcPoints, &rpc.Point{
 				Name:      point.Name,
@@ -446,12 +444,11 @@ scrape_configs:
 	}
 
 	Context("with a single node", func() {
-		FIt("deletes shards with old data when Metric Store starts", func() {
+		It("deletes shards with old data when Metric Store starts", func() {
 			tc, cleanup := setup(1)
 			defer cleanup()
 
 			now := time.Now()
-			t := transform.NanosecondsToMilliseconds(now.UnixNano())
 			Eventually(func() model.LabelValues {
 				writePoints(
 					tc,
@@ -462,16 +459,13 @@ scrape_configs:
 						},
 						{
 							Name:               "metric_name_new",
-							TimeInMilliseconds: t,
+							TimeInMilliseconds: transform.NanosecondsToMilliseconds(now.UnixNano()),
 						},
 					},
 				)
 
-				fmt.Println("Second metric time is a: ", t)
 				value, _, err := tc.localEgressClient.LabelValues(context.Background(),
 					model.MetricNameLabel, result, minTime, maxTime)
-				fmt.Println("OLD value is a")
-				fmt.Println(value)
 				if err != nil {
 					return nil
 				}
@@ -482,28 +476,14 @@ scrape_configs:
 					Equal(model.LabelValues{"metric_name_new", "metric_name_old"}),
 				),
 			)
-			//1696204800000000000
-			//1696291200000000000
-
-			entries, err := os.ReadDir("/tmp/metric-store-node1/influxdb/data/db/rp/")
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println("entites name is a: ")
-			for _, e := range entries {
-				fmt.Println(e.Name())
-			}
 
 			stopNode(tc, 0)
+
 			startNode(tc, 0)
 
 			Eventually(func() error {
-				value2, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
+				_, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
 					result, minTime, maxTime)
-
-				fmt.Println(value2)
-
 				return err
 			}, 15).Should(Succeed())
 
@@ -517,23 +497,8 @@ scrape_configs:
 			}, 1).Should(Equal(model.LabelValues{
 				"metric_name_new",
 			}))
-
-			time.Sleep(time.Second * 10)
-
-			content, err := ioutil.ReadFile("/tmp/testlogfile")
-
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println(string(content))
 		})
 	})
-	//1696259961000000000
-	//1696346626177000000
-	//
-	//1696260880000000000
-	//1696347306751000000
 
 	Context("when the health check endpoint is called", func() {
 		It("returns information about metrics store", func() {
