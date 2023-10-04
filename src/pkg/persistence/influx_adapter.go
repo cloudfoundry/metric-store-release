@@ -3,6 +3,8 @@ package persistence
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"regexp"
 	"sort"
 	"sync"
@@ -218,13 +220,26 @@ func (t *InfluxAdapter) DeleteOldest() error {
 }
 
 func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
+
 	adjustedCutoff := time.Unix(0, cutoff).Add(-time.Minute).Truncate(24 * time.Hour).UnixNano()
+
+	f, e := os.OpenFile("/tmp/testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if e != nil {
+		log.Fatalf("error opening file: %v", e)
+	}
+	defer f.Close()
 
 	var deleted uint64
 	for _, shardID := range t.ShardIDsOldestSort() {
+
+		log.Println("BREAKED shardID: ", shardID)
 		if int64(shardID) > adjustedCutoff {
 			break
 		}
+		log.SetOutput(f)
+		log.Println("adjustedCutoff: ", adjustedCutoff)
+		log.Println("PRUNED shardID: ", shardID)
+
 		err := t.Delete(shardID)
 		if err != nil {
 			return deleted, err

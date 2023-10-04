@@ -501,10 +501,6 @@ scrape_configs:
 				value2, _, err := tc.localEgressClient.LabelValues(context.Background(), model.MetricNameLabel,
 					result, minTime, maxTime)
 
-				fmt.Println("mintime: ", minTime)
-				fmt.Println("maxtime: ", maxTime)
-
-				fmt.Println("new value is a: ")
 				fmt.Println(value2)
 
 				return err
@@ -520,6 +516,16 @@ scrape_configs:
 			}, 1).Should(Equal(model.LabelValues{
 				"metric_name_new",
 			}))
+
+			time.Sleep(time.Second * 10)
+
+			content, err := ioutil.ReadFile("/tmp/testlogfile")
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println(string(content))
 		})
 	})
 	//1696259961000000000
