@@ -222,6 +222,7 @@ func (t *InfluxAdapter) DeleteOldest() error {
 func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
 
 	adjustedCutoff := time.Unix(0, cutoff).Add(-time.Minute).Truncate(24 * time.Hour).UnixNano()
+	log.Println("adjustedCutoff: ", adjustedCutoff)
 
 	f, e := os.OpenFile("/tmp/testlogfile", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if e != nil {
@@ -237,7 +238,6 @@ func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
 			break
 		}
 		log.SetOutput(f)
-		log.Println("adjustedCutoff: ", adjustedCutoff)
 		log.Println("PRUNED shardID: ", shardID)
 
 		err := t.Delete(shardID)
