@@ -1,9 +1,12 @@
 name: Vendoring
 on:
-  pull_request:
-    types:
-      - opened
-      - reopened
+  push:
+    branches:
+      - 'Update_go_version_to_17.8'
+    paths:
+      - '.github/workflows/vendoring.yml'
+      - 'go.mod'
+      - 'go.sum'
 
 jobs:
   vendor-job:
