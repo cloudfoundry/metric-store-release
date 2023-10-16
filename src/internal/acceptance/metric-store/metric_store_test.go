@@ -121,6 +121,7 @@ var _ = Describe("MetricStore", func() {
 		key                        string
 		scrapeConfigPath           string
 		additionalScrapeConfigsDir string
+		discFreePercentTarget      string
 		localEgressClient          prom_versioned_api_client.API
 		peerEgressClient           prom_versioned_api_client.API
 		replicationFactor          int
@@ -160,6 +161,7 @@ var _ = Describe("MetricStore", func() {
 				"METRICS_ADDR=" + tc.metricsAddrs[index],
 				"PROFILING_ADDR=" + tc.profilingAddrs[index],
 				"STORAGE_PATH=" + storagePaths[index],
+				"DISK_FREE_PERCENT_TARGET=" + tc.discFreePercentTarget,
 				"RETENTION_PERIOD_IN_DAYS=1",
 				fmt.Sprintf("NODE_INDEX=%d", index),
 				"NODE_ADDRS=" + strings.Join(tc.addrs, ","),
@@ -210,12 +212,13 @@ var _ = Describe("MetricStore", func() {
 		firstTimeSeconds := time.Now().Unix()
 		firstTimeMilliseconds = transform.SecondsToMilliseconds(firstTimeSeconds - 24*60*60)
 		tc := &testContext{
-			numNodes:             numNodes,
-			metricStoreProcesses: make([]*gexec.Session, numNodes),
-			caCert:               shared.Cert("metric-store-ca.crt"),
-			cert:                 shared.Cert("metric-store.crt"),
-			key:                  shared.Cert("metric-store.key"),
-			replicationFactor:    1,
+			numNodes:              numNodes,
+			metricStoreProcesses:  make([]*gexec.Session, numNodes),
+			caCert:                shared.Cert("metric-store-ca.crt"),
+			cert:                  shared.Cert("metric-store.crt"),
+			key:                   shared.Cert("metric-store.key"),
+			discFreePercentTarget: "20",
+			replicationFactor:     1,
 		}
 
 		for i := 0; i < numNodes; i++ {
@@ -478,6 +481,9 @@ scrape_configs:
 
 			stopNode(tc, 0)
 
+			//The discFreePercentTarget value decreasing, because the deleteOlderThen function shouldn't
+			//be call on this test, github CI decrease disc spaces.
+			tc.discFreePercentTarget = "0"
 			startNode(tc, 0)
 
 			Eventually(func() error {
