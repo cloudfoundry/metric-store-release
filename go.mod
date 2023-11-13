@@ -28,7 +28,7 @@ require (
 	go.uber.org/zap v1.26.0
 	golang.org/x/net v0.17.0
 	golang.org/x/sys v0.13.0
-	google.golang.org/grpc v1.55.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	sigs.k8s.io/yaml v1.3.0
@@ -57,7 +57,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.245 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/cncf/xds/go v0.0.0-20230310173818-32f1caf87195 // indirect
+	github.com/cncf/xds/go v0.0.0-20230607035331-e9ce68804cb4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dennwc/varint v1.0.0 // indirect
 	github.com/dgryski/go-bitstream v0.0.0-20180413035011-3522498ce2c8 // indirect
@@ -68,7 +68,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
-	github.com/envoyproxy/go-control-plane v0.11.0 // indirect
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230524094728-9239064ad72f // indirect
 	github.com/envoyproxy/protoc-gen-validate v0.10.1 // indirect
 	github.com/fatih/color v1.14.1 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
