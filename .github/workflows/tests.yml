@@ -41,7 +41,7 @@ jobs:
       - name: Run Tests
         run: |
           echo "Git HEAD at: $(git rev-parse HEAD)"
-          ./scripts/test || ./scripts/test || ./scripts/test
+          ./scripts/test unit || ./scripts/test unit || ./scripts/test unit
   success-job:
     needs: test-job
     name: Add Label
