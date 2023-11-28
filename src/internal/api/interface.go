@@ -13,6 +13,10 @@ import (
 
 type nullTargetRetriever struct{}
 
+func (tr *nullTargetRetriever) TargetsDroppedCounts() map[string]int {
+	panic("implement me")
+}
+
 func (tr *nullTargetRetriever) TargetsActive() map[string][]*scrape.Target  { return nil }
 func (tr *nullTargetRetriever) TargetsDropped() map[string][]*scrape.Target { return nil }
 
