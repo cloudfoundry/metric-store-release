@@ -98,6 +98,8 @@ func (api *PromAPI) RouterForStorage(storage storage.Storage, ruleManager rules.
 		gatherer,
 		registerer,
 		nil,
+		false,
+		false,
 	)
 
 	promAPIRouter := route.New()
