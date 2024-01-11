@@ -1,0 +1,8 @@
+---
+- name: nats_client_cert
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+      - nats.service.cf.internal
+      - "*.nats.service.cf.internal"
