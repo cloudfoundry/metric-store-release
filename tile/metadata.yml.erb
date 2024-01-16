@@ -36,6 +36,7 @@ post_deploy_errands: []
 pre_delete_errands: []
 
 property_blueprints:
+  - $( property "nats_client_cert" )
   - $( property "metric_store_egress_mtls" )
   - $( property "metric_store_internode_mtls" )
   - $( property "metric_store_server_mtls" )
