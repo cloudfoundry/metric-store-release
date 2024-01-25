@@ -48,7 +48,7 @@ const (
 	// imageLabel is the label that is used for the docker image running the service.
 	imageLabel model.LabelName = metaLabelPrefix + "image"
 	// portIndexLabel is the integer port index when multiple ports are defined;
-	// e.g. PORT1 would have a value of '1'
+	// e.g. PORT1 would have a value of '1'.
 	portIndexLabel model.LabelName = metaLabelPrefix + "port_index"
 	// taskLabel contains the mesos task name of the app instance.
 	taskLabel model.LabelName = metaLabelPrefix + "task"
@@ -106,14 +106,16 @@ func (c *SDConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if len(c.AuthToken) > 0 && len(c.AuthTokenFile) > 0 {
 		return errors.New("marathon_sd: at most one of auth_token & auth_token_file must be configured")
 	}
-	if c.HTTPClientConfig.BasicAuth != nil && (len(c.AuthToken) > 0 || len(c.AuthTokenFile) > 0) {
-		return errors.New("marathon_sd: at most one of basic_auth, auth_token & auth_token_file must be configured")
-	}
-	if (len(c.HTTPClientConfig.BearerToken) > 0 || len(c.HTTPClientConfig.BearerTokenFile) > 0) && (len(c.AuthToken) > 0 || len(c.AuthTokenFile) > 0) {
-		return errors.New("marathon_sd: at most one of bearer_token, bearer_token_file, auth_token & auth_token_file must be configured")
-	}
-	if c.HTTPClientConfig.Authorization != nil && (len(c.AuthToken) > 0 || len(c.AuthTokenFile) > 0) {
-		return errors.New("marathon_sd: at most one of auth_token, auth_token_file & authorization must be configured")
+
+	if len(c.AuthToken) > 0 || len(c.AuthTokenFile) > 0 {
+		switch {
+		case c.HTTPClientConfig.BasicAuth != nil:
+			return errors.New("marathon_sd: at most one of basic_auth, auth_token & auth_token_file must be configured")
+		case len(c.HTTPClientConfig.BearerToken) > 0 || len(c.HTTPClientConfig.BearerTokenFile) > 0:
+			return errors.New("marathon_sd: at most one of bearer_token, bearer_token_file, auth_token & auth_token_file must be configured")
+		case c.HTTPClientConfig.Authorization != nil:
+			return errors.New("marathon_sd: at most one of auth_token, auth_token_file & authorization must be configured")
+		}
 	}
 	return c.HTTPClientConfig.Validate()
 }
