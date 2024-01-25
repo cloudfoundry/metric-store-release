@@ -1,7 +1,8 @@
 #!/bin/bash
 
 TILE_NAME=metric-store
-RELEASE_VERSION=${RELEASE_VERSION:-0.0.1-build.1}
+RELEASE_VERSION=${RELEASE_VERSION:-1.6.1-dev.$(date +%s)}
+STEMCELL_VERSION=${STEMCELL_VERSION:-1.44}
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
 
@@ -57,9 +58,10 @@ pushd ${PROJECT_DIR}/tmp
         --metadata ${PROJECT_DIR}/tile/metadata.yml \
         --icon ${PROJECT_DIR}/tile/icon.png \
         --releases-directory releases \
+        --variable="stemcell_version=${STEMCELL_VERSION}" \
+        --forms-directory ${PROJECT_DIR}/tile/forms \
         --properties-directory ${PROJECT_DIR}/tile/properties \
         --jobs-directory ${PROJECT_DIR}/tile/jobs \
         --instance-groups-directory ${PROJECT_DIR}/tile/instance_groups \
-        --bosh-variables-directory ${PROJECT_DIR}/tile/variables \
         --output-file ${TILE_FILE}
 popd
