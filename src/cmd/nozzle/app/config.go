@@ -22,6 +22,7 @@ type Config struct {
 	EnvelopSelectorTags    []string `env:"ENVELOP_SELECTOR_TAGS, report"`
 	LogLevel               string   `env:"LOG_LEVEL, report"`
 	ProfilingAddr          string   `env:"PROFILING_ADDR, report"`
+	FirehoseEnabled        bool     `env:"FIREHOSE_ENABLED, required, report"`
 }
 
 type MetricStoreClientTLS struct {
@@ -52,6 +53,7 @@ func LoadConfig() *Config {
 		ShardId:                "metric-store",
 		TimerRollupBufferSize:  16384,
 		EnableEnvelopeSelector: false,
+		FirehoseEnabled:        true,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

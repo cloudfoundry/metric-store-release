@@ -78,16 +78,6 @@ func (app *NozzleApp) Run() {
 		app.log.Fatal("failed to load tls config for loggregator", err)
 	}
 
-	streamConnector := loggregator.NewEnvelopeStreamConnector(
-		app.cfg.LogProviderAddr,
-		loggregatorTLSConfig,
-		loggregator.WithEnvelopeStreamLogger(app.log.StdLog("loggregator")),
-		loggregator.WithEnvelopeStreamBuffer(10000, func(missed int) {
-			app.log.Info("dropped envelope batches", logger.Count(missed))
-			app.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
-		}),
-	)
-
 	metricStoreTLSConfig, err := sharedtls.NewMutualTLSClientConfig(
 		app.cfg.MetricStoreTLS.CAPath,
 		app.cfg.MetricStoreTLS.CertPath,
@@ -98,36 +88,48 @@ func (app *NozzleApp) Run() {
 		app.log.Fatal("failed to load tls config for metric store", err)
 	}
 
-	envelopSelectorTags := append([]string{AppId, ApplicationGuid}, app.cfg.EnvelopSelectorTags...)
-
-	nozzle := NewNozzle(
-		streamConnector,
-		app.cfg.IngressAddr,
-		metricStoreTLSConfig,
-		app.cfg.ShardId,
-		app.cfg.NodeIndex,
-		app.cfg.EnableEnvelopeSelector,
-		envelopSelectorTags,
-		WithNozzleLogger(app.log),
-		WithNozzleDebugRegistrar(app.metrics),
-		WithNozzleTimerRollup(
-			10*time.Second,
-			[]string{
-				"status_code", "app_name", "app_id", "space_name",
-				"space_id", "organization_name", "organization_id",
-				"process_id", "process_instance_id", "process_type",
-				"instance_id",
-			},
-			[]string{
-				"app_name", "app_id", "space_name", "space_id",
-				"organization_name", "organization_id", "process_id",
-				"process_instance_id", "process_type", "instance_id",
-			},
-		),
-		WithNozzleTimerRollupBufferSize(app.cfg.TimerRollupBufferSize),
+	streamConnector := loggregator.NewEnvelopeStreamConnector(
+		app.cfg.LogProviderAddr,
+		loggregatorTLSConfig,
+		loggregator.WithEnvelopeStreamLogger(app.log.StdLog("loggregator")),
+		loggregator.WithEnvelopeStreamBuffer(10000, func(missed int) {
+			app.log.Info("dropped envelope batches", logger.Count(missed))
+			app.metrics.Add(metrics.NozzleDroppedEnvelopesTotal, float64(missed))
+		}),
 	)
 
-	nozzle.Start()
+	if app.cfg.FirehoseEnabled {
+		envelopSelectorTags := append([]string{AppId, ApplicationGuid}, app.cfg.EnvelopSelectorTags...)
+
+		nozzle := NewNozzle(
+			streamConnector,
+			app.cfg.IngressAddr,
+			metricStoreTLSConfig,
+			app.cfg.ShardId,
+			app.cfg.NodeIndex,
+			app.cfg.EnableEnvelopeSelector,
+			envelopSelectorTags,
+			WithNozzleLogger(app.log),
+			WithNozzleDebugRegistrar(app.metrics),
+			WithNozzleTimerRollup(
+				10*time.Second,
+				[]string{
+					"status_code", "app_name", "app_id", "space_name",
+					"space_id", "organization_name", "organization_id",
+					"process_id", "process_instance_id", "process_type",
+					"instance_id",
+				},
+				[]string{
+					"app_name", "app_id", "space_name", "space_id",
+					"organization_name", "organization_id", "process_id",
+					"process_instance_id", "process_type", "instance_id",
+				},
+			),
+			WithNozzleTimerRollupBufferSize(app.cfg.TimerRollupBufferSize),
+		)
+
+		nozzle.Start()
+	}
 
 	sigs := make(chan os.Signal, 1)
 	done := make(chan bool, 1)

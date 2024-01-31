@@ -49,6 +49,7 @@ property_blueprints:
   - $( property "max_concurrent_queries" )
   - $( property "replication_factor" )
   - $( property "enable_envelope_selector" )
+  - $( property "firehose_enabled" )
 
 form_types:
   - $( form "metric_store_config" )

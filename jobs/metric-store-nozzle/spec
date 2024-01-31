@@ -63,3 +63,6 @@ properties:
   enable_envelope_selector:
     description: Enable envelopes with specified tags. If enabled, only envelopes with specific tags will keep. By default envelopes with app_id and applicationGuid tags are enabled.
     default: false
+  firehose_enabled:
+    description: If enabled, connect to the firehose.
+    default: true
