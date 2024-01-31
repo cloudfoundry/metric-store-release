@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
+
+if [ -z "${OM_TARGET}" ] || [ -z "${OM_USERNAME}" ] || [ -z "${OM_PASSWORD}" ]; then
+  echo "OM_TARGET, OM_USERNAME, and OM_PASSWORD must be set"
+  return
+fi
+
+echo "Configuring $OM_TARGET"
+
+CERTS_DIR=$SCRIPT_DIR/certs
+mkdir $CERTS_DIR
+export MS_CERT=".properties.nats_client_cert"
+export MS_KEY_FILE=/var/vcap/jobs/metric-store/config/certs/metric_store.key
+export MS_CERT_FILE=/var/vcap/jobs/metric-store/config/certs/metric_store.crt
+export MS_CA_FILE=/var/vcap/jobs/metric-store/config/certs/metric_store_ca.crt
+
+echo "Using metric store cert $MS_CERT"
+function get-certs() {
+  export MS_KEY_FILE=$CERTS_DIR/key.pem
+  om -k credentials -p metric-store -c ${MS_CERT} -f private_key_pem > "${MS_KEY_FILE}"
+  echo "Key file is at $MS_KEY_FILE"
+  echo "==================================="
+  cat "${MS_KEY_FILE}"
+  echo "==================================="
+  private_key_pem="$(awk '{printf "%s\\n", $0}' ${MS_KEY_FILE} )"
+
+  export MS_CERT_FILE=$CERTS_DIR/cert.pem
+  om -k credentials -p metric-store -c ${MS_CERT} -f cert_pem > "${MS_CERT_FILE}"
+  echo "Key file is at $MS_CERT_FILE"
+  echo "==================================="
+  cat "${MS_CERT_FILE}"
+  echo "==================================="
+  cert_pem="$(awk '{printf "%s\\n", $0}' ${MS_CERT_FILE} )"
+
+  export MS_CA_FILE=$CERTS_DIR/ca.pem
+  om certificate-authorities -f json | jq -r '.[0].cert_pem' > "${MS_CA_FILE}"
+  echo "CA file is at $MS_CA_FILE"
+  echo "==================================="
+  cat "${MS_CA_FILE}"
+  echo "==================================="
+  ca_cert="$(om certificate-authorities -f json | jq '.[0].cert_pem')"
+}
+export SYS_DOMAIN=$(cat "${ENVIRONMENT_LOCK_METADATA}" | jq -r .sys_domain)
+# curl --cert "${MS_CERT_FILE}" --key "${MS_KEY_FILE}" --cacert "${MS_CA_FILE}"
+
+get-certs
+
+cat <<-HEREDOC > otel-config.yaml
+---
+product-name: cf
+product-properties:
+  .properties.otel_collector_metric_exporters_config:
+    value: |-
+      prometheus:
+        endpoint: ":65331"
+        add_metric_suffixes: false
+      otlp:
+        endpoint: dns:metric-store.service.internal:8090
+        tls:
+          insecure_skip_verify: true
+          ca_pem: ${ca_cert}
+          cert_pem: "${cert_pem}"
+          key_pem: "${private_key_pem}"
+
+HEREDOC
+
+echo "CF Config"
+echo "==================================="
+cat otel-config.yaml
+echo "==================================="
+return
+om configure-product -p cf -c otel-config.yaml && om apply-changes --product-name cf
