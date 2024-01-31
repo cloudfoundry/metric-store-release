@@ -13,6 +13,20 @@ type Registrar interface {
 }
 
 const (
+	OtelIngressSpansTotal   = "metric_store_otel_ingress_spans_total"
+	OtelIngressMetricsTotal = "metric_store_otel_ingress_metrics_total"
+	OtelDroppedSpansTotal   = "metric_store_otel_dropped_spans_total"
+	OtelDroppedMetricsTotal = "metric_store_otel_dropped_metrics_total"
+	OtelDeniedSpansTotal    = "metric_store_otel_denied_spans_total"
+	OtelDeniedMetricsTotal  = "metric_store_otel_denied_metrics_total"
+
+	OtelEgressSpansTotal             = "metric_store_otel_egress_spans_total"
+	OtelEgressMetricsTotal           = "metric_store_otel_egress_metrics_total"
+	OtelEgressSpansErrorsTotal       = "metric_store_otel_egress_spans_errors_total"
+	OtelEgressMetricsErrorsTotal     = "metric_store_otel_egress_metrics_errors_total"
+	OtelEgressSpansDurationSeconds   = "metric_store_otel_egress_spans_duration_seconds"
+	OtelEgressMetricsDurationSeconds = "metric_store_otel_egress_metrics_duration_seconds"
+
 	NozzleIngressEnvelopesTotal     = "metric_store_nozzle_ingress_envelopes_total"
 	NozzleDroppedEnvelopesTotal     = "metric_store_nozzle_dropped_envelopes_total"
 	NozzleSkippedEnvelopsByTagTotal = "metric_store_nozzle_skipped_envelopes_by_tag_total"

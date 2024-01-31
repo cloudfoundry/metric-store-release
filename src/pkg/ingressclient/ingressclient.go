@@ -73,7 +73,7 @@ func (c *IngressClient) Write(points []*rpc.Point) error {
 	// TODO: consider adding back in a timeout (i.e. 3 seconds)
 	bytesWritten, err := c.connection.Write(payload.Bytes())
 	if err == nil {
-		c.log.Info("wrote bytes", logger.Count(bytesWritten))
+		c.log.Debug("wrote bytes", logger.Count(bytesWritten))
 	}
 
 	return err

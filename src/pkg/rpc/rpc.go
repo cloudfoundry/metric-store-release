@@ -10,6 +10,16 @@ type Point struct {
 type Batch struct {
 	Points []*Point
 }
+type Span struct {
+	SourceId  string
+	Timestamp int64
+	Duration  int64
+	Labels    map[string]string
+}
+
+type Trace struct {
+	Spans []*Span
+}
 
 func (p *Point) EstimatePointSize() (size int) {
 	size += len(p.Name)

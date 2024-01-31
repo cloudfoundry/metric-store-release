@@ -117,7 +117,7 @@ func (app *BlackboxApp) MetricsAddr() string {
 	if app.metricsServer == nil {
 		return ""
 	}
-	return app.metricsServer.Addr()
+	return app.metricsServer.Addr().String()
 
 }
 

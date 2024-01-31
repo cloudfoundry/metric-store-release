@@ -25,11 +25,11 @@ func (s *Server) Close() error {
 	return s.listener.Close()
 }
 
-func (s *Server) Addr() string {
+func (s *Server) Addr() net.Addr {
 	if s.listener == nil {
-		return ""
+		return nil
 	}
-	return s.listener.Addr().String()
+	return s.listener.Addr()
 }
 
 func (s *Server) Registrar() Registrar {

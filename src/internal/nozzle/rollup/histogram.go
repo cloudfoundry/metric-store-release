@@ -15,25 +15,27 @@ import (
 type histogramRollup struct {
 	log *logger.Logger
 
-	nodeIndex            string
-	rollupTags           []string
-	histogramsInInterval map[string]struct{}
-	histograms           map[string]prometheus.Histogram
+	nodeIndex                    string
+	rollupTags                   []string
+	setOfHistogramKeysInInterval map[string]struct{}
+	histograms                   map[string]prometheus.Histogram
 
 	mu sync.Mutex
 }
 
 func NewHistogramRollup(log *logger.Logger, nodeIndex string, rollupTags []string) *histogramRollup {
 	return &histogramRollup{
-		log:                  log,
-		nodeIndex:            nodeIndex,
-		rollupTags:           rollupTags,
-		histogramsInInterval: make(map[string]struct{}),
-		histograms:           make(map[string]prometheus.Histogram),
+		log:                          log,
+		nodeIndex:                    nodeIndex,
+		rollupTags:                   rollupTags,
+		setOfHistogramKeysInInterval: make(map[string]struct{}),
+		histograms:                   make(map[string]prometheus.Histogram),
 	}
 }
 
 func (r *histogramRollup) Record(sourceId string, tags map[string]string, value int64) {
+	r.log.Log("msg", "histogramRollup.Record", "sourceId", sourceId, "value", value)
+
 	key := keyFromTags(r.rollupTags, sourceId, tags)
 
 	r.mu.Lock()
@@ -47,16 +49,17 @@ func (r *histogramRollup) Record(sourceId string, tags map[string]string, value 
 	}
 
 	r.histograms[key].Observe(transform.NanosecondsToSeconds(value))
-	r.histogramsInInterval[key] = struct{}{}
+	r.setOfHistogramKeysInInterval[key] = struct{}{}
 }
 
 func (r *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
+	r.log.Log("msg", "histogramRollup.Rollup:", "vars", timestamp)
 	var batches []*PointsBatch
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	for k := range r.histogramsInInterval {
+	for k := range r.setOfHistogramKeysInInterval {
 		var points []*rpc.Point
 		var size int
 
@@ -124,7 +127,6 @@ func (r *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 		})
 	}
 
-	r.histogramsInInterval = make(map[string]struct{})
-
+	r.setOfHistogramKeysInInterval = make(map[string]struct{})
 	return batches
 }

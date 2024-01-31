@@ -282,7 +282,7 @@ func (app *MetricStoreApp) MetricsAddr() string {
 	if app.metricsServer == nil {
 		return ""
 	}
-	return app.metricsServer.Addr()
+	return app.metricsServer.Addr().String()
 }
 
 func (app *MetricStoreApp) startDebugServer() {

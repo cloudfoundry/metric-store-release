@@ -9,7 +9,26 @@
     extended_key_usage:
     - client_auth
     - server_auth
+- name: otel_provider_mtls
+  label: Otel mTLS Certificate
+  type: rsa_cert_credentials
+  configurable: false
+  default:
+    domains:
+      - metric-store
+      - metric-store.service.internal
+      - "*.metric-store.service.internal"
+      - "*.metric-store"
+      - 127.0.0.1
+      - localhost
+    extended_key_usage:
+      - client_auth
+      - server_auth
 - name: enable_envelope_selector
   type: boolean
   default: false
   configurable: true
+- name: firehose_enabled
+  type: boolean
+  default: true
+  configurable: false
