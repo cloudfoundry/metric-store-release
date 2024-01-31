@@ -30,6 +30,12 @@ processes:
     LOGS_PROVIDER_CERT_PATH: "<%= "#{cert_dir}/logs_provider.crt" %>"
     LOGS_PROVIDER_KEY_PATH:  "<%= "#{cert_dir}/logs_provider.key" %>"
 
+    # Otel Provider
+    OTEL_ADDR:               "<%= "0.0.0.0:#{p('otel_port')}" %>"
+    OTEL_PROVIDER_CA_PATH:   "<%= "#{cert_dir}/otel_provider_ca.crt" %>"
+    OTEL_PROVIDER_CERT_PATH: "<%= "#{cert_dir}/otel_provider.crt" %>"
+    OTEL_PROVIDER_KEY_PATH:  "<%= "#{cert_dir}/otel_provider.key" %>"
+
     # Metric Store Client Mutual TLS
     METRIC_STORE_CLIENT_CA_PATH:   "<%= "#{cert_dir}/metric_store_client_ca.crt" %>"
     METRIC_STORE_CLIENT_CERT_PATH: "<%= "#{cert_dir}/metric_store_client.crt" %>"
@@ -40,9 +46,9 @@ processes:
     METRIC_STORE_METRICS_CERT_PATH: "<%= "#{cert_dir}/metric_store_metrics.crt" %>"
     METRIC_STORE_METRICS_KEY_PATH:  "<%= "#{cert_dir}/metric_store_metrics.key" %>"
 
-    GODEBUG: "x509ignoreCN=0" # temporary (15Sep2020) while we wait for upstream (firehose) certs to be updated
     GRPC_GO_LOG_SEVERITY_LEVEL: "warning"
     GRPC_GO_LOG_VERBOSITY_LEVEL: "1"
     ENABLE_ENVELOPE_SELECTOR: "<%= p('enable_envelope_selector') %>"
+    FIREHOSE_ENABLED: "<%= p('firehose_enabled') %>"
   limits:
     open_files: 8192

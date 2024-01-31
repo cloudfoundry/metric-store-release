@@ -36,6 +36,10 @@ type TCPListener struct {
 	countMu sync.Mutex
 }
 
+func (t *TCPListener) Accept() (net.Conn, error) {
+	return t.socket.Accept()
+}
+
 type Logger interface {
 	Printf(v string, args ...interface{})
 }
@@ -102,6 +106,13 @@ func ListenTCP(cfg TCPListenerConfig) (*TCPListener, error) {
 	}
 
 	return btl, nil
+}
+
+func (t *TCPListener) Addr() net.Addr {
+	if t.socket == nil {
+		return nil
+	}
+	return t.socket.Addr()
 }
 
 // Actually blocks the thread it's running on, and begins handling incoming
@@ -210,7 +221,7 @@ func (t *TCPListener) reopenSocket() error {
 
 // Close represents a way to signal to the Listener that it should no longer accept
 // incoming connections, and shutdown
-func (t *TCPListener) Close() {
+func (t *TCPListener) Close() error {
 	t.shutdown()
 	t.socket.Close()
 
@@ -222,6 +233,7 @@ func (t *TCPListener) Close() {
 	t.connectionCount = 0
 	t.updateConnectionCountMetric(t.connectionCount)
 	t.countMu.Unlock()
+	return nil
 }
 
 // StartListeningAsync represents a way to start accepting TCP connections, which are

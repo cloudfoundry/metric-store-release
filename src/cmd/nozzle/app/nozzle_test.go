@@ -2,7 +2,7 @@ package app_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -80,7 +80,7 @@ var _ = Describe("Nozzle App", func() {
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			bytes, err := ioutil.ReadAll(resp.Body)
+			bytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return ""
 			}

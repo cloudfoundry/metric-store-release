@@ -7,6 +7,9 @@ templates:
   logs_provider.crt.erb: config/certs/logs_provider.crt
   logs_provider.key.erb: config/certs/logs_provider.key
   logs_provider_ca.crt.erb: config/certs/logs_provider_ca.crt
+  otel_provider.crt.erb: config/certs/otel_provider.crt
+  otel_provider.key.erb: config/certs/otel_provider.key
+  otel_provider_ca.crt.erb: config/certs/otel_provider_ca.crt
   metric_store_client_ca.crt.erb: config/certs/metric_store_client_ca.crt
   metric_store_client.crt.erb: config/certs/metric_store_client.crt
   metric_store_client.key.erb: config/certs/metric_store_client.key
@@ -44,6 +47,16 @@ properties:
   logs_provider.tls.key:
     description: "TLS key for the logs-provider connection"
 
+  otel_provider.tls.ca_cert:
+    description: "CA root required for key/cert verification to connect to the otel-provider"
+  otel_provider.tls.cert:
+    description: "TLS certificate for the otel-provider connection"
+  otel_provider.tls.key:
+    description: "TLS key for the otel-provider connection"
+  otel_port:
+    description: "The port for the Nozzle to bind an otel endpoint"
+    default: 6062
+
   metrics_port:
     description: "The port for the Nozzle to bind a prometheus metrics endpoint"
     default: 6061
@@ -62,4 +75,7 @@ properties:
     description: "The private key for metric-store metrics mutual TLS."
   enable_envelope_selector:
     description: Enable envelopes with specified tags. If enabled, only envelopes with specific tags will keep. By default envelopes with app_id and applicationGuid tags are enabled.
+    default: false
+  firehose_enabled:
+    description: If enabled, connect to the firehose.
     default: false
