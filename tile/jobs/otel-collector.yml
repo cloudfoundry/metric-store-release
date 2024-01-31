@@ -1,0 +1,28 @@
+---
+name: otel-collector
+release: otel-collector
+
+manifest: |
+  ingress:
+    grpc:
+      tls:
+        enabled: true
+        cert: "(( .properties.nats_client_cert.cert_pem ))"
+        key: "(( .properties.nats_client_cert.private_key_pem ))"
+        ca_cert: (( $ops_manager.ca_certificate ))
+  metric_exporters: |+
+    file/protobuf:
+      path: /var/vcap/data/otel-collector/tmp
+      rotation:
+        max_megabytes: 10
+        max_days: 3
+        max_backups: 3
+        localtime: true
+      format: proto
+    file/raw:
+      path: /var/vcap/data/otel-collector/tmp
+      rotation:
+        max_megabytes: 10
+        max_days: 3
+        max_backups: 3
+        localtime: true

@@ -25,6 +25,7 @@ stemcell_criteria:
 
 releases:
   - $( release "bpm" )
+  - $( release "otel-collector" )
   - $( release "metric-store" )
   - $( release "routing" )
 
