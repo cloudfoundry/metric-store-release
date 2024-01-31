@@ -34,7 +34,8 @@ func keyFromTags(rollupTags []string, sourceId string, tags map[string]string) s
 	csvWriter := csv.NewWriter(csvOutput)
 	_ = csvWriter.Write(filteredTags)
 	csvWriter.Flush()
-	return csvOutput.String()
+	cvsOutputStr := csvOutput.String()
+	return cvsOutputStr
 }
 
 func labelsFromKey(key, nodeIndex string, rollupTags []string, log *logger.Logger) (map[string]string, error) {

@@ -259,6 +259,54 @@ var _ = Describe("Histogram Rollup", func() {
 		Expect(histograms[1].Count()).To(Equal(1))
 	})
 
+	It("returns separate histograms for different tags blah", func() {
+		rollup := NewHistogramRollup(
+			logger.NewTestLogger(GinkgoWriter),
+			"0",
+			[]string{
+				"app_name", "app_id", "space_name", "space_id",
+				"organization_name", "organization_id", "process_id",
+				"process_instance_id", "process_type", "instance_id",
+			},
+		)
+
+		rollup.Record(
+			"24f8d671-35a2-4796-a854-b8aeed51cf2a",
+			map[string]string{
+				"app_id":              "24f8d671-35a2-4796-a854-b8aeed51cf2a",
+				"app_name":            "appmetrics",
+				"space_name":          "app-metrics-v2",
+				"space_id":            "f566dcbc-ab46-4744-9e8c-f1c9ed280f39",
+				"organization_name":   "system",
+				"organization_id":     "72fe5bb7-fa4b-44f5-ab97-0bd6bf074167",
+				"process_id":          "24f8d671-35a2-4796-a854-b8aeed51cf2a",
+				"process_instance_id": "0ec8d20f-c7c0-426c-5579-5833",
+				"process_type":        "web",
+				"instance_id":         "0"},
+			67387490,
+		)
+		rollup.Record(
+			"24f8d671-35a2-4796-a854-b8aeed51cf2a",
+			map[string]string{
+				"app_id":              "24f8d671-35a2-4796-a854-b8aeed51cf2a",
+				"app_name":            "appmetrics",
+				"space_name":          "app-metrics-v2",
+				"space_id":            "f566dcbc-ab46-4744-9e8c-f1c9ed280f39",
+				"organization_name":   "system",
+				"organization_id":     "72fe5bb7-fa4b-44f5-ab97-0bd6bf074167",
+				"process_id":          "24f8d671-35a2-4796-a854-b8aeed51cf2a",
+				"process_instance_id": "0ec8d20f-c7c0-426c-5579-5833",
+				"process_type":        "web",
+				"instance_id":         "1"},
+			67387490,
+		)
+
+		histograms := extract(rollup.Rollup(0))
+		Expect(len(histograms)).To(Equal(2))
+		Expect(histograms[0].Count()).To(Equal(1))
+		Expect(histograms[1].Count()).To(Equal(1))
+	})
+
 	It("does not return separate histograms for different excluded tags", func() {
 		rollup := NewHistogramRollup(
 			logger.NewTestLogger(GinkgoWriter),

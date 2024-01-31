@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/internal/testing"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/auth"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 
 	"bytes"
 	"encoding/base64"
@@ -29,7 +29,7 @@ import (
 )
 
 var _ = Describe("UAAClient", func() {
-	Context("Read()", func() {
+	Context("ReadTCP()", func() {
 		var tc *UAATestContext
 		BeforeEach(func() {
 			tc = uaaSetup()

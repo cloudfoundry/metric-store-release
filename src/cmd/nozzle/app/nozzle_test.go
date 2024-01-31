@@ -2,7 +2,7 @@ package app_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -33,6 +33,12 @@ var _ = Describe("Nozzle App", func() {
 
 		nozzle = app.NewNozzleApp(&app.Config{
 			LogProviderAddr: loggregator.addr(),
+			OtelAddr:        loggregator.addr(),
+			OtelProviderTLS: app.OtelProviderTLS{
+				CAPath:   testing.Cert("metric-store-ca.crt"),
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 			LogsProviderTLS: app.LogsProviderTLS{
 				LogProviderCA:   testing.Cert("metric-store-ca.crt"),
 				LogProviderCert: testing.Cert("localhost.crt"),
@@ -48,6 +54,7 @@ var _ = Describe("Nozzle App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
+			FirehoseEnabled: true,
 		}, logger.NewNop())
 		go nozzle.Run()
 
@@ -80,7 +87,7 @@ var _ = Describe("Nozzle App", func() {
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			bytes, err := ioutil.ReadAll(resp.Body)
+			bytes, err := io.ReadAll(resp.Body)
 			if err != nil {
 				return ""
 			}
