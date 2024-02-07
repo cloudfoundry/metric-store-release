@@ -3,4 +3,4 @@ name: metric-store
 blobstore:
   provider: gcs
   options:
-    bucket_name: oss-metric-store-release-blobs
+    bucket_name: metric-store-blobs
