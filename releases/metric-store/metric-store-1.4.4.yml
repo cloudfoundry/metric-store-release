@@ -1,0 +1,63 @@
+name: metric-store
+version: 1.4.4
+commit_hash: 030fb6d7
+uncommitted_changes: false
+jobs:
+- name: metric-store
+  version: 72b22a0b75f1c23aa21b479c81855fadd6f4117d5b9d828c4048be0229e79ad0
+  fingerprint: 72b22a0b75f1c23aa21b479c81855fadd6f4117d5b9d828c4048be0229e79ad0
+  sha1: sha256:603f1ec515e128c4fe618cb1367ca2397c65102d443c80edad856c3da1520782
+  packages:
+  - metric-store
+- name: metric-store-blackbox
+  version: 45b681d7c56c8a4c9ebc7de5f7728d9a694cad27e0463228f75a04e859e124f4
+  fingerprint: 45b681d7c56c8a4c9ebc7de5f7728d9a694cad27e0463228f75a04e859e124f4
+  sha1: sha256:65d236ce8287e4fc6fcd1b88eb6441686faff07fd9aebee9484a5d7340a25f52
+  packages:
+  - metric-store-blackbox
+- name: metric-store-cf-auth-proxy
+  version: 7893409851268c558ee89de148b0489c40fa1e24cfee9dcac0310c2c66bbce92
+  fingerprint: 7893409851268c558ee89de148b0489c40fa1e24cfee9dcac0310c2c66bbce92
+  sha1: sha256:33c270c3c457ca459e6a78d8d5823a41432831f5b7b31cb8050ee7b63e2242f6
+  packages:
+  - metric-store-cf-auth-proxy
+- name: metric-store-nozzle
+  version: 92622db028d8924dca95b302f6e397d2341beb040dbbc592bc067e93a54c8701
+  fingerprint: 92622db028d8924dca95b302f6e397d2341beb040dbbc592bc067e93a54c8701
+  sha1: sha256:8fcddf5a464ef99d273ed6469a0b2cb4e9b400692c26d1f9a9aec4ceada27d95
+  packages:
+  - metric-store-nozzle
+packages:
+- name: golang-1-linux
+  version: ef771f8c7b5d835ebfa08a1f7a485b0db7928d013ec69d911ca88bb12e6c1261
+  fingerprint: ef771f8c7b5d835ebfa08a1f7a485b0db7928d013ec69d911ca88bb12e6c1261
+  sha1: sha256:a67bdc8f7b70b4234461ab49f67fa05f2a33a3f93fcddf35f1a98a73ffb2c1b7
+  dependencies: []
+- name: metric-store
+  version: c29af37e3841f2e4d671233c2bcb333dbcefe3216685a67763ec1363c1a674c6
+  fingerprint: c29af37e3841f2e4d671233c2bcb333dbcefe3216685a67763ec1363c1a674c6
+  sha1: sha256:6897c268163d6db5d9106bebed5d7fa52c8b38d76610bd7a560d24c38a56a485
+  dependencies:
+  - golang-1-linux
+- name: metric-store-blackbox
+  version: 9f3db02fa200caf70e6009d8ea3f6c3e2b5644b4684767d3ae4a5b2f6cd83a11
+  fingerprint: 9f3db02fa200caf70e6009d8ea3f6c3e2b5644b4684767d3ae4a5b2f6cd83a11
+  sha1: sha256:def121d73a40f2a21753a31f047fd3571e0d9d1729439cd8d9ce6189fe032018
+  dependencies:
+  - golang-1-linux
+- name: metric-store-cf-auth-proxy
+  version: 51b2ab7999e8c94abc59742889aa084a85fe34ad7b176dc04d47ed9dbe7ea52b
+  fingerprint: 51b2ab7999e8c94abc59742889aa084a85fe34ad7b176dc04d47ed9dbe7ea52b
+  sha1: sha256:e625e54b252c81d3dc503b87ada1416329a34ef734348df8776527a52d823a0e
+  dependencies:
+  - golang-1-linux
+- name: metric-store-nozzle
+  version: ead0aaf9c13d94fee93804d0fa7d1a2488454fad53c2b612ab16aca96113350e
+  fingerprint: ead0aaf9c13d94fee93804d0fa7d1a2488454fad53c2b612ab16aca96113350e
+  sha1: sha256:81be00e4fe6cea50d369b9b16eac483bcee393438cd0ae58f4ce4541a1eccd82
+  dependencies:
+  - golang-1-linux
+license:
+  version: 36908509006d02558e00213ac84f8acbe21ceae87858e9b06075bcd1d28f73e3
+  fingerprint: 36908509006d02558e00213ac84f8acbe21ceae87858e9b06075bcd1d28f73e3
+  sha1: sha256:0ac5f99ac5d048a7b5921f4ba679509dfa920bdc418725e04773a107ec4acfee
