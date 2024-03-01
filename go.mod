@@ -7,7 +7,7 @@ require (
 	code.cloudfoundry.org/tlsconfig v0.0.0-20230320190829-8f91c367795b
 	github.com/benbjohnson/jmphash v0.0.0-20141216154655-2d58f234cd86
 	github.com/cespare/xxhash v1.1.0
-	github.com/dvsekhvalnov/jose2go v1.5.0
+	github.com/dvsekhvalnov/jose2go v1.6.0
 	github.com/emirpasic/gods v1.18.1
 	github.com/fortytw2/leaktest v1.3.0
 	github.com/go-kit/kit v0.12.0
