@@ -2,7 +2,7 @@ package app
 
 import (
 	"crypto/tls"
-	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
+	"github.com/prometheus/client_golang/prometheus"
 	"log"
 	"net"
 	"os"
@@ -16,10 +16,8 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	. "github.com/cloudfoundry/metric-store-release/src/internal/nozzle"
 	sharedtls "github.com/cloudfoundry/metric-store-release/src/internal/tls"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/prometheus/client_golang/prometheus"
-	_ "google.golang.org/grpc/encoding/gzip" // Enable gzip decompression
 )
 
 // All application metrics should have AppId or ApplicationGuid tags
