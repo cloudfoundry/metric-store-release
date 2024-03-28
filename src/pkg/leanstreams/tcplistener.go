@@ -166,6 +166,7 @@ func (t *TCPListener) blockListen() error {
 			if t.logger != nil {
 				t.logger.Printf("Error attempting to accept connection: %s", err)
 			}
+			fmt.Printf("Error attempting to accept connection: %s", err)
 
 			select {
 			case <-t.shutdownCtx.Done():
@@ -330,7 +331,7 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				t.connectionCount -= 1
 				t.updateConnectionCountMetric(t.connectionCount)
 				t.countMu.Unlock()
-				return
+				break
 			}
 
 			if err = t.callback(m[:]); err != nil && t.logger != nil {
@@ -349,7 +350,7 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				t.connectionCount -= 1
 				t.updateConnectionCountMetric(t.connectionCount)
 				t.countMu.Unlock()
-				return
+				break
 			}
 			// We take action on the actual message data - but only up to the amount of bytes read,
 			// since we re-use the cache
@@ -364,6 +365,10 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				// At this point, there isn't a reliable recovery mechanic for the server
 			}
 		}
+	}
+	err := t.RestartListeningAsync()
+	if err != nil {
+		fmt.Printf("failed to start async listening on ingress port %v", err)
 	}
 }
 
