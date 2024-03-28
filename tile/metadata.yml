@@ -44,10 +44,12 @@ property_blueprints:
   - $( property "metric_store_metrics_server_mtls" )
   - $( property "metric_store_metrics_client_mtls" )
   - $( property "metrics_provider_mtls" )
+  - $( property "otel_provider_mtls" )
   - $( property "routing_provider_tls" )
   - $( property "max_concurrent_queries" )
   - $( property "replication_factor" )
   - $( property "enable_envelope_selector" )
+  - $( property "firehose_enabled" )
 
 form_types:
   - $( form "metric_store_config" )

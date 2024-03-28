@@ -72,11 +72,14 @@ var _ = Describe("PrometheusRegistrar", func() {
 			testLogger,
 			h,
 		)
-		mf = newMetricFetcher(lis.Addr(), tlsClientConfig)
+		mf = newMetricFetcher(lis.Addr().String(), tlsClientConfig)
 	})
 
 	AfterEach(func() {
-		lis.Close()
+		err := lis.Close()
+		if err != nil {
+			fmt.Println("this should never happen")
+		}
 	})
 
 	Describe("Inc()", func() {

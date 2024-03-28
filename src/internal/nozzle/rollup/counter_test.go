@@ -40,6 +40,24 @@ var _ = Describe("Counter Rollup", func() {
 		Expect(points[0].Value).To(BeNumerically("==", 1))
 	})
 
+	It("returns counters for rolled up traces", func() {
+		counterRollup := NewCounterRollup(
+			logger.NewTestLogger(GinkgoWriter),
+			"0",
+			nil,
+		)
+
+		counterRollup.Record(
+			"source-id",
+			nil,
+			1,
+		)
+
+		points := extract(counterRollup.Rollup(0))
+		Expect(len(points)).To(Equal(1))
+		Expect(points[0].Value).To(BeNumerically("==", 1))
+	})
+
 	It("returns points that track a running total of rolled up events", func() {
 		counterRollup := NewCounterRollup(
 			logger.NewTestLogger(GinkgoWriter),

@@ -25,12 +25,12 @@ type Nozzle struct {
 	log     *logger.Logger
 	metrics metrics.Registrar
 
-	s                      StreamConnector
-	shardId                string
-	nodeIndex              int
-	enableEnvelopeSelector bool
-	envelopSelectorTags    []string
-	ingressBuffer          *diodes.OneToOne
+	s             StreamConnector
+	shardId       string
+	nodeIndex     int
+	filterMetrics bool
+	allowListTags []string
+	ingressBuffer *diodes.OneToOne
 
 	timerBuffer           *diodes.OneToOne
 	timerRollupBufferSize uint
@@ -55,21 +55,21 @@ const (
 	BATCH_CHANNEL_SIZE   = 512
 )
 
-func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, enableEnvelopeSelector bool, envelopSelectorTags []string, opts ...Option) *Nozzle {
+func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, filterMetrics bool, allowListTags []string, opts ...Option) *Nozzle {
 	n := &Nozzle{
-		log:                    logger.NewNop(),
-		metrics:                &metrics.NullRegistrar{},
-		s:                      c,
-		shardId:                shardId,
-		nodeIndex:              nodeIndex,
-		enableEnvelopeSelector: enableEnvelopeSelector,
-		envelopSelectorTags:    envelopSelectorTags,
-		timerRollupBufferSize:  4096,
-		totalRollup:            rollup.NewNullRollup(),
-		durationRollup:         rollup.NewNullRollup(),
-		ingressAddr:            ingressAddr,
-		tlsConfig:              tlsConfig,
-		pointBuffer:            make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
+		log:                   logger.NewNop(),
+		metrics:               &metrics.NullRegistrar{},
+		s:                     c,
+		shardId:               shardId,
+		nodeIndex:             nodeIndex,
+		filterMetrics:         filterMetrics,
+		allowListTags:         allowListTags,
+		timerRollupBufferSize: 4096,
+		totalRollup:           rollup.NewNullRollup(),
+		durationRollup:        rollup.NewNullRollup(),
+		ingressAddr:           ingressAddr,
+		tlsConfig:             tlsConfig,
+		pointBuffer:           make(chan []*rpc.Point, BATCH_CHANNEL_SIZE),
 	}
 
 	for _, o := range opts {
@@ -327,13 +327,13 @@ func (n *Nozzle) convertEnvelopeToPoints(envelope *loggregator_v2.Envelope) []*r
 	return []*rpc.Point{}
 }
 
-// if enabled configuration enableEnvelopeSelector return true when envelopSelectorTags matched specified tags
+// if enabled configuration filterMetrics return true when allowListTags matched specified tags
 func (n *Nozzle) hasMatchedTags(tags map[string]string) bool {
-	if !n.enableEnvelopeSelector {
+	if !n.filterMetrics {
 		return true
 	}
 
-	for _, t := range n.envelopSelectorTags {
+	for _, t := range n.allowListTags {
 		if _, hasTagKey := tags[t]; hasTagKey {
 			return true
 		}
