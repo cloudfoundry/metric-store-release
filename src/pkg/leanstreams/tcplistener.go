@@ -192,6 +192,7 @@ func (t *TCPListener) blockListen() error {
 		t.updateConnectionCountMetric(t.connectionCount)
 		t.countMu.Unlock()
 
+		fmt.Printf("listening for %v\n", t.Address)
 		// Hand this off and immediately listen for more
 		go t.readLoop(conn)
 	}
@@ -331,11 +332,12 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				t.connectionCount -= 1
 				t.updateConnectionCountMetric(t.connectionCount)
 				t.countMu.Unlock()
-				break
+				return
 			}
 
 			if err = t.callback(m[:]); err != nil && t.logger != nil {
 				t.logger.Printf("Error in Callback: %s", err.Error())
+				return
 			}
 		} else {
 			msgLen, err := conn.ReadTCP(dataBuffer)
@@ -350,7 +352,7 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				t.connectionCount -= 1
 				t.updateConnectionCountMetric(t.connectionCount)
 				t.countMu.Unlock()
-				break
+				return
 			}
 			// We take action on the actual message data - but only up to the amount of bytes read,
 			// since we re-use the cache
@@ -363,12 +365,9 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				// TODO if it's a protobuffs error, it means we likely had an issue and can't
 				// deserialize data? Should we kill the connection and have the client start over?
 				// At this point, there isn't a reliable recovery mechanic for the server
+				return
 			}
 		}
-	}
-	err := t.RestartListeningAsync()
-	if err != nil {
-		fmt.Printf("failed to start async listening on ingress port %v", err)
 	}
 }
 
