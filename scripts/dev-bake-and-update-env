@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+scripts_dir=$(cd $(dirname $0) && pwd)
+
+if [ -z "${OM_TARGET}" ] || [ -z "${OM_USERNAME}" ] || [ -z "${OM_PASSWORD}" ]; then
+  echo "OM_TARGET, OM_USERNAME, and OM_PASSWORD must be set"
+  return
+fi
+
+if [[ -z ${RELEASE_VERSION:-} ]]; then
+  bumped_version=$(
+    om available-products --format json |
+    jq -r '.[] |
+    .name + "\t" + .version' |
+    grep metric-store |
+    cut -f 2 |
+    sort -V |
+    tail -n 1 |
+    awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+  export RELEASE_VERSION=${bumped_version:-"0.0.1"}
+fi
+
+$scripts_dir/dev_bake
+
+om upload-product --product tmp/metric-store-${RELEASE_VERSION}.pivotal
+om stage-product --product-name metric-store --product-version ${RELEASE_VERSION}
+om apply-changes --product-name metric-store

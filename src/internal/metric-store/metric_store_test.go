@@ -551,7 +551,7 @@ var _ = Describe("MetricStore", func() {
 			_, cleanup := setup(tc, metric_store.WithScraper(scraper))
 			defer cleanup()
 
-			Eventually(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically(">", 0))
+			Eventually(scrapeTarget.ScrapesReceived, 20).Should(BeNumerically(">", int32(0)))
 		})
 
 		It("ignores a job that doesn't belong on its node", func() {

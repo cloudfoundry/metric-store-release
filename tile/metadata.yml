@@ -1,0 +1,55 @@
+---
+name: metric-store
+product_version: $( version )
+minimum_version_for_upgrade: '0.0.0.0'
+metadata_version: '2.2'
+label: Metric Store
+description: Metric Store provides a persistent & queryable storage layer for platform and application metrics.
+rank: 1
+service_broker: false
+icon_image: $( icon )
+opsmanager_syslog: true
+
+provides_product_versions:
+- name: metric-store
+  version: $( version )
+
+requires_product_versions:
+- name: cf
+  version: '>= 2.6'
+
+stemcell_criteria:
+  os: ubuntu-jammy
+  version: $( variable "stemcell_version" )
+  requires_cpi: false
+
+releases:
+  - $( release "bpm" )
+  - $( release "metric-store" )
+  - $( release "routing" )
+
+job_types:
+  - $( instance_group "metric-store" )
+
+post_deploy_errands: []
+
+pre_delete_errands: []
+
+property_blueprints:
+  - $( property "nats_client_cert" )
+  - $( property "metric_store_egress_mtls" )
+  - $( property "metric_store_internode_mtls" )
+  - $( property "metric_store_server_mtls" )
+  - $( property "nozzle_to_metric_store_client_mtls" )
+  - $( property "metric_store_metrics_server_mtls" )
+  - $( property "metric_store_metrics_client_mtls" )
+  - $( property "metrics_provider_mtls" )
+  - $( property "otel_provider_mtls" )
+  - $( property "routing_provider_tls" )
+  - $( property "max_concurrent_queries" )
+  - $( property "replication_factor" )
+  - $( property "enable_envelope_selector" )
+  - $( property "firehose_enabled" )
+
+form_types:
+  - $( form "metric_store_config" )
