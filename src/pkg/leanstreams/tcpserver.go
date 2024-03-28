@@ -1,6 +1,7 @@
 package leanstreams
 
 import (
+	"code.cloudfoundry.org/rfc5424"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -30,6 +31,7 @@ type TCPServer struct {
 	tlsConfig      *tls.Config
 	headerByteSize int
 	MaxMessageSize int
+	isSyslog       bool
 
 	// For processing incoming data
 	incomingHeaderBuffer []byte
@@ -51,7 +53,7 @@ type TCPServerConfig struct {
 	TLSConfig *tls.Config
 }
 
-func newTCPServer(cfg *TCPServerConfig) *TCPServer {
+func newTCPServer(cfg *TCPServerConfig, isSyslog bool) *TCPServer {
 	maxMessageSize := DefaultMaxMessageSize
 	// 0 is the default, and the message must be atleast 1 byte large
 	if cfg.MaxMessageSize != 0 {
@@ -66,6 +68,7 @@ func newTCPServer(cfg *TCPServerConfig) *TCPServer {
 		writeLock:            sync.Mutex{},
 		outgoingDataBuffer:   make([]byte, maxMessageSize),
 		tlsConfig:            cfg.TLSConfig,
+		isSyslog:             isSyslog,
 	}
 }
 
@@ -107,8 +110,8 @@ func (c *TCPServer) lowLevelRead(buffer []byte) (int, error) {
 	return totalBytesRead, nil
 }
 
-func (c *TCPServer) Read(b []byte) (int, error) {
-	// Read the header
+func (c *TCPServer) ReadTCP(b []byte) (int, error) {
+	// ReadTCP the header
 	hLength, err := c.lowLevelRead(c.incomingHeaderBuffer)
 	if err != nil {
 		return hLength, err
@@ -142,4 +145,18 @@ func (c *TCPServer) Read(b []byte) (int, error) {
 		c.Close()
 	}
 	return bLength, err
+}
+
+func (c *TCPServer) ReadSyslog() ([]byte, error) {
+	m := rfc5424.Message{}
+	msgLength, err := m.ReadFrom(c.socket)
+	if msgLength < 0 {
+		c.Close()
+		return nil, fmt.Errorf("no bytes read: %d", msgLength)
+	}
+
+	if err != nil {
+		c.Close()
+	}
+	return m.MarshalBinary()
 }
