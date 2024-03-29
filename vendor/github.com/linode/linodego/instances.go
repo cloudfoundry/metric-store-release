@@ -35,6 +35,13 @@ const (
 	InstanceResizing     InstanceStatus = "resizing"
 )
 
+type InstanceMigrationType string
+
+const (
+	WarmMigration InstanceMigrationType = "warm"
+	ColdMigration InstanceMigrationType = "cold"
+)
+
 // Instance represents a linode object
 type Instance struct {
 	ID              int             `json:"id"`
@@ -64,6 +71,7 @@ type InstanceSpec struct {
 	Memory   int `json:"memory"`
 	VCPUs    int `json:"vcpus"`
 	Transfer int `json:"transfer"`
+	GPUs     int `json:"gpus"`
 }
 
 // InstanceAlert represents a metric alert
@@ -106,36 +114,41 @@ type InstanceMetadataOptions struct {
 
 // InstanceCreateOptions require only Region and Type
 type InstanceCreateOptions struct {
-	Region          string                    `json:"region"`
-	Type            string                    `json:"type"`
-	Label           string                    `json:"label,omitempty"`
-	Group           string                    `json:"group,omitempty"`
-	RootPass        string                    `json:"root_pass,omitempty"`
-	AuthorizedKeys  []string                  `json:"authorized_keys,omitempty"`
-	AuthorizedUsers []string                  `json:"authorized_users,omitempty"`
-	StackScriptID   int                       `json:"stackscript_id,omitempty"`
-	StackScriptData map[string]string         `json:"stackscript_data,omitempty"`
-	BackupID        int                       `json:"backup_id,omitempty"`
-	Image           string                    `json:"image,omitempty"`
-	Interfaces      []InstanceConfigInterface `json:"interfaces,omitempty"`
-	BackupsEnabled  bool                      `json:"backups_enabled,omitempty"`
-	PrivateIP       bool                      `json:"private_ip,omitempty"`
-	Tags            []string                  `json:"tags,omitempty"`
-	Metadata        *InstanceMetadataOptions  `json:"metadata,omitempty"`
+	Region          string                                 `json:"region"`
+	Type            string                                 `json:"type"`
+	Label           string                                 `json:"label,omitempty"`
+	RootPass        string                                 `json:"root_pass,omitempty"`
+	AuthorizedKeys  []string                               `json:"authorized_keys,omitempty"`
+	AuthorizedUsers []string                               `json:"authorized_users,omitempty"`
+	StackScriptID   int                                    `json:"stackscript_id,omitempty"`
+	StackScriptData map[string]string                      `json:"stackscript_data,omitempty"`
+	BackupID        int                                    `json:"backup_id,omitempty"`
+	Image           string                                 `json:"image,omitempty"`
+	Interfaces      []InstanceConfigInterfaceCreateOptions `json:"interfaces,omitempty"`
+	BackupsEnabled  bool                                   `json:"backups_enabled,omitempty"`
+	PrivateIP       bool                                   `json:"private_ip,omitempty"`
+	Tags            []string                               `json:"tags,omitempty"`
+	Metadata        *InstanceMetadataOptions               `json:"metadata,omitempty"`
+	FirewallID      int                                    `json:"firewall_id,omitempty"`
 
 	// Creation fields that need to be set explicitly false, "", or 0 use pointers
 	SwapSize *int  `json:"swap_size,omitempty"`
 	Booted   *bool `json:"booted,omitempty"`
+
+	// Deprecated: group is a deprecated property denoting a group label for the Linode.
+	Group string `json:"group,omitempty"`
 }
 
 // InstanceUpdateOptions is an options struct used when Updating an Instance
 type InstanceUpdateOptions struct {
 	Label           string          `json:"label,omitempty"`
-	Group           string          `json:"group,omitempty"`
 	Backups         *InstanceBackup `json:"backups,omitempty"`
 	Alerts          *InstanceAlert  `json:"alerts,omitempty"`
 	WatchdogEnabled *bool           `json:"watchdog_enabled,omitempty"`
 	Tags            *[]string       `json:"tags,omitempty"`
+
+	// Deprecated: group is a deprecated property denoting a group label for the Linode.
+	Group *string `json:"group,omitempty"`
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface
@@ -164,7 +177,7 @@ func (i *Instance) UnmarshalJSON(b []byte) error {
 func (i *Instance) GetUpdateOptions() InstanceUpdateOptions {
 	return InstanceUpdateOptions{
 		Label:           i.Label,
-		Group:           i.Group,
+		Group:           &i.Group,
 		Backups:         i.Backups,
 		Alerts:          i.Alerts,
 		WatchdogEnabled: &i.WatchdogEnabled,
@@ -180,20 +193,29 @@ type InstanceCloneOptions struct {
 	// LinodeID is an optional existing instance to use as the target of the clone
 	LinodeID       int                      `json:"linode_id,omitempty"`
 	Label          string                   `json:"label,omitempty"`
-	Group          string                   `json:"group,omitempty"`
 	BackupsEnabled bool                     `json:"backups_enabled"`
 	Disks          []int                    `json:"disks,omitempty"`
 	Configs        []int                    `json:"configs,omitempty"`
 	PrivateIP      bool                     `json:"private_ip,omitempty"`
 	Metadata       *InstanceMetadataOptions `json:"metadata,omitempty"`
+
+	// Deprecated: group is a deprecated property denoting a group label for the Linode.
+	Group string `json:"group,omitempty"`
 }
 
 // InstanceResizeOptions is an options struct used when resizing an instance
 type InstanceResizeOptions struct {
-	Type string `json:"type"`
+	Type          string                `json:"type"`
+	MigrationType InstanceMigrationType `json:"migration_type,omitempty"`
 
 	// When enabled, an instance resize will also resize a data disk if the instance has no more than one data disk and one swap disk
 	AllowAutoDiskResize *bool `json:"allow_auto_disk_resize,omitempty"`
+}
+
+// InstanceResizeOptions is an options struct used when resizing an instance
+type InstanceMigrateOptions struct {
+	Type   InstanceMigrationType `json:"type,omitempty"`
+	Region string                `json:"region,omitempty"`
 }
 
 // InstancesPagedResponse represents a linode API response for listing
@@ -355,6 +377,7 @@ type InstanceRebuildOptions struct {
 	StackScriptData map[string]string        `json:"stackscript_data,omitempty"`
 	Booted          *bool                    `json:"booted,omitempty"`
 	Metadata        *InstanceMetadataOptions `json:"metadata,omitempty"`
+	Type            string                   `json:"type,omitempty"`
 }
 
 // RebuildInstance Deletes all Disks and Configs on this Linode,
@@ -414,8 +437,14 @@ func (c *Client) MutateInstance(ctx context.Context, id int) error {
 }
 
 // MigrateInstance - Migrate an instance
-func (c *Client) MigrateInstance(ctx context.Context, id int) error {
-	return c.simpleInstanceAction(ctx, "migrate", id)
+func (c *Client) MigrateInstance(ctx context.Context, linodeID int, opts InstanceMigrateOptions) error {
+	body, err := json.Marshal(opts)
+	if err != nil {
+		return err
+	}
+	e := fmt.Sprintf("linode/instances/%d/migrate", linodeID)
+	_, err = coupleAPIErrors(c.R(ctx).SetBody(string(body)).Post(e))
+	return err
 }
 
 // simpleInstanceAction is a helper for Instance actions that take no parameters
