@@ -192,7 +192,7 @@ func (t *TCPListener) blockListen() error {
 		t.updateConnectionCountMetric(t.connectionCount)
 		t.countMu.Unlock()
 
-		fmt.Printf("listening for %v\n", t.Address)
+		fmt.Printf("JBooher to reconnect to  %v\n", t.Address)
 		// Hand this off and immediately listen for more
 		go t.readLoop(conn)
 	}
@@ -327,7 +327,7 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				if t.logger != nil {
 					t.logger.Printf("Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
 				}
-				fmt.Printf("Syslog Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
+				fmt.Printf("Syslog Address %s: Failure to read from connection. Underlying error: %s\n", conn.address, err)
 				t.countMu.Lock()
 				t.connectionCount -= 1
 				t.updateConnectionCountMetric(t.connectionCount)
@@ -346,7 +346,7 @@ func (t *TCPListener) readLoop(conn *TCPServer) {
 				if t.logger != nil {
 					t.logger.Printf("Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
 				}
-				fmt.Printf("TCP Address %s: Failure to read from connection. Underlying error: %s", conn.address, err)
+				fmt.Printf("TCP Address %s: Failure to read from connection. Underlying error: %s\n", conn.address, err)
 
 				t.countMu.Lock()
 				t.connectionCount -= 1
