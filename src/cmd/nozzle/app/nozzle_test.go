@@ -33,6 +33,12 @@ var _ = Describe("Nozzle App", func() {
 
 		nozzle = app.NewNozzleApp(&app.Config{
 			LogProviderAddr: loggregator.addr(),
+			OtelAddr:        loggregator.addr(),
+			OtelProviderTLS: app.OtelProviderTLS{
+				CAPath:   testing.Cert("metric-store-ca.crt"),
+				CertPath: testing.Cert("metric-store.crt"),
+				KeyPath:  testing.Cert("metric-store.key"),
+			},
 			LogsProviderTLS: app.LogsProviderTLS{
 				LogProviderCA:   testing.Cert("metric-store-ca.crt"),
 				LogProviderCert: testing.Cert("localhost.crt"),
@@ -48,6 +54,7 @@ var _ = Describe("Nozzle App", func() {
 				CertPath: testing.Cert("metric-store.crt"),
 				KeyPath:  testing.Cert("metric-store.key"),
 			},
+			FirehoseEnabled: true,
 		}, logger.NewNop())
 		go nozzle.Run()
 

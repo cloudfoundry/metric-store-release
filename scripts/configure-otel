@@ -11,60 +11,51 @@ echo "Configuring $OM_TARGET"
 
 CERTS_DIR=$SCRIPT_DIR/certs
 mkdir $CERTS_DIR
-export MS_CERT=".properties.otel_provider_mtls"
-export MS_KEY_FILE=/var/vcap/jobs/metric-store/config/certs/metric_store.key
-export MS_CERT_FILE=/var/vcap/jobs/metric-store/config/certs/metric_store.crt
-export MS_CA_FILE=/var/vcap/jobs/metric-store/config/certs/metric_store_ca.crt
+CERT_NAME=".properties.otel_provider_mtls" PRODUCT="metric-store"
 
-echo "Using metric store cert $MS_CERT"
 function get-certs() {
-  export MS_KEY_FILE=$CERTS_DIR/key.pem
-  om -k credentials -p metric-store -c ${MS_CERT} -f private_key_pem > "${MS_KEY_FILE}"
-  echo "Key file is at $MS_KEY_FILE"
-  echo "==================================="
-  cat "${MS_KEY_FILE}"
-  echo "==================================="
-  private_key_pem="$(awk '{printf "%s\\n", $0}' ${MS_KEY_FILE} )"
+  echo "Getting $PRODUCT cert of $CERT_NAME"
+  export KEY_FILE=$CERTS_DIR/key.pem
+  om -k credentials -p ${PRODUCT} -c ${CERT_NAME} -f private_key_pem > "${KEY_FILE}"
 
-  export MS_CERT_FILE=$CERTS_DIR/cert.pem
-  om -k credentials -p metric-store -c ${MS_CERT} -f cert_pem > "${MS_CERT_FILE}"
-  echo "Cert file is at $MS_CERT_FILE"
-  echo "==================================="
-  cat "${MS_CERT_FILE}"
-  echo "==================================="
-  cert_pem="$(awk '{printf "%s\\n", $0}' ${MS_CERT_FILE} )"
-
-  export MS_CA_FILE=$CERTS_DIR/ca.pem
-  om certificate-authorities -f json | jq -r '.[0].cert_pem' > "${MS_CA_FILE}"
-  echo "CA file is at $MS_CA_FILE"
-  echo "==================================="
-  cat "${MS_CA_FILE}"
-  echo "==================================="
-  ca_cert="$(om certificate-authorities -f json | jq '.[0].cert_pem')"
+  export CERT_FILE=$CERTS_DIR/cert.pem
+  om -k credentials -p ${PRODUCT} -c ${CERT_NAME} -f cert_pem > "${CERT_FILE}"
 }
+
 export SYS_DOMAIN=$(cat "${ENVIRONMENT_LOCK_METADATA}" | jq -r .sys_domain)
-# curl --cert "${MS_CERT_FILE}" --key "${MS_KEY_FILE}" --cacert "${MS_CA_FILE}"
+ca_cert="$(om certificate-authorities -f json | jq '.[0].cert_pem')"
+export CA_FILE=$CERTS_DIR/ca_cert.pem
+cat ${ca_cert} > $CA_FILE
 
-get-certs
+PRODUCT="metric-store" CERT_NAME=".properties.otel_provider_mtls" get-certs
+ms_private_key_pem="$(awk '{printf "%s\\n", $0}' ${KEY_FILE} )"
+ms_cert_pem="$(awk '{printf "%s\\n", $0}' ${CERT_FILE} )"
 
+PRODUCT="p-healthwatch2" CERT_NAME=".properties.healthwatch_exporter_client_mtls" get-certs
+hw_private_key_pem="$(awk '{printf "%s\\n", $0}' ${KEY_FILE} )"
+hw_cert_pem="$(awk '{printf "%s\\n", $0}' ${CERT_FILE} )"
+
+# curl --cert "${CERT_FILE}" --key "${KEY_FILE}" --cacert "${CA_FILE}"
 cat <<-HEREDOC > otel-config.yaml
 ---
 product-name: cf
 product-properties:
-  .properties.enable_v2_firehose: false
-  .properties.enable_v1_firehose: false
   .properties.otel_collector_metric_exporters_config:
     value: |-
       prometheus:
         endpoint: ":65331"
         add_metric_suffixes: false
+        tls:
+          ca_pem: ${ca_cert}
+          cert_pem: "${hw_cert_pem}"
+          key_pem: "${hw_private_key_pem}"
       otlp:
         endpoint: dns:metric-store.service.internal:6062
         tls:
           insecure_skip_verify: true
           ca_pem: ${ca_cert}
-          cert_pem: "${cert_pem}"
-          key_pem: "${private_key_pem}"
+          cert_pem: "${ms_cert_pem}"
+          key_pem: "${ms_private_key_pem}"
 HEREDOC
 
 echo "CF Config"
