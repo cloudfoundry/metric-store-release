@@ -1,14 +1,18 @@
 package nozzle
 
 import (
-	"code.cloudfoundry.org/go-diodes"
 	"errors"
+	"fmt"
+	"net/http"
+	"runtime"
+	"strings"
+	"time"
+
+	"code.cloudfoundry.org/go-diodes"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
-	"runtime"
-	"time"
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
@@ -32,6 +36,13 @@ type MetricService struct {
 	ctx    context.Context
 	cancel func()
 	done   chan struct{}
+}
+
+type MetricTSS struct {
+	Name      string            `json:"Name"`
+	Timestamp int64             `json:"Timestamp"`
+	Value     int               `json:"Value"`
+	Labels    map[string]string `json:"Labels"`
 }
 
 type MetricServiceOptions func(*MetricService)
@@ -202,10 +213,55 @@ func (s *MetricService) createPointsFromMetric(metric *otm.Metric, dataPoints []
 		s.metrics.Inc(metrics.OtelIngressMetricsTotal)
 
 		s.log.Log("Point:", point)
+		s.sendToTSS(point)
 		points = append(points, point)
 	}
 
 	return points
+}
+
+func (s *MetricService) sendToTSS(point *rpc.Point) *MetricTSS {
+	timestampSeconds := point.Timestamp / 1e9
+	labelStrings := make([]string, 0, len(point.Labels))
+	for key, value := range point.Labels {
+		// If value is null or empty, skip adding it to labelStrings
+		if value != "" {
+			// Remove spaces from label values
+			value = strings.ReplaceAll(value, " ", "")
+			labelStrings = append(labelStrings, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+	labelsJoined := strings.Join(labelStrings, " ")
+	output := fmt.Sprintf("%s %f %d %s", point.Name, point.Value, timestampSeconds, labelsJoined)
+	//Send data to Lemans and add error if it fails
+	s.sendPointsToLemans(output)
+
+	return &MetricTSS{}
+}
+
+func (s *MetricService) sendPointsToLemans(output string) {
+	url := "https://data.lint-be.symphony-dev.com/le-mans/v1/streams/li-metrics-pipeline-stream/v2/wfproxy/report"
+	method := "POST"
+
+	payload := strings.NewReader(output)
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	req.Header.Add("Authorization", "Bearer peU3YF5RtMPgQGmzmDZ3DydzJsTrBuQI")
+	req.Header.Add("X-WF-PROXY-ID", "proxy-1")
+	req.Header.Add("Content-Type", "text/plain")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	defer res.Body.Close()
+
 }
 
 func (s *MetricService) createPointsFromGauge(metric *otm.Metric) []*rpc.Point {
