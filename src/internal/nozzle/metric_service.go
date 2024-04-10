@@ -250,7 +250,7 @@ func (s *MetricService) sendPointsToLemans(output string) {
 		return
 	}
 
-	req.Header.Add("Authorization", "Bearer peU3YF5RtMPgQGmzmDZ3DydzJsTrBuQI")
+	req.Header.Add("Authorization", "Bearer <<TOKEN>>")
 	req.Header.Add("X-WF-PROXY-ID", "proxy-1")
 	req.Header.Add("Content-Type", "text/plain")
 
