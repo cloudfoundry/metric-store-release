@@ -38,6 +38,7 @@ type Server struct {
 	Volumes         []*Volume
 	PrimaryDiskSize int
 	PlacementGroup  *PlacementGroup
+	LoadBalancers   []*LoadBalancer
 }
 
 // ServerProtection represents the protection level of a server.
@@ -191,6 +192,7 @@ func (s *Server) GetDNSPtrForIP(ip net.IP) (string, error) {
 // ServerClient is a client for the servers API.
 type ServerClient struct {
 	client *Client
+	Action *ResourceActionClient
 }
 
 // GetByID retrieves a server by its ID. If the server does not exist, nil is returned.
