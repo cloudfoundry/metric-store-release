@@ -31,7 +31,16 @@ type PromRuleManager struct {
 	rulesManagerRegisterer *Registerer
 }
 
-func NewPromRuleManager(managerId, promRuleFile string, alertManagers *prom_config.AlertmanagerConfigs, evaluationInterval time.Duration, store storage.Storage, engine *promql.Engine, log *logger.Logger, metrics metrics.Registrar, queryTimeout time.Duration) *PromRuleManager {
+func NewPromRuleManager(
+	managerId, promRuleFile string,
+	alertManagers *prom_config.AlertmanagerConfigs,
+	evaluationInterval time.Duration,
+	store storage.Storage,
+	engine *promql.Engine,
+	log *logger.Logger,
+	metrics metrics.Registrar,
+	queryTimeout time.Duration,
+) *PromRuleManager {
 	rulesManagerRegisterer := NewRegisterer(
 		prometheus.Labels{"manager_id": managerId},
 		metrics.Registerer(),
@@ -58,6 +67,7 @@ func NewPromRuleManager(managerId, promRuleFile string, alertManagers *prom_conf
 	promDiscoveryManager := discovery.NewDiscoveryAgent(
 		"notify",
 		rulesManagerLog,
+		rulesManagerRegisterer,
 	)
 
 	return &PromRuleManager{

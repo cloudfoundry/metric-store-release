@@ -112,7 +112,7 @@ func (r *histogramRollup) Rollup(timestamp int64) []*PointsBatch {
 		histogramSumPoint := &rpc.Point{
 			Name:      GorouterHttpMetricName + "_duration_seconds_sum",
 			Timestamp: timestamp,
-			Value:     float64(*histogram.SampleSum),
+			Value:     *histogram.SampleSum,
 			Labels:    labels,
 		}
 

@@ -57,11 +57,12 @@ groups:
 			err := promManager.Start()
 			Expect(err).ToNot(HaveOccurred())
 
-			querier, err := deps.store.Querier(context.Background(), 0, influxql.MaxTime)
+			ctx := context.Background()
+			querier, err := deps.store.Querier(0, influxql.MaxTime)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {
-				points := queryByName(querier, "testRecordingRule")
+				points := queryByName(ctx, querier, "testRecordingRule")
 				if len(points) == 0 {
 					return 0
 				}
@@ -260,16 +261,18 @@ func loadMetric(store *persistence.Store) {
 	)
 	appender.Commit()
 
-	querier, err := store.Querier(context.Background(), 0, influxql.MaxTime)
+	ctx := context.Background()
+	querier, err := store.Querier(0, influxql.MaxTime)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
-		return len(queryByName(querier, "metric_store_test_metric")) > 0
+		return len(queryByName(ctx, querier, "metric_store_test_metric")) > 0
 	}).Should(BeTrue())
 }
 
-func queryByName(querier storage.Querier, name string) []testing.Point {
+func queryByName(ctx context.Context, querier storage.Querier, name string) []testing.Point {
 	seriesSet := querier.Select(
+		ctx,
 		false,
 		&storage.SelectHints{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 		&labels.Matcher{Name: "__name__", Value: name, Type: labels.MatchEqual},

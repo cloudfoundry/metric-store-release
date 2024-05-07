@@ -12,10 +12,10 @@ import (
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
+	"context"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	metricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	otm "go.opentelemetry.io/proto/otlp/metrics/v1"
-	"golang.org/x/net/context"
 )
 
 type MetricService struct {

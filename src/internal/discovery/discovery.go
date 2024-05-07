@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/go-kit/kit/log"
@@ -19,12 +20,19 @@ type DiscoveryAgent struct {
 	cancel  context.CancelFunc
 }
 
-func NewDiscoveryAgent(name string, l *logger.Logger) *DiscoveryAgent {
+func NewDiscoveryAgent(name string, l *logger.Logger, r prometheus.Registerer) *DiscoveryAgent {
 	discoveryCtxScrape, cancel := context.WithCancel(context.Background())
 
+	refreshMetrics := prom_discovery.NewRefreshMetrics(r)
+	sdMetrics, err := prom_discovery.RegisterSDMetrics(r, refreshMetrics)
+	if err != nil {
+		panic(err)
+	}
 	manager := prom_discovery.NewManager(
 		discoveryCtxScrape,
 		log.With(l, "component", "discovery manager "+name),
+		r,
+		sdMetrics,
 		prom_discovery.Name(name),
 	)
 

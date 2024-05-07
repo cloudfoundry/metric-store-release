@@ -105,7 +105,7 @@ var _ = Describe("Persistent Store", func() {
 			WithDiskFreeReporter(config.DiskFreeReporter),
 			WithMetricsEmitDuration(config.MetricsEmitDuration),
 		)
-		querier, _ := store.Querier(context.TODO(), 0, 0)
+		querier, _ := store.Querier(0, 0)
 
 		return storeTestContext{
 			metrics:               metrics,
@@ -129,8 +129,9 @@ var _ = Describe("Persistent Store", func() {
 				defer teardown(tc)
 
 				tc.storePointWithLabels(10, "counter", 1.0, map[string]string{"source_id": "source_id"})
-
+				ctx := context.TODO()
 				seriesSet := tc.querier.Select(
+					ctx,
 					false,
 					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
@@ -160,8 +161,9 @@ var _ = Describe("Persistent Store", func() {
 					"deployment": "foobar",
 					"source_id":  "source_id",
 				})
-
+				ctx := context.TODO()
 				seriesSet := tc.querier.Select(
+					ctx,
 					false,
 					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
@@ -193,8 +195,9 @@ var _ = Describe("Persistent Store", func() {
 					"deployment": strings.Repeat("d", 1024),
 					"source_id":  "source_id",
 				})
-
+				ctx := context.TODO()
 				seriesSet := tc.querier.Select(
+					ctx,
 					false,
 					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
@@ -224,8 +227,9 @@ var _ = Describe("Persistent Store", func() {
 				defer teardown(tc)
 
 				tc.storeDefaultFilteringPoints()
-
+				ctx := context.TODO()
 				seriesSet := tc.querier.Select(
+					ctx,
 					false,
 					&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 					&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
@@ -247,8 +251,9 @@ var _ = Describe("Persistent Store", func() {
 			defer teardown(tc)
 
 			tc.storeDefaultFilteringPoints()
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "gauge", Type: labels.MatchEqual},
@@ -283,8 +288,9 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePoint(20, "counter", 2)
 			tc.storePoint(30, "counter", 3)
 			tc.storePoint(40, "counter", 4)
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: 10, End: 30},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
@@ -310,8 +316,9 @@ var _ = Describe("Persistent Store", func() {
 
 			tc.storePoint(10, "cpu", 1)
 			tc.storePoint(20, "memory", 2)
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "cpu", Type: labels.MatchEqual},
@@ -336,8 +343,9 @@ var _ = Describe("Persistent Store", func() {
 			now := time.Now().UnixNano() / int64(time.Millisecond)
 			tc.storePoint(1, "point-to-test-nil-default", 1)
 			tc.storePoint(now, "point-to-test-nil-default", 2)
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				nil,
 				&labels.Matcher{Name: "__name__", Value: "point-to-test-nil-default", Type: labels.MatchEqual},
@@ -363,8 +371,9 @@ var _ = Describe("Persistent Store", func() {
 			now := time.Now().UnixNano() / int64(time.Millisecond)
 			tc.storePoint(1, "point-to-test-empty-default", 1)
 			tc.storePoint(now, "point-to-test-empty-default", 2)
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{},
 				&labels.Matcher{Name: "__name__", Value: "point-to-test-empty-default", Type: labels.MatchEqual},
@@ -390,8 +399,9 @@ var _ = Describe("Persistent Store", func() {
 			now := time.Now().UnixNano() / int64(time.Millisecond)
 			tc.storePoint(1, "point-to-test-end-default", 1)
 			tc.storePoint(now, "point-to-test-end-default", 2)
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: 0},
 				&labels.Matcher{Name: "__name__", Value: "point-to-test-end-default", Type: labels.MatchEqual},
@@ -413,8 +423,9 @@ var _ = Describe("Persistent Store", func() {
 		It("returns an empty set when an invalid query is provided", func() {
 			tc := setup()
 			defer teardown(tc)
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "i-definitely-do-not-exist", Type: labels.MatchEqual},
@@ -437,8 +448,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePointWithLabels(1, "metric-two", 1, map[string]string{
 				"source_id": "1", "job": "1",
 			})
-
-			res, _, err := tc.querier.LabelNames()
+			ctx := context.TODO()
+			res, _, err := tc.querier.LabelNames(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal([]string{"__name__", "ip", "job", "source_id"}))
 		})
@@ -455,8 +466,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePointWithLabels(1, "metric-two", 1, map[string]string{
 				"source_id": "1",
 			})
-
-			res, _, err := tc.querier.LabelValues("source_id")
+			ctx := context.TODO()
+			res, _, err := tc.querier.LabelValues(ctx, "source_id")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal([]string{"1", "10"}))
 		})
@@ -475,8 +486,8 @@ var _ = Describe("Persistent Store", func() {
 			tc.storePointWithLabels(3, "metric-two", 1, map[string]string{
 				"user_agent": "10",
 			})
-
-			res, _, err := tc.querier.LabelValues("__name__")
+			ctx := context.TODO()
+			res, _, err := tc.querier.LabelValues(ctx, "__name__")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(ConsistOf("metric-one", "metric-two"))
 		})
@@ -503,8 +514,9 @@ var _ = Describe("Persistent Store", func() {
 			Eventually(func() bool {
 				return tc.metrics.Fetch(metrics.MetricStoreExpiredShardsTotal)() == 1
 			}, 3).Should(BeTrue())
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
@@ -540,8 +552,9 @@ var _ = Describe("Persistent Store", func() {
 			Eventually(func() bool {
 				return tc.metrics.Fetch(metrics.MetricStorePrunedShardsTotal)() >= 1
 			}, 3).Should(BeTrue())
-
+			ctx := context.TODO()
 			seriesSet := tc.querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: "counter", Type: labels.MatchEqual},
@@ -612,7 +625,7 @@ func (tc *storeTestContext) storePoint(ts int64, name string, value float64) {
 }
 
 func (tc *storeTestContext) storePointWithLabels(ts int64, name string, value float64, addLabels map[string]string) {
-	appender := tc.store.Appender(context.Background())
+	appender := tc.store.Appender(context.TODO())
 	pointLabels := labels.FromMap(addLabels)
 	pointLabels = append(pointLabels, labels.Label{Name: "__name__", Value: name})
 

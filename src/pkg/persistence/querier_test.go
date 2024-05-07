@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
@@ -18,8 +19,9 @@ var _ = Describe("Querier", func() {
 			"returns an error if given a query that uses a matcher other than = on __name__",
 			func(in []*labels.Matcher, out error) {
 
-				querier := persistence.NewQuerier(nil, nil, nil)
-				Expect(querier.Select(false, nil, in...).Err()).To(Equal(out))
+				querier := persistence.NewQuerier(nil, nil)
+				ctx := context.TODO()
+				Expect(querier.Select(ctx, false, nil, in...).Err()).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{
 				Name:  "__name__",
@@ -42,9 +44,9 @@ var _ = Describe("Querier", func() {
 			"returns an error if start date is after the end date",
 			func(params *storage.SelectHints, out error) {
 
-				querier := persistence.NewQuerier(nil, nil, nil)
-
-				Expect(querier.Select(false, params,
+				querier := persistence.NewQuerier(nil, nil)
+				ctx := context.TODO()
+				Expect(querier.Select(ctx, false, params,
 					nil).Err()).To(Equal(out))
 			},
 			Entry("start > end", &storage.SelectHints{

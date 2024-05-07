@@ -653,10 +653,12 @@ func writePoints(tc *testContext, testPoints []*rpc.Point) {
 	_, err = remoteConnection.Write(payload.Bytes())
 	Expect(err).ToNot(HaveOccurred())
 
-	querier, _ := tc.persistentStore.Querier(context.TODO(), 0, 0)
+	ctx := context.TODO()
+	querier, _ := tc.persistentStore.Querier(0, 0)
 	if localPointCount > 0 {
 		f := func() error {
 			seriesSet := querier.Select(
+				ctx,
 				false,
 				&storage.SelectHints{Start: tc.minTimeInMilliseconds, End: tc.maxTimeInMilliseconds},
 				&labels.Matcher{Name: "__name__", Value: MAGIC_MEASUREMENT_NAME, Type: labels.MatchEqual},

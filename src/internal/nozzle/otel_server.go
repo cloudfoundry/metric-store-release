@@ -1,6 +1,7 @@
 package nozzle
 
 import (
+	"context"
 	"crypto/tls"
 	metricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"

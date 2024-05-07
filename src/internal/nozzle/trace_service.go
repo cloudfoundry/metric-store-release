@@ -14,7 +14,7 @@ import (
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
-	"golang.org/x/net/context"
+	"context"
 
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	ot "go.opentelemetry.io/proto/otlp/trace/v1"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/prometheus/prometheus/util/annotations"
 	"net"
 	"sort"
 	"strings"
@@ -76,9 +77,9 @@ func (factory *ReplicatedQuerierFactory) Build(ctx context.Context, nodeIndexes 
 
 func (factory *ReplicatedQuerierFactory) createQuerier(i int, ctx context.Context) (prom_storage.Querier, error) {
 	if i == factory.localIndex {
-		return factory.localStore.Querier(ctx, 0, 0)
+		return factory.localStore.Querier(0, 0)
 	} else {
-		return NewRemoteQuerier(ctx, i, factory.nodeAddrs[i], factory.egressTLSConfig, factory.log)
+		return NewRemoteQuerier(i, factory.nodeAddrs[i], factory.egressTLSConfig, factory.log)
 	}
 }
 
@@ -90,10 +91,9 @@ func listIndexes(nodeAddrs []string) []int {
 	return nodeIndexes
 }
 
-func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, localIndex int, factory QuerierFactory,
+func NewReplicatedQuerier(localStore prom_storage.Storage, localIndex int, factory QuerierFactory,
 	queryTimeout time.Duration, routingTable Routing, log *logger.Logger) *ReplicatedQuerier {
 	return &ReplicatedQuerier{
-		ctx:            ctx,
 		store:          localStore,
 		localIndex:     localIndex,
 		querierFactory: factory,
@@ -103,21 +103,18 @@ func NewReplicatedQuerier(ctx context.Context, localStore prom_storage.Storage, 
 	}
 }
 
-func (r *ReplicatedQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
-	ctx, cancel := context.WithTimeout(r.ctx, r.queryTimeout)
-	defer cancel()
-
+func (r *ReplicatedQuerier) Select(ctx context.Context, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	metricName, err := r.extractMetricName(matchers)
 	if err != nil {
 		return prom_storage.ErrSeriesSet(err)
 	}
 
 	if r.routingTable.IsLocal(metricName) {
-		localQuerier, err := r.store.Querier(ctx, 0, 0)
+		localQuerier, err := r.store.Querier(0, 0)
 		if err != nil {
 			return prom_storage.ErrSeriesSet(err)
 		}
-		return localQuerier.Select(sortSeries, params, matchers...)
+		return localQuerier.Select(ctx, sortSeries, params, matchers...)
 	}
 
 	ret, _, _ := r.queryWithRetries(ctx, r.routingTable.Lookup(metricName), sortSeries, params,
@@ -138,7 +135,7 @@ func (r *ReplicatedQuerier) extractMetricName(matchers []*labels.Matcher) (strin
 	return "", errors.New("no metric name present")
 }
 
-func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, annotations.Annotations, error) {
 	result, warnings, err := r.queryWithNodeFailover(ctx, nodes, sortSeries, params, matchers...)
 
 	if isConnectionError(err) {
@@ -148,7 +145,7 @@ func (r *ReplicatedQuerier) queryWithRetries(ctx context.Context, nodes []int, s
 	}
 }
 
-func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, annotations.Annotations, error) {
 	r.log.Info("unable to contact nodes to read. attempting retries",
 		logger.String("nodes", fmt.Sprintf("%v", nodes)))
 
@@ -171,7 +168,7 @@ func (r *ReplicatedQuerier) retryQueryWithBackoff(ctx context.Context, nodes []i
 	}
 }
 
-func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []int, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) (prom_storage.SeriesSet, annotations.Annotations, error) {
 	routing.Shuffle(nodes)
 	queriers := r.querierFactory.Build(ctx, nodes...)
 
@@ -183,7 +180,7 @@ func (r *ReplicatedQuerier) queryWithNodeFailover(ctx context.Context, nodes []i
 			continue
 		}
 
-		result = remoteQuerier.Select(sortSeries, params, matchers...)
+		result = remoteQuerier.Select(ctx, sortSeries, params, matchers...)
 		err = result.Err()
 
 		if !isConnectionError(err) {
@@ -211,12 +208,12 @@ func isConnectionError(err error) bool {
 	return errors.As(err, &opError)
 }
 
-func (r *ReplicatedQuerier) LabelNames(matchers ...*labels.Matcher) ([]string,
-	prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) LabelNames(ctx context.Context, matchers ...*labels.Matcher) ([]string,
+	annotations.Annotations, error) {
 	labelNamesMap := make(map[string]struct{})
 	//TODO The matchers is unused, but querier.LabelNames() expects
 	for _, querier := range r.querierFactory.Build(r.ctx) {
-		labelNames, _, _ := querier.LabelNames(matchers...)
+		labelNames, _, _ := querier.LabelNames(ctx, matchers...)
 		for _, labelName := range labelNames {
 			labelNamesMap[labelName] = struct{}{}
 		}
@@ -231,12 +228,12 @@ func (r *ReplicatedQuerier) LabelNames(matchers ...*labels.Matcher) ([]string,
 	return allLabelNames, nil, nil
 }
 
-func (r *ReplicatedQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
-	prom_storage.Warnings, error) {
+func (r *ReplicatedQuerier) LabelValues(ctx context.Context, name string, matchers ...*labels.Matcher) ([]string,
+	annotations.Annotations, error) {
 	var results [][]string
 
 	for _, querier := range r.querierFactory.Build(r.ctx) {
-		labelValues, _, _ := querier.LabelValues(name, matchers...)
+		labelValues, _, _ := querier.LabelValues(ctx, name, matchers...)
 		results = append(results, labelValues)
 	}
 

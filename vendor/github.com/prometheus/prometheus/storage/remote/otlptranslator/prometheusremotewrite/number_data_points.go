@@ -1,4 +1,4 @@
-// DO NOT EDIT. COPIED AS-IS. SEE README.md
+// DO NOT EDIT. COPIED AS-IS. SEE ../README.md
 
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
@@ -27,7 +27,7 @@ func addSingleGaugeNumberDataPoint(
 	settings Settings,
 	series map[string]*prompb.TimeSeries,
 ) {
-	name := prometheustranslator.BuildPromCompliantName(metric, settings.Namespace)
+	name := prometheustranslator.BuildCompliantName(metric, settings.Namespace, settings.AddMetricSuffixes)
 	labels := createAttributes(
 		resource,
 		pt.Attributes(),
@@ -60,7 +60,7 @@ func addSingleSumNumberDataPoint(
 	settings Settings,
 	series map[string]*prompb.TimeSeries,
 ) {
-	name := prometheustranslator.BuildPromCompliantName(metric, settings.Namespace)
+	name := prometheustranslator.BuildCompliantName(metric, settings.Namespace, settings.AddMetricSuffixes)
 	labels := createAttributes(
 		resource,
 		pt.Attributes(),
