@@ -113,7 +113,11 @@ var _ = Describe("Histogram Rollup", func() {
 			"0",
 			nil,
 		)
-
+		rollup.Record(
+			"source-id",
+			nil,
+			1*int64(time.Millisecond),
+		)
 		rollup.Record(
 			"source-id",
 			nil,

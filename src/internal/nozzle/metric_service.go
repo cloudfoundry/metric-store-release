@@ -190,7 +190,6 @@ func (s *MetricService) createPointsFromMetric(metric *otm.Metric, dataPoints []
 
 		val, err := s.getPointValue(rp)
 		if err != nil {
-			s.log.Info("bad type for gauge data rp")
 			continue
 		}
 		point := &rpc.Point{
@@ -201,7 +200,6 @@ func (s *MetricService) createPointsFromMetric(metric *otm.Metric, dataPoints []
 		}
 		s.metrics.Inc(metrics.OtelIngressMetricsTotal)
 
-		s.log.Log("Point:", point)
 		points = append(points, point)
 	}
 
