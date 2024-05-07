@@ -1,12 +1,13 @@
 package nozzle
 
 import (
+	"context"
 	"crypto/tls"
 	metricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/keepalive"
 	"net"
 	"time"
 
@@ -71,8 +72,14 @@ func NewOtelServer(
 	ts *TraceService,
 ) *OtelServer {
 
+	ctx, cancel := context.WithCancel(context.Background())
 	// Initialize the gRPC server and register the metric service
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 1 * time.Minute,
+			Time:              15 * time.Second,
+			Timeout:           10 * time.Second,
+		}))
 
 	// Return a new OtelServer instance containing the gRPC server and other relevant info
 	return &OtelServer{
@@ -80,6 +87,10 @@ func NewOtelServer(
 		log:        log,
 		ms:         ms,
 		ts:         ts,
+
+		ctx:    ctx,
+		cancel: cancel,
+		done:   make(chan struct{}, 1),
 	}
 }
 
@@ -88,29 +99,30 @@ func (s *OtelServer) startGRPCServer(addr string, otelTlsConfig *tls.Config) {
 	defer func() {
 		close(s.done)
 	}()
-
-	address, err := net.ResolveTCPAddr("tcp", s.addr)
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		s.log.Panic("Failed to resolve address", zap.Error(err))
 	}
-
-	listener, err := tls.Listen("tcp", address.String(), otelTlsConfig)
+	var listener net.Listener
+	listener, err = net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
 		s.log.Panic("Failed to start listener", zap.Error(err))
 	}
+
+	s.addr = listener.Addr().String()
+
 	defer listener.Close()
 
 	for {
-		// Accept incoming TCP connection
-		conn, err := listener.Accept()
+		listener = tls.NewListener(listener, otelTlsConfig)
 		if err != nil {
-			s.log.Error("Error while accepting connection", err)
-			err := conn.Close()
-			if err != nil {
-				return
-			}
-			continue
+			s.log.Panic("Failed to start listener for otel", zap.Error(err))
 		}
-		time.Sleep(time.Second * 5)
+		s.log.Info("Starting to listen on tcp:", logger.String("addr", addr))
+		if err := s.grpcServer.Serve(listener); err != nil {
+			s.log.Panic("Failed to serve gRPC server", logger.Error(err))
+		}
+		s.log.Info("Finished to GRPC", logger.String("addr", addr))
+
 	}
 }

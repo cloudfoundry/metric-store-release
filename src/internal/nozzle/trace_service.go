@@ -14,7 +14,7 @@ import (
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
-	"golang.org/x/net/context"
+	"context"
 
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	ot "go.opentelemetry.io/proto/otlp/trace/v1"
@@ -113,7 +113,7 @@ func (s *TraceService) StartListening() {
 		close(s.done)
 	}()
 
-	s.log.Info("starting trace service")
+	s.log.Info("Starting trace service")
 
 	go s.timerProcessor()
 	go s.timerRollup()
