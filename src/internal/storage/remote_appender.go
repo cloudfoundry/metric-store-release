@@ -168,7 +168,9 @@ func (a *RemoteAppender) createWriter() {
 	)
 	batcher.Start()
 }
-
+func (a *RemoteAppender) AppendCTZeroSample(ref prom_storage.SeriesRef, l labels.Labels, t, ct int64) (prom_storage.SeriesRef, error) {
+	return a.Append(ref, l, t, float64(ct))
+}
 func (a *RemoteAppender) Append(ref prom_storage.SeriesRef, l labels.Labels, timestamp int64, value float64) (prom_storage.SeriesRef, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

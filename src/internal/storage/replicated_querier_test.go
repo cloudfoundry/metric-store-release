@@ -3,6 +3,7 @@ package storage_test
 import (
 	"context"
 	"errors"
+	"github.com/prometheus/prometheus/util/annotations"
 	"net"
 	"time"
 
@@ -33,10 +34,11 @@ var _ = Describe("Querier", func() {
 			"returns an error if given a query that uses a matcher other than = on __name__",
 			func(in []*labels.Matcher, out error) {
 				factory := &testFactory{}
-				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, factory, 5*time.Second,
+				ctx := context.TODO()
+				querier := storage.NewReplicatedQuerier(nil, 0, factory, 5*time.Second,
 					nil, logger.NewTestLogger(GinkgoWriter))
 
-				Expect(querier.Select(false, nil, in...).Err()).To(Equal(out))
+				Expect(querier.Select(ctx, false, nil, in...).Err()).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{
 				Name:  "__name__",
@@ -64,21 +66,23 @@ var _ = Describe("Querier", func() {
 			factory := &testFactory{
 				queriers: []prom_storage.Querier{remoteQuerier, remoteQuerier, remoteQuerier},
 			}
-			return storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
+
+			return storage.NewReplicatedQuerier(testing.NewSpyStorage(localQuerier), 0,
 				factory, 5*time.Second, router, logger.NewTestLogger(GinkgoWriter))
 		}
 
 		Context("happy path", func() {
 			It("doesn't nil-ref on duplicate node addresses", func() {
 				subject := createTestSubject(nil, nil)
-				Expect(func() { subject.Select(false, nil) }).NotTo(Panic())
+				ctx := context.TODO()
+				Expect(func() { subject.Select(ctx, false, nil) }).NotTo(Panic())
 			})
 
 			It("calls remote node", func() {
 				spy := newSpyQuerier()
 				subject := createTestSubject(nil, spy)
-
-				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+				ctx := context.TODO()
+				Expect(subject.Select(ctx, false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
 
@@ -88,15 +92,15 @@ var _ = Describe("Querier", func() {
 
 				router := &mockRouting{lookupNodes: []int{0, 1}}
 
-				subject := storage.NewReplicatedQuerier(context.TODO(), testing.NewSpyStorage(localQuerier), 0,
+				subject := storage.NewReplicatedQuerier(testing.NewSpyStorage(localQuerier), 0,
 					&testFactory{queriers: []prom_storage.Querier{localQuerier, remoteQuerier}},
 					5*time.Second, router, logger.NewTestLogger(GinkgoWriter))
 
 				var attempts int
 				Consistently(func() bool {
 					attempts++
-
-					Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+					ctx := context.TODO()
+					Expect(subject.Select(ctx, false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 					Expect(remoteQuerier.callCount).To(Equal(0))
 					return localQuerier.callCount == attempts
 				}).Should(BeTrue())
@@ -107,24 +111,24 @@ var _ = Describe("Querier", func() {
 			It("does not fail over calls on non-connection error", func() {
 				spy := newSpyQuerierWithRepeatedErrors(errors.New("expected"), 3)
 				subject := createTestSubject(nil, spy)
-
-				Expect(subject.Select(false, nil, simpleQuery).Err()).To(HaveOccurred())
+				ctx := context.TODO()
+				Expect(subject.Select(ctx, false, nil, simpleQuery).Err()).To(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
 
 			It("fails over calls on connection error", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 3)
 				subject := createTestSubject(nil, spy)
-
-				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+				ctx := context.TODO()
+				Expect(subject.Select(ctx, false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(BeNumerically(">=", 3))
 			})
 
 			It("stops failing over once a result is returned", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 1)
 				subject := createTestSubject(nil, spy)
-
-				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+				ctx := context.TODO()
+				Expect(subject.Select(ctx, false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(2))
 			})
 
@@ -133,8 +137,8 @@ var _ = Describe("Querier", func() {
 					spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 7)
 					localQuerier := newSpyQuerier()
 					subject := createTestSubject(localQuerier, spy)
-
-					Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+					ctx := context.TODO()
+					Expect(subject.Select(ctx, false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 					Expect(spy.callCount).To(Equal(8))
 					Expect(localQuerier.callCount).To(Equal(0))
 				})
@@ -229,7 +233,7 @@ func newSpyQuerierWithRepeatedErrors(err error, count int) *spyQuerier {
 	return spy
 }
 
-func (q *spyQuerier) Select(sortSeries bool, hints *prom_storage.SelectHints,
+func (q *spyQuerier) Select(ctx context.Context, sortSeries bool, hints *prom_storage.SelectHints,
 	matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	q.callCount++
 	var err error
@@ -240,12 +244,12 @@ func (q *spyQuerier) Select(sortSeries bool, hints *prom_storage.SelectHints,
 	return prom_storage.ErrSeriesSet(err)
 }
 
-func (*spyQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
-	prom_storage.Warnings, error) {
+func (*spyQuerier) LabelValues(ctx context.Context, name string, matchers ...*labels.Matcher) ([]string,
+	annotations.Annotations, error) {
 	panic("implement me")
 }
 
-func (*spyQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings,
+func (*spyQuerier) LabelNames(ctx context.Context, matchers ...*labels.Matcher) ([]string, annotations.Annotations,
 	error) {
 	panic("implement me")
 }

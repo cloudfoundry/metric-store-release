@@ -1,6 +1,7 @@
 package scraping
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"io/ioutil"
 	"path/filepath"
 
@@ -21,6 +22,8 @@ type Scraper struct {
 	routingTable              *routing.RoutingTable
 	configFile                string
 	additionalScrapeConfigDir string
+	scrapeRegisterer          *prometheus.Registry
+	discoveryRegisterer       *prometheus.Registry
 }
 
 func New(scrapeConfigFile, additionalScrapeConfigDir string, log *logger.Logger, table *routing.RoutingTable) *Scraper {
@@ -29,6 +32,8 @@ func New(scrapeConfigFile, additionalScrapeConfigDir string, log *logger.Logger,
 		additionalScrapeConfigDir: additionalScrapeConfigDir,
 		log:                       log,
 		routingTable:              table,
+		scrapeRegisterer:          prometheus.NewRegistry(),
+		discoveryRegisterer:       prometheus.NewRegistry(),
 	}
 }
 
@@ -36,9 +41,16 @@ func (store *Scraper) Run(storage storage.Appendable) {
 	// TODO refactor this so the control flow is less weird
 	// note that LoadConfigs is passed to the reload api
 	// RS & JG 05/12/2020
-	store.scrapeManager = scrape.NewManager(nil, log.With(store.log, "component",
-		"scrape manager"), storage)
-	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log)
+	var err error
+	store.scrapeManager, err = scrape.NewManager(
+		nil,
+		log.With(store.log, "component", "scrape manager"),
+		storage,
+		store.scrapeRegisterer)
+	if err != nil {
+		panic(err)
+	}
+	store.discoveryAgent = discovery.NewDiscoveryAgent("scrape", store.log, store.discoveryRegisterer)
 	store.LoadConfigs()
 
 	store.discoveryAgent.Start()

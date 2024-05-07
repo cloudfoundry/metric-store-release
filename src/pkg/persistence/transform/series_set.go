@@ -2,12 +2,12 @@ package transform
 
 import (
 	"github.com/prometheus/prometheus/model/histogram"
+	"github.com/prometheus/prometheus/util/annotations"
 	"sort"
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
 
-	prom_storage "github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
 )
 
@@ -21,7 +21,7 @@ type concreteSeriesSet struct {
 	cur      int
 	series   []storage.Series
 	err      error
-	warnings prom_storage.Warnings
+	warnings annotations.Annotations
 }
 
 func (c *concreteSeriesSet) Next() bool {
@@ -37,7 +37,7 @@ func (c *concreteSeriesSet) Err() error {
 	return c.err
 }
 
-func (c *concreteSeriesSet) Warnings() storage.Warnings {
+func (c *concreteSeriesSet) Warnings() annotations.Annotations {
 	return c.warnings
 }
 
@@ -104,12 +104,15 @@ func (c *concreteSeriesIterator) Err() error {
 	return nil
 }
 
-func (c *concreteSeriesIterator) AtHistogram() (int64, *histogram.Histogram) {
-	return c.AtHistogram()
+func (c *concreteSeriesIterator) AtHistogram(h *histogram.Histogram) (int64, *histogram.Histogram) {
+	s := c.series.samples[c.cur]
+	return s.TimeInMilliseconds, nil
 }
 
-func (c *concreteSeriesIterator) AtFloatHistogram() (int64, *histogram.FloatHistogram) {
-	return c.AtFloatHistogram()
+func (c *concreteSeriesIterator) AtFloatHistogram(h *histogram.FloatHistogram) (int64, *histogram.FloatHistogram) {
+	s := c.series.samples[c.cur]
+
+	return s.TimeInMilliseconds, nil
 }
 
 func (c *concreteSeriesIterator) AtT() int64 {

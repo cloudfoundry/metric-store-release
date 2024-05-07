@@ -14,7 +14,7 @@ import (
 
 	_ "google.golang.org/grpc/encoding/gzip"
 
-	"golang.org/x/net/context"
+	"context"
 
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	ot "go.opentelemetry.io/proto/otlp/trace/v1"
@@ -113,7 +113,7 @@ func (s *TraceService) StartListening() {
 		close(s.done)
 	}()
 
-	s.log.Info("starting trace service")
+	s.log.Info("Starting trace service")
 
 	go s.timerProcessor()
 	go s.timerRollup()
@@ -146,9 +146,6 @@ func (s *TraceService) convertToSpan(sp *ot.Span) *rpc.Span {
 	}
 
 	if !s.allowListedTrace(tags) {
-		sourceId := tags["source_id"]
-		s.log.Log("msg", "TraceService.denied span:", "source_id", sourceId)
-
 		s.metrics.Inc(metrics.OtelDeniedSpansTotal)
 		return nil
 	}
@@ -222,7 +219,6 @@ func (s *TraceService) writeToChannelOrDiscard(points []*rpc.Point) []*rpc.Point
 func (s *TraceService) saveToStore() {
 	for {
 		points := <-s.pointBuffer
-		s.log.Info("TraceService: writing points to metrics store")
 		start := time.Now()
 		err := s.client.Write(points)
 		if err != nil {

@@ -119,10 +119,10 @@ func (app *NozzleApp) Run() {
 			WithNozzleTimerRollup(
 				10*time.Second,
 				[]string{
-					"status_code", "app_name", "app_id", "space_name",
-					"space_id", "organization_name", "organization_id",
-					"process_id", "process_instance_id", "process_type",
-					"instance_id",
+					"status_code",
+					"app_name", "app_id", "space_name", "space_id",
+					"organization_name", "organization_id", "process_id",
+					"process_instance_id", "process_type", "instance_id",
 				},
 				[]string{
 					"app_name", "app_id", "space_name", "space_id",

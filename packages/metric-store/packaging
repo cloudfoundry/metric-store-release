@@ -4,8 +4,7 @@ source /var/vcap/packages/golang-1-linux/bosh/compile.env
 export GOPATH=$BOSH_INSTALL_TARGET
 
 module_path="github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
-
-go build -mod=vendor \
+CGO_ENABLED=0 go build -mod=vendor \
   -ldflags "-X ${module_path}.SHA=$(cat sha)" \
   -o ${BOSH_INSTALL_TARGET}/metric-store \
   ./src/cmd/metric-store

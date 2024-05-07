@@ -14,11 +14,11 @@ type SpyStorage struct {
 	querier storage.Querier
 }
 
-func (s *SpyStorage) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
+func (s *SpyStorage) Querier(mint, maxt int64) (storage.Querier, error) {
 	return s.querier, nil
 }
 
-func (s *SpyStorage) ChunkQuerier(ctx context.Context, mint, maxt int64) (storage.ChunkQuerier, error) {
+func (s *SpyStorage) ChunkQuerier(mint, maxt int64) (storage.ChunkQuerier, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -43,6 +43,10 @@ func NewSpyStorage(querier storage.Querier) *SpyStorage {
 }
 
 type SpyAppender struct {
+}
+
+func (s SpyAppender) AppendCTZeroSample(ref storage.SeriesRef, l labels.Labels, t, ct int64) (storage.SeriesRef, error) {
+	return 0, nil
 }
 
 func (s SpyAppender) Append(ref storage.SeriesRef, l labels.Labels, t int64, v float64) (storage.SeriesRef, error) {

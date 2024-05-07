@@ -66,6 +66,10 @@ func WithAppenderLogger(log *logger.Logger) AppenderOption {
 	}
 }
 
+func (a *Appender) AppendCTZeroSample(ref storage.SeriesRef, l labels.Labels, time, ct int64) (storage.SeriesRef, error) {
+	return a.Append(ref, l, time, float64(ct))
+}
+
 func (a *Appender) Append(ref storage.SeriesRef, l labels.Labels, time int64, value float64) (storage.SeriesRef, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

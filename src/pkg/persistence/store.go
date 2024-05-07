@@ -45,7 +45,7 @@ type Store struct {
 	diskFreeReporter      diskFreeReporter
 }
 
-func (store *Store) ChunkQuerier(ctx context.Context, mint, maxt int64) (storage.ChunkQuerier, error) {
+func (store *Store) ChunkQuerier(_, _ int64) (storage.ChunkQuerier, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -124,9 +124,8 @@ func (store *Store) Compact() {
 	}
 }
 
-func (store *Store) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
+func (store *Store) Querier(mint, maxt int64) (storage.Querier, error) {
 	return NewQuerier(
-		ctx,
 		store.adapter,
 		store.metrics,
 	), nil

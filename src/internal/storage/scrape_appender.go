@@ -32,6 +32,10 @@ type ScrapeAppender struct {
 	appender prom_storage.Appender
 }
 
+func (s *ScrapeAppender) AppendCTZeroSample(ref prom_storage.SeriesRef, l labels.Labels, t, ct int64) (prom_storage.SeriesRef, error) {
+	return s.Append(ref, l, t, float64(ct))
+}
+
 func (s *ScrapeAppender) Append(ref prom_storage.SeriesRef, l labels.Labels, t int64, v float64) (prom_storage.SeriesRef, error) {
 	timeInNanoseconds := transform.MillisecondsToNanoseconds(t)
 

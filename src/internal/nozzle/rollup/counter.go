@@ -30,7 +30,6 @@ func NewCounterRollup(log *logger.Logger, nodeIndex string, rollupTags []string)
 
 func (r *counterRollup) Record(sourceId string, tags map[string]string, value int64) {
 	key := keyFromTags(r.rollupTags, sourceId, tags)
-	r.log.Log("msg", "CounterRollup: Record with key", "key", key)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -50,7 +49,6 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 		if err != nil {
 			continue
 		}
-		r.log.Log("msg", "CounterRollup: Rollup with ts", "timestamp", timestamp, "key", k, "value", float64(r.counters[k]))
 
 		countPoint := &rpc.Point{
 			Name:      GorouterHttpMetricName + "_total",
@@ -58,7 +56,6 @@ func (r *counterRollup) Rollup(timestamp int64) []*PointsBatch {
 			Value:     float64(r.counters[k]),
 			Labels:    labels,
 		}
-		r.log.Log("msg", "CounterRollup", "counter", countPoint)
 
 		batches = append(batches, &PointsBatch{
 			Points: []*rpc.Point{countPoint},

@@ -68,6 +68,9 @@ func (a *ReplicatedAppender) UpdateMetadata(ref prom_storage.SeriesRef, l labels
 	//TODO implement me
 	panic("implement me")
 }
+func (a *ReplicatedAppender) AppendCTZeroSample(ref prom_storage.SeriesRef, l labels.Labels, t, ct int64) (prom_storage.SeriesRef, error) {
+	return a.Append(ref, l, t, float64(ct))
+}
 
 func (a *ReplicatedAppender) Append(ref prom_storage.SeriesRef, l labels.Labels, t int64, v float64) (prom_storage.SeriesRef, error) {
 	for _, nodeIndex := range a.lookup(l.Get(labels.MetricName)) {
