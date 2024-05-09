@@ -11,7 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint:revive // Many legitimately empty blocks in this file.
 package parser
 
 import (
@@ -19,13 +18,15 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/prometheus/prometheus/promql/parser/posrange"
 )
 
 // Item represents a token or text string returned from the scanner.
 type Item struct {
-	Typ ItemType // The type of this Item.
-	Pos Pos      // The starting position, in bytes, of this Item in the input string.
-	Val string   // The value of this Item.
+	Typ ItemType     // The type of this Item.
+	Pos posrange.Pos // The starting position, in bytes, of this Item in the input string.
+	Val string       // The value of this Item.
 }
 
 // String returns a descriptive string for the Item.
@@ -58,11 +59,11 @@ func (i Item) Pretty(int) string { return i.String() }
 func (i ItemType) IsOperator() bool { return i > operatorsStart && i < operatorsEnd }
 
 // IsAggregator returns true if the Item belongs to the aggregator functions.
-// Returns false otherwise
+// Returns false otherwise.
 func (i ItemType) IsAggregator() bool { return i > aggregatorsStart && i < aggregatorsEnd }
 
 // IsAggregatorWithParam returns true if the Item is an aggregator that takes a parameter.
-// Returns false otherwise
+// Returns false otherwise.
 func (i ItemType) IsAggregatorWithParam() bool {
 	return i == TOPK || i == BOTTOMK || i == COUNT_VALUES || i == QUANTILE
 }
@@ -234,10 +235,6 @@ const eof = -1
 // stateFn represents the state of the scanner as a function that returns the next state.
 type stateFn func(*Lexer) stateFn
 
-// Pos is the position in a string.
-// Negative numbers indicate undefined positions.
-type Pos int
-
 type histogramState int
 
 const (
@@ -250,14 +247,14 @@ const (
 
 // Lexer holds the state of the scanner.
 type Lexer struct {
-	input       string  // The string being scanned.
-	state       stateFn // The next lexing function to enter.
-	pos         Pos     // Current position in the input.
-	start       Pos     // Start position of this Item.
-	width       Pos     // Width of last rune read from input.
-	lastPos     Pos     // Position of most recent Item returned by NextItem.
-	itemp       *Item   // Pointer to where the next scanned item should be placed.
-	scannedItem bool    // Set to true every time an item is scanned.
+	input       string       // The string being scanned.
+	state       stateFn      // The next lexing function to enter.
+	pos         posrange.Pos // Current position in the input.
+	start       posrange.Pos // Start position of this Item.
+	width       posrange.Pos // Width of last rune read from input.
+	lastPos     posrange.Pos // Position of most recent Item returned by NextItem.
+	itemp       *Item        // Pointer to where the next scanned item should be placed.
+	scannedItem bool         // Set to true every time an item is scanned.
 
 	parenDepth  int  // Nesting depth of ( ) exprs.
 	braceOpen   bool // Whether a { is opened.
@@ -278,7 +275,7 @@ func (l *Lexer) next() rune {
 		return eof
 	}
 	r, w := utf8.DecodeRuneInString(l.input[l.pos:])
-	l.width = Pos(w)
+	l.width = posrange.Pos(w)
 	l.pos += l.width
 	return r
 }
@@ -522,7 +519,7 @@ func lexHistogram(l *Lexer) stateFn {
 		return lexHistogram
 	case r == '-':
 		l.emit(SUB)
-		return lexNumber
+		return lexHistogram
 	case r == 'x':
 		l.emit(TIMES)
 		return lexNumber
@@ -569,13 +566,18 @@ Loop:
 				if l.peek() == ':' {
 					l.emit(desc)
 					return lexHistogram
-				} else {
-					l.errorf("missing `:` for histogram descriptor")
 				}
-			} else {
-				l.errorf("bad histogram descriptor found: %q", word)
+				l.errorf("missing `:` for histogram descriptor")
+				break Loop
 			}
-
+			// Current word is Inf or NaN.
+			if desc, ok := key[strings.ToLower(word)]; ok {
+				if desc == NUMBER {
+					l.emit(desc)
+					return lexHistogram
+				}
+			}
+			l.errorf("bad histogram descriptor found: %q", word)
 			break Loop
 		}
 	}
@@ -827,7 +829,7 @@ func lexSpace(l *Lexer) stateFn {
 
 // lexLineComment scans a line comment. Left comment marker is known to be present.
 func lexLineComment(l *Lexer) stateFn {
-	l.pos += Pos(len(lineComment))
+	l.pos += posrange.Pos(len(lineComment))
 	for r := l.next(); !isEndOfLine(r) && r != eof; {
 		r = l.next()
 	}

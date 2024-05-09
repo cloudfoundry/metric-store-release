@@ -29,6 +29,7 @@ import (
 	"github.com/prometheus/prometheus/model/histogram"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/timestamp"
+	"github.com/prometheus/prometheus/promql/parser/posrange"
 	"github.com/prometheus/prometheus/util/strutil"
 )
 
@@ -54,7 +55,7 @@ type parser struct {
 
 	// Everytime an Item is lexed that could be the end
 	// of certain expressions its end position is stored here.
-	lastClosing Pos
+	lastClosing posrange.Pos
 
 	yyParser yyParserImpl
 
@@ -71,8 +72,7 @@ func WithFunctions(functions map[string]*Function) Opt {
 }
 
 // NewParser returns a new parser.
-// nolint:revive
-func NewParser(input string, opts ...Opt) *parser {
+func NewParser(input string, opts ...Opt) *parser { //nolint:revive // unexported-return.
 	p := parserPool.Get().(*parser)
 
 	p.functions = Functions
@@ -121,7 +121,7 @@ func (p *parser) Close() {
 
 // ParseErr wraps a parsing error with line and position context.
 type ParseErr struct {
-	PositionRange PositionRange
+	PositionRange posrange.PositionRange
 	Err           error
 	Query         string
 
@@ -130,27 +130,7 @@ type ParseErr struct {
 }
 
 func (e *ParseErr) Error() string {
-	pos := int(e.PositionRange.Start)
-	lastLineBreak := -1
-	line := e.LineOffset + 1
-
-	var positionStr string
-
-	if pos < 0 || pos > len(e.Query) {
-		positionStr = "invalid position:"
-	} else {
-
-		for i, c := range e.Query[:pos] {
-			if c == '\n' {
-				lastLineBreak = i
-				line++
-			}
-		}
-
-		col := pos - lastLineBreak
-		positionStr = fmt.Sprintf("%d:%d:", line, col)
-	}
-	return fmt.Sprintf("%s parse error: %s", positionStr, e.Err)
+	return fmt.Sprintf("%s: parse error: %s", e.PositionRange.StartPosInput(e.Query, e.LineOffset), e.Err)
 }
 
 type ParseErrors []ParseErr
@@ -191,7 +171,7 @@ func ParseExpr(input string) (expr Expr, err error) {
 	return p.ParseExpr()
 }
 
-// ParseMetric parses the input into a metric
+// ParseMetric parses the input into a metric.
 func ParseMetric(input string) (m labels.Labels, err error) {
 	p := NewParser(input)
 	defer p.Close()
@@ -226,6 +206,20 @@ func ParseMetricSelector(input string) (m []*labels.Matcher, err error) {
 	}
 
 	return m, err
+}
+
+// ParseMetricSelectors parses a list of provided textual metric selectors into lists of
+// label matchers.
+func ParseMetricSelectors(matchers []string) (m [][]*labels.Matcher, err error) {
+	var matcherSets [][]*labels.Matcher
+	for _, s := range matchers {
+		matchers, err := ParseMetricSelector(s)
+		if err != nil {
+			return nil, err
+		}
+		matcherSets = append(matcherSets, matchers)
+	}
+	return matcherSets, nil
 }
 
 // SequenceValue is an omittable value in a sequence of time series values.
@@ -264,7 +258,6 @@ func ParseSeriesDesc(input string) (labels labels.Labels, values []SequenceValue
 
 		labels = result.labels
 		values = result.values
-
 	}
 
 	if len(p.parseErrors) != 0 {
@@ -275,12 +268,12 @@ func ParseSeriesDesc(input string) (labels labels.Labels, values []SequenceValue
 }
 
 // addParseErrf formats the error and appends it to the list of parsing errors.
-func (p *parser) addParseErrf(positionRange PositionRange, format string, args ...interface{}) {
+func (p *parser) addParseErrf(positionRange posrange.PositionRange, format string, args ...interface{}) {
 	p.addParseErr(positionRange, fmt.Errorf(format, args...))
 }
 
 // addParseErr appends the provided error to the list of parsing errors.
-func (p *parser) addParseErr(positionRange PositionRange, err error) {
+func (p *parser) addParseErr(positionRange posrange.PositionRange, err error) {
 	perr := ParseErr{
 		PositionRange: positionRange,
 		Err:           err,
@@ -366,9 +359,9 @@ func (p *parser) Lex(lval *yySymType) int {
 
 	switch typ {
 	case ERROR:
-		pos := PositionRange{
+		pos := posrange.PositionRange{
 			Start: p.lex.start,
-			End:   Pos(len(p.lex.input)),
+			End:   posrange.Pos(len(p.lex.input)),
 		}
 		p.addParseErr(pos, errors.New(p.yyParser.lval.item.Val))
 
@@ -378,7 +371,7 @@ func (p *parser) Lex(lval *yySymType) int {
 		lval.item.Typ = EOF
 		p.InjectItem(0)
 	case RIGHT_BRACE, RIGHT_PAREN, RIGHT_BRACKET, DURATION, NUMBER:
-		p.lastClosing = lval.item.Pos + Pos(len(lval.item.Val))
+		p.lastClosing = lval.item.Pos + posrange.Pos(len(lval.item.Val))
 	}
 
 	return int(typ)
@@ -423,6 +416,8 @@ func (p *parser) newBinaryExpression(lhs Node, op Item, modifiers, rhs Node) *Bi
 }
 
 func (p *parser) assembleVectorSelector(vs *VectorSelector) {
+	// If the metric name was set outside the braces, add a matcher for it.
+	// If the metric name was inside the braces we don't need to do anything.
 	if vs.Name != "" {
 		nameMatcher, err := labels.NewMatcher(labels.MatchEqual, labels.MetricName, vs.Name)
 		if err != nil {
@@ -436,7 +431,7 @@ func (p *parser) newAggregateExpr(op Item, modifier, args Node) (ret *AggregateE
 	ret = modifier.(*AggregateExpr)
 	arguments := args.(Expressions)
 
-	ret.PosRange = PositionRange{
+	ret.PosRange = posrange.PositionRange{
 		Start: op.Pos,
 		End:   p.lastClosing,
 	}
@@ -477,7 +472,7 @@ func (p *parser) newMap() (ret map[string]interface{}) {
 func (p *parser) mergeMaps(left, right *map[string]interface{}) (ret *map[string]interface{}) {
 	for key, value := range *right {
 		if _, ok := (*left)[key]; ok {
-			p.addParseErrf(PositionRange{}, "duplicate key \"%s\" in histogram", key)
+			p.addParseErrf(posrange.PositionRange{}, "duplicate key \"%s\" in histogram", key)
 			continue
 		}
 		(*left)[key] = value
@@ -677,11 +672,11 @@ func (p *parser) checkAST(node Node) (typ ValueType) {
 
 		// opRange returns the PositionRange of the operator part of the BinaryExpr.
 		// This is made a function instead of a variable, so it is lazily evaluated on demand.
-		opRange := func() (r PositionRange) {
+		opRange := func() (r posrange.PositionRange) {
 			// Remove whitespace at the beginning and end of the range.
-			for r.Start = n.LHS.PositionRange().End; isSpace(rune(p.lex.input[r.Start])); r.Start++ { // nolint:revive
+			for r.Start = n.LHS.PositionRange().End; isSpace(rune(p.lex.input[r.Start])); r.Start++ {
 			}
-			for r.End = n.RHS.PositionRange().Start - 1; isSpace(rune(p.lex.input[r.End])); r.End-- { // nolint:revive
+			for r.End = n.RHS.PositionRange().Start - 1; isSpace(rune(p.lex.input[r.End])); r.End-- {
 			}
 			return
 		}
@@ -796,7 +791,6 @@ func (p *parser) checkAST(node Node) (typ ValueType) {
 			// metric name is a non-empty matcher.
 			break
 		}
-
 		// A Vector selector must contain at least one non-empty matcher to prevent
 		// implicit selection of all metrics (e.g. by a typo).
 		notEmpty := false
@@ -878,10 +872,19 @@ func (p *parser) newLabelMatcher(label, operator, value Item) *labels.Matcher {
 	return m
 }
 
+func (p *parser) newMetricNameMatcher(value Item) *labels.Matcher {
+	m, err := labels.NewMatcher(labels.MatchEqual, labels.MetricName, value.Val)
+	if err != nil {
+		p.addParseErr(value.PositionRange(), err)
+	}
+
+	return m
+}
+
 // addOffset is used to set the offset in the generated parser.
 func (p *parser) addOffset(e Node, offset time.Duration) {
 	var orgoffsetp *time.Duration
-	var endPosp *Pos
+	var endPosp *posrange.Pos
 
 	switch s := e.(type) {
 	case *VectorSelector:
@@ -921,7 +924,7 @@ func (p *parser) setTimestamp(e Node, ts float64) {
 		p.addParseErrf(e.PositionRange(), "timestamp out of bounds for @ modifier: %f", ts)
 	}
 	var timestampp **int64
-	var endPosp *Pos
+	var endPosp *posrange.Pos
 
 	timestampp, _, endPosp, ok := p.getAtModifierVars(e)
 	if !ok {
@@ -950,11 +953,11 @@ func (p *parser) setAtModifierPreprocessor(e Node, op Item) {
 	*endPosp = p.lastClosing
 }
 
-func (p *parser) getAtModifierVars(e Node) (**int64, *ItemType, *Pos, bool) {
+func (p *parser) getAtModifierVars(e Node) (**int64, *ItemType, *posrange.Pos, bool) {
 	var (
 		timestampp **int64
 		preprocp   *ItemType
-		endPosp    *Pos
+		endPosp    *posrange.Pos
 	)
 	switch s := e.(type) {
 	case *VectorSelector:

@@ -3,7 +3,6 @@ package linodego
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -11,7 +10,9 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,7 +83,10 @@ type clientCacheEntry struct {
 	ExpiryOverride *time.Duration
 }
 
-type Request = resty.Request
+type (
+	Request = resty.Request
+	Logger  = resty.Logger
+)
 
 func init() {
 	// Wether or not we will enable Resty debugging output
@@ -121,11 +125,50 @@ func (c *Client) SetDebug(debug bool) *Client {
 	return c
 }
 
+// SetLogger allows the user to override the output
+// logger for debug logs.
+func (c *Client) SetLogger(logger Logger) *Client {
+	c.resty.SetLogger(logger)
+
+	return c
+}
+
 // OnBeforeRequest adds a handler to the request body to run before the request is sent
 func (c *Client) OnBeforeRequest(m func(request *Request) error) {
-	c.resty.OnBeforeRequest(func(client *resty.Client, req *resty.Request) error {
+	c.resty.OnBeforeRequest(func(_ *resty.Client, req *resty.Request) error {
 		return m(req)
 	})
+}
+
+// UseURL parses the individual components of the given API URL and configures the client
+// accordingly. For example, a valid URL.
+// For example:
+//
+//	client.UseURL("https://api.test.linode.com/v4beta")
+func (c *Client) UseURL(apiURL string) (*Client, error) {
+	parsedURL, err := url.Parse(apiURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+
+	// Create a new URL excluding the path to use as the base URL
+	baseURL := &url.URL{
+		Host:   parsedURL.Host,
+		Scheme: parsedURL.Scheme,
+	}
+
+	c.SetBaseURL(baseURL.String())
+
+	versionMatches := regexp.MustCompile(`/v[a-zA-Z0-9]+`).FindAllString(parsedURL.Path, -1)
+
+	// Only set the version if a version is found in the URL, else use the default
+	if len(versionMatches) > 0 {
+		c.SetAPIVersion(
+			strings.Trim(versionMatches[len(versionMatches)-1], "/"),
+		)
+	}
+
+	return c, nil
 }
 
 // SetBaseURL sets the base URL of the Linode v4 API (https://api.linode.com/v4)
@@ -166,7 +209,7 @@ func (c *Client) updateHostURL() {
 		apiProto = c.apiProto
 	}
 
-	c.resty.SetHostURL(
+	c.resty.SetBaseURL(
 		fmt.Sprintf(
 			"%s://%s/%s",
 			apiProto,
@@ -183,7 +226,7 @@ func (c *Client) SetRootCertificate(path string) *Client {
 }
 
 // SetToken sets the API token for all requests from this client
-// Only necessary if you haven't already provided an http client to NewClient() configured with the token.
+// Only necessary if you haven't already provided the http client to NewClient() configured with the token.
 func (c *Client) SetToken(token string) *Client {
 	c.resty.SetHeader("Authorization", fmt.Sprintf("Bearer %s", token))
 	return c
@@ -398,7 +441,7 @@ func NewClient(hc *http.Client) (client Client) {
 	certPath, certPathExists := os.LookupEnv(APIHostCert)
 
 	if certPathExists {
-		cert, err := ioutil.ReadFile(filepath.Clean(certPath))
+		cert, err := os.ReadFile(filepath.Clean(certPath))
 		if err != nil {
 			log.Fatalf("[ERROR] Error when reading cert at %s: %s\n", certPath, err.Error())
 		}
@@ -473,7 +516,7 @@ func (c *Client) preLoadConfig(configPath string) error {
 	}
 
 	// We don't want to load the profile until the user is actually making requests
-	c.OnBeforeRequest(func(request *Request) error {
+	c.OnBeforeRequest(func(_ *Request) error {
 		if c.loadedProfile != c.selectedProfile {
 			if err := c.UseProfile(c.selectedProfile); err != nil {
 				return err
