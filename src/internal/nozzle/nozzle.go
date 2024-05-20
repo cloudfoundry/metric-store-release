@@ -17,7 +17,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 
 	"code.cloudfoundry.org/go-loggregator/rpc/loggregator_v2"
-	"golang.org/x/net/context"
+	"context"
 )
 
 // Nozzle reads envelopes and writes points to metric-store.

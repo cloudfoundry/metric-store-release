@@ -1,11 +1,12 @@
 package nozzle
 
 import (
+	"context"
 	"crypto/tls"
 	metricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
+
 	_ "google.golang.org/grpc/encoding/gzip"
 	"net"
 	"time"
@@ -71,6 +72,7 @@ func NewOtelServer(
 	ts *TraceService,
 ) *OtelServer {
 
+	ctx, cancel := context.WithCancel(context.Background())
 	// Initialize the gRPC server and register the metric service
 	grpcServer := grpc.NewServer()
 
@@ -80,6 +82,10 @@ func NewOtelServer(
 		log:        log,
 		ms:         ms,
 		ts:         ts,
+
+		ctx:    ctx,
+		cancel: cancel,
+		done:   make(chan struct{}, 1),
 	}
 }
 
