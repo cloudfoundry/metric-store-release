@@ -42,15 +42,22 @@ product-name: cf
 product-properties:
   .properties.otel_collector_metric_exporters_config:
     value: |-
-      prometheus:
-        endpoint: ":53035"
+      prometheus/healthwatch:
+        endpoint: ":65331"
         add_metric_suffixes: false
         tls:
           ca_pem: ${ca_cert}
           cert_pem: "${hw_cert_pem}"
           key_pem: "${hw_private_key_pem}"
-      otlp:
+      prometheus/tss:
+        endpoint: ":65332"
+      otlp/metric-store-metrics:
         endpoint: dns:metric-store.service.internal:6062
+        retry_on_failure:
+          enabled: true
+          max_interval: 90s
+          max_elapsed_time: 600s
+        balancer_name: round_robin
         tls:
           insecure_skip_verify: true
           ca_pem: ${ca_cert}
