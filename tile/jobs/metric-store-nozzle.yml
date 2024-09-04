@@ -5,7 +5,7 @@ consumes: |
   reverse_log_proxy: {from: reverse_log_proxy, deployment: ((  ..cf.deployment_name  ))}
 manifest: |
   enable_envelope_selector: (( .properties.enable_envelope_selector.value ))
-  firehose_enabled: (( ..cf.properties.enable_v2_firehose.value ))
+  firehose_enabled: "(( .properties.use_otel_for_metrics_collection.value ? false : true ))"
   logs_provider:
     tls:
       ca_cert: (( $ops_manager.ca_certificate ))

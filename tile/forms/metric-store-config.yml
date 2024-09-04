@@ -9,5 +9,8 @@ property_inputs:
     label: Max Concurrent Queries
     description: Queue queries after this maximum number of queries running concurrently per node
   - reference: .properties.enable_envelope_selector
-    label: Enable Envelope Selector
-    description: Enable envelopes with specified tags. If enabled, only envelopes with specific tags will keep. By default envelopes with app_id and applicationGuid tags are enabled.
+    label: Only store Application Metrics
+    description: If enabled, only envelopes with application specific tags, app_id and applicationGuid, will be kept.
+  - reference: .properties.use_otel_for_metrics_collection
+    label: Use Open Telemetry for Metrics Collection
+    description: Use Open Telemetry for Metrics Collection instead of the firehose. Requires TAS 7+

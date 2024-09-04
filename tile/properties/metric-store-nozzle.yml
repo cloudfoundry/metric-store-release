@@ -28,7 +28,7 @@
   type: boolean
   default: false
   configurable: true
-- name: firehose_enabled
+- name: use_otel_for_metrics_collection
   type: boolean
-  default: true
-  configurable: false
+  default: false
+  configurable: true
