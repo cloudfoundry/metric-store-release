@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$(cd $(dirname $0) && pwd)
+
+if [ -z "${OM_TARGET}" ] || [ -z "${OM_USERNAME}" ] || [ -z "${OM_PASSWORD}" ]; then
+  echo "OM_TARGET, OM_USERNAME, and OM_PASSWORD must be set"
+  return
+fi
+
+echo "Configuring $OM_TARGET"
+
+CERTS_DIR=$SCRIPT_DIR/certs
+mkdir "$CERTS_DIR"
+
+export AVAILABLE_PRODUCTS=$(om products --deployed  -f json)
+
+function get-certs() {
+  echo "Getting $PRODUCT cert of $CERT_NAME"
+
+  export HAS_PRODUCT=$( echo "$AVAILABLE_PRODUCTS" | grep "\"$PRODUCT\"")
+  if [ -n "$HAS_PRODUCT" ]; then
+    export KEY_FILE=$CERTS_DIR/key.pem
+    om -k credentials -p "${PRODUCT}" -c "${CERT_NAME}" -f private_key_pem > "${KEY_FILE}"
+    export private_key_pem="$(awk '{printf "%s\\n", $0}' "${KEY_FILE}" )"
+    echo "received $private_key_pem"
+
+    export CERT_FILE=$CERTS_DIR/cert.pem
+    om -k credentials -p "${PRODUCT}" -c "${CERT_NAME}" -f cert_pem > "${CERT_FILE}"
+    export cert_pem="$(awk '{printf "%s\\n", $0}' "${CERT_FILE}" )"
+    echo "received $cert_pem"
+  fi
+}
+
+export SYS_DOMAIN=$(cat "${ENVIRONMENT_LOCK_METADATA}" | jq -r .sys_domain)
+export ca_cert="$(om certificate-authorities -f json | jq '.[0].cert_pem')"
+export CA_FILE=$CERTS_DIR/ca_cert.pem
+cat "${ca_cert}" > "$CA_FILE"
+
+cat <<-HEREDOC > otel-config.yaml
+---
+product-name: cf
+product-properties:
+  .properties.otel_collector_metric_exporters_config:
+    value: |-
+HEREDOC
+
+PRODUCT="p-healthwatch2" CERT_NAME=".properties.healthwatch_exporter_client_mtls" get-certs
+if [ -n "$HAS_PRODUCT" ]; then
+cat <<-HEREDOC > prometheus-config.yaml
+        prometheus/healthwatch:
+          endpoint: ":65331"
+          add_metric_suffixes: false
+          tls:
+            ca_pem: ${ca_cert}
+            cert_pem: "${cert_pem}"
+            key_pem: "${private_key_pem}"
+HEREDOC
+  cat prometheus-config.yaml >> otel-config.yaml
+fi
+
+PRODUCT="metric-store" CERT_NAME=".properties.otel_provider_mtls" get-certs
+if [ -n "$HAS_PRODUCT" ]; then
+cat <<-HEREDOC > metric-store-config.yaml
+        otlp/metric-store-metrics:
+          endpoint: dns:metric-store.service.internal:6061
+          retry_on_failure:
+            enabled: true
+            max_interval: 90s
+            max_elapsed_time: 600s
+          balancer_name: round_robin
+          tls:
+            insecure_skip_verify: true
+            ca_pem: ${ca_cert}
+            cert_pem: "${cert_pem}"
+            key_pem: "${private_key_pem}"
+HEREDOC
+
+cat metric-store-config.yaml >> otel-config.yaml
+
+cat <<-HEREDOC > trace-config.yaml
+  .properties.otel_collector_trace_exporter_config:
+    value: |-
+        otlp/metric-store-traces:
+          endpoint: dns:metric-store.service.internal:6061
+          retry_on_failure:
+            enabled: true
+            max_interval: 90s
+            max_elapsed_time: 600s
+          balancer_name: round_robin
+          tls:
+            insecure_skip_verify: true
+            ca_pem: ${ca_cert}
+            cert_pem: "${cert_pem}"
+            key_pem: "${private_key_pem}"
+HEREDOC
+
+cat trace-config.yaml >> otel-config.yaml
+fi
+
+# curl --cert "${CERT_FILE}" --key "${KEY_FILE}" --cacert "${CA_FILE}"
+
+echo "CF Config"
+echo "==================================="
+cat otel-config.yaml
+echo "==================================="
+om configure-product -p cf -c otel-config.yaml #&& om apply-changes --product-name cf

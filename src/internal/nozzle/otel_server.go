@@ -51,7 +51,7 @@ func (s *OtelServer) Close() error {
 }
 
 func (s *OtelServer) Start(addr string, otelTlsConfig *tls.Config) {
-	s.log.Info("OtelServer starting grpc server")
+	s.log.Info("OtelServer starting grpc server at ", zap.String("address", addr))
 	go s.startGRPCServer(addr, otelTlsConfig)
 
 	s.log.Info("Registering Metrics and Trace Server")
