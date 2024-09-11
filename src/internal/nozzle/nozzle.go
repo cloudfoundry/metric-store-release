@@ -52,7 +52,7 @@ type StreamConnector interface {
 
 const (
 	BATCH_FLUSH_INTERVAL = 500 * time.Millisecond
-	BATCH_CHANNEL_SIZE   = 512
+	BATCH_CHANNEL_SIZE   = 1024
 )
 
 func NewNozzle(c StreamConnector, ingressAddr string, tlsConfig *tls.Config, shardId string, nodeIndex int, filterMetrics bool, allowListTags []string, opts ...Option) *Nozzle {
@@ -263,7 +263,7 @@ func (n *Nozzle) timerEmitter() {
 			points = append(points, pointsBatch.Points...)
 			size += pointsBatch.Size
 
-			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
+			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES || len(points) >= BATCH_CHANNEL_SIZE {
 				points = n.writeToChannelOrDiscard(points)
 				size = 0
 			}
@@ -273,7 +273,7 @@ func (n *Nozzle) timerEmitter() {
 			points = append(points, pointsBatch.Points...)
 			size += pointsBatch.Size
 
-			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES {
+			if size >= ingressclient.MAX_BATCH_SIZE_IN_BYTES || len(points) >= BATCH_CHANNEL_SIZE {
 				points = n.writeToChannelOrDiscard(points)
 				size = 0
 			}
