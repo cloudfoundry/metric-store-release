@@ -29,7 +29,7 @@ func (p *Point) EstimatePointSize() (size int) {
 
 	// add the size of all label keys and values
 	for k, v := range p.Labels {
-		size += (len(k) + len(v))
+		size += len(k) + len(v)
 	}
 
 	return size
