@@ -31,7 +31,7 @@ processes:
     LOGS_PROVIDER_KEY_PATH:  "<%= "#{cert_dir}/logs_provider.key" %>"
 
     # Otel Provider
-    OTEL_ADDR:               "<%= ":#{p('otel_port')}" %>"
+    OTEL_ADDR:               "<%= "#{p('otel_port')}" %>"
     OTEL_PROVIDER_CA_PATH:   "<%= "#{cert_dir}/otel_provider_ca.crt" %>"
     OTEL_PROVIDER_CERT_PATH: "<%= "#{cert_dir}/otel_provider.crt" %>"
     OTEL_PROVIDER_KEY_PATH:  "<%= "#{cert_dir}/otel_provider.key" %>"
