@@ -1,13 +1,14 @@
 package nozzle
 
 import (
+	"strconv"
+	"time"
+
 	"code.cloudfoundry.org/go-diodes"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/nozzle/rollup"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
-	"strconv"
-	"time"
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/ingressclient"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
@@ -159,8 +160,6 @@ func (s *TraceService) convertToSpan(sp *ot.Span) *rpc.Span {
 }
 
 func (s *TraceService) addToRollup(span *rpc.Span) {
-	s.log.Log("msg", "TraceService.addToRollup:", "span", span)
-
 	s.totalRollup.Record(span.SourceId, span.Labels, 1)
 	s.durationRollup.Record(span.SourceId, span.Labels, span.Duration)
 }

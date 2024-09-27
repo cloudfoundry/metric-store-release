@@ -14,7 +14,6 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 type OtelServer struct {
@@ -55,14 +54,13 @@ func (s *OtelServer) Start(addr string, otelTlsConfig *tls.Config) {
 	s.log.Info("OtelServer starting grpc server at ", zap.String("address", addr))
 
 	// Initialize gRPC server with TLS credentials
-	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(otelTlsConfig)))
+	grpcServer := grpc.NewServer()
+	// Start the gRPC server in a separate goroutine
+	go s.startGRPCServer(addr, grpcServer, otelTlsConfig)
 
 	// Register Metric and Trace services with the gRPC server
 	metricspb.RegisterMetricsServiceServer(grpcServer, s.ms)
 	tracepb.RegisterTraceServiceServer(grpcServer, s.ts)
-
-	// Start the gRPC server in a separate goroutine
-	go s.startGRPCServer(addr, grpcServer)
 
 	s.log.Info("Starting Metrics and Trace Servers")
 	s.ms.StartListening()
@@ -89,7 +87,7 @@ func NewOtelServer(
 }
 
 // StartGRPCServer starts the gRPC server and listens for incoming connections.
-func (s *OtelServer) startGRPCServer(addr string, grpcServer *grpc.Server) {
+func (s *OtelServer) startGRPCServer(addr string, grpcServer *grpc.Server, otelTlsConfig *tls.Config) {
 	defer func() {
 		close(s.done)
 	}()
@@ -99,8 +97,7 @@ func (s *OtelServer) startGRPCServer(addr string, grpcServer *grpc.Server) {
 	if err != nil {
 		s.log.Panic("Failed to resolve address", zap.Error(err))
 	}
-
-	listener, err := net.ListenTCP("tcp", resolvedAddr)
+	listener, err := tls.Listen("tcp", resolvedAddr.String(), otelTlsConfig)
 	if err != nil {
 		s.log.Panic("Failed to start listener", zap.Error(err))
 	}
