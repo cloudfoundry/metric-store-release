@@ -29,7 +29,7 @@ type InfluxStore interface {
 	Statistics(database map[string]string) []models.Statistic
 	TagKeys(ctx context.Context, auth query.FineAuthorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagKeys, error)
 	TagValues(ctx context.Context, auth query.FineAuthorizer, shardIDs []uint64, cond influxql.Expr) ([]tsdb.TagValues, error)
-	WriteToShard(shardId uint64, points []models.Point) error
+	WriteToShard(writeCtx tsdb.WriteContext, shardId uint64, points []models.Point) error
 }
 
 type InfluxAdapter struct {
@@ -39,6 +39,10 @@ type InfluxAdapter struct {
 	influx InfluxStore
 	shards sync.Map
 	mu     sync.Mutex
+
+	ctx    context.Context
+	cancel func()
+	done   chan struct{}
 }
 
 func NewInfluxAdapter(influx InfluxStore, metrics metrics.Registrar, log *logger.Logger) *InfluxAdapter {
@@ -75,7 +79,7 @@ func (t *InfluxAdapter) WritePoints(points []*rpc.Point) error {
 			return tsdb.ErrShardDeletion
 		}
 
-		err := t.influx.WriteToShard(shardId, points)
+		err := t.influx.WriteToShard(tsdb.WriteContext{UserId: ""}, shardId, points)
 
 		if err != nil {
 			return err

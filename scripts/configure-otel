@@ -18,18 +18,22 @@ function get-certs() {
   echo "Getting $PRODUCT cert of $CERT_NAME"
 
   export HAS_PRODUCT=$( echo "$AVAILABLE_PRODUCTS" | grep "\"$PRODUCT\"")
-    if [ -n "$HAS_PRODUCT" ]; then
+  echo "Environment HAS_PRODUCT=$HAS_PRODUCT $PRODUCT "
+  if [ -n "$HAS_PRODUCT" ]; then
     export KEY_FILE=$CERTS_DIR/key.pem
     om -k credentials -p "${PRODUCT}" -c "${CERT_NAME}" -f private_key_pem > "${KEY_FILE}"
-    export cert_pem="$(awk '{printf "%s\\n", $0}' "${CERT_FILE}" )"
+    export private_key_pem="$(awk '{printf "%s\\n", $0}' "${KEY_FILE}" )"
+    echo "Populating key.pem"
 
     export CERT_FILE=$CERTS_DIR/cert.pem
     om -k credentials -p "${PRODUCT}" -c "${CERT_NAME}" -f cert_pem > "${CERT_FILE}"
-    export private_key_pem="$(awk '{printf "%s\\n", $0}' "${KEY_FILE}" )"
+    export cert_pem="$(awk '{printf "%s\\n", $0}' "${CERT_FILE}" )"
+    echo "Populating cert.pem"
 
-    export ca_cert="$(om certificate-authorities -f json | jq '.[0].cert_pem')"
     export CA_FILE=$CERTS_DIR/ca_cert.pem
+    export ca_cert="$(om certificate-authorities -f json | jq '.[0].cert_pem')"
     cat "${ca_cert}" > "$CA_FILE"
+    echo "Populating ca_cert.pem"
   fi
 }
 

@@ -8,3 +8,4 @@ files:
 - cmd/**/*.go
 - internal/**/*.go
 - pkg/**/*.go
+- pkg-config/pkg-config-*.tgz
