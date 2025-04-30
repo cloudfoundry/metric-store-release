@@ -1,7 +1,7 @@
 #!/bin/bash
 
 TILE_NAME=metric-store
-RELEASE_VERSION=${RELEASE_VERSION:-1.7.0-dev.$(date +%s)}
+RELEASE_VERSION=${RELEASE_VERSION:-1.7.1-dev.$(date +%s)}
 STEMCELL_VERSION=${STEMCELL_VERSION:-1.44}
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
@@ -48,9 +48,15 @@ pushd ${PROJECT_DIR}/tmp
               ${URL} || true
         done
     popd
-
+    echo_green "Releases downloaded to $(pwd)/releases"
+    for release in routing-release bpm-release metric-store; do
+      echo "Adding release: ${release}"
+      mv releases/${release} releases/${release}-"${RELEASE_VERSION}".tgz
+    done
+    echo_green "Releases renamed to include version"
+    
     TILE_FILE=${TILE_NAME}-${RELEASE_VERSION}.pivotal
-
+    echo_green "Creating tile $TILE_FILE"
     echo_green "Baking tile $TILE_FILE"
 
     kiln bake \

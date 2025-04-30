@@ -2,7 +2,6 @@ package app
 
 import (
 	"crypto/tls"
-	"github.com/prometheus/client_golang/prometheus"
 	"log"
 	"net"
 	"os"
@@ -10,6 +9,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"code.cloudfoundry.org/go-loggregator"
 	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
@@ -142,6 +143,7 @@ func (app *NozzleApp) Run() {
 			app.cfg.OtelProviderTLS.KeyPath,
 			metric_store.COMMON_NAME,
 		)
+		otelTLSConfig.NextProtos = []string{"h2"}
 		if err != nil {
 			app.log.Fatal("failed to load otel tls config for metric store", err)
 		}
