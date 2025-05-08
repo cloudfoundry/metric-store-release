@@ -25,7 +25,7 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
-          if [ -z "$(gi t status --porcelain)" ]; then
+          if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit"
           else
             git add -A
