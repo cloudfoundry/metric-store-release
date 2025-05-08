@@ -28,35 +28,35 @@ jobs:
   packages:
   - metric-store-nozzle
 packages:
-- name: golang-1.23-linux
-  version: 28d469386dd272ae9b14aae21f084fe40f07f84a8e04024d18c13e47e5e620a9
-  fingerprint: 28d469386dd272ae9b14aae21f084fe40f07f84a8e04024d18c13e47e5e620a9
-  sha1: sha256:91a62e7569260bfeaad11b691db77830ca8885a9b62abf606d6900db619ad121
+- name: golang-1-linux
+  version: bcf5419ffb1fd9657c2de80b44ac040970f99dff95418a32b7e0e1406747a89a
+  fingerprint: bcf5419ffb1fd9657c2de80b44ac040970f99dff95418a32b7e0e1406747a89a
+  sha1: sha256:ccf2dcc274c89cbffaf8c01c1919cc1e45e6a7fbc9cfa7701cb8c3d673558149
   dependencies: []
 - name: metric-store
   version: 4853940f202f8202fc39a383013569c9c7818e406fb0a5783bb7a06fe718bfcf
   fingerprint: 4853940f202f8202fc39a383013569c9c7818e406fb0a5783bb7a06fe718bfcf
   sha1: sha256:fb2fb336bbd5877bef29ee6bd364d75124b96a0721005b11e0e23747b0652c82
   dependencies:
-  - golang-1.23-linux
+  - golang-1-linux
 - name: metric-store-blackbox
   version: 545cf40f1aa7fb4fd4caa292b12ef04ebd9f6650d63c4a34f42e317a2b4c0b0f
   fingerprint: 545cf40f1aa7fb4fd4caa292b12ef04ebd9f6650d63c4a34f42e317a2b4c0b0f
   sha1: sha256:e03acecf0d123021b3302bbc82f4bbb575df0f6977440b6f48157617de0fdacd
   dependencies:
-  - golang-1.23-linux
+  - golang-1-linux
 - name: metric-store-cf-auth-proxy
   version: cfdeec9718a7c814e70cc0eb2fada167503cfb5d0fa8cc9cac0a163673b7cc9d
   fingerprint: cfdeec9718a7c814e70cc0eb2fada167503cfb5d0fa8cc9cac0a163673b7cc9d
   sha1: sha256:0d6d558d0cda9e658bbc06b2b2664e6675035cae524b3ca43b7a8c3de86132bd
   dependencies:
-  - golang-1.23-linux
+  - golang-1-linux
 - name: metric-store-nozzle
   version: ad36e719fc29937f355cb32e967c08b1334d95f7d30d9bb9edad2a83630a1b9e
   fingerprint: ad36e719fc29937f355cb32e967c08b1334d95f7d30d9bb9edad2a83630a1b9e
   sha1: sha256:07d90810d0c54a3f2210726ebf8e1f03486adf1f48cffeb36a939d77b9525f5d
   dependencies:
-  - golang-1.23-linux
+  - golang-1-linux
 license:
   version: 36908509006d02558e00213ac84f8acbe21ceae87858e9b06075bcd1d28f73e3
   fingerprint: 36908509006d02558e00213ac84f8acbe21ceae87858e9b06075bcd1d28f73e3
