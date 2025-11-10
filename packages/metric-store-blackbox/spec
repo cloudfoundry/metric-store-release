@@ -2,7 +2,7 @@
 name: metric-store-blackbox
 
 dependencies:
-- golang-1.23-linux
+- golang-1.25-linux
 
 files:
 - cmd/**/*.go

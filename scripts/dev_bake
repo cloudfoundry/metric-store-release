@@ -1,8 +1,8 @@
 #!/bin/bash
 
 TILE_NAME=metric-store
-RELEASE_VERSION=${RELEASE_VERSION:-1.7.1-dev.$(date +%s)}
-STEMCELL_VERSION=${STEMCELL_VERSION:-1.44}
+RELEASE_VERSION=${RELEASE_VERSION:-1.8.1-dev.$(date +%s)}
+STEMCELL_VERSION=${STEMCELL_VERSION:-1.954}
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
 
