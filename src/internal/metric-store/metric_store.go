@@ -91,6 +91,11 @@ type MetricStore struct {
 
 	replicatedStorage prom_storage.Storage
 
+	// Internode connection configuration
+	internodeMaxRetries     int
+	internodeRetryDelay     time.Duration
+	internodeConnectTimeout time.Duration
+
 	// Query Engine Parameters
 	queryTimeout         time.Duration
 	activeQueryLogPath   string
@@ -117,6 +122,10 @@ func New(localStore prom_storage.Storage, storagePath string, ingressTLSConfig, 
 		internodeTLSClientConfig: internodeTLSClientConfig,
 		egressTLSConfig:          egressTLSConfig,
 		storagePath:              storagePath,
+
+		internodeMaxRetries:     leanstreams.DefaultMaxRetries,
+		internodeRetryDelay:     leanstreams.DefaultRetryDelay,
+		internodeConnectTimeout: leanstreams.DefaultConnectTimeout,
 
 		activeQueryLogPath:   filepath.Join(storagePath, "activequeries"),
 		maxConcurrentQueries: 20,
@@ -210,6 +219,15 @@ func WithScraper(scraper *scraping.Scraper) MetricStoreOption {
 	}
 }
 
+// WithInternodeConnectionConfig sets the connection configuration for internode communication
+func WithInternodeConnectionConfig(maxRetries int, retryDelay, connectTimeout time.Duration) MetricStoreOption {
+	return func(store *MetricStore) {
+		store.internodeMaxRetries = maxRetries
+		store.internodeRetryDelay = retryDelay
+		store.internodeConnectTimeout = connectTimeout
+	}
+}
+
 /////////////////////////////////////////////////
 // Query Engine Options
 
@@ -264,6 +282,11 @@ func (store *MetricStore) Start() {
 		storage.WithReplicatedLogger(store.log),
 		storage.WithReplicatedHandoffStoragePath(store.handoffStoragePath),
 		storage.WithReplicatedMetrics(store.metrics),
+		storage.WithInternodeConnectionConfig(
+			store.internodeMaxRetries,
+			store.internodeRetryDelay,
+			store.internodeConnectTimeout,
+		),
 	)
 
 	queryEngine := store.createEngine()

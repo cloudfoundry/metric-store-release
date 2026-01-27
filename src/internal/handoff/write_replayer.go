@@ -10,6 +10,7 @@ import (
 
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/ticker"
+	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/rpc"
 )
@@ -55,8 +56,9 @@ type WriteReplayer struct {
 	mu   sync.RWMutex
 	done chan struct{}
 
-	queue  Queue
-	client tcpClient
+	queue              Queue
+	client             tcpClient             // static client (legacy)
+	reconnectableClient reconnectableClient  // client that can reconnect
 
 	log     *logger.Logger
 	metrics metrics.Registrar
@@ -64,6 +66,11 @@ type WriteReplayer struct {
 
 type tcpClient interface {
 	Write(data []byte) (int, error)
+}
+
+// reconnectableClient is satisfied by *leanstreams.Connection
+type reconnectableClient interface {
+	Client() (*leanstreams.TCPClient, error)
 }
 
 type Queue interface {
@@ -106,6 +113,12 @@ type WriteReplayerOption func(*WriteReplayer)
 func WithWriteReplayerLogger(log *logger.Logger) WriteReplayerOption {
 	return func(w *WriteReplayer) {
 		w.log = log
+	}
+}
+
+func WithWriteReplayerReconnectableClient(client reconnectableClient) WriteReplayerOption {
+	return func(w *WriteReplayer) {
+		w.reconnectableClient = client
 	}
 }
 
@@ -225,7 +238,28 @@ func (w *WriteReplayer) SendWrite() (int, error) {
 		return 0, err
 	}
 
-	bytesWritten, err := w.client.Write(payload)
+	// Get the client to use for writing
+	var client tcpClient
+	if w.reconnectableClient != nil {
+		// Use reconnectable client (preferred) - it will attempt to reconnect if needed
+		client, err = w.reconnectableClient.Client()
+		if err != nil {
+			w.log.Error("error getting client for replay", err)
+			w.metrics.Inc(metrics.MetricStoreReplayerReplayErrorsTotal, w.targetNodeIndex)
+			return 0, err
+		}
+	} else {
+		// Fallback to static client (legacy behavior)
+		client = w.client
+		if client == nil {
+			err := fmt.Errorf("no client available")
+			w.log.Error("error replaying", err)
+			w.metrics.Inc(metrics.MetricStoreReplayerReplayErrorsTotal, w.targetNodeIndex)
+			return 0, err
+		}
+	}
+
+	bytesWritten, err := client.Write(payload)
 
 	if err != nil {
 		w.log.Error("error replaying", err)

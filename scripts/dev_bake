@@ -1,8 +1,8 @@
 #!/bin/bash
 
 TILE_NAME=metric-store
-RELEASE_VERSION=${RELEASE_VERSION:-1.8.1-dev.$(date +%s)}
-STEMCELL_VERSION=${STEMCELL_VERSION:-1.954}
+RELEASE_VERSION=${RELEASE_VERSION:-1.8.2-dev.$(date +%s)}
+STEMCELL_VERSION=${STEMCELL_VERSION:-1.990}
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.."; pwd)"
 
@@ -39,6 +39,7 @@ pushd ${PROJECT_DIR}/tmp
 
     pushd releases
         for URL in ${RELEASE_URLS[@]}; do
+            echo_green "Fetching release from ${URL}..."
             curl \
               --location \
               --remote-name \
@@ -46,6 +47,8 @@ pushd ${PROJECT_DIR}/tmp
               --silent \
               --retry 5 \
               ${URL} || true
+            mv bpm-release ${PROJECT_DIR}/tmp/releases/bpm-release.tgz
+            mv routing-release ${PROJECT_DIR}/tmp/releases/routing-release.tgz
         done
     popd
     echo_green "Releases downloaded to $(pwd)/releases"

@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/config"
 
-	"github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
+	metric_store "github.com/cloudfoundry/metric-store-release/src/internal/metric-store"
 	"github.com/cloudfoundry/metric-store-release/src/internal/metrics"
 	"github.com/cloudfoundry/metric-store-release/src/internal/routing"
 	"github.com/cloudfoundry/metric-store-release/src/internal/scraping"
@@ -133,6 +133,11 @@ func (app *MetricStoreApp) Run() {
 		metric_store.WithQueryTimeout(app.cfg.QueryTimeout),
 		metric_store.WithQueryLogging(app.cfg.LogQueries),
 		metric_store.WithConcurrentQueryLimit(app.cfg.MaxConcurrentQueries),
+		metric_store.WithInternodeConnectionConfig(
+			app.cfg.InternodeMaxRetries,
+			app.cfg.InternodeRetryDelay,
+			app.cfg.InternodeConnectTimeout,
+		),
 	)
 	store.Start()
 
@@ -253,6 +258,18 @@ func (app *MetricStoreApp) startMetricsServer(tlsConfig *tls.Config) {
 		metrics.WithCounter(metrics.MetricStoreCollectedPointsTotal, prometheus.CounterOpts{
 			Help: "Number of points collected by a metric-store instance from remote nodes",
 		}),
+		metrics.WithLabelledCounter(metrics.MetricStoreInternodeConnectionAttemptsTotal, prometheus.CounterOpts{
+			Help: "Number of connection attempts to remote metric-store nodes",
+		}, []string{"node"}),
+		metrics.WithLabelledCounter(metrics.MetricStoreInternodeConnectionFailuresTotal, prometheus.CounterOpts{
+			Help: "Number of failed connection attempts to remote metric-store nodes",
+		}, []string{"node"}),
+		metrics.WithLabelledCounter(metrics.MetricStoreInternodeConnectionSuccessesTotal, prometheus.CounterOpts{
+			Help: "Number of successful connections to remote metric-store nodes",
+		}, []string{"node"}),
+		metrics.WithLabelledGauge(metrics.MetricStoreInternodeConnectionState, prometheus.GaugeOpts{
+			Help: "Current connection state to remote metric-store nodes (0=disconnected, 1=connected)",
+		}, []string{"node"}),
 	)
 
 	app.metricsMutex.Lock()
