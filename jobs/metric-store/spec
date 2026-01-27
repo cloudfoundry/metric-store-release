@@ -84,6 +84,16 @@ properties:
     description: "The maximum allowed runtime for a single PromQL query. Smaller timeouts are recommended."
     default: "60s"
 
+  internode_max_retries:
+    description: "Maximum number of connection attempts before giving up when connecting to peer nodes"
+    default: 10
+  internode_retry_delay:
+    description: "Delay between connection retry attempts when connecting to peer nodes"
+    default: "1s"
+  internode_connect_timeout:
+    description: "Total timeout for establishing a connection to peer nodes"
+    default: "30s"
+
   tls.ca_cert:
     description: "The Certificate Authority for metric-store query endpoint  mutual TLS."
   tls.cert:

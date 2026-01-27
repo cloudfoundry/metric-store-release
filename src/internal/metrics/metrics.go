@@ -61,4 +61,8 @@ const (
 	MetricStoreDistributedRequestDurationSeconds    = "metric_store_distributed_request_duration_seconds"
 	MetricStoreCollectedPointsTotal                 = "metric_store_collected_points_total"
 	MetricStorePendingDeletionDroppedPointsTotal    = "metric_store_pending_deletion_dropped_points_total"
+	MetricStoreInternodeConnectionAttemptsTotal     = "metric_store_internode_connection_attempts_total"
+	MetricStoreInternodeConnectionFailuresTotal     = "metric_store_internode_connection_failures_total"
+	MetricStoreInternodeConnectionSuccessesTotal    = "metric_store_internode_connection_successes_total"
+	MetricStoreInternodeConnectionState             = "metric_store_internode_connection_state"
 )

@@ -70,6 +70,11 @@ processes:
       NODE_ADDRS:      "<%= store_addrs.join(",") %>"
       INTERNODE_ADDRS: "<%= internode_addrs.join(",") %>"
 
+      # Internode Connection Configuration
+      INTERNODE_MAX_RETRIES:      "<%= p('internode_max_retries') %>"
+      INTERNODE_RETRY_DELAY:      "<%= p('internode_retry_delay') %>"
+      INTERNODE_CONNECT_TIMEOUT:  "<%= p('internode_connect_timeout') %>"
+
       # Config for Prometheus metric scrapers
       SCRAPE_CONFIG_PATH: "<%= "#{job_dir}/config/scrape_config.yml" %>"
       ADDITIONAL_SCRAPE_CONFIGS_DIR: "/var/vcap/store/metric-store/scrape_configs"

@@ -38,6 +38,11 @@ type ReplicatedStorage struct {
 	internodeTLSConfig *tls.Config
 	egressTLSConfig    *config_util.TLSConfig
 
+	// Internode connection configuration
+	internodeMaxRetries     int
+	internodeRetryDelay     time.Duration
+	internodeConnectTimeout time.Duration
+
 	internodeConnections []*leanstreams.Connection
 	replayerClosers      []chan struct{}
 }
@@ -59,18 +64,21 @@ func NewReplicatedStorage(
 	opts ...ReplicatedOption,
 ) prom_storage.Storage {
 	store := &ReplicatedStorage{
-		log:                logger.NewNop(),
-		metrics:            &metrics.NullRegistrar{},
-		localStore:         localStore,
-		localIndex:         localIndex,
-		nodeAddrs:          nodeAddrs,
-		internodeAddrs:     internodeAddrs,
-		replicationFactor:  replicationFactor,
-		handoffStoragePath: "/tmp/metric-store/handoff",
-		appenders:          make([]prom_storage.Appender, len(internodeAddrs)),
-		internodeTLSConfig: internodeTLSConfig,
-		egressTLSConfig:    egressTLSConfig,
-		queryTimeout:       queryTimeout,
+		log:                     logger.NewNop(),
+		metrics:                 &metrics.NullRegistrar{},
+		localStore:              localStore,
+		localIndex:              localIndex,
+		nodeAddrs:               nodeAddrs,
+		internodeAddrs:          internodeAddrs,
+		replicationFactor:       replicationFactor,
+		handoffStoragePath:      "/tmp/metric-store/handoff",
+		appenders:               make([]prom_storage.Appender, len(internodeAddrs)),
+		internodeTLSConfig:      internodeTLSConfig,
+		egressTLSConfig:         egressTLSConfig,
+		queryTimeout:            queryTimeout,
+		internodeMaxRetries:     leanstreams.DefaultMaxRetries,
+		internodeRetryDelay:     leanstreams.DefaultRetryDelay,
+		internodeConnectTimeout: leanstreams.DefaultConnectTimeout,
 	}
 
 	for _, opt := range opts {
@@ -106,10 +114,26 @@ func WithReplicatedMetrics(metrics metrics.Registrar) ReplicatedOption {
 	}
 }
 
+func WithInternodeConnectionConfig(maxRetries int, retryDelay, connectTimeout time.Duration) ReplicatedOption {
+	return func(s *ReplicatedStorage) {
+		s.internodeMaxRetries = maxRetries
+		s.internodeRetryDelay = retryDelay
+		s.internodeConnectTimeout = connectTimeout
+	}
+}
+
 func (r *ReplicatedStorage) createAppenders() error {
 	for nodeIndex, addr := range r.internodeAddrs {
 		if nodeIndex != r.localIndex {
-			connection := leanstreams.NewConnection(addr, r.internodeTLSConfig, MAX_INTERNODE_PAYLOAD_SIZE_IN_BYTES)
+			connection := leanstreams.NewConnection(
+				addr,
+				r.internodeTLSConfig,
+				MAX_INTERNODE_PAYLOAD_SIZE_IN_BYTES,
+				leanstreams.WithMaxRetries(r.internodeMaxRetries),
+				leanstreams.WithRetryDelay(r.internodeRetryDelay),
+				leanstreams.WithConnectTimeout(r.internodeConnectTimeout),
+				leanstreams.WithMetrics(r.metrics, strconv.Itoa(nodeIndex)),
+			)
 			r.internodeConnections = append(r.internodeConnections, connection)
 			done := make(chan struct{})
 			r.replayerClosers = append(r.replayerClosers, done)

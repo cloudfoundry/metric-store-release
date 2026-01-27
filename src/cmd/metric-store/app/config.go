@@ -41,6 +41,11 @@ type Config struct {
 	// assumed that the current node is the only one.
 	InternodeAddrs []string `env:"INTERNODE_ADDRS, report"`
 
+	// Internode connection configuration
+	InternodeMaxRetries     int           `env:"INTERNODE_MAX_RETRIES, report"`
+	InternodeRetryDelay     time.Duration `env:"INTERNODE_RETRY_DELAY, report"`
+	InternodeConnectTimeout time.Duration `env:"INTERNODE_CONNECT_TIMEOUT, report"`
+
 	TLS                     sharedtls.TLS
 	MetricStoreServerTLS    MetricStoreServerTLS
 	MetricStoreInternodeTLS MetricStoreInternodeTLS
@@ -79,20 +84,23 @@ type MetricStoreMetricsTLS struct {
 // LoadConfig creates Config object from environment variables
 func LoadConfig() *Config {
 	cfg := &Config{
-		LogLevel:              "info",
-		Addr:                  ":8080",
-		IngressAddr:           ":8090",
-		InternodeAddr:         ":8091",
-		MetricsAddr:           ":6060",
-		ProfilingAddr:         "localhost:6070",
-		StoragePath:           "/tmp/metric-store",
-		RetentionPeriod:       7 * 24 * time.Hour,
-		DiskFreePercentTarget: 20,
-		ReplicationFactor:     1,
-		LabelTruncationLength: 256,
-		QueryTimeout:          10 * time.Second,
-		LogQueries:            false,
-		MaxConcurrentQueries:  20,
+		LogLevel:                "info",
+		Addr:                    ":8080",
+		IngressAddr:             ":8090",
+		InternodeAddr:           ":8091",
+		MetricsAddr:             ":6060",
+		ProfilingAddr:           "localhost:6070",
+		StoragePath:             "/tmp/metric-store",
+		RetentionPeriod:         7 * 24 * time.Hour,
+		DiskFreePercentTarget:   20,
+		ReplicationFactor:       1,
+		LabelTruncationLength:   256,
+		QueryTimeout:            10 * time.Second,
+		LogQueries:              false,
+		MaxConcurrentQueries:    20,
+		InternodeMaxRetries:     10,
+		InternodeRetryDelay:     1 * time.Second,
+		InternodeConnectTimeout: 30 * time.Second,
 	}
 
 	if err := envstruct.Load(cfg); err != nil {

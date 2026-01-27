@@ -12,12 +12,13 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"github.com/prometheus/prometheus/model/exemplar"
-	"github.com/prometheus/prometheus/model/histogram"
-	"github.com/prometheus/prometheus/model/metadata"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/prometheus/prometheus/model/exemplar"
+	"github.com/prometheus/prometheus/model/histogram"
+	"github.com/prometheus/prometheus/model/metadata"
 
 	"code.cloudfoundry.org/go-diodes"
 
@@ -105,22 +106,31 @@ func WithRemoteAppenderMetrics(metrics metrics.Registrar) RemoteAppenderOption {
 }
 
 func (a *RemoteAppender) createWriter() {
-	a.connection.Connect()
+	// Try to connect, but don't block service startup if it fails
+	err := a.connection.Connect()
+	if err != nil {
+		a.log.Info("initial connection to remote node failed, will use handoff queue and retry later",
+			logger.Error(err),
+			logger.String("node", a.targetNodeIndex))
+		// Continue anyway - writes will go to handoff queue until connection succeeds
+	}
 
 	nodeHandoffStoragePath := fmt.Sprintf("%s/%s", a.handoffStoragePath, a.targetNodeIndex)
-	err := os.MkdirAll(nodeHandoffStoragePath, os.ModePerm)
+	err = os.MkdirAll(nodeHandoffStoragePath, os.ModePerm)
 	if err != nil {
 		a.log.Panic("failed to create handoff storage directory", logger.Error(err), logger.String("path", nodeHandoffStoragePath))
 	}
 
 	queue := handoff.NewDiskBackedQueue(nodeHandoffStoragePath)
 
+	// Pass the connection object directly - it implements the reconnectableClient interface
 	writeReplayer := handoff.NewWriteReplayer(
 		queue,
-		a.connection.Client(),
+		nil, // Don't use static client
 		a.metrics,
 		a.targetNodeIndex,
 		handoff.WithWriteReplayerLogger(a.log),
+		handoff.WithWriteReplayerReconnectableClient(a.connection),
 	)
 	err = writeReplayer.Open(a.done)
 	if err != nil {
@@ -139,9 +149,26 @@ func (a *RemoteAppender) createWriter() {
 			return
 		}
 
-		client := a.connection.Client()
+		// Try to get a client - it may reconnect if connection was lost
+		client, err := a.connection.Client()
+		if err != nil {
+			// Connection still unavailable, write to handoff queue
+			a.log.Debug("connection unavailable, writing to handoff queue",
+				logger.Error(err),
+				logger.String("node", a.targetNodeIndex))
+			err = writeReplayer.Write(points)
+			if err != nil {
+				a.log.Error("failed to write to write replayer", err, logger.String("node", a.targetNodeIndex))
+			}
+			return
+		}
+
 		bytesWritten, err := client.Write(payload.Bytes())
 		if err != nil {
+			// Write failed, use handoff queue
+			a.log.Debug("write to remote node failed, using handoff queue",
+				logger.Error(err),
+				logger.String("node", a.targetNodeIndex))
 			err = writeReplayer.Write(points)
 			if err != nil {
 				a.log.Error("failed to write to write replayer", err, logger.String("node", a.targetNodeIndex))
