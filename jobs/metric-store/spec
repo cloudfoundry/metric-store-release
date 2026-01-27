@@ -85,10 +85,10 @@ properties:
     default: "60s"
 
   internode_max_retries:
-    description: "Maximum number of connection attempts before giving up when connecting to peer nodes (uses exponential backoff)"
-    default: 5
+    description: "Maximum number of connection attempts before giving up when connecting to peer nodes"
+    default: 10
   internode_retry_delay:
-    description: "Initial delay for exponential backoff between connection retry attempts (doubles each attempt: 1s, 2s, 4s, 8s, 16s)"
+    description: "Delay between connection retry attempts when connecting to peer nodes"
     default: "1s"
   internode_connect_timeout:
     description: "Total timeout for establishing a connection to peer nodes"

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DefaultMaxRetries     = 5
+	DefaultMaxRetries     = 10
 	DefaultRetryDelay     = 1 * time.Second
 	DefaultConnectTimeout = 30 * time.Second
 )
@@ -22,11 +22,11 @@ type Connection struct {
 	clientConfig *TCPClientConfig
 	client       *TCPClient
 
-	maxRetries     int
-	retryDelay     time.Duration
-	connectTimeout time.Duration
-	metrics        MetricsRecorder
-	nodeLabel      string
+	maxRetries      int
+	retryDelay      time.Duration
+	connectTimeout  time.Duration
+	metrics         MetricsRecorder
+	nodeLabel       string
 
 	done chan struct{}
 	sync.Mutex
