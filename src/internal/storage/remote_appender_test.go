@@ -12,9 +12,9 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/internal/storage"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/leanstreams"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/logger"
+	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/prometheus/model/labels"
-	. "github.com/onsi/gomega"
 )
 
 type mockRegistrar struct {
@@ -290,7 +290,6 @@ func TestRemoteAppender_GracefulDegradation(t *testing.T) {
 
 func TestRemoteAppender_Integration(t *testing.T) {
 	t.Run("server becomes available after initial failure", func(t *testing.T) {
-		t.Skip("Flaky test - timing sensitive with async handoff queue initialization")
 		g := NewGomegaWithT(t)
 		log := logger.NewTestLogger(io.Discard)
 		metricsReg := newMockRegistrar()
@@ -377,4 +376,3 @@ func TestRemoteAppender_Integration(t *testing.T) {
 		}, 5*time.Second, 500*time.Millisecond).Should(BeNumerically(">", 0))
 	})
 }
-
