@@ -22,11 +22,11 @@ type Connection struct {
 	clientConfig *TCPClientConfig
 	client       *TCPClient
 
-	maxRetries      int
-	retryDelay      time.Duration
-	connectTimeout  time.Duration
-	metrics         MetricsRecorder
-	nodeLabel       string
+	maxRetries     int
+	retryDelay     time.Duration
+	connectTimeout time.Duration
+	metrics        MetricsRecorder
+	nodeLabel      string
 
 	done chan struct{}
 	sync.Mutex
