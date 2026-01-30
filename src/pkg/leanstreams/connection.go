@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	DefaultMaxRetries      = 10
-	DefaultRetryDelay      = 1 * time.Second
-	DefaultConnectTimeout  = 30 * time.Second
+	DefaultMaxRetries     = 5
+	DefaultRetryDelay     = 1 * time.Second
+	DefaultConnectTimeout = 30 * time.Second
 )
 
 type MetricsRecorder interface {
@@ -22,11 +22,11 @@ type Connection struct {
 	clientConfig *TCPClientConfig
 	client       *TCPClient
 
-	maxRetries      int
-	retryDelay      time.Duration
-	connectTimeout  time.Duration
-	metrics         MetricsRecorder
-	nodeLabel       string
+	maxRetries     int
+	retryDelay     time.Duration
+	connectTimeout time.Duration
+	metrics        MetricsRecorder
+	nodeLabel      string
 
 	done chan struct{}
 	sync.Mutex
@@ -137,6 +137,16 @@ func (c *Connection) Connect() error {
 
 		// Don't sleep on the last attempt
 		if attempts < c.maxRetries {
+			// Calculate exponential backoff delay: retryDelay * (2 ^ attempts)
+			// For attempts 0,1,2,3,4 with 1s base: 1s, 2s, 4s, 8s, 16s
+			backoffDelay := c.retryDelay * (1 << uint(attempts))
+
+			// Cap the backoff to avoid excessive delays
+			maxBackoff := 30 * time.Second
+			if backoffDelay > maxBackoff {
+				backoffDelay = maxBackoff
+			}
+
 			// Check if we should continue or timeout
 			select {
 			case <-c.done:
@@ -145,7 +155,7 @@ func (c *Connection) Connect() error {
 					c.metrics.Set("metric_store_internode_connection_state", 0, c.nodeLabel) // 0 = disconnected
 				}
 				return fmt.Errorf("connection closed during retry")
-			case <-time.After(c.retryDelay):
+			case <-time.After(backoffDelay):
 				// Continue to next attempt
 			}
 		}
