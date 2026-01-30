@@ -98,7 +98,7 @@ func LoadConfig() *Config {
 		QueryTimeout:            10 * time.Second,
 		LogQueries:              false,
 		MaxConcurrentQueries:    20,
-		InternodeMaxRetries:     10,
+		InternodeMaxRetries:     5,
 		InternodeRetryDelay:     1 * time.Second,
 		InternodeConnectTimeout: 30 * time.Second,
 	}
