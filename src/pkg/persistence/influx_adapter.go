@@ -237,7 +237,24 @@ func (t *InfluxAdapter) DeleteOlderThan(cutoff int64) (uint64, error) {
 
 func (t *InfluxAdapter) Delete(shardID uint64) error {
 	t.shards.Delete(shardID)
-	return t.influx.DeleteShard(shardID)
+	// Check if influx store is nil to avoid panic in race conditions
+	if t.influx == nil {
+		return nil
+	}
+	
+	// Wrap in recover to catch vendor code panics during concurrent shard deletion
+	var err error
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Log or ignore panics from vendor code during shard deletion
+				err = fmt.Errorf("panic during shard deletion: %v", r)
+			}
+		}()
+		err = t.influx.DeleteShard(shardID)
+	}()
+	
+	return err
 }
 
 type UintSlice []uint64
