@@ -1,7 +1,7 @@
 name: metric-store
 version: 1.8.2
-commit_hash: 0ab5cd53
-uncommitted_changes: false
+commit_hash: f5f04433
+uncommitted_changes: true
 jobs:
 - name: metric-store
   version: 917235161eda89411b99f4ab4729acf269ad3018706d8c2628518ed639cd6a6a
@@ -28,15 +28,10 @@ jobs:
   packages:
   - metric-store-nozzle
 packages:
-- name: golang-1.23-linux
-  version: 28d469386dd272ae9b14aae21f084fe40f07f84a8e04024d18c13e47e5e620a9
-  fingerprint: 28d469386dd272ae9b14aae21f084fe40f07f84a8e04024d18c13e47e5e620a9
-  sha1: sha256:91a62e7569260bfeaad11b691db77830ca8885a9b62abf606d6900db619ad121
-  dependencies: []
 - name: golang-1.25-linux
-  version: 18d8a51c097f1b3957720a705fd2d00e8062e50cfe48ad1ac3e06b8bf234d5ee
-  fingerprint: 18d8a51c097f1b3957720a705fd2d00e8062e50cfe48ad1ac3e06b8bf234d5ee
-  sha1: sha256:08985fe881c2f8dfde62725c8ef849f995493360e533a555fce1302b96d5d50d
+  version: 8f8128af0520fb107b1f9b339fc0a79eeb70b16efd67bc0e41d770798b2543e0
+  fingerprint: 8f8128af0520fb107b1f9b339fc0a79eeb70b16efd67bc0e41d770798b2543e0
+  sha1: sha256:12e6d6a191091ae27dc31f6efc630e3a3b8ba409baf3573d955b196fdf086005
   dependencies: []
 - name: metric-store
   version: dfd3b2538c4fac5efedaa9d705095daaa3907d59557c0b0c8136185f3ec9ecc1
