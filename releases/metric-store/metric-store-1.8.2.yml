@@ -1,12 +1,12 @@
 name: metric-store
 version: 1.8.2
-commit_hash: fd61502e
+commit_hash: 3cc47e01
 uncommitted_changes: false
 jobs:
 - name: metric-store
   version: 3512c6d32ddef6dc19914d904d98e6e4c1949978c7e57aea639775c64a8c7349
   fingerprint: 3512c6d32ddef6dc19914d904d98e6e4c1949978c7e57aea639775c64a8c7349
-  sha1: sha256:c68627e81e879bd2c74e6edc843d8dceaf9668216573172b95ff30788b9c0398
+  sha1: sha256:c6bccb77a6200593fb739703cfd5ef1bc7574945f2b1a43ff0e12f8584bfa7af
   packages:
   - metric-store
 - name: metric-store-blackbox
@@ -36,25 +36,25 @@ packages:
 - name: metric-store
   version: fd4769d84ede96d6143fc31066a34811adaabb7e52d1dd534601134a10ed56e9
   fingerprint: fd4769d84ede96d6143fc31066a34811adaabb7e52d1dd534601134a10ed56e9
-  sha1: sha256:78a79dece45ecd37b2b09ef8594291682e4900e80c39ddac58698a6382b6c865
+  sha1: sha256:9e04b07bf360a4b696393aa8d616eef205db16c5778ca04db6062f1a29a69010
   dependencies:
   - golang-1.25-linux
 - name: metric-store-blackbox
   version: febd4e071437aa7be6cd6cf65b7fdef633a00997031388c056d4a778edf3b5cd
   fingerprint: febd4e071437aa7be6cd6cf65b7fdef633a00997031388c056d4a778edf3b5cd
-  sha1: sha256:ff61268895799a6015cab20da69fdf2f9cf3fe07c66b9844b410cdbeb6f5d963
+  sha1: sha256:2cde21d48589a41a4c32070702b5aac0793d1e40d58dc4a4d17b3092809f681f
   dependencies:
   - golang-1.25-linux
 - name: metric-store-cf-auth-proxy
   version: ef9c937230d43294f0c87edb4de85e5f11ffd085138dab2e2e89174bced38504
   fingerprint: ef9c937230d43294f0c87edb4de85e5f11ffd085138dab2e2e89174bced38504
-  sha1: sha256:309edf6a99b28d338abeeff6707cfea47fe7a89d16c97d117d8ccd7348a146dd
+  sha1: sha256:d067e23b5b9f6c827dc74948f4236d7351b0f4b65a11f72ba7bc219ab7af8ac1
   dependencies:
   - golang-1.25-linux
 - name: metric-store-nozzle
   version: 7021406de14bb310b3664007b7ca04bec2ee9e734d70ff5ddca496438aad52eb
   fingerprint: 7021406de14bb310b3664007b7ca04bec2ee9e734d70ff5ddca496438aad52eb
-  sha1: sha256:df2fe8a522d819b565f808317b99fbf741d24e3dd98278940d1e7490a2c3f7af
+  sha1: sha256:0943071f42a80a9a33178b43884f3684d51cf7e0b94b06309f589a1b0494c73c
   dependencies:
   - golang-1.25-linux
 license:
