@@ -14,11 +14,11 @@ type SpyStorage struct {
 	querier storage.Querier
 }
 
-func (s *SpyStorage) Querier(ctx context.Context, mint, maxt int64) (storage.Querier, error) {
+func (s *SpyStorage) Querier(mint, maxt int64) (storage.Querier, error) {
 	return s.querier, nil
 }
 
-func (s *SpyStorage) ChunkQuerier(ctx context.Context, mint, maxt int64) (storage.ChunkQuerier, error) {
+func (s *SpyStorage) ChunkQuerier(mint, maxt int64) (storage.ChunkQuerier, error) {
 	//TODO implement me
 	panic("implement me")
 }

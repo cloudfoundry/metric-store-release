@@ -6,9 +6,8 @@ import (
 
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
-
-	prom_storage "github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/tsdb/chunkenc"
+	"github.com/prometheus/prometheus/util/annotations"
 )
 
 type seriesSample struct {
@@ -21,7 +20,7 @@ type concreteSeriesSet struct {
 	cur      int
 	series   []storage.Series
 	err      error
-	warnings prom_storage.Warnings
+	warnings annotations.Annotations
 }
 
 func (c *concreteSeriesSet) Next() bool {
@@ -37,7 +36,7 @@ func (c *concreteSeriesSet) Err() error {
 	return c.err
 }
 
-func (c *concreteSeriesSet) Warnings() storage.Warnings {
+func (c *concreteSeriesSet) Warnings() annotations.Annotations {
 	return c.warnings
 }
 

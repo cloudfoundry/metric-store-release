@@ -64,6 +64,7 @@ type InstanceSpec struct {
 	Memory   int `json:"memory"`
 	VCPUs    int `json:"vcpus"`
 	Transfer int `json:"transfer"`
+	GPUs     int `json:"gpus"`
 }
 
 // InstanceAlert represents a metric alert
@@ -355,6 +356,7 @@ type InstanceRebuildOptions struct {
 	StackScriptData map[string]string        `json:"stackscript_data,omitempty"`
 	Booted          *bool                    `json:"booted,omitempty"`
 	Metadata        *InstanceMetadataOptions `json:"metadata,omitempty"`
+	Type            string                   `json:"type,omitempty"`
 }
 
 // RebuildInstance Deletes all Disks and Configs on this Linode,

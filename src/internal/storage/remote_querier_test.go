@@ -61,7 +61,7 @@ var _ = Describe("Remote Querier", func() {
 
 			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
-			result := querier.Select(false, nil, &labels.Matcher{
+			result := querier.Select(ctx, false, nil, &labels.Matcher{
 				Name:  "__name__",
 				Type:  labels.MatchEqual,
 				Value: "irrelevantapp",
@@ -81,7 +81,7 @@ var _ = Describe("Remote Querier", func() {
 			cancel()
 			querier, err := storage.NewRemoteQuerier(ctx, 0, insecureConnection.Addr().String(), defaultQuerierConfig, logger.NewTestLogger(GinkgoWriter))
 			Expect(err).ToNot(HaveOccurred())
-			querier.Select(false, nil, &labels.Matcher{
+			querier.Select(ctx, false, nil, &labels.Matcher{
 				Name:  "__name__",
 				Type:  labels.MatchEqual,
 				Value: "irrelevantapp",

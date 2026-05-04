@@ -16,6 +16,7 @@ import (
 	config_util "github.com/prometheus/common/config"
 	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
+	"github.com/prometheus/prometheus/util/annotations"
 )
 
 var _ = Describe("Querier", func() {
@@ -36,7 +37,7 @@ var _ = Describe("Querier", func() {
 				querier := storage.NewReplicatedQuerier(context.TODO(), nil, 0, factory, 5*time.Second,
 					nil, logger.NewTestLogger(GinkgoWriter))
 
-				Expect(querier.Select(false, nil, in...).Err()).To(Equal(out))
+				Expect(querier.Select(context.TODO(), false, nil, in...).Err()).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{
 				Name:  "__name__",
@@ -71,14 +72,14 @@ var _ = Describe("Querier", func() {
 		Context("happy path", func() {
 			It("doesn't nil-ref on duplicate node addresses", func() {
 				subject := createTestSubject(nil, nil)
-				Expect(func() { subject.Select(false, nil) }).NotTo(Panic())
+				Expect(func() { subject.Select(context.TODO(), false, nil) }).NotTo(Panic())
 			})
 
 			It("calls remote node", func() {
 				spy := newSpyQuerier()
 				subject := createTestSubject(nil, spy)
 
-				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+				Expect(subject.Select(context.TODO(), false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
 
@@ -96,7 +97,7 @@ var _ = Describe("Querier", func() {
 				Consistently(func() bool {
 					attempts++
 
-					Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+					Expect(subject.Select(context.TODO(), false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 					Expect(remoteQuerier.callCount).To(Equal(0))
 					return localQuerier.callCount == attempts
 				}).Should(BeTrue())
@@ -108,7 +109,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(errors.New("expected"), 3)
 				subject := createTestSubject(nil, spy)
 
-				Expect(subject.Select(false, nil, simpleQuery).Err()).To(HaveOccurred())
+				Expect(subject.Select(context.TODO(), false, nil, simpleQuery).Err()).To(HaveOccurred())
 				Expect(spy.callCount).To(Equal(1))
 			})
 
@@ -116,7 +117,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 3)
 				subject := createTestSubject(nil, spy)
 
-				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+				Expect(subject.Select(context.TODO(), false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(BeNumerically(">=", 3))
 			})
 
@@ -124,7 +125,7 @@ var _ = Describe("Querier", func() {
 				spy := newSpyQuerierWithRepeatedErrors(&net.OpError{}, 1)
 				subject := createTestSubject(nil, spy)
 
-				Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+				Expect(subject.Select(context.TODO(), false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 				Expect(spy.callCount).To(Equal(2))
 			})
 
@@ -134,7 +135,7 @@ var _ = Describe("Querier", func() {
 					localQuerier := newSpyQuerier()
 					subject := createTestSubject(localQuerier, spy)
 
-					Expect(subject.Select(false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
+					Expect(subject.Select(context.TODO(), false, nil, simpleQuery).Err()).NotTo(HaveOccurred())
 					Expect(spy.callCount).To(Equal(8))
 					Expect(localQuerier.callCount).To(Equal(0))
 				})
@@ -229,7 +230,7 @@ func newSpyQuerierWithRepeatedErrors(err error, count int) *spyQuerier {
 	return spy
 }
 
-func (q *spyQuerier) Select(sortSeries bool, hints *prom_storage.SelectHints,
+func (q *spyQuerier) Select(ctx context.Context, sortSeries bool, hints *prom_storage.SelectHints,
 	matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	q.callCount++
 	var err error
@@ -240,12 +241,12 @@ func (q *spyQuerier) Select(sortSeries bool, hints *prom_storage.SelectHints,
 	return prom_storage.ErrSeriesSet(err)
 }
 
-func (*spyQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
-	prom_storage.Warnings, error) {
+func (*spyQuerier) LabelValues(ctx context.Context, name string, matchers ...*labels.Matcher) ([]string,
+	annotations.Annotations, error) {
 	panic("implement me")
 }
 
-func (*spyQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings,
+func (*spyQuerier) LabelNames(ctx context.Context, matchers ...*labels.Matcher) ([]string, annotations.Annotations,
 	error) {
 	panic("implement me")
 }

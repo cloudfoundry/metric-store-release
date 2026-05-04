@@ -47,7 +47,7 @@ type ReplicatedStorage struct {
 	replayerClosers      []chan struct{}
 }
 
-func (r *ReplicatedStorage) ChunkQuerier(ctx context.Context, mint, maxt int64) (prom_storage.ChunkQuerier, error) {
+func (r *ReplicatedStorage) ChunkQuerier(mint, maxt int64) (prom_storage.ChunkQuerier, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -158,11 +158,11 @@ func (r *ReplicatedStorage) createAppenders() error {
 	return nil
 }
 
-func (r *ReplicatedStorage) Querier(ctx context.Context, _, _ int64) (storage.Querier, error) {
+func (r *ReplicatedStorage) Querier(_, _ int64) (storage.Querier, error) {
 	factory := NewReplicatedQuerierFactory(r.localStore, r.localIndex,
 		r.nodeAddrs, r.egressTLSConfig, r.log)
 	return NewReplicatedQuerier(
-		ctx,
+		context.TODO(),
 		r.localStore,
 		r.localIndex,
 		factory,

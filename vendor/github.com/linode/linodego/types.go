@@ -10,16 +10,19 @@ import (
 
 // LinodeType represents a linode type object
 type LinodeType struct {
-	ID         string          `json:"id"`
-	Disk       int             `json:"disk"`
-	Class      LinodeTypeClass `json:"class"` // enum: nanode, standard, highmem, dedicated
-	Price      *LinodePrice    `json:"price"`
-	Label      string          `json:"label"`
-	Addons     *LinodeAddons   `json:"addons"`
-	NetworkOut int             `json:"network_out"`
-	Memory     int             `json:"memory"`
-	Transfer   int             `json:"transfer"`
-	VCPUs      int             `json:"vcpus"`
+	ID           string              `json:"id"`
+	Disk         int                 `json:"disk"`
+	Class        LinodeTypeClass     `json:"class"` // enum: nanode, standard, highmem, dedicated, gpu
+	Price        *LinodePrice        `json:"price"`
+	Label        string              `json:"label"`
+	Addons       *LinodeAddons       `json:"addons"`
+	RegionPrices []LinodeRegionPrice `json:"region_prices"`
+	NetworkOut   int                 `json:"network_out"`
+	Memory       int                 `json:"memory"`
+	Transfer     int                 `json:"transfer"`
+	VCPUs        int                 `json:"vcpus"`
+	GPUs         int                 `json:"gpus"`
+	Successor    string              `json:"successor"`
 }
 
 // LinodePrice represents a linode type price object
@@ -30,12 +33,21 @@ type LinodePrice struct {
 
 // LinodeBackupsAddon represents a linode backups addon object
 type LinodeBackupsAddon struct {
-	Price *LinodePrice `json:"price"`
+	Price        *LinodePrice        `json:"price"`
+	RegionPrices []LinodeRegionPrice `json:"region_prices"`
 }
 
 // LinodeAddons represent the linode addons object
 type LinodeAddons struct {
 	Backups *LinodeBackupsAddon `json:"backups"`
+}
+
+// LinodeRegionPrice represents an individual type or addon
+// price exception for a region.
+type LinodeRegionPrice struct {
+	ID      string  `json:"id"`
+	Hourly  float32 `json:"hourly"`
+	Monthly float32 `json:"monthly"`
 }
 
 // LinodeTypeClass constants start with Class and include Linode API Instance Type Classes
@@ -47,6 +59,7 @@ const (
 	ClassStandard  LinodeTypeClass = "standard"
 	ClassHighmem   LinodeTypeClass = "highmem"
 	ClassDedicated LinodeTypeClass = "dedicated"
+	ClassGPU       LinodeTypeClass = "gpu"
 )
 
 // LinodeTypesPagedResponse represents a linode types API response for listing
