@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/prometheus/model/labels"
 	prom_storage "github.com/prometheus/prometheus/storage"
 	"github.com/prometheus/prometheus/storage/remote"
+	"github.com/prometheus/prometheus/util/annotations"
 )
 
 type RemoteQuerier struct {
@@ -79,7 +80,7 @@ func NewRemoteQuerier(
 	return querier, nil
 }
 
-func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
+func (r *RemoteQuerier) Select(ctx context.Context, sortSeries bool, params *prom_storage.SelectHints, matchers ...*labels.Matcher) prom_storage.SeriesSet {
 	query, err := remote.ToQuery(0, 0, matchers, params)
 	if err != nil {
 		return nil
@@ -92,8 +93,8 @@ func (r *RemoteQuerier) Select(sortSeries bool, params *prom_storage.SelectHints
 	return remote.FromQueryResult(sortSeries, res)
 }
 
-func (r *RemoteQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([]string,
-	prom_storage.Warnings, error) {
+func (r *RemoteQuerier) LabelValues(ctx context.Context, name string, matchers ...*labels.Matcher) ([]string,
+	annotations.Annotations, error) {
 	var results []string
 
 	result := make([]string, len(matchers))
@@ -114,7 +115,7 @@ func (r *RemoteQuerier) LabelValues(name string, matchers ...*labels.Matcher) ([
 	return results, nil, nil
 }
 
-func (r *RemoteQuerier) LabelNames(matchers ...*labels.Matcher) ([]string, prom_storage.Warnings, error) {
+func (r *RemoteQuerier) LabelNames(ctx context.Context, matchers ...*labels.Matcher) ([]string, annotations.Annotations, error) {
 
 	result := make([]string, len(matchers))
 	for i, matcher := range matchers {

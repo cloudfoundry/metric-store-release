@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -26,7 +27,7 @@ func (a *nullTSDBAdminStats) WALReplayStatus() (tsdb.WALReplayStatus, error) {
 	return tsdb.WALReplayStatus{}, nil
 }
 func (a *nullTSDBAdminStats) CleanTombstones() error                             { return nil }
-func (a *nullTSDBAdminStats) Delete(int64, int64, ...*prom_labels.Matcher) error { return nil }
+func (a *nullTSDBAdminStats) Delete(context.Context, int64, int64, ...*prom_labels.Matcher) error { return nil }
 func (a *nullTSDBAdminStats) Snapshot(string, bool) error                        { return nil }
 func (a *nullTSDBAdminStats) Stats(string, int) (*tsdb.Stats, error) {
 	return nil, nil

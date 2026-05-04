@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence/transform"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/storage"
+	"github.com/prometheus/prometheus/util/annotations"
 )
 
 type Querier struct {
@@ -27,7 +28,7 @@ func NewQuerier(ctx context.Context, adapter *InfluxAdapter, metrics metrics.Reg
 	}
 }
 
-func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatchers ...*labels.Matcher) storage.SeriesSet {
+func (q *Querier) Select(ctx context.Context, sortSeries bool, params *storage.SelectHints, labelMatchers ...*labels.Matcher) storage.SeriesSet {
 	if params == nil {
 		params = &storage.SelectHints{
 			Start: 0,
@@ -69,7 +70,7 @@ func (q *Querier) Select(sortSeries bool, params *storage.SelectHints, labelMatc
 	return builder.SeriesSet()
 }
 
-func (q *Querier) LabelNames(matchers ...*labels.Matcher) ([]string, storage.Warnings, error) {
+func (q *Querier) LabelNames(ctx context.Context, matchers ...*labels.Matcher) ([]string, annotations.Annotations, error) {
 	distinctKeys := make(map[string]struct{})
 
 	tagKeys := q.adapter.AllTagKeys(q.ctx)
@@ -89,7 +90,7 @@ func (q *Querier) LabelNames(matchers ...*labels.Matcher) ([]string, storage.War
 	return labelNames, nil, nil
 }
 
-func (q *Querier) LabelValues(name string, matchers ...*labels.Matcher) ([]string, storage.Warnings, error) {
+func (q *Querier) LabelValues(ctx context.Context, name string, matchers ...*labels.Matcher) ([]string, annotations.Annotations, error) {
 	distinctValues := make(map[string]struct{})
 
 	if name == labels.MetricName {

@@ -1,6 +1,7 @@
 package persistence_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/cloudfoundry/metric-store-release/src/pkg/persistence"
@@ -19,7 +20,7 @@ var _ = Describe("Querier", func() {
 			func(in []*labels.Matcher, out error) {
 
 				querier := persistence.NewQuerier(nil, nil, nil)
-				Expect(querier.Select(false, nil, in...).Err()).To(Equal(out))
+				Expect(querier.Select(context.TODO(), false, nil, in...).Err()).To(Equal(out))
 			},
 			Entry("!= on __name__", []*labels.Matcher{{
 				Name:  "__name__",
@@ -44,7 +45,7 @@ var _ = Describe("Querier", func() {
 
 				querier := persistence.NewQuerier(nil, nil, nil)
 
-				Expect(querier.Select(false, params,
+				Expect(querier.Select(context.TODO(), false, params,
 					nil).Err()).To(Equal(out))
 			},
 			Entry("start > end", &storage.SelectHints{

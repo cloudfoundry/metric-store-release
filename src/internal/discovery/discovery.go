@@ -69,6 +69,10 @@ func (d *DiscoveryAgent) Start() {
 	go func() {
 		err := d.manager.Run()
 		if err != nil {
+			// Don't panic on context cancellation during shutdown
+			if err == context.Canceled || err.Error() == "context canceled" {
+				return
+			}
 			panic(err)
 		}
 	}()

@@ -57,7 +57,7 @@ groups:
 			err := promManager.Start()
 			Expect(err).ToNot(HaveOccurred())
 
-			querier, err := deps.store.Querier(context.Background(), 0, influxql.MaxTime)
+			querier, err := deps.store.Querier(0, influxql.MaxTime)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() int {
@@ -260,7 +260,7 @@ func loadMetric(store *persistence.Store) {
 	)
 	appender.Commit()
 
-	querier, err := store.Querier(context.Background(), 0, influxql.MaxTime)
+	querier, err := store.Querier(0, influxql.MaxTime)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
@@ -270,6 +270,7 @@ func loadMetric(store *persistence.Store) {
 
 func queryByName(querier storage.Querier, name string) []testing.Point {
 	seriesSet := querier.Select(
+		context.TODO(),
 		false,
 		&storage.SelectHints{Start: minTimeInMilliseconds, End: maxTimeInMilliseconds},
 		&labels.Matcher{Name: "__name__", Value: name, Type: labels.MatchEqual},
