@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -eux
+set -o pipefail
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+pushd "${SCRIPT_DIR}/../../src" > /dev/null
+  go test -race ./...
+popd > /dev/null
