@@ -1,0 +1,7 @@
+service: metric-store-release
+language: golang
+default_branch: develop
+commit: develop
+golang_build_command: "./..."
+custom_path: "."
+goVersion: "1.26.0"
