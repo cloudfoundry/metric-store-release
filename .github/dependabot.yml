@@ -12,3 +12,13 @@ updates:
   target-branch: "develop"
   ignore:
     - dependency-name: "github.com/influxdata/influxdb"
+- package-ecosystem: "github-actions"
+  labels:
+    - "dependabot"
+  directory: "/"
+  schedule:
+    interval: daily
+    time: "20:00"
+    timezone: America/Los_Angeles
+  open-pull-requests-limit: 1
+  target-branch: "develop"
