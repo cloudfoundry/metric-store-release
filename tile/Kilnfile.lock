@@ -4,7 +4,7 @@ releases:
   version: 0
 - name: metric-store
   remote_source: artifactory_compiled_releases
-  version: 0
+  version: 1.0.0
 - name: routing
   remote_source: artifactory_compiled_releases
   version: 0

@@ -8,19 +8,24 @@ release_sources:
   publishable: true
   path_template: compiled-releases/{{.Name}}/{{.Name}}-{{.Version}}-{{.StemcellOS}}-{{.StemcellVersion}}.tgz
 
+stemcell_criteria:
+  os: ubuntu-jammy
+  version: "*"
+
 bake_configurations:
 - tile_name: metric-store
-  metadata_filepath: metadata.yml
+  metadata_filepath: tile/metadata.yml
   forms_directories:
-  - forms
+  - tile/forms
   properties_directories:
-  - properties
+  - tile/properties
   instance_groups_directories:
-  - instance_groups
+  - tile/instance_groups
   jobs_directories:
-  - jobs
+  - tile/jobs
 
 releases:
 - name: bpm
 - name: metric-store
+  version: '>0-0'
 - name: routing
