@@ -1,0 +1,26 @@
+release_sources:
+- type: artifactory
+  id: artifactory_compiled_releases
+  artifactory_host: $(variable "artifactory_host")
+  repo: $(variable "artifactory_repo")
+  username: $(variable "artifactory_username")
+  password: $(variable "artifactory_password") # api_key or identity token
+  publishable: true
+  path_template: compiled-releases/{{.Name}}/{{.Name}}-{{.Version}}-{{.StemcellOS}}-{{.StemcellVersion}}.tgz
+
+bake_configurations:
+- tile_name: metric-store
+  metadata_filepath: metadata.yml
+  forms_directories:
+  - forms
+  properties_directories:
+  - properties
+  instance_groups_directories:
+  - instance_groups
+  jobs_directories:
+  - jobs
+
+releases:
+- name: bpm
+- name: metric-store
+- name: routing
