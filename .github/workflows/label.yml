@@ -1,0 +1,51 @@
+name: Manage Labels
+on:
+  workflow_run:
+    workflows: ["Test Everything"]
+    types: [completed]
+jobs:
+  label-job:
+    name: Manage Labels
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-result
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const result = fs.readFileSync('test-result.txt', 'utf8').trim();
+            const labelName = 'tests-passed';
+            let pr = context.payload.workflow_run.pull_requests[0];
+            if (!pr) {
+              const { data: prs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+                head: `${context.payload.workflow_run.head_repository.owner.login}:${context.payload.workflow_run.head_branch}`,
+              });
+              pr = prs[0];
+            }
+            if (!pr) {
+              console.log('No PR associated with this workflow run');
+              return;
+            }
+            const issue_number = pr.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            if (result === 'success') {
+              await github.rest.issues.addLabels({ issue_number, owner, repo, labels: [labelName] });
+            } else {
+              try {
+                await github.rest.issues.removeLabel({ issue_number, owner, repo, name: labelName });
+              } catch (e) {
+                if (e.status !== 404) throw e;
+              }
+            }

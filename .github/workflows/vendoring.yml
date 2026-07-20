@@ -9,6 +9,9 @@ jobs:
   vendor-job:
     name: Vendor
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/setup-go@v5
         with:
