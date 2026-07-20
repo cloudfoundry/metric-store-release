@@ -7,6 +7,9 @@ jobs:
   auto-merge-job:
     name: Merge PR
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
       - name: Merge
         uses: "pascalgn/automerge-action@fc8281547d24638fac1e4149bbde710cced773d1"
