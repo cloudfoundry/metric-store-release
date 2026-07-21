@@ -13,12 +13,12 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.26.2'
         id: go
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
@@ -37,7 +37,7 @@ jobs:
             git commit -m "Updating vendored dependencies"
             git push
           fi
-      - uses: actions/github-script@v3
+      - uses: actions/github-script@v7
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
