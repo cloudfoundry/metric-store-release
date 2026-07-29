@@ -5,5 +5,5 @@ commit: develop
 golang_build_command: ./...
 custom_path: .
 multi_module_paths: ""
-goVersion: 1.26.0
+goVersion: 1.26.5
 exclude_directories: "**/src/test/"
