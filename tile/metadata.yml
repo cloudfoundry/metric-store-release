@@ -20,7 +20,7 @@ requires_product_versions:
 
 stemcell_criteria:
   os: ubuntu-jammy
-  version: $( variable "stemcell_version" )
+  version: "1"
   requires_cpi: false
 
 releases:
