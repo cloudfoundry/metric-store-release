@@ -10,10 +10,10 @@ releases:
       remote_source: artifactory_compiled_releases
       remote_path: compiled-releases/metric-store/metric-store-1.8.5-ubuntu-jammy-1.1298.tgz
     - name: routing
-      sha1: d50154dca22669227acb94c23f17e63db6703592
-      version: 0.388.0
+      sha1: a12adc9b8fb145270a87243cbcfd94cd02318f78
+      version: 0.389.0
       remote_source: artifactory_compiled_releases
-      remote_path: compiled-releases/routing/routing-0.388.0-ubuntu-jammy-1.1298.tgz
+      remote_path: compiled-releases/routing/routing-0.389.0-ubuntu-jammy-1.1298.tgz
 stemcell_criteria:
     os: ubuntu-jammy
     version: "1.1298"
