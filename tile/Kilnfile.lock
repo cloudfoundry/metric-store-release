@@ -5,10 +5,10 @@ releases:
       remote_source: artifactory_compiled_releases
       remote_path: compiled-releases/bpm/bpm-1.4.37-ubuntu-jammy-1.1298.tgz
     - name: metric-store
-      sha1: fe64a22fbc51328bad39d839ae25f3e665d451c8
-      version: 1.8.5
+      sha1: ea39fcecb133bca816d536c3b05ef4d7192f0ba9
+      version: 1.8.6
       remote_source: artifactory_compiled_releases
-      remote_path: compiled-releases/metric-store/metric-store-1.8.5-ubuntu-jammy-1.1298.tgz
+      remote_path: compiled-releases/metric-store/metric-store-1.8.6-ubuntu-jammy-1.1298.tgz
     - name: routing
       sha1: efb2eb0df746d48f57df483ec605ea878209f80f
       version: 0.390.0
