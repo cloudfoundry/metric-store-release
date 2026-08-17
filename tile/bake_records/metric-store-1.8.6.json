@@ -1,8 +1,8 @@
 {
-  "source_revision": "98bcc6844b8da0dee94857c280b543a56d563bea",
+  "source_revision": "28bb7f69217280b398a7a7e1583ca7668bff727b",
   "version": "1.8.6",
   "kiln_version": "0.117.0",
   "tile_name": "metric-store",
-  "file_checksum": "159fa480f9386518419c17ca3ba6e8a81ced312c1f63d735de2dc7c5326cdf38",
+  "file_checksum": "713d719cb2b1b991bdcbabb6a11c7b158e969bded455d4236bf8ddd4014fd1f3",
   "tile_directory": "tile"
 }
