@@ -1,19 +1,19 @@
 releases:
     - name: bpm
-      sha1: 3174d222cfca83caa763f2998ee568fee5ab99cf
+      sha1: 645e8a54aa04039d585c2ba3fc710d175285737e
       version: 1.4.37
       remote_source: artifactory_compiled_releases
-      remote_path: compiled-releases/bpm/bpm-1.4.37-ubuntu-jammy-1.1330.tgz
+      remote_path: compiled-releases/bpm/bpm-1.4.37-ubuntu-jammy-1.1364.tgz
     - name: metric-store
-      sha1: ee49931ecef58da14622cccad6618a44d83e1ad3
+      sha1: 1cb29eb26c49ff80c8eb6c8544c64dd52f918f55
       version: 1.8.6
       remote_source: artifactory_compiled_releases
-      remote_path: compiled-releases/metric-store/metric-store-1.8.6-ubuntu-jammy-1.1330.tgz
+      remote_path: compiled-releases/metric-store/metric-store-1.8.6-ubuntu-jammy-1.1364.tgz
     - name: routing
-      sha1: 2c0335c198f69df484d7ee878b49b496667292f0
+      sha1: 6f5aa75cf319ffadb43ee2e722d7518138fb3702
       version: 0.391.0
       remote_source: artifactory_compiled_releases
-      remote_path: compiled-releases/routing/routing-0.391.0-ubuntu-jammy-1.1330.tgz
+      remote_path: compiled-releases/routing/routing-0.391.0-ubuntu-jammy-1.1364.tgz
 stemcell_criteria:
     os: ubuntu-jammy
-    version: "1.1330"
+    version: "1.1364"
