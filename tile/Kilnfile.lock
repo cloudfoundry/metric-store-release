@@ -1,9 +1,9 @@
 releases:
     - name: bpm
-      sha1: 64aab9be4f6b5047d042bd2c27402f601e1b4bc0
-      version: 1.4.39
+      sha1: 5cb344371f7de33fed99fbab708d03011a0b0a5d
+      version: 1.4.40
       remote_source: artifactory_compiled_releases
-      remote_path: compiled-releases/bpm/bpm-1.4.39-ubuntu-jammy-1.1364.tgz
+      remote_path: compiled-releases/bpm/bpm-1.4.40-ubuntu-jammy-1.1364.tgz
     - name: metric-store
       sha1: 1cb29eb26c49ff80c8eb6c8544c64dd52f918f55
       version: 1.8.6
