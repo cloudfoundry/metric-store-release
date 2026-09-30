@@ -29,3 +29,4 @@ scripts/certs/
 
 # metadata
 tags
+tile/variables/kiln-vars.yml
