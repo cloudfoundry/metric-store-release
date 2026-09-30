@@ -1,5 +1,10 @@
 set -ex
 
+# NOTE: package fingerprint doesn't hash go.mod/go.sum/vendor (they're injected
+# by pre_packaging via $RELEASE_DIR, not declared in spec "files"), so a
+# dependency-only bump won't change this fingerprint on its own. Bump this
+# marker when go.mod/vendor changes without touching src/**/*.go, or bosh
+# will silently reuse a stale cached final build. fingerprint-bust: 2026-09-29
 source /var/vcap/packages/golang-1.26-linux/bosh/compile.env
 export GOPATH=$BOSH_INSTALL_TARGET
 
